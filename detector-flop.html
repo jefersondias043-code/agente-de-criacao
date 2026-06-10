@@ -1,0 +1,3359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Detector Flop — Estúdio</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.2.0/remixicon.min.css" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a0a0b;
+    --ink-2: #131316;
+    --paper: #f4f1ea;
+    --paper-soft: #ebe7dd;
+    --rule: rgba(244, 241, 234, 0.10);
+    --rule-strong: rgba(244, 241, 234, 0.18);
+    --text: #ebe7dd;
+    --text-soft: #a8a39a;
+    --text-mute: #6b6760;
+    --accent: #c9762f;
+    --accent-soft: #d68b48;
+    --accent-deep: #9c5a22;
+    --good: #6b8e5a;
+    --warn: #b89150;
+    --bad: #a85a4f;
+  }
+  * { font-family: "Inter Tight", system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  .serif { font-family: "Fraunces", Georgia, serif; font-feature-settings: "ss01", "ss02"; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-feature-settings: "ss03"; }
+  body { background: var(--ink); color: var(--text); font-feature-settings: "ss03", "cv11"; }
+
+  /* Grain texture — paper feel */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: 0.04;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+  /* Subtle vignette */
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(201, 118, 47, 0.04), transparent 50%);
+  }
+
+  /* Hairline rules */
+  .rule { border-color: var(--rule); }
+  .rule-strong { border-color: var(--rule-strong); }
+
+  /* Scrollbar */
+  .scroll-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 2px; }
+  .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+  /* Inputs — minimal, paper-like */
+  .input-field {
+    background: rgba(244, 241, 234, 0.02);
+    border: 1px solid var(--rule);
+    color: var(--text);
+    transition: border-color 180ms ease, background 180ms ease;
+  }
+  .input-field:hover { border-color: var(--rule-strong); }
+  .input-field:focus { outline: none; border-color: var(--accent); background: rgba(244, 241, 234, 0.04); }
+  .input-field::placeholder { color: var(--text-mute); font-style: italic; }
+
+  /* Primary button — accent */
+  .btn-primary {
+    background: var(--accent);
+    color: var(--ink);
+    transition: background 180ms ease, transform 120ms ease;
+    letter-spacing: -0.005em;
+  }
+  .btn-primary:hover { background: var(--accent-soft); }
+  .btn-primary:active { transform: scale(0.99); }
+  .btn-primary:disabled { background: var(--text-mute); cursor: wait; }
+
+  /* Ghost button */
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--rule-strong);
+    transition: background 180ms ease, border-color 180ms ease;
+  }
+  .btn-ghost:hover { background: rgba(244, 241, 234, 0.04); border-color: rgba(244, 241, 234, 0.28); }
+
+  /* Tab — minimal underline style */
+  .tab {
+    color: var(--text-soft);
+    border-bottom: 1px solid transparent;
+    padding: 14px 0;
+    margin-right: 28px;
+    transition: color 180ms ease, border-color 180ms ease;
+    letter-spacing: 0.01em;
+  }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+
+  /* Energy chip — restrained */
+  .chip {
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    color: var(--text-soft);
+    transition: all 180ms ease;
+    letter-spacing: 0.005em;
+  }
+  .chip:hover { color: var(--text); border-color: rgba(244, 241, 234, 0.28); }
+  .chip[aria-pressed="true"] {
+    background: var(--paper);
+    color: var(--ink);
+    border-color: var(--paper);
+  }
+
+  /* Platform pill */
+  .plat {
+    color: var(--text-mute);
+    transition: color 180ms ease;
+  }
+  .plat:hover { color: var(--text-soft); }
+  .plat[data-active="true"] { color: var(--accent); }
+
+  /* Score number tracking */
+  .score-display {
+    font-feature-settings: "tnum", "ss01";
+    letter-spacing: -0.04em;
+  }
+
+  /* Editorial hook display */
+  .hook-display {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: clamp(1.6rem, 3.2vw, 2.5rem);
+    line-height: 1.15;
+    letter-spacing: -0.022em;
+    font-variation-settings: "opsz" 96, "SOFT" 50;
+    color: var(--paper);
+  }
+
+  /* Section labels — eyebrows */
+  .eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-mute);
+  }
+
+  /* Animations */
+  @keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .anim-up { animation: fade-up 320ms cubic-bezier(0.2, 0.8, 0.3, 1); }
+  .anim-in { animation: fade-in 220ms ease-out; }
+  @media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+  :focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  /* Score ring transition */
+  #scoreRing { transition: background 600ms cubic-bezier(0.2, 0.8, 0.3, 1); }
+
+  /* Drop cap effect for hook */
+  .drop-cap::first-letter {
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-size: 1.18em;
+    color: var(--accent);
+    margin-right: 0.02em;
+  }
+
+  /* Hairline divider with text */
+  .hairline {
+    border-top: 1px solid var(--rule);
+  }
+
+  /* Toggle micro-interaction */
+  button:active:not(:disabled) { transform: scale(0.98); }
+  .btn-primary:active:not(:disabled) { transform: scale(0.99); }
+
+  /* Line clamps */
+  .clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* Section anchors in card */
+  .section-block { padding-top: 28px; padding-bottom: 28px; }
+  .section-block + .section-block { border-top: 1px solid var(--rule); }
+
+  /* Counter for sections — editorial numbering */
+  .section-num {
+    font-family: "Fraunces", serif;
+    font-weight: 400;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--accent);
+    font-variation-settings: "opsz" 144;
+  }
+
+  /* Subscore por elemento — pequeno, mono, cor por faixa */
+  .subscore {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 2px;
+    border: 1px solid currentColor;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .subscore .ssn { font-weight: 600; }
+  .subscore .ssd { opacity: 0.55; font-weight: 400; }
+  .subscore-good { color: var(--good); }
+  .subscore-warn { color: var(--warn); }
+  .subscore-bad  { color: var(--bad); }
+
+  .theme-suggestion:hover {
+    border-style: solid !important;
+    border-color: var(--accent) !important;
+    color: var(--paper);
+  }
+
+  /* Body text refined */
+  .body-text { font-size: 15px; line-height: 1.6; color: var(--text); letter-spacing: -0.005em; }
+  .body-soft { color: var(--text-soft); }
+  .body-mute { color: var(--text-mute); }
+
+  /* Roteiro — relato (1ª pessoa, parágrafos naturais) */
+  .roteiro-relato .relato-para { white-space: pre-wrap; }
+  .roteiro-relato .relato-para + .relato-para { margin-top: 1em; }
+
+  /* Roteiro — diálogo (cada fala como linha indentada com travessão) */
+  .roteiro-dialogo {
+    /* primeira linha sem indent extra; travessão alinhado à esquerda do conteúdo */
+  }
+  .roteiro-dialogo .dialog-line {
+    text-indent: -1.2em;
+    padding-left: 1.2em;
+    margin-bottom: 0.55em;
+    line-height: 1.55;
+  }
+  .roteiro-dialogo .dialog-line:last-child { margin-bottom: 0; }
+  .roteiro-dialogo .dialog-action {
+    font-style: italic;
+    color: var(--text-mute);
+    font-family: "Fraunces", serif;
+    font-variation-settings: "opsz" 96;
+    font-size: 14px;
+    margin: 0.25em 0 0.55em 1.2em;
+  }
+  .roteiro-dialogo .dialog-line-plain {
+    text-indent: 0;
+    padding-left: 1.2em;
+    color: var(--text-soft);
+    font-style: italic;
+    font-family: "Fraunces", serif;
+    font-variation-settings: "opsz" 96;
+    font-size: 14.5px;
+  }
+
+  /* Meta strip */
+  .meta-divider::before { content: "·"; margin: 0 8px; color: var(--text-mute); }
+
+  /* Toast */
+  .toast { background: var(--ink-2); border: 1px solid var(--rule-strong); }
+
+  select.input-field { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23a8a39a' stroke-width='1.2' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; appearance: none; }
+
+  /* Ensure all content above the texture */
+  main, header, footer, [role="dialog"], #toast, .followup { position: relative; z-index: 2; }
+
+  /* Action button on result sections */
+  .micro-btn {
+    color: var(--text-mute);
+    transition: color 160ms ease;
+    font-size: 12px;
+    letter-spacing: 0.005em;
+  }
+  .micro-btn:hover { color: var(--text); }
+  .micro-btn:disabled { opacity: 0.4; cursor: wait; }
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0b">
+<style id="agente-light-theme">
+
+  :root {
+    --ink: #faf8f4;
+    --ink-2: #f3efe7;
+    --paper: #16140f;
+    --paper-soft: #2a2520;
+    --text: #16140f;
+    --text-soft: #5a544a;
+    --text-mute: #8a8378;
+    --accent: #b8341c;
+    --accent-soft: #d24c3c;
+    --accent-deep: #8a2510;
+    --rule: rgba(22, 20, 15, 0.10);
+    --rule-strong: rgba(22, 20, 15, 0.18);
+  }
+  body { background: var(--ink); color: var(--text); }
+  /* Substituir rgba hardcoded (eram light-on-dark, viram dark-on-light) */
+  .input-field { background: rgba(22, 20, 15, 0.02); }
+  .input-field:focus { background: rgba(22, 20, 15, 0.04); }
+  .chip:hover { border-color: rgba(22, 20, 15, 0.28); }
+  .btn-ghost:hover {
+    background: rgba(22, 20, 15, 0.04);
+    border-color: rgba(22, 20, 15, 0.28);
+  }
+  /* Grão de papel: inverter para escuro sobre claro */
+  body::before { filter: invert(1); opacity: 0.025; }
+  /* Vinheta: tom da accent vermelha do Agente */
+  body::after {
+    background: radial-gradient(ellipse at 50% 0%, rgba(184, 52, 28, 0.05), transparent 50%);
+  }
+  /* Botão primário: texto claro sobre fundo accent */
+  .btn-primary { color: #fff; }
+  .btn-primary:disabled { color: var(--text-mute); }
+  /* Bordas internas/divisórias com base clara */
+  hr, .border, .divide-y > * + * { border-color: var(--rule) !important; }
+  /* Header sticky tem inline style hardcoded com fundo dark — forçar claro p/ contraste com texto. */
+  header.sticky.top-0,
+  header.border-b.rule.sticky {
+    background: rgba(250, 248, 244, 0.88) !important;
+    backdrop-filter: blur(12px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
+    border-bottom-color: var(--rule) !important;
+  }
+  /* Outros elementos do Detector com inline style escuro (ex.: cards/sections internas). */
+  [style*="background: rgba(10,10,11"],
+  [style*="background:rgba(10,10,11"],
+  [style*="background: #0a0a0b"],
+  [style*="background:#0a0a0b"],
+  [style*="background: #131316"],
+  [style*="background:#131316"] {
+    background: rgba(250, 248, 244, 0.88) !important;
+  }
+  /* "Body mute" e classes utilitárias de texto fraco precisam ficar legíveis em fundo claro */
+  .body-mute, .text-mute { color: var(--text-mute) !important; }
+  /* App unificado: o Detector não tem configuração própria — chave/modelo são
+     centralizados no app principal. Oculta o ÍCONE de Configurações (engrenagem)
+     e os campos redundantes; mantém um aviso acima do bloco "Nicho". */
+  #btnSettings { display: none !important; }
+  div:has(> label[for="apiKey"]),
+  div:has(> label[for="modelSelect"]) { display: none !important; }
+  div:has(> label[for="nichoSelect"])::before {
+    content: "🔗 Chave e modelo da Groq são definidos no app principal (Configurações) e valem para todas as ferramentas.";
+    display: block;
+    font-size: 11.5px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    border-radius: 4px;
+    background: rgba(184, 52, 28, 0.06);
+    border: 1px solid var(--rule);
+    color: var(--text-soft);
+  }
+
+  /* === Densidade (plataforma): menos rolagem até a ação principal. ===
+     Painéis tinham py-12 (48px) e títulos de 34px; o campo de texto só
+     aparecia em ~y=330. Compactar SEM remover nada. */
+  main[role="tabpanel"] { padding-top: 1.75rem !important; padding-bottom: 2rem !important; }
+  main[role="tabpanel"] h2 { font-size: 26px !important; }
+  main[role="tabpanel"] h2 + p { margin-bottom: 1.25rem !important; }
+  footer.border-t { margin-top: 2.5rem !important; }
+  /* Áreas de espera/vazias não precisam de 96px de respiro (py-24) */
+  #cEmpty, #cLoading, #emptyState, #loadingState {
+    padding-top: 2.5rem !important;
+    padding-bottom: 2.5rem !important;
+  }
+  /* Formulário do Criar: respiros menores entre campos e antes do CTA */
+  #panel-criar .space-y-7 > * + * { margin-top: 1.25rem !important; }
+  #btnGenerate { margin-top: 1.5rem !important; }
+
+</style>
+<script>
+/* Ponte de configuração com o app principal (Agente) — funciona em file:// e em servidor.
+   Recebe chave+modelo via postMessage e guarda em window.__AGENTE_CONFIG__ + localStorage. */
+(function(){
+  function applyCfg(c){
+    if(!c) return;
+    window.__AGENTE_CONFIG__ = { groqKey: c.groqKey||"", groqModel: c.groqModel||"" };
+    try {
+      if(c.groqKey){ localStorage.setItem("groq_api_key", c.groqKey); localStorage.setItem("df_groq_key", c.groqKey); }
+      if(c.groqModel){ localStorage.setItem("groq_model", c.groqModel); localStorage.setItem("df_model", c.groqModel); }
+    } catch(_){}
+  }
+  function applyContent(d){ try{ if(d.target==="criar"){ var tc=document.getElementById("tab-criar"); if(tc) tc.click(); var ct=document.getElementById("cTema"); if(ct){ ct.value=d.text||""; ct.dispatchEvent(new Event("input",{bubbles:true})); ct.focus(); } } else { var tab=document.getElementById("tab-analisar"); if(tab) tab.click(); var inp=document.getElementById("inputText"); if(inp){ inp.value=d.text||""; inp.dispatchEvent(new Event("input",{bubbles:true})); inp.focus(); inp.scrollIntoView({behavior:"smooth",block:"center"}); } } }catch(_){} }
+  /* Segurança: só aceita comandos da janela PAI (o app); ignora outras fontes. */
+  window.addEventListener("message", function(e){ if(!e||!e.data||e.source!==window.parent) return; if(e.data.type==="agente:config") applyCfg(e.data); if(e.data.type==="agente:content") applyContent(e.data); });
+  try { if(window.parent && window.parent!==window) window.parent.postMessage({type:"agente:config-request"}, location.protocol==="file:"?"*":location.origin); } catch(_){}
+})();
+/* Entrada universal: "Anexar arquivo" no campo de análise. Manda o ARQUIVO ao app
+   pai (postMessage), que converte (PDF/OCR/transcrição) e devolve o texto. */
+(function(){
+  var pending = {};
+  window.addEventListener("message", function(e){
+    if(!e||e.source!==window.parent) return;
+    var d=e.data; if(!d||!d.reqId) return;
+    var cb=pending[d.reqId]; if(!cb) return;
+    if(d.type==="agente:ingest-progress"){ cb.status.textContent=d.msg||"Processando…"; }
+    else if(d.type==="agente:ingest-result"){
+      var t=cb.target, cur=(t.value||"").trim();
+      t.value = cur ? (cur+"\n\n"+(d.text||"")) : (d.text||"");
+      t.dispatchEvent(new Event("input",{bubbles:true}));
+      cb.status.textContent="Conteúdo adicionado.";
+      setTimeout(function(){ cb.status.textContent=""; }, 2500);
+      delete pending[d.reqId];
+    } else if(d.type==="agente:ingest-error"){
+      cb.status.textContent = d.error||"Não foi possível processar o arquivo.";
+      delete pending[d.reqId];
+    }
+  });
+  function makeAttach(target){
+    if(!target || !target.parentNode) return;
+    var box = target.closest(".relative") || target;
+    if(box.parentNode.querySelector(".agente-attach")) return;
+    var wrap=document.createElement("div"); wrap.className="agente-attach";
+    wrap.style.cssText="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;";
+    var inp=document.createElement("input"); inp.type="file"; inp.style.display="none";
+    inp.accept=".txt,.pdf,.docx,.png,.jpg,.jpeg,.bmp,.gif,.webp,.tiff,.mp3,.wav,.m4a,.ogg,.flac,.mp4,.webm,.mov,text/plain,application/pdf,image/*,audio/*,video/*";
+    var btn=document.createElement("button"); btn.type="button"; btn.className="btn-ghost";
+    btn.style.cssText="height:34px;padding:0 12px;font-size:12.5px;border-radius:4px;display:inline-flex;align-items:center;gap:6px;";
+    btn.innerHTML="📎 Anexar arquivo";
+    var status=document.createElement("span"); status.style.cssText="font-size:11.5px;color:var(--text-mute);";
+    var hint=document.createElement("span"); hint.style.cssText="font-size:11px;color:var(--text-mute);opacity:.8;";
+    hint.textContent="PDF, imagem, áudio ou vídeo → vira texto";
+    btn.onclick=function(){ inp.click(); };
+    inp.onchange=function(){
+      var f=inp.files&&inp.files[0]; if(!f) return;
+      var reqId="ing-"+Date.now()+"-"+Math.random().toString(16).slice(2);
+      pending[reqId]={target:target,status:status};
+      status.textContent="Processando…";
+      try{ window.parent.postMessage({type:"agente:ingest",reqId:reqId,file:f}, location.protocol==="file:"?"*":location.origin); }
+      catch(_){ status.textContent="Não foi possível enviar o arquivo."; delete pending[reqId]; }
+      inp.value="";
+    };
+    wrap.appendChild(inp); wrap.appendChild(btn); wrap.appendChild(status); wrap.appendChild(hint);
+    box.parentNode.insertBefore(wrap, box.nextSibling);
+  }
+  function tryInject(){
+    var t=document.getElementById("inputText"); if(t) makeAttach(t);
+    var c=document.getElementById("cTema"); if(c) makeAttach(c);
+  }
+  try{ var obs=new MutationObserver(tryInject); obs.observe(document.documentElement,{childList:true,subtree:true}); }catch(_){}
+  setTimeout(tryInject, 300);
+})();
+/* Saída: "Enviar para…" nos resultados do Criar (#cResult) e do Analisar (#resultWrap).
+   Devolve o conteúdo ao app pai via postMessage('agente:content-out'); o pai (handoff.js)
+   roteia para a ferramenta escolhida. Conecta o Detector ao resto da plataforma. */
+(function(){
+  function makeBar(container, dests, getText){
+    if(!container || container.classList.contains("hidden")) return;
+    if(container.querySelector(".agente-sendout")) return;   // já injetado (persiste entre renders)
+    var wrap=document.createElement("div"); wrap.className="agente-sendout";
+    wrap.style.cssText="margin-top:20px;padding-top:14px;border-top:1px dashed var(--rule);display:flex;align-items:center;gap:8px;flex-wrap:wrap;";
+    var lab=document.createElement("span"); lab.textContent="Enviar para";
+    lab.style.cssText="font-size:10.5px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-mute);font-weight:600;";
+    wrap.appendChild(lab);
+    dests.forEach(function(d){
+      var b=document.createElement("button"); b.type="button"; b.className="btn-ghost";
+      b.style.cssText="height:32px;padding:0 12px;font-size:12px;border-radius:4px;";
+      b.textContent=d[1]+" →";
+      b.addEventListener("click",function(){
+        var t=(getText()||"").trim();
+        if(!t){ return; }
+        try{ window.parent.postMessage({type:"agente:content-out",target:d[0],text:t}, location.protocol==="file:"?"*":location.origin); }catch(_){}
+      });
+      wrap.appendChild(b);
+    });
+    container.appendChild(wrap);
+  }
+  function pieceText(){
+    return ["cGancho","cRoteiro","cLegenda","cCta"].map(function(id){
+      var el=document.getElementById(id); return el?(el.textContent||"").trim():"";
+    }).filter(Boolean).join("\n\n");
+  }
+  function analyzedText(){ var el=document.getElementById("inputText"); return el?(el.value||""):""; }
+  function tryInjectOut(){
+    makeBar(document.getElementById("cResult"),
+      [["autopost","AutoPost"],["generate","Gerar matéria"],["cartazes","Cartaz"],["carrossel","Carrossel"],["replicador","Replicador"],["detector","Analisar"]],
+      pieceText);
+    makeBar(document.getElementById("resultWrap"),
+      [["autopost","AutoPost"],["generate","Gerar matéria"],["cartazes","Cartaz"],["carrossel","Carrossel"],["replicador","Replicador"],["reescrita","Reescrever"]],
+      analyzedText);
+  }
+  try{ var obs2=new MutationObserver(tryInjectOut); obs2.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:["class"]}); }catch(_){}
+  setTimeout(tryInjectOut, 400);
+})();
+/* Mobile: o resultado (Criar/Analisar) renderiza ABAIXO do formulário em coluna
+   única — sem isto o usuário não vê que terminou. Rola até o resultado quando
+   ele APARECE (transição oculto→visível), só em telas estreitas. */
+(function(){
+  if (!window.matchMedia) return;
+  var mq = window.matchMedia("(max-width: 1023px)"); /* abaixo do lg: (2 colunas) */
+  var prev = {};
+  function check(){
+    ["cResult","resultWrap"].forEach(function(id){
+      var el = document.getElementById(id); if (!el) return;
+      var vis = !el.classList.contains("hidden");
+      if (prev[id] === undefined) { prev[id] = vis; return; } /* estado inicial: não rola */
+      if (vis && !prev[id] && mq.matches) {
+        try { el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch(_) {}
+      }
+      prev[id] = vis;
+    });
+  }
+  try { new MutationObserver(check).observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ["class"] }); } catch(_) {}
+  setTimeout(check, 500);
+})();
+</script>
+</head>
+<body>
+
+<!-- ============== HEADER ============== -->
+<header class="border-b rule sticky top-0 z-30" style="background: rgba(10,10,11,0.85); backdrop-filter: blur(12px);">
+  <div class="max-w-[1200px] mx-auto px-6 sm:px-10">
+    <div class="h-[68px] flex items-center justify-between">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-8 h-8 grid place-items-center" style="background: var(--paper); color: var(--ink); border-radius: 1px;">
+          <span class="serif font-bold text-base" style="font-variation-settings: 'opsz' 144;">F</span>
+        </div>
+        <div class="min-w-0">
+          <h1 class="serif text-[19px] font-semibold leading-none tracking-tight" style="font-variation-settings: 'opsz' 144;">Detector Flop</h1>
+          <p class="text-[11px] body-mute mt-1" style="letter-spacing: 0.06em;">Análise de conteúdo</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1 sm:gap-3">
+        <!-- Platform selector -->
+        <div class="hidden sm:flex items-center gap-4 mr-2 text-sm" role="radiogroup" aria-label="Plataforma">
+          <button data-platform="tiktok" class="plat" aria-label="TikTok">TikTok</button>
+          <button data-platform="reels" class="plat" aria-label="Instagram Reels">Reels</button>
+          <button data-platform="shorts" class="plat" aria-label="YouTube Shorts">Shorts</button>
+        </div>
+        <button id="btnSettings" class="w-9 h-9 grid place-items-center rounded-sm hover:bg-white/5 transition" aria-label="Configurações">
+          <i class="ri-settings-3-line text-lg" style="color: var(--text-soft);" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <nav class="flex items-center gap-0 overflow-x-auto" role="tablist">
+      <button id="tab-criar" role="tab" aria-selected="false" aria-controls="panel-criar" class="tab text-[13.5px] font-medium whitespace-nowrap">Criar</button>
+      <button id="tab-analisar" role="tab" aria-selected="true" aria-controls="panel-analisar" class="tab text-[13.5px] font-medium whitespace-nowrap">Analisar</button>
+      <button id="tab-memoria" role="tab" aria-selected="false" aria-controls="panel-memoria" class="tab text-[13.5px] font-medium whitespace-nowrap">Memória <span id="memCount" class="ml-1 mono text-[11px]" style="color: var(--text-mute);">0</span></button>
+
+      <div class="flex-1"></div>
+
+      <span id="nichoBadge" class="hidden sm:inline-flex items-center text-[11px] body-mute" style="letter-spacing: 0.06em;">
+        <span class="uppercase">Nicho</span>
+        <span class="mx-2" style="color: var(--rule-strong);">/</span>
+        <span id="nichoLabel" class="uppercase" style="color: var(--text-soft);">geral</span>
+      </span>
+    </nav>
+  </div>
+</header>
+
+<!-- Followup banner -->
+<div id="followupBanner" class="hidden followup max-w-[1200px] mx-auto px-6 sm:px-10 mt-6">
+  <div class="border rule-strong p-5 flex items-start gap-4 anim-up">
+    <span class="serif italic text-sm" style="color: var(--accent); padding-top: 2px;">№</span>
+    <div class="flex-1 min-w-0">
+      <p class="eyebrow mb-2">Lembrete · 48h</p>
+      <p class="body-text font-medium">Como foi aquele conteúdo na vida real?</p>
+      <p id="followupText" class="body-text body-soft mt-1 italic clamp-2">—</p>
+      <div class="flex flex-wrap gap-2 mt-4">
+        <button data-fu="viral" class="fu-btn btn-ghost px-3 py-1.5 text-xs font-medium">Viralizou</button>
+        <button data-fu="mediano" class="fu-btn btn-ghost px-3 py-1.5 text-xs font-medium">Mediano</button>
+        <button data-fu="flop" class="fu-btn btn-ghost px-3 py-1.5 text-xs font-medium">Flopou</button>
+        <button id="fuDismiss" class="micro-btn px-3 py-1.5">Mais tarde</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== PAINEL: CRIAR ============== -->
+<main id="panel-criar" role="tabpanel" aria-labelledby="tab-criar" class="hidden max-w-[1200px] mx-auto px-6 sm:px-10 py-12">
+  <div class="flex items-center justify-end mb-6">
+    <button id="btnCriacoes" type="button" class="btn-ghost h-9 px-3.5 text-[12.5px] font-medium rounded-sm flex items-center gap-2" title="Suas peças ficam salvas aqui automaticamente">
+      <i class="ri-archive-line" aria-hidden="true"></i>
+      Histórico de criações
+      <span id="criacoesCount" class="mono text-[11px]" style="color: var(--text-mute);">0</span>
+    </button>
+  </div>
+  <div class="grid lg:grid-cols-12 gap-12">
+    <!-- LEFT: form -->
+    <section class="lg:col-span-4">
+      <p class="eyebrow mb-3">Briefing</p>
+      <h2 class="serif text-[34px] font-medium leading-[1.05] tracking-tight mb-2" style="font-variation-settings: 'opsz' 144;">Compor uma peça.</h2>
+      <p class="body-text body-soft mb-10 max-w-sm">Diga só o tema e o formato. A IA escolhe o ângulo e compõe o conteúdo completo — gancho, roteiro, legenda e CTA.</p>
+
+      <div class="space-y-7">
+        <div>
+          <label for="cTema" class="eyebrow block mb-3">Tema</label>
+          <input id="cTema" type="text" placeholder="Ex: ansiedade no trabalho, tesouro direto…" class="input-field w-full h-11 px-3.5 text-[14px] rounded-sm">
+        </div>
+
+        <div>
+          <label class="eyebrow block mb-3">Formato</label>
+          <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Formato">
+            <button data-fmt="video" class="fmt-chip chip px-3.5 py-2 text-[12.5px] font-medium rounded-sm" aria-pressed="true">Vídeo curto</button>
+            <button data-fmt="carrossel" class="fmt-chip chip px-3.5 py-2 text-[12.5px] font-medium rounded-sm" aria-pressed="false">Carrossel</button>
+            <button data-fmt="post" class="fmt-chip chip px-3.5 py-2 text-[12.5px] font-medium rounded-sm" aria-pressed="false">Post / Legenda</button>
+          </div>
+          <p class="text-[11px] body-mute mt-3 leading-relaxed">Só onde vai postar. Ângulo, energia, tom, gancho — a IA decide tudo pelo tema, usando o que viraliza em 2026.</p>
+        </div>
+
+        <div id="sensitiveWarn" class="hidden border-l-2 pl-4 py-2" style="border-color: var(--warn);">
+          <p class="text-[12px] body-soft leading-relaxed">Tema com regras específicas das plataformas. Vou compor com responsabilidade — sem promessas falsas, sem alarmismo.</p>
+        </div>
+
+        <div id="themeQualityWarn" class="hidden border-l-2 pl-4 py-3" style="border-color: var(--warn);"></div>
+      </div>
+
+      <button id="btnGenerate" class="btn-primary w-full mt-10 h-12 font-semibold text-[14px] tracking-tight rounded-sm">
+        <span class="flex items-center justify-center gap-2.5">
+          Compor peça completa
+          <span class="serif italic text-[15px]" style="margin-top: -1px;">→</span>
+        </span>
+      </button>
+
+      <p id="memHint" class="text-[11.5px] body-mute mt-4 leading-relaxed">Sem memória ainda. Vou usar princípios gerais até você marcar feedbacks.</p>
+    </section>
+
+    <!-- RIGHT: result -->
+    <section class="lg:col-span-8 lg:border-l rule lg:pl-12">
+      <!-- Empty -->
+      <div id="cEmpty" class="py-24 text-center max-w-sm mx-auto">
+        <p class="serif italic text-2xl mb-3" style="color: var(--text-mute); font-variation-settings: 'opsz' 144;">A página em branco</p>
+        <p class="body-text body-soft">é onde tudo começa. Configure o briefing à esquerda para compor sua peça.</p>
+      </div>
+
+      <!-- Loading -->
+      <div id="cLoading" class="hidden py-24 text-center">
+        <div id="cLoadingStep" class="serif italic text-base body-soft mb-6" style="font-variation-settings: 'opsz' 144;">Compondo peça…</div>
+        <div class="mx-auto w-32 h-px relative overflow-hidden" style="background: var(--rule);">
+          <div class="absolute h-full w-1/3 anim-loading" style="background: var(--accent);"></div>
+        </div>
+        <style>
+          @keyframes loading-bar { 0%{transform:translateX(-100%)} 100%{transform:translateX(400%)} }
+          .anim-loading { animation: loading-bar 1.4s cubic-bezier(.6,.1,.4,1) infinite; }
+        </style>
+      </div>
+
+      <!-- Result -->
+      <div id="cResult" class="hidden anim-up">
+        <!-- Score header -->
+        <div class="flex items-center justify-between mb-10">
+          <div>
+            <p class="eyebrow mb-2">Peça composta</p>
+            <p class="text-[12px] body-soft">
+              <span id="cMeta">—</span>
+            </p>
+          </div>
+          <div class="text-right">
+            <p id="cClassificacao" class="eyebrow mb-1" style="color: var(--text-mute);">—</p>
+            <div class="flex items-baseline gap-1.5 justify-end">
+              <span id="cScoreNum" class="serif score-display text-[44px] font-medium leading-none" style="font-variation-settings: 'opsz' 144;">—</span>
+              <span class="body-mute text-[13px]">/100</span>
+            </div>
+            <p class="eyebrow mt-1" id="cScoreLabel" style="color: var(--text-mute);">avaliação</p>
+            <!-- Score calibrado pra esse criador (depois de >=8 feedbacks) -->
+            <p id="cScoreCalibradoWrap" class="hidden mt-2.5 text-[11px]" style="color: var(--text-soft);">
+              <span style="color: var(--text-mute);">calibrado pra você</span>
+              <span class="mono ml-1" id="cScoreCalibrado" style="font-weight: 500;">—</span>
+              <span class="body-mute">/100</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Tese — epígrafe da peça -->
+        <div id="cTeseWrap" class="hidden mb-10 border-l-2 pl-5 py-2" style="border-color: var(--accent);">
+          <p class="eyebrow mb-1.5">Tese</p>
+          <p id="cTese" class="serif italic text-[17px] leading-snug" style="font-variation-settings:'opsz' 96; font-style: italic; color: var(--paper);"></p>
+        </div>
+
+        <!-- Sections in editorial layout -->
+        <article>
+          <!-- 1. GANCHO -->
+          <section class="section-block">
+            <header class="flex items-center justify-between mb-5">
+              <div class="flex items-baseline gap-3">
+                <span class="section-num">I.</span>
+                <span class="eyebrow" style="color: var(--text-soft);">Gancho</span>
+                <span id="cGanchoSubscore" class="hidden subscore"></span>
+                <span class="text-[10.5px] body-mute mono">prende a atenção</span>
+                <span id="cGanchoTecnica" class="hidden text-[10.5px] italic serif" style="color: var(--accent); font-variation-settings:'opsz' 96;"></span>
+              </div>
+              <div class="flex items-center gap-4">
+                <button data-history="gancho" class="hidden micro-btn flex items-center gap-1.5" aria-label="Versões anteriores do gancho">
+                  <span class="serif italic" style="font-variation-settings:'opsz' 96;">↩</span>
+                  <span>histórico (<span class="hist-count">0</span>)</span>
+                </button>
+                <button data-regen="gancho" class="micro-btn flex items-center gap-1.5">
+                  <i class="ri-refresh-line text-[14px]" aria-hidden="true"></i>
+                  <span>Regerar</span>
+                </button>
+              </div>
+            </header>
+            <p id="cGancho" class="hook-display" style="white-space: pre-wrap;"></p>
+          </section>
+
+          <!-- 2. ROTEIRO -->
+          <section class="section-block">
+            <header class="flex items-center justify-between mb-5">
+              <div class="flex items-baseline gap-3">
+                <span class="section-num">II.</span>
+                <span class="eyebrow" style="color: var(--text-soft);">Roteiro</span>
+                <span id="cRoteiroSubscore" class="hidden subscore"></span>
+                <span id="cRoteiroFormato" class="text-[10.5px] italic serif" style="color: var(--accent); font-variation-settings:'opsz' 96;">relato</span>
+                <span class="text-[10.5px] body-mute mono"><span id="cRoteiroLen">0</span> caracteres</span>
+              </div>
+              <div class="flex items-center gap-4">
+                <button data-history="roteiro" class="hidden micro-btn flex items-center gap-1.5" aria-label="Versões anteriores do roteiro">
+                  <span class="serif italic" style="font-variation-settings:'opsz' 96;">↩</span>
+                  <span>histórico (<span class="hist-count">0</span>)</span>
+                </button>
+                <button data-regen="roteiro" class="micro-btn flex items-center gap-1.5">
+                  <i class="ri-refresh-line text-[14px]" aria-hidden="true"></i>
+                  <span>Regerar</span>
+                </button>
+              </div>
+            </header>
+            <div id="cRoteiro" class="body-text" style="font-size: 16px; line-height: 1.7; max-width: 62ch;"></div>
+          </section>
+
+          <!-- 3. LEGENDA -->
+          <section class="section-block">
+            <header class="flex items-center justify-between mb-5">
+              <div class="flex items-baseline gap-3">
+                <span class="section-num">III.</span>
+                <span class="eyebrow" style="color: var(--text-soft);">Legenda</span>
+                <span id="cLegendaSubscore" class="hidden subscore"></span>
+              </div>
+              <div class="flex items-center gap-4">
+                <button data-history="legenda" class="hidden micro-btn flex items-center gap-1.5" aria-label="Versões anteriores da legenda">
+                  <span class="serif italic" style="font-variation-settings:'opsz' 96;">↩</span>
+                  <span>histórico (<span class="hist-count">0</span>)</span>
+                </button>
+                <button data-regen="legenda" class="micro-btn flex items-center gap-1.5">
+                  <i class="ri-refresh-line text-[14px]" aria-hidden="true"></i>
+                  <span>Regerar</span>
+                </button>
+              </div>
+            </header>
+            <p id="cLegenda" class="body-text" style="max-width: 56ch;"></p>
+          </section>
+
+          <!-- 4. CTA -->
+          <section class="section-block">
+            <header class="flex items-center justify-between mb-5">
+              <div class="flex items-baseline gap-3">
+                <span class="section-num">IV.</span>
+                <span class="eyebrow" style="color: var(--text-soft);">Chamada · CTA</span>
+                <span id="cCtaSubscore" class="hidden subscore"></span>
+              </div>
+              <div class="flex items-center gap-4">
+                <button data-history="cta" class="hidden micro-btn flex items-center gap-1.5" aria-label="Versões anteriores do CTA">
+                  <span class="serif italic" style="font-variation-settings:'opsz' 96;">↩</span>
+                  <span>histórico (<span class="hist-count">0</span>)</span>
+                </button>
+                <button data-regen="cta" class="micro-btn flex items-center gap-1.5">
+                  <i class="ri-refresh-line text-[14px]" aria-hidden="true"></i>
+                  <span>Regerar</span>
+                </button>
+              </div>
+            </header>
+            <p id="cCta" class="body-text font-medium" style="max-width: 56ch; color: var(--accent-soft);"></p>
+          </section>
+        </article>
+
+        <!-- Global actions -->
+        <div class="hairline mt-2 pt-8 flex flex-wrap gap-3">
+          <button id="cBtnAnalyze" class="btn-ghost h-10 px-4 text-[13px] font-medium rounded-sm flex items-center gap-2">
+            <i class="ri-radar-line" aria-hidden="true"></i> Analisar fundo
+          </button>
+          <button id="cBtnRefine" class="btn-ghost h-10 px-4 text-[13px] font-medium rounded-sm flex items-center gap-2">
+            <i class="ri-edit-2-line" aria-hidden="true"></i> Refinar com instrução
+          </button>
+          <button id="cBtnCopy" class="btn-ghost h-10 px-4 text-[13px] font-medium rounded-sm flex items-center gap-2">
+            <i class="ri-file-copy-line" aria-hidden="true"></i> Copiar tudo
+          </button>
+          <button id="cBtnReport" class="btn-ghost h-10 px-4 text-[13px] font-medium rounded-sm flex items-center gap-2" style="margin-left: auto;">
+            <i class="ri-flag-line" aria-hidden="true"></i> Reportar
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ============== PAINEL: ANALISAR ============== -->
+<main id="panel-analisar" role="tabpanel" aria-labelledby="tab-analisar" class="max-w-[1200px] mx-auto px-6 sm:px-10 py-12">
+  <div class="grid lg:grid-cols-12 gap-12">
+    <section class="lg:col-span-5">
+      <p class="eyebrow mb-3">Diagnóstico</p>
+      <h2 class="serif text-[34px] font-medium leading-[1.05] tracking-tight mb-2" style="font-variation-settings: 'opsz' 144;">Testar antes de gravar.</h2>
+      <p class="body-text body-soft mb-10 max-w-sm">Cole hook, roteiro ou legenda. Use <span class="mono text-[12px]" style="color: var(--accent);">---</span> entre dois textos para comparar A vs. B.</p>
+
+      <label for="inputText" class="sr-only">Texto para analisar</label>
+      <div class="relative">
+        <textarea id="inputText" rows="9" placeholder="Cole aqui seu texto…" class="input-field w-full resize-none p-4 rounded-sm body-text scroll-thin" style="font-size: 15px; line-height: 1.6;"></textarea>
+        <div class="absolute bottom-3 right-3 flex items-center gap-2">
+          <span id="charCount" class="mono text-[11px]" style="color: var(--text-mute);">0</span>
+          <button id="btnClear" class="micro-btn w-6 h-6 grid place-items-center" aria-label="Limpar"><i class="ri-close-line" aria-hidden="true"></i></button>
+        </div>
+      </div>
+
+      <button id="btnAnalyze" class="btn-primary w-full mt-5 h-12 font-semibold text-[14px] tracking-tight rounded-sm">
+        <span class="flex items-center justify-center gap-2.5">Analisar <span class="serif italic text-[15px]" style="margin-top: -1px;">→</span></span>
+      </button>
+
+      <div class="mt-4 flex items-center justify-between text-[11px] body-mute">
+        <span>⌘/Ctrl + Enter</span>
+        <span id="modelHint" class="mono" style="color: var(--text-mute);">llama-3.3-70b</span>
+      </div>
+    </section>
+
+    <section class="lg:col-span-7 lg:border-l rule lg:pl-12">
+      <!-- Empty -->
+      <div id="emptyState" class="py-24 text-center max-w-sm mx-auto">
+        <p class="serif italic text-2xl mb-3" style="color: var(--text-mute); font-variation-settings: 'opsz' 144;">Aguardando texto</p>
+        <p class="body-text body-soft">Configure sua chave Groq em <button class="underline decoration-1 underline-offset-4" style="color: var(--accent);" onclick="window.appOpenSettings()">Configurações</button> para começar.</p>
+      </div>
+
+      <!-- Loading -->
+      <div id="loadingState" class="hidden py-24 text-center">
+        <div class="serif italic text-base body-soft mb-6" id="loadingLabel" style="font-variation-settings: 'opsz' 144;">Analisando…</div>
+        <div class="mx-auto w-32 h-px relative overflow-hidden" style="background: var(--rule);">
+          <div class="absolute h-full w-1/3 anim-loading" style="background: var(--accent);"></div>
+        </div>
+      </div>
+
+      <!-- Result -->
+      <div id="resultWrap" class="hidden anim-up" aria-live="polite">
+        <header class="flex items-start justify-between gap-6 mb-10">
+          <div class="flex items-center gap-5">
+            <div id="scoreRing" class="w-[80px] h-[80px] rounded-full grid place-items-center" style="background: conic-gradient(var(--good) 0deg, var(--rule-strong) 0deg);">
+              <div class="w-[68px] h-[68px] rounded-full grid place-items-center" style="background: var(--ink);">
+                <div class="text-center">
+                  <div id="scoreNum" class="serif score-display text-[28px] font-medium leading-none" style="font-variation-settings: 'opsz' 144;">0</div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <p class="eyebrow mb-1.5" id="badgeClass">aguardando</p>
+              <p id="veredito" class="serif text-[18px] font-medium leading-snug max-w-[300px]" style="font-variation-settings: 'opsz' 96;">—</p>
+            </div>
+          </div>
+        </header>
+
+        <!-- Métricas -->
+        <div class="grid grid-cols-3 gap-px hairline pt-px" style="background: var(--rule);">
+          <div class="p-4" style="background: var(--ink);">
+            <p class="eyebrow mb-2">Gancho</p>
+            <p id="mGancho" class="mono text-[22px] font-medium" style="color: var(--text);">0</p>
+          </div>
+          <div class="p-4" style="background: var(--ink);">
+            <p class="eyebrow mb-2">Retenção</p>
+            <p id="mRetencao" class="mono text-[22px] font-medium" style="color: var(--text);">0</p>
+          </div>
+          <div class="p-4" style="background: var(--ink);">
+            <p class="eyebrow mb-2">Share</p>
+            <p id="mShare" class="mono text-[22px] font-medium" style="color: var(--text);">0</p>
+          </div>
+        </div>
+
+        <!-- Razões e melhorias -->
+        <div class="grid sm:grid-cols-2 gap-10 mt-10">
+          <div>
+            <p class="eyebrow mb-4">O que funciona</p>
+            <ul id="listRazoes" class="space-y-3 body-text"></ul>
+          </div>
+          <div>
+            <p class="eyebrow mb-4">O que melhorar</p>
+            <ul id="listMelhorias" class="space-y-3 body-text"></ul>
+          </div>
+        </div>
+
+        <!-- Ações -->
+        <div class="mt-10 hairline pt-6 flex flex-wrap gap-2.5">
+          <button id="btnRewrite" class="btn-ghost h-10 px-4 text-[13px] font-medium rounded-sm flex items-center gap-2"><i class="ri-edit-2-line" aria-hidden="true"></i> Reescrever no Estúdio</button>
+          <button id="btnShareImg" class="btn-ghost h-10 px-4 text-[13px] font-medium rounded-sm flex items-center gap-2"><i class="ri-image-line" aria-hidden="true"></i> Compartilhar</button>
+          <button id="btnRetry" class="btn-ghost h-10 w-10 grid place-items-center rounded-sm" aria-label="Reanalisar"><i class="ri-refresh-line" aria-hidden="true"></i></button>
+        </div>
+
+        <!-- Feedback -->
+        <div class="mt-8 pt-7 hairline">
+          <div class="flex items-center justify-between mb-4">
+            <p class="eyebrow">Ensinar memória</p>
+            <span class="text-[11px] body-mute italic">marque depois de postar</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button data-fb="viral" class="fb-btn btn-ghost h-11 text-[13px] font-medium rounded-sm" aria-pressed="false">Viralizou</button>
+            <button data-fb="mediano" class="fb-btn btn-ghost h-11 text-[13px] font-medium rounded-sm" aria-pressed="false">Mediano</button>
+            <button data-fb="flop" class="fb-btn btn-ghost h-11 text-[13px] font-medium rounded-sm" aria-pressed="false">Flopou</button>
+          </div>
+          <div class="mt-3 flex items-center justify-between gap-3">
+            <p id="fbStatus" class="text-[11.5px] body-mute italic h-4 truncate">—</p>
+            <button id="btnRemind" class="micro-btn underline decoration-1 underline-offset-4">Lembrar em 48h</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- A/B compare -->
+      <div id="compareWrap" class="hidden anim-up" aria-live="polite">
+        <p class="eyebrow mb-6">Comparação A vs. B</p>
+        <div id="compareGrid" class="grid sm:grid-cols-2 gap-px" style="background: var(--rule);"></div>
+        <div id="compareWinner" class="mt-8 border-l-2 pl-4 py-2 body-text" style="border-color: var(--accent);"></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ============== PAINEL: MEMÓRIA ============== -->
+<main id="panel-memoria" role="tabpanel" aria-labelledby="tab-memoria" class="hidden max-w-[1200px] mx-auto px-6 sm:px-10 py-12">
+  <div class="grid lg:grid-cols-12 gap-12">
+    <section class="lg:col-span-4">
+      <p class="eyebrow mb-3">Padrões</p>
+      <h2 class="serif text-[34px] font-medium leading-[1.05] tracking-tight mb-2" style="font-variation-settings: 'opsz' 144;">Sua voz, em dados.</h2>
+      <p class="body-text body-soft mb-8 max-w-sm">O que seus virais têm em comum. O que seus flops repetem.</p>
+
+      <div id="insightsBox" class="space-y-px" style="background: var(--rule);"></div>
+
+      <div class="mt-8 space-y-2">
+        <button id="btnTraining" class="btn-ghost w-full h-11 text-[13px] font-medium rounded-sm flex items-center justify-center gap-2">
+          <i class="ri-equalizer-line" aria-hidden="true"></i> Modo Treinamento
+        </button>
+        <button id="btnExportMem2" class="btn-ghost w-full h-11 text-[13px] font-medium rounded-sm flex items-center justify-center gap-2">
+          <i class="ri-download-2-line" aria-hidden="true"></i> Exportar memória
+        </button>
+      </div>
+    </section>
+
+    <section class="lg:col-span-8 lg:border-l rule lg:pl-12 flex flex-col min-h-[520px]">
+      <header class="flex items-end justify-between mb-6">
+        <div>
+          <p class="eyebrow mb-2">Arquivo</p>
+          <h3 class="serif text-[24px] font-medium leading-none" style="font-variation-settings: 'opsz' 144;">Casos salvos <span id="memTotal" class="mono text-[14px] body-mute">(0)</span></h3>
+        </div>
+      </header>
+
+      <div class="flex flex-wrap gap-3 mb-6">
+        <div class="relative flex-1 min-w-[180px]">
+          <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[14px]" style="color: var(--text-mute);" aria-hidden="true"></i>
+          <label for="memSearch" class="sr-only">Buscar</label>
+          <input id="memSearch" placeholder="Buscar…" class="input-field w-full h-10 pl-9 pr-3 text-[13px] rounded-sm">
+        </div>
+        <label for="memFilter" class="sr-only">Filtro</label>
+        <select id="memFilter" class="input-field h-10 px-3 text-[13px] rounded-sm">
+          <option value="all">Todos</option><option value="viral">Viralizou</option><option value="mediano">Mediano</option><option value="flop">Flopou</option><option value="starred">★ Favoritos</option>
+        </select>
+      </div>
+
+      <div id="memList" class="flex-1 overflow-y-auto scroll-thin"></div>
+    </section>
+  </div>
+</main>
+
+<!-- Footer thin -->
+<footer class="border-t rule mt-24">
+  <div class="max-w-[1200px] mx-auto px-6 sm:px-10 py-8 flex flex-wrap items-center justify-between gap-4">
+    <p class="serif italic text-[13px] body-mute" style="font-variation-settings: 'opsz' 96;">"Quem testa antes, posta com confiança."</p>
+    <p class="text-[11px] body-mute" style="letter-spacing: 0.06em;">DETECTOR FLOP · MEMÓRIA LOCAL</p>
+  </div>
+</footer>
+
+<!-- ============== SETTINGS ============== -->
+<div id="settingsModal" class="fixed inset-0 z-[80] hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="absolute inset-0" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);" data-close="settings"></div>
+  <div class="relative w-full h-full sm:h-auto sm:max-w-[520px] sm:mx-auto sm:mt-[6vh] flex flex-col max-h-[100dvh] sm:max-h-[86vh] anim-up border rule-strong" style="background: var(--ink);">
+    <div class="flex items-center justify-between px-7 h-[68px] border-b rule shrink-0">
+      <h3 id="settingsTitle" class="serif text-[18px] font-medium" style="font-variation-settings: 'opsz' 144;">Configurações</h3>
+      <button class="w-8 h-8 grid place-items-center hover:bg-white/5 rounded-sm" data-close="settings" aria-label="Fechar"><i class="ri-close-line text-lg" style="color: var(--text-soft);" aria-hidden="true"></i></button>
+    </div>
+    <div class="p-7 space-y-7 overflow-y-auto scroll-thin">
+      <div>
+        <label for="apiKey" class="eyebrow block mb-3">Chave Groq</label>
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <input id="apiKey" type="password" placeholder="gsk_…" autocomplete="off" class="input-field w-full h-11 px-3 pr-10 mono text-[13px] rounded-sm">
+            <button id="toggleKey" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 grid place-items-center" style="color: var(--text-mute);" aria-label="Mostrar"><i class="ri-eye-line" aria-hidden="true"></i></button>
+          </div>
+          <button id="btnTestKey" class="btn-ghost h-11 px-4 text-[13px] font-medium rounded-sm whitespace-nowrap">Testar</button>
+        </div>
+        <p class="text-[11.5px] body-mute mt-2">Obtenha em <a href="https://console.groq.com/keys" target="_blank" rel="noopener" class="underline decoration-1 underline-offset-4" style="color: var(--accent);">console.groq.com/keys</a> · armazenada localmente</p>
+        <label class="flex items-center gap-2 text-[12px] mt-3 cursor-pointer body-soft"><input id="encryptKey" type="checkbox" class="w-3.5 h-3.5"> Proteger com senha (AES-GCM)</label>
+      </div>
+
+      <div>
+        <label for="nichoSelect" class="eyebrow block mb-3">Nicho</label>
+        <select id="nichoSelect" class="input-field w-full h-11 px-3 text-[13px] rounded-sm">
+          <option value="geral">Geral</option><option value="financas">Finanças</option><option value="humor">Humor / Comédia</option><option value="fitness">Fitness / Saúde</option><option value="beleza">Beleza / Moda</option><option value="gaming">Gaming</option><option value="educacao">Educação</option><option value="negocios">Negócios</option><option value="lifestyle">Lifestyle</option><option value="tecnologia">Tecnologia</option><option value="culinaria">Culinária</option><option value="relacionamentos">Relacionamentos</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="modelSelect" class="eyebrow block mb-3">Modelo</label>
+        <select id="modelSelect" class="input-field w-full h-11 px-3 text-[13px] rounded-sm">
+          <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (recomendado)</option>
+          <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (rápido)</option>
+          <option value="meta-llama/llama-4-scout-17b-16e-instruct">Llama 4 Scout 17B</option>
+          <option value="meta-llama/llama-4-maverick-17b-128e-instruct">Llama 4 Maverick 17B</option>
+        </select>
+      </div>
+
+      <div>
+        <p class="eyebrow mb-3">Memória</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btnExportMem" class="btn-ghost h-10 text-[12.5px] font-medium rounded-sm flex items-center justify-center gap-2"><i class="ri-download-2-line" aria-hidden="true"></i> Exportar</button>
+          <button id="btnImportMem" class="btn-ghost h-10 text-[12.5px] font-medium rounded-sm flex items-center justify-center gap-2"><i class="ri-upload-2-line" aria-hidden="true"></i> Importar</button>
+          <button id="btnClearMem" class="btn-ghost h-10 text-[12.5px] font-medium rounded-sm flex items-center justify-center gap-2 col-span-2" style="color: var(--bad); border-color: rgba(168,90,79,0.4);"><i class="ri-delete-bin-6-line" aria-hidden="true"></i> Limpar memória</button>
+        </div>
+        <input id="importFile" type="file" accept="application/json" class="hidden">
+      </div>
+
+      <div>
+        <p class="eyebrow mb-3">Notificações</p>
+        <button id="btnEnableNotif" class="btn-ghost w-full h-10 text-[12.5px] font-medium rounded-sm flex items-center justify-center gap-2"><i class="ri-time-line" aria-hidden="true"></i> Ativar lembretes 48h</button>
+      </div>
+
+      <div class="border-t rule pt-5">
+        <p class="serif italic text-[13px] body-soft" style="font-variation-settings: 'opsz' 96;">Detector Flop · Análise por Groq · Memória local.</p>
+      </div>
+    </div>
+    <div class="px-7 py-5 border-t rule flex justify-end gap-2 shrink-0">
+      <button class="btn-ghost h-10 px-5 text-[13px] font-medium rounded-sm" data-close="settings">Fechar</button>
+      <button id="btnSaveSettings" class="btn-primary h-10 px-5 text-[13px] font-semibold rounded-sm">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Unlock -->
+<div id="unlockModal" class="fixed inset-0 z-[90] hidden" role="dialog" aria-modal="true" aria-labelledby="unlockTitle">
+  <div class="absolute inset-0" style="background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);"></div>
+  <div class="relative w-[90vw] max-w-[400px] mx-auto mt-[20vh] p-7 anim-up border rule-strong" style="background: var(--ink);">
+    <h3 id="unlockTitle" class="serif text-[18px] font-medium mb-2" style="font-variation-settings: 'opsz' 144;">Destravar chave</h3>
+    <p class="body-text body-soft mb-5 text-[14px]">Sua chave está criptografada. Digite a senha.</p>
+    <input id="unlockPass" type="password" placeholder="Senha" class="input-field w-full h-11 px-3 mono text-[13px] rounded-sm">
+    <p id="unlockErr" class="text-[12px] mt-2 hidden" style="color: var(--bad);">Senha incorreta.</p>
+    <div class="flex gap-2 mt-5">
+      <button id="btnUnlock" class="btn-primary flex-1 h-11 text-[13px] font-semibold rounded-sm">Destravar</button>
+      <button id="btnUnlockCancel" class="btn-ghost h-11 px-4 text-[13px] rounded-sm">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Training -->
+<div id="trainingModal" class="fixed inset-0 z-[80] hidden" role="dialog" aria-modal="true" aria-labelledby="trainingTitle">
+  <div class="absolute inset-0" style="background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);" data-close="training"></div>
+  <div class="relative w-full h-full sm:h-auto sm:max-w-[520px] sm:mx-auto sm:mt-[8vh] flex flex-col max-h-[100dvh] sm:max-h-[86vh] anim-up border rule-strong" style="background: var(--ink);">
+    <div class="flex items-center justify-between px-7 h-[68px] border-b rule shrink-0">
+      <h3 id="trainingTitle" class="serif text-[18px] font-medium" style="font-variation-settings: 'opsz' 144;">Treinamento</h3>
+      <button class="w-8 h-8 grid place-items-center hover:bg-white/5 rounded-sm" data-close="training" aria-label="Fechar"><i class="ri-close-line text-lg" style="color: var(--text-soft);" aria-hidden="true"></i></button>
+    </div>
+    <div id="trainingBody" class="p-7 overflow-y-auto scroll-thin"></div>
+  </div>
+</div>
+
+<!-- Refine modal -->
+<div id="refineModal" class="fixed inset-0 z-[85] hidden" role="dialog" aria-modal="true" aria-labelledby="refineTitle">
+  <div class="absolute inset-0" style="background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);" data-close="refine"></div>
+  <div class="relative w-[90vw] max-w-[480px] mx-auto mt-[15vh] p-7 anim-up border rule-strong" style="background: var(--ink);">
+    <h3 id="refineTitle" class="serif text-[18px] font-medium mb-2" style="font-variation-settings: 'opsz' 144;">Refinar com instrução</h3>
+    <p class="body-text body-soft mb-5 text-[14px]">O que mudar nessa peça?</p>
+    <textarea id="refineInput" rows="3" placeholder="Ex: deixar mais curto, menos formal, com mais emoção…" class="input-field w-full p-3 text-[14px] rounded-sm scroll-thin resize-none"></textarea>
+    <div class="flex gap-2 mt-5">
+      <button id="btnRefineGo" class="btn-primary flex-1 h-11 text-[13px] font-semibold rounded-sm">Refinar</button>
+      <button class="btn-ghost h-11 px-4 text-[13px] rounded-sm" data-close="refine">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== HISTÓRICO DE CRIAÇÕES (drawer da ferramenta Criar) ============== -->
+<div id="criacoesDrawer" class="fixed inset-0 z-[78] hidden" role="dialog" aria-modal="true" aria-labelledby="criacoesTitle">
+  <div class="absolute inset-0" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);" data-close="criacoes"></div>
+  <aside class="absolute top-0 right-0 h-full w-full sm:max-w-[560px] flex flex-col border-l rule-strong anim-drawer" style="background: var(--ink);">
+    <style>@keyframes slideInRight{from{transform:translateX(28px);opacity:0}to{transform:translateX(0);opacity:1}} .anim-drawer{animation:slideInRight .26s cubic-bezier(.2,.7,.3,1)}</style>
+    <div class="flex items-center justify-between px-7 h-[72px] border-b rule shrink-0">
+      <div>
+        <p class="eyebrow">Ferramenta Criar</p>
+        <h3 id="criacoesTitle" class="serif text-[19px] font-medium leading-none mt-1.5" style="font-variation-settings:'opsz' 144;">Histórico de criações <span id="criacoesTotal" class="mono text-[13px] body-mute">(0)</span></h3>
+      </div>
+      <button class="w-8 h-8 grid place-items-center hover:bg-white/5 rounded-sm" data-close="criacoes" aria-label="Fechar"><i class="ri-close-line text-lg" style="color: var(--text-soft);" aria-hidden="true"></i></button>
+    </div>
+    <div class="px-7 py-4 border-b rule shrink-0">
+      <div class="relative">
+        <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[14px]" style="color: var(--text-mute);" aria-hidden="true"></i>
+        <label for="criacoesSearch" class="sr-only">Buscar criações</label>
+        <input id="criacoesSearch" placeholder="Buscar por tema, gancho ou texto…" class="input-field w-full h-10 pl-9 pr-3 text-[13px] rounded-sm">
+      </div>
+    </div>
+    <div id="criacoesList" class="flex-1 overflow-y-auto scroll-thin px-3 py-1"></div>
+    <div class="px-7 py-4 border-t rule shrink-0 flex items-center justify-between gap-3">
+      <span class="text-[11px] body-mute leading-snug">Cada peça composta é salva aqui automaticamente.</span>
+      <button id="btnClearCriacoes" type="button" class="micro-btn px-3 py-1.5 text-[12px] whitespace-nowrap" style="color: var(--bad);">Limpar tudo</button>
+    </div>
+  </aside>
+</div>
+
+<div id="toast" class="fixed bottom-4 right-4 z-[200] space-y-2 pointer-events-none" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
+
+  // ===== STATE =====
+  let memoria = [];
+  let currentAnalysis = null;
+  let currentPiece = null;     // peça unificada gerada
+  let criacoes = [];           // histórico da ferramenta Criar (peças compostas)
+  // Histórico por seção — viva enquanto a peça atual existe.
+  // Reseta quando novo `currentPiece` é criado por `btnGenerate`.
+  // Cada slot guarda { gancho, tecnica } | { roteiro, formato_roteiro } | { legenda } | { cta }
+  // junto com timestamp, pra poder restaurar versões anteriores sem perder metadados.
+  const HIST_LIMIT = 5;
+  let pieceHistory = { gancho: [], roteiro: [], legenda: [], cta: [] };
+  let cachedKey = null;
+  let activePlatform = 'tiktok';
+  let activeNicho = 'geral';
+  let activeEnergy = 'auto';        // a IA decide a energia/ângulo pelo tema (Criar reconstruído)
+  let activeTom = 'auto';
+  let activeEstilo = 'auto';
+  let activeIntensity = 'auto';
+  let activeFormato = 'video';      // único input extra do Criar: video | carrossel | post
+  // Formato escolhido → plataforma de referência (p/ analisar a peça criada + share)
+  const FORMATO_PLATAFORMA = { video: 'tiktok', carrossel: 'instagram', post: 'instagram' };
+  const FORMATO_LABEL = { video: 'Vídeo curto (Reels/TikTok/Shorts)', carrossel: 'Carrossel (Instagram/LinkedIn)', post: 'Post / Legenda (feed/X)' };
+
+  const LS_KEY = 'df_memoria_v94';
+  const LS_KEY_OLD = 'df_memoria_v93'; // migration
+  const LS_CRIACOES = 'df_criacoes_v1'; // histórico da ferramenta Criar
+  const LS_API = 'df_groq_key';
+  const LS_API_ENC = 'df_groq_key_enc';
+  const LS_MODEL = 'df_model';
+  const LS_NICHO = 'df_nicho';
+  const LS_PLAT = 'df_platform';
+  const LS_REMINDERS = 'df_reminders';
+  const LS_TOM = 'df_tom';
+  const LS_ESTILO = 'df_estilo';
+  const LS_INTENSITY = 'df_intensity';
+
+  const SENSITIVE = ['saude','médic','remédio','remedio','cura','emagrec','dieta','suicid','depress','dinheiro','rico','rica','enriquece','golpe','garant','milhão','milhao','político','politico','eleição','eleicao','vacina','crianca','criança','menor','adolescente'];
+
+  // ===== UTIL =====
+  function escapeHtml(s) { return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+  function showToast(msg, type='info', ms=3000) {
+    const wrap = $('#toast');
+    const el = document.createElement('div');
+    const accentMap = { success: 'var(--good)', error: 'var(--bad)', warn: 'var(--warn)', info: 'var(--accent)' };
+    el.className = 'pointer-events-auto toast min-w-[260px] max-w-[360px] px-4 py-3 anim-up flex items-start gap-3';
+    el.style.borderLeftWidth = '2px';
+    el.style.borderLeftColor = accentMap[type] || accentMap.info;
+    el.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    el.innerHTML = `<div class="text-[13px] leading-snug" style="color: var(--text);">${escapeHtml(msg)}</div>`;
+    wrap.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 200ms'; setTimeout(() => el.remove(), 200); }, ms);
+  }
+
+  // ===== CRYPTO =====
+  async function deriveKey(pass, salt) {
+    const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:150000, hash:'SHA-256' }, km, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+  }
+  async function encryptString(plaintext, password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(password, salt);
+    const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, new TextEncoder().encode(plaintext));
+    return JSON.stringify({ s: btoa(String.fromCharCode(...salt)), i: btoa(String.fromCharCode(...iv)), c: btoa(String.fromCharCode(...new Uint8Array(ct))) });
+  }
+  async function decryptString(payload, password) {
+    const { s, i, c } = JSON.parse(payload);
+    const salt = Uint8Array.from(atob(s), x=>x.charCodeAt(0));
+    const iv = Uint8Array.from(atob(i), x=>x.charCodeAt(0));
+    const ct = Uint8Array.from(atob(c), x=>x.charCodeAt(0));
+    const key = await deriveKey(password, salt);
+    const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, ct);
+    return new TextDecoder().decode(pt);
+  }
+
+  async function getApiKey() {
+    if (cachedKey) return cachedKey;
+    const enc = localStorage.getItem(LS_API_ENC);
+    if (enc) {
+      return new Promise((resolve) => {
+        $('#unlockModal').classList.remove('hidden');
+        $('#unlockPass').value = '';
+        $('#unlockErr').classList.add('hidden');
+        setTimeout(() => $('#unlockPass').focus(), 50);
+        const tryUnlock = async () => {
+          try { const k = await decryptString(enc, $('#unlockPass').value); cachedKey = k; $('#unlockModal').classList.add('hidden'); resolve(k); }
+          catch { $('#unlockErr').classList.remove('hidden'); }
+        };
+        $('#btnUnlock').onclick = tryUnlock;
+        $('#unlockPass').onkeydown = e => { if (e.key === 'Enter') tryUnlock(); };
+        $('#btnUnlockCancel').onclick = () => { $('#unlockModal').classList.add('hidden'); resolve(null); };
+      });
+    }
+    cachedKey = localStorage.getItem(LS_API);
+    return cachedKey;
+  }
+
+  // ===== TABS =====
+  function switchTab(name) {
+    $$('[role="tab"]').forEach(t => t.setAttribute('aria-selected', t.id === `tab-${name}` ? 'true' : 'false'));
+    $$('[role="tabpanel"]').forEach(p => p.classList.toggle('hidden', p.id !== `panel-${name}`));
+    if (name === 'memoria') { renderMemory(); renderInsights(); }
+    if (name === 'criar') updateMemHint();
+  }
+  $('#tab-criar').onclick = () => switchTab('criar');
+  $('#tab-analisar').onclick = () => switchTab('analisar');
+  $('#tab-memoria').onclick = () => switchTab('memoria');
+
+  // ===== LOAD =====
+  function load() {
+    try {
+      memoria = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      // migrate from v9.3
+      if (!memoria.length) {
+        const old = JSON.parse(localStorage.getItem(LS_KEY_OLD) || '[]');
+        if (old.length) { memoria = old; localStorage.setItem(LS_KEY, JSON.stringify(memoria)); }
+      }
+    } catch { memoria = []; }
+    try { criacoes = JSON.parse(localStorage.getItem(LS_CRIACOES) || '[]'); } catch { criacoes = []; }
+    $('#apiKey').value = localStorage.getItem(LS_API) || '';
+    $('#encryptKey').checked = !!localStorage.getItem(LS_API_ENC);
+    $('#modelSelect').value = localStorage.getItem(LS_MODEL) || 'llama-3.3-70b-versatile';
+    $('#nichoSelect').value = localStorage.getItem(LS_NICHO) || 'geral';
+    activeNicho = $('#nichoSelect').value;
+    activePlatform = localStorage.getItem(LS_PLAT) || 'tiktok';
+    $('#modelHint').textContent = $('#modelSelect').value.split('/').pop().split('-').slice(0,3).join('-');
+    $('#memCount').textContent = memoria.length;
+    updateCriacoesCount();
+    $('#nichoLabel').textContent = activeNicho;
+
+    // Sincroniza select de Nicho da aba Criar
+    if ($('#cNichoSelect')) $('#cNichoSelect').value = activeNicho;
+
+    // Carrega Tom/Estilo/Intensidade
+    activeTom = localStorage.getItem(LS_TOM) || 'auto';
+    activeEstilo = localStorage.getItem(LS_ESTILO) || 'auto';
+    activeIntensity = localStorage.getItem(LS_INTENSITY) || 'auto';
+    if ($('#cTomSelect')) $('#cTomSelect').value = activeTom;
+    if ($('#cEstiloSelect')) $('#cEstiloSelect').value = activeEstilo;
+    setActiveIntensityBtn();
+    updateRefineSummary();
+
+    setActivePlatformBtn();
+    renderMemory(); renderInsights();
+    checkPendingReminders();
+  }
+
+  function setActiveIntensityBtn() {
+    $$('[data-intensity]').forEach(b => b.setAttribute('aria-pressed', b.dataset.intensity === activeIntensity ? 'true' : 'false'));
+  }
+
+  // Resumo do disclosure: mostra "automático" ou os campos editados
+  function updateRefineSummary() {
+    const el = $('#cRefineSummary');
+    if (!el) return;
+    const parts = [];
+    if (activeTom !== 'auto') parts.push(activeTom);
+    if (activeEstilo !== 'auto') parts.push(activeEstilo === 'historia' ? 'história' : activeEstilo === 'cena' ? 'cena' : activeEstilo === 'argumento' ? 'argumento' : activeEstilo === 'caso' ? 'caso real' : 'manifesto');
+    if (activeIntensity !== 'auto') parts.push(activeIntensity);
+    el.textContent = parts.length ? parts.join(' · ') : 'automático';
+  }
+
+  function setActivePlatformBtn() {
+    $$('[data-platform]').forEach(b => b.dataset.active = b.dataset.platform === activePlatform ? 'true' : 'false');
+  }
+  $$('[data-platform]').forEach(b => {
+    b.onclick = () => {
+      activePlatform = b.dataset.platform;
+      localStorage.setItem(LS_PLAT, activePlatform);
+      setActivePlatformBtn();
+    };
+  });
+
+  // ===== SETTINGS =====
+  window.appOpenSettings = openSettings;
+  function openSettings() { $('#settingsModal').classList.remove('hidden'); document.body.style.overflow='hidden'; trapFocus($('#settingsModal')); }
+  function closeSettings() { $('#settingsModal').classList.add('hidden'); document.body.style.overflow=''; releaseFocus(); }
+  $('#btnSettings').onclick = openSettings;
+  $$('[data-close="settings"]').forEach(b => b.onclick = closeSettings);
+  $('#settingsModal').addEventListener('click', e => { if (e.target.dataset.close === 'settings') closeSettings(); });
+  $$('[data-close="training"]').forEach(b => b.onclick = () => { $('#trainingModal').classList.add('hidden'); document.body.style.overflow=''; });
+  $('#trainingModal').addEventListener('click', e => { if (e.target.dataset.close === 'training') { $('#trainingModal').classList.add('hidden'); document.body.style.overflow=''; }});
+  $$('[data-close="refine"]').forEach(b => b.onclick = () => { $('#refineModal').classList.add('hidden'); document.body.style.overflow=''; });
+  $('#refineModal').addEventListener('click', e => { if (e.target.dataset.close === 'refine') { $('#refineModal').classList.add('hidden'); document.body.style.overflow=''; }});
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (!$('#settingsModal').classList.contains('hidden')) closeSettings();
+      if (!$('#trainingModal').classList.contains('hidden')) { $('#trainingModal').classList.add('hidden'); document.body.style.overflow=''; }
+      if (!$('#refineModal').classList.contains('hidden')) { $('#refineModal').classList.add('hidden'); document.body.style.overflow=''; }
+      if (!$('#unlockModal').classList.contains('hidden')) $('#unlockModal').classList.add('hidden');
+      if (!$('#criacoesDrawer').classList.contains('hidden')) closeCriacoes();
+    }
+  });
+
+  let trapHandler = null, lastFocused = null;
+  function trapFocus(modal) {
+    lastFocused = document.activeElement;
+    const f = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (!f.length) return;
+    const first = f[0], last = f[f.length-1];
+    setTimeout(() => first.focus(), 60);
+    trapHandler = e => {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    modal.addEventListener('keydown', trapHandler);
+  }
+  function releaseFocus() {
+    if (trapHandler) { $('#settingsModal').removeEventListener('keydown', trapHandler); trapHandler = null; }
+    if (lastFocused) lastFocused.focus();
+  }
+
+  $('#toggleKey').onclick = () => {
+    const isPass = $('#apiKey').type === 'password';
+    $('#apiKey').type = isPass ? 'text' : 'password';
+    $('#toggleKey').innerHTML = `<i class="ri-${isPass?'eye-off':'eye'}-line" aria-hidden="true"></i>`;
+  };
+
+  $('#btnTestKey').onclick = async () => {
+    const key = $('#apiKey').value.trim();
+    if (!key) return showToast('Cole sua chave primeiro', 'warn');
+    $('#btnTestKey').disabled = true;
+    $('#btnTestKey').innerHTML = '<i class="ri-loader-4-line" style="animation: spin 1s linear infinite;"></i>';
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } });
+      if (res.ok) showToast('Chave válida', 'success');
+      else showToast('Falha: ' + (res.status === 401 ? 'inválida' : res.status), 'error');
+    } catch { showToast('Erro de rede', 'error'); }
+    finally { $('#btnTestKey').disabled = false; $('#btnTestKey').textContent = 'Testar'; }
+  };
+
+  $('#btnSaveSettings').onclick = async () => {
+    const key = $('#apiKey').value.trim();
+    const wantEnc = $('#encryptKey').checked;
+    localStorage.setItem(LS_MODEL, $('#modelSelect').value);
+    localStorage.setItem(LS_NICHO, $('#nichoSelect').value);
+    activeNicho = $('#nichoSelect').value;
+    $('#nichoLabel').textContent = activeNicho;
+    if ($('#cNichoSelect')) $('#cNichoSelect').value = activeNicho;
+    $('#modelHint').textContent = $('#modelSelect').value.split('/').pop().split('-').slice(0,3).join('-');
+    if (key) {
+      if (wantEnc) {
+        const pass = prompt('Senha (mín. 6 caracteres):');
+        if (!pass || pass.length < 6) {
+          showToast('Senha curta. Salvando sem criptografia.', 'warn');
+          localStorage.setItem(LS_API, key); localStorage.removeItem(LS_API_ENC);
+        } else {
+          const enc = await encryptString(key, pass);
+          localStorage.setItem(LS_API_ENC, enc); localStorage.removeItem(LS_API);
+          cachedKey = key;
+          showToast('Chave criptografada', 'success');
+        }
+      } else {
+        localStorage.setItem(LS_API, key); localStorage.removeItem(LS_API_ENC);
+        cachedKey = key;
+      }
+    }
+    showToast('Configurações salvas', 'success');
+    closeSettings();
+    updateMemHint();
+  };
+
+  $('#btnEnableNotif').onclick = async () => {
+    if (!('Notification' in window)) return showToast('Sem suporte a notificações', 'warn');
+    const p = await Notification.requestPermission();
+    showToast(p === 'granted' ? 'Lembretes ativados' : 'Permissão negada', p === 'granted' ? 'success' : 'warn');
+  };
+
+  function exportMemory() {
+    const blob = new Blob([JSON.stringify(memoria, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `detector-flop-memoria-${new Date().toISOString().slice(0,10)}.json`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('Exportado', 'success');
+  }
+  $('#btnExportMem').onclick = exportMemory;
+  $('#btnExportMem2').onclick = exportMemory;
+  $('#btnImportMem').onclick = () => $('#importFile').click();
+  $('#importFile').onchange = async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!Array.isArray(data)) throw new Error('Formato inválido');
+      memoria = [...data, ...memoria].slice(0, 500);
+      localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+      $('#memCount').textContent = memoria.length;
+      renderMemory(); renderInsights();
+      showToast(`${data.length} casos importados`, 'success');
+    } catch (err) { showToast('Inválido: ' + err.message, 'error'); }
+  };
+  $('#btnClearMem').onclick = () => {
+    if (!confirm('Limpar toda a memória?')) return;
+    memoria = []; localStorage.removeItem(LS_KEY);
+    $('#memCount').textContent = '0'; renderMemory(); renderInsights();
+    showToast('Memória limpa', 'info');
+  };
+
+  // ===== ANALISAR =====
+  $('#inputText').addEventListener('input', () => $('#charCount').textContent = $('#inputText').value.length);
+  $('#btnClear').onclick = () => { $('#inputText').value=''; $('#charCount').textContent='0'; $('#inputText').focus(); };
+  $('#inputText').addEventListener('keydown', e => { if ((e.ctrlKey||e.metaKey) && e.key === 'Enter') analyze(); });
+  $('#btnAnalyze').onclick = analyze;
+  $('#btnRetry').onclick = analyze;
+
+  function memoryForContext({ nicho, plat, n=12 }) {
+    // Aplica peso temporal aos exemplos antes de selecionar.
+    // Recentes (≤30d) → peso total. 30-90d → peso reduzido. >90d → só starred.
+    // Starred é imune ao decaimento (manifesto de identidade do criador).
+    const now = Date.now();
+    const D30 = 30 * 24 * 60 * 60 * 1000;
+    const D90 = 90 * 24 * 60 * 60 * 1000;
+    const filtered = memoria
+      .filter(m => m.feedback)
+      .filter(m => !nicho || m.nicho === nicho || nicho === 'geral' || !m.nicho)
+      .filter(m => !plat || m.platform === plat || !m.platform)
+      .map(m => {
+        const age = Math.max(0, now - (m.timestamp || now));
+        let weight;
+        if (m.starred) weight = 1.2;        // starred sempre prioritário
+        else if (age <= D30) weight = 1.0;
+        else if (age <= D90) weight = 0.5;
+        else weight = 0;                    // >90d e não starred: ignora
+        return { m, weight, age };
+      })
+      .filter(x => x.weight > 0)
+      .sort((a, b) => {
+        // Desempate: mais peso primeiro, mais recente primeiro
+        if (b.weight !== a.weight) return b.weight - a.weight;
+        return a.age - b.age;
+      })
+      .slice(0, n)
+      .map(x => x.m);
+    return filtered;
+  }
+
+  // ===== CALIBRAÇÃO ESTATÍSTICA =====
+  // A IA estima score, mas o "real" é o feedback do criador depois de postar.
+  // Aprendemos a função f(score_IA) → score_calibrado_pra_esse_criador.
+  // Modelo: regressão linear simples com peso temporal exponencial.
+  // Liga apenas após >= MIN_CALIBRATION_SAMPLES feedbacks com score conhecido.
+
+  const MIN_CALIBRATION_SAMPLES = 8;
+  const FEEDBACK_TARGETS = { viral: 80, mediano: 55, flop: 25 };
+  const TEMPORAL_HALF_LIFE_DAYS = 60; // feedbacks de 60 dias atrás pesam metade
+
+  // Coleta amostras (score_IA, score_real_target, peso) de toda a memória
+  function calibrationSamples() {
+    const now = Date.now();
+    const halfLifeMs = TEMPORAL_HALF_LIFE_DAYS * 24 * 60 * 60 * 1000;
+    return memoria
+      .filter(m => m.feedback && typeof m.score === 'number' && FEEDBACK_TARGETS[m.feedback] != null)
+      .map(m => {
+        const age = Math.max(0, now - (m.timestamp || now));
+        const weight = Math.pow(0.5, age / halfLifeMs);
+        // Starred = imune ao decaimento (peso fixo alto)
+        const finalWeight = m.starred ? Math.max(weight, 0.85) : weight;
+        return {
+          x: m.score,                          // score que a IA deu
+          y: FEEDBACK_TARGETS[m.feedback],     // score real-alvo
+          w: finalWeight
+        };
+      });
+  }
+
+  // Regressão linear ponderada: y = a + b*x
+  // Retorna { a, b, n, ready } onde ready=true se temos amostras suficientes.
+  function calibrationModel() {
+    const samples = calibrationSamples();
+    if (samples.length < MIN_CALIBRATION_SAMPLES) {
+      return { a: 0, b: 1, n: samples.length, ready: false };
+    }
+    let sw = 0, swx = 0, swy = 0, swxx = 0, swxy = 0;
+    samples.forEach(s => {
+      sw += s.w; swx += s.w * s.x; swy += s.w * s.y;
+      swxx += s.w * s.x * s.x; swxy += s.w * s.x * s.y;
+    });
+    const meanX = swx / sw;
+    const meanY = swy / sw;
+    const num = swxy - sw * meanX * meanY;
+    const den = swxx - sw * meanX * meanX;
+    if (den < 0.0001) return { a: meanY, b: 0, n: samples.length, ready: true };
+    const b = num / den;
+    const a = meanY - b * meanX;
+    return { a, b, n: samples.length, ready: true };
+  }
+
+  // Aplica calibração a um score. Se modelo não está pronto, retorna o original.
+  // Limita 0-100.
+  function calibrateScore(scoreIA) {
+    const m = calibrationModel();
+    if (!m.ready) return scoreIA;
+    const calibrated = m.a + m.b * scoreIA;
+    return Math.max(0, Math.min(100, Math.round(calibrated)));
+  }
+
+  // Classifica usando o calibrado quando pronto. Senão, faixa default.
+  function classifyByScore(score) {
+    return score >= 70 ? 'VIRAL' : score >= 45 ? 'MEDIANO' : 'FLOP';
+  }
+  function updateMemHint() {
+    const taught = memoryForContext({ nicho: activeNicho, plat: activePlatform }).length;
+    const total = memoria.filter(m => m.feedback).length;
+    const hint = $('#memHint'); if (!hint) return;
+    if (taught === 0 && total === 0) hint.textContent = 'Sem memória ainda. Vou usar princípios gerais até você marcar feedbacks.';
+    else if (taught === 0) hint.textContent = `${total} feedbacks salvos, mas nenhum em ${activeNicho}/${activePlatform}.`;
+    else hint.textContent = `Calibrando com ${taught} caso(s) de ${activeNicho}/${activePlatform}.`;
+  }
+
+  function detectSensitive(t) { const low = t.toLowerCase(); return SENSITIVE.some(k => low.includes(k)); }
+  $('#cTema').addEventListener('input', () => {
+    $('#sensitiveWarn').classList.toggle('hidden', !detectSensitive($('#cTema').value));
+    scheduleThemeQualityCheck();
+  });
+
+  // ===== VALIDAÇÃO SEMÂNTICA DO TEMA =====
+  // Pega temas abstratos demais ("viralizar", "engajamento", "conteúdo bom")
+  // ou meta ("um vídeo legal pra TikTok") antes da geração — pra evitar que
+  // a IA invente em cima de um briefing vazio. Dois níveis:
+  //   1. Heurística client-side: lista de palavras vazias e padrões. Custo zero.
+  //   2. IA pra casos ambíguos: 1 chamada curta com prompt mínimo. Custo
+  //      desprezível. Só dispara se heurística não classificou claramente.
+  // Em nenhum dos casos bloqueia a geração — só sugere reformulações.
+
+  // Palavras que sozinhas/quase sozinhas indicam tema vazio
+  const VAGUE_WORDS = new Set([
+    'viralizar','engajamento','engajar','viral','conteudo','conteúdo','marketing',
+    'copy','copywriting','tiktok','reels','shorts','redes','rede social','redes sociais',
+    'algoritmo','crescer','crescimento','seguidores','views','visualizações',
+    'audiencia','audiência','público','publico','dicas','top','melhor','melhores',
+    'sucesso','dinheiro','vida','geral','qualquer','qualquer coisa','algo','coisa'
+  ]);
+
+  // Padrões meta — pessoa fala sobre o produto, não sobre o tema
+  const META_PATTERNS = [
+    /^um\s+(v[ií]deo|conte[uú]do|post|roteiro|texto)/i,
+    /pra\s+(tik\s?tok|reels|shorts|insta|instagram)\s*$/i,
+    /^(quero|preciso|fazer)\s+(um|uma|de)/i
+  ];
+
+  // Heurística rápida — retorna { level, reason, suggestions }
+  // level: 'ok' | 'weak' | 'ambiguous'
+  function classifyThemeHeuristic(tema) {
+    const t = tema.trim();
+    const tLow = t.toLowerCase();
+
+    // Curto demais
+    if (t.length < 4) return { level: 'weak', reason: 'curto-demais' };
+
+    // Palavras únicas
+    const words = tLow.split(/\s+/).filter(w => w.length > 1);
+    if (words.length === 1 && VAGUE_WORDS.has(words[0])) {
+      return { level: 'weak', reason: 'palavra-vazia' };
+    }
+
+    // Palavra única com 2-3 letras (quase nada)
+    if (words.length === 1 && words[0].length <= 4) {
+      return { level: 'ambiguous', reason: 'tema-curto' };
+    }
+
+    // Maior parte das palavras é vaga
+    const vagueCount = words.filter(w => VAGUE_WORDS.has(w)).length;
+    if (words.length <= 3 && vagueCount >= words.length - 1) {
+      return { level: 'weak', reason: 'palavras-vagas' };
+    }
+
+    // Padrão meta
+    if (META_PATTERNS.some(re => re.test(t))) {
+      return { level: 'weak', reason: 'meta' };
+    }
+
+    // 2 palavras genéricas combinadas tipo "marketing digital", "vida saudável"
+    if (words.length === 2) {
+      return { level: 'ambiguous', reason: 'duas-palavras' };
+    }
+
+    return { level: 'ok' };
+  }
+
+  // Sugestões pré-fabricadas baseadas no tema fraco — locais, sem chamar IA
+  function localSuggestions(tema, reason) {
+    const t = tema.trim();
+    if (reason === 'curto-demais' || reason === 'tema-curto') {
+      return [`uma briga real envolvendo "${t}"`, `o pior erro que cometeram com "${t}"`, `o que ninguém te conta sobre "${t}"`];
+    }
+    if (reason === 'palavra-vazia' || reason === 'palavras-vagas' || reason === 'meta') {
+      return [
+        'Conte um caso real concreto que aconteceu com você',
+        'Descreva uma situação específica (nome, lugar, contexto)',
+        'O que mudou na sua vida em 2024 que ninguém viu vir'
+      ];
+    }
+    if (reason === 'duas-palavras') {
+      return [`uma cena específica envolvendo ${t}`, `um erro comum em ${t}`, `o que mudou pra você sobre ${t}`];
+    }
+    return [];
+  }
+
+  // Chamada curta de IA pra desambiguar temas que a heurística marcou
+  // como 'ambiguous'. Cache simples por tema.
+  const themeIACache = new Map();
+  async function classifyThemeWithIA(tema) {
+    if (themeIACache.has(tema)) return themeIACache.get(tema);
+    const key = await getApiKey();
+    if (!key) return null;
+    const model = localStorage.getItem(LS_MODEL) || 'llama-3.3-70b-versatile';
+    try {
+      const content = await callGroq({
+        key, model, temperature: 0.3, maxTokens: 200,
+        system: 'Retorna APENAS JSON.',
+        user: `Avalie se este tema serve pra um vídeo curto de TikTok/Reels/Shorts. Tema: "${tema}"
+
+Responda em JSON: {"viavel": true|false, "razao": "frase curta", "sugestoes": ["reformulação 1","reformulação 2","reformulação 3"]}
+
+Considere VIÁVEL se: tem situação concreta, conflito, contexto reconhecível, ou pergunta provocadora específica.
+Considere INVIÁVEL se: é abstrato demais ("viralizar", "engajamento"), genérico ("vida"), ou meta ("um vídeo bom"). Nesses casos, dê 3 reformulações específicas usando o tema como ponto de partida.`
+      });
+      const json = JSON.parse(content);
+      const result = {
+        viavel: !!json.viavel,
+        razao: String(json.razao || '').slice(0, 120),
+        sugestoes: Array.isArray(json.sugestoes) ? json.sugestoes.slice(0,3).map(s => String(s).slice(0,120)) : []
+      };
+      themeIACache.set(tema, result);
+      return result;
+    } catch (e) {
+      console.warn('IA validation falhou', e);
+      return null;
+    }
+  }
+
+  // Debounce — espera o usuário parar de digitar
+  let themeCheckTimer = null;
+  let lastCheckedTheme = '';
+  function scheduleThemeQualityCheck() {
+    if (themeCheckTimer) clearTimeout(themeCheckTimer);
+    themeCheckTimer = setTimeout(runThemeQualityCheck, 700);
+  }
+
+  async function runThemeQualityCheck() {
+    const tema = $('#cTema').value.trim();
+    if (tema === lastCheckedTheme) return;
+    lastCheckedTheme = tema;
+
+    if (tema.length < 3) { hideThemeWarn(); return; }
+
+    const { level, reason } = classifyThemeHeuristic(tema);
+    if (level === 'ok') { hideThemeWarn(); return; }
+
+    if (level === 'weak') {
+      // Heurística pegou como vazio. Mostra sugestões locais sem chamar IA.
+      const sugs = localSuggestions(tema, reason);
+      showThemeWarn({
+        title: 'Esse tema pode dar peça genérica',
+        body: 'Tente um ângulo mais específico — uma cena, um caso, um momento real.',
+        suggestions: sugs
+      });
+      return;
+    }
+
+    // Ambíguo — vale uma chamada curta de IA pra confirmar
+    const result = await classifyThemeWithIA(tema);
+    if (!result) { hideThemeWarn(); return; }
+    if (result.viavel) { hideThemeWarn(); return; }
+    showThemeWarn({
+      title: 'Tema pode estar pouco específico',
+      body: result.razao || 'Considere afunilar pra algo mais concreto.',
+      suggestions: result.sugestoes || []
+    });
+  }
+
+  function showThemeWarn({ title, body, suggestions = [] }) {
+    let el = $('#themeQualityWarn');
+    if (!el) return;
+    const sugHtml = suggestions.length
+      ? `<div class="mt-3 space-y-1.5">${suggestions.map(s =>
+          `<button class="theme-suggestion w-full text-left text-[12px] body-soft hover:body-text px-2 py-1.5 rounded-sm" data-suggestion="${escapeHtml(s)}" style="border: 1px dashed var(--rule); transition: all 0.15s;">${escapeHtml(s)}</button>`
+        ).join('')}</div>`
+      : '';
+    el.innerHTML = `<p class="eyebrow mb-1.5" style="color: var(--warn);">${escapeHtml(title)}</p>
+      <p class="text-[12px] body-soft leading-relaxed">${escapeHtml(body)}</p>
+      ${sugHtml}`;
+    el.classList.remove('hidden');
+    // Click handlers nas sugestões
+    el.querySelectorAll('.theme-suggestion').forEach(btn => {
+      btn.onclick = () => {
+        $('#cTema').value = btn.dataset.suggestion;
+        $('#cTema').focus();
+        hideThemeWarn();
+        lastCheckedTheme = btn.dataset.suggestion;
+      };
+    });
+  }
+
+  function hideThemeWarn() {
+    const el = $('#themeQualityWarn');
+    if (el) el.classList.add('hidden');
+  }
+
+  async function callGroq({ key, model, system, user, json=true, maxTokens=1500, temperature=0.3 }) {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model, temperature, max_tokens: maxTokens,
+        ...(json ? { response_format: { type: 'json_object' } } : {}),
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
+      })
+    });
+    if (!res.ok) throw new Error(res.status===401 ? 'Chave inválida' : res.status===429 ? 'Limite Groq' : `Erro ${res.status}`);
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || '';
+  }
+
+  function buildAnalyzePrompt(text) {
+    const examples = memoryForContext({ nicho: activeNicho, plat: activePlatform })
+      .map(m => `- ${m.feedback.toUpperCase()} (${m.score}%): "${(m.texto||'').slice(0,140)}"`).join('\n');
+    return `Você é o Detector Flop, especialista BR em ${activePlatform.toUpperCase()}.
+NICHO: ${activeNicho}. PLATAFORMA: ${activePlatform}.
+
+Retorne APENAS JSON válido:
+{"viral_prob":0-100,"classificacao":"VIRAL"|"MEDIANO"|"FLOP","gancho":0-10,"retencao":0-10,"compartilhabilidade":0-10,"razoes":["...","...","..."],"melhorias":["...","...","..."],"veredito":"frase de 6-10 palavras","elementos":{"gancho":0-10,"roteiro":0-10,"legenda":0-10,"cta":0-10}}
+
+CAMPO "elementos" — INSTRUÇÕES IMPORTANTES:
+- Se você conseguir identificar OS QUATRO elementos no texto (gancho de abertura + corpo do roteiro + legenda + chamada/CTA), pontue cada um separadamente em 0-10.
+- Se o texto for genérico ou não tiver os elementos claros, retorne null em "elementos" (sem subscores forçados).
+- A nota "gancho" do JSON principal (0-10) avalia a FORÇA TÉCNICA do gancho como dimensão. Já a nota "elementos.gancho" avalia o GANCHO COMO PEDAÇO específico — em geral elas convergem, mas podem divergir levemente.
+
+MEMÓRIA REAL DO CRIADOR:
+${examples || '- Sem exemplos ainda'}
+
+CONTEÚDO:
+"""${text}"""`;
+  }
+
+  async function analyze() {
+    const raw = $('#inputText').value.trim();
+    if (!raw || raw.length < 10) { showToast('Cole pelo menos 10 caracteres', 'warn'); $('#inputText').focus(); return; }
+    const key = await getApiKey();
+    if (!key) { openSettings(); showToast('Configure sua chave Groq', 'error'); return; }
+    const model = localStorage.getItem(LS_MODEL) || 'llama-3.3-70b-versatile';
+    const parts = raw.split(/^\s*---\s*$/m).map(s=>s.trim()).filter(s=>s.length>=10);
+    const isCompare = parts.length >= 2;
+
+    $('#emptyState').classList.add('hidden');
+    $('#resultWrap').classList.add('hidden');
+    $('#compareWrap').classList.add('hidden');
+    $('#loadingState').classList.remove('hidden');
+    $('#loadingLabel').textContent = isCompare ? 'Comparando A vs B…' : 'Analisando…';
+    $('#btnAnalyze').disabled = true;
+
+    try {
+      if (isCompare) {
+        const [a, b] = await Promise.all(parts.slice(0,2).map(t => analyzeOne(t, key, model)));
+        renderCompare(a, b);
+        showToast('Comparação concluída', 'success');
+      } else {
+        const a = await analyzeOne(raw, key, model);
+        currentAnalysis = a;
+        renderResult(a);
+        saveToMemory(a);
+        showToast('Análise concluída', 'success');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || 'Falha ao analisar', 'error', 4500);
+      $('#emptyState').classList.remove('hidden');
+    } finally {
+      $('#loadingState').classList.add('hidden');
+      $('#btnAnalyze').disabled = false;
+    }
+  }
+
+  async function analyzeOne(text, key, model) {
+    const content = await callGroq({
+      key, model,
+      system: 'Você retorna APENAS JSON válido, sem markdown.',
+      user: buildAnalyzePrompt(text)
+    });
+    let json;
+    try { json = JSON.parse(content); } catch { throw new Error('Resposta inválida'); }
+    const viral = Math.max(0, Math.min(100, Number(json.viral_prob)||0));
+    const clas = (json.classificacao||'').toUpperCase();
+    const classification = ['VIRAL','MEDIANO','FLOP'].includes(clas) ? clas : (viral>=70?'VIRAL':viral>=45?'MEDIANO':'FLOP');
+    // Subscores por elemento — opcionais. Aceita null/ausente sem reclamar.
+    let elementos = null;
+    if (json.elementos && typeof json.elementos === 'object') {
+      const e = json.elementos;
+      const valid = ['gancho','roteiro','legenda','cta'].every(k => typeof Number(e[k]) === 'number' && !isNaN(Number(e[k])));
+      if (valid) {
+        elementos = {
+          gancho: Math.max(0, Math.min(10, Number(e.gancho))),
+          roteiro: Math.max(0, Math.min(10, Number(e.roteiro))),
+          legenda: Math.max(0, Math.min(10, Number(e.legenda))),
+          cta: Math.max(0, Math.min(10, Number(e.cta)))
+        };
+      }
+    }
+    return {
+      id: 'a'+Date.now()+Math.random().toString(36).slice(2,6),
+      texto: text, score: viral, classificacao: classification,
+      gancho: Number(json.gancho)||0, retencao: Number(json.retencao)||0, share: Number(json.compartilhabilidade)||0,
+      razoes: Array.isArray(json.razoes) ? json.razoes.slice(0,3) : [],
+      melhorias: Array.isArray(json.melhorias) ? json.melhorias.slice(0,3) : [],
+      veredito: json.veredito || '', timestamp: Date.now(), model,
+      nicho: activeNicho, platform: activePlatform, feedback: null, starred: false,
+      elementos
+    };
+  }
+
+  function scoreColor(s) { return s >= 70 ? 'var(--good)' : s >= 45 ? 'var(--warn)' : 'var(--bad)'; }
+
+  function renderResult(a) {
+    $('#emptyState').classList.add('hidden');
+    $('#loadingState').classList.add('hidden');
+    $('#compareWrap').classList.add('hidden');
+    $('#resultWrap').classList.remove('hidden');
+
+    const target = a.score;
+    const color = scoreColor(target);
+    const ring = $('#scoreRing');
+    $('#scoreNum').textContent = '0';
+    const start = performance.now();
+    function tick(t) {
+      const p = Math.min(1, (t - start) / 600);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const cur = Math.round(target * eased);
+      $('#scoreNum').textContent = cur;
+      ring.style.background = `conic-gradient(${color} ${cur*3.6}deg, var(--rule-strong) ${cur*3.6}deg)`;
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    const badge = $('#badgeClass');
+    badge.textContent = a.classificacao;
+    badge.style.color = color;
+
+    $('#veredito').textContent = a.veredito || '—';
+    $('#mGancho').textContent = a.gancho.toFixed(1);
+    $('#mRetencao').textContent = a.retencao.toFixed(1);
+    $('#mShare').textContent = a.share.toFixed(1);
+
+    $('#listRazoes').innerHTML = a.razoes.map(r => `<li class="flex gap-3"><span class="serif italic body-mute" style="margin-top:1px;">·</span><span>${escapeHtml(r)}</span></li>`).join('') || '<li class="body-mute italic">—</li>';
+    $('#listMelhorias').innerHTML = a.melhorias.map(r => `<li class="flex gap-3"><span class="serif italic" style="color: var(--accent); margin-top:1px;">·</span><span>${escapeHtml(r)}</span></li>`).join('') || '<li class="body-mute italic">—</li>';
+
+    $('#fbStatus').textContent = '—';
+    $$('.fb-btn').forEach(b => {
+      b.style.background = ''; b.style.color = ''; b.style.borderColor = '';
+      b.setAttribute('aria-pressed', a.feedback === b.dataset.fb ? 'true' : 'false');
+    });
+  }
+
+  function renderCompare(a, b) {
+    $('#emptyState').classList.add('hidden');
+    $('#resultWrap').classList.add('hidden');
+    $('#loadingState').classList.add('hidden');
+    $('#compareWrap').classList.remove('hidden');
+    const card = (x, label) => {
+      const c = scoreColor(x.score);
+      return `<div class="p-6" style="background: var(--ink);">
+        <div class="flex items-center justify-between mb-3">
+          <p class="eyebrow">Versão ${label}</p>
+          <span class="text-[11px] mono uppercase" style="color: ${c};">${x.classificacao}</span>
+        </div>
+        <p class="body-text body-soft mb-4 clamp-3 text-[13.5px]">${escapeHtml(x.texto.slice(0,180))}${x.texto.length>180?'…':''}</p>
+        <div class="flex items-baseline gap-1.5"><span class="serif text-[36px] font-medium" style="color: ${c}; font-variation-settings: 'opsz' 144;">${x.score}</span><span class="body-mute text-[12px]">/100</span></div>
+        <p class="text-[11px] body-mute mt-3 mono">G ${x.gancho.toFixed(1)} · R ${x.retencao.toFixed(1)} · S ${x.share.toFixed(1)}</p>
+        <p class="serif italic text-[13px] body-soft mt-3 clamp-2" style="font-variation-settings: 'opsz' 96;">"${escapeHtml(x.veredito)}"</p>
+      </div>`;
+    };
+    $('#compareGrid').innerHTML = card(a,'A') + card(b,'B');
+    const winner = a.score >= b.score ? 'A' : 'B';
+    const diff = Math.abs(a.score - b.score);
+    $('#compareWinner').innerHTML = `<p class="body-text"><b>Versão ${winner}</b> tem ${diff} pontos a mais. <span class="body-soft">${diff < 5 ? 'Empate técnico — escolha pela intuição.' : 'Diferença significativa.'}</span></p>`;
+    saveToMemory(a); saveToMemory(b);
+  }
+
+  function saveToMemory(a) {
+    try {
+      const exists = memoria.find(m => m.texto === a.texto);
+      if (!exists) {
+        memoria.unshift({ ...a });
+        memoria = memoria.slice(0, 300);
+        localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+        $('#memCount').textContent = memoria.length;
+        renderInsights();
+      }
+    } catch (e) { console.warn('LS save', e); showToast('Memória cheia — exporte e limpe', 'warn'); }
+  }
+
+  $$('.fb-btn').forEach(btn => {
+    btn.onclick = () => {
+      if (!currentAnalysis) return showToast('Analise algo primeiro', 'warn');
+      const fb = btn.dataset.fb;
+      const idx = memoria.findIndex(m => m.id === currentAnalysis.id);
+      if (idx >= 0) {
+        memoria[idx].feedback = fb;
+        memoria[idx].feedbackAt = Date.now();
+        const [item] = memoria.splice(idx,1); memoria.unshift(item);
+        localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+        $('#memCount').textContent = memoria.length;
+        currentAnalysis.feedback = fb;
+      }
+      $$('.fb-btn').forEach(b => { b.style.background=''; b.style.color=''; b.style.borderColor=''; b.setAttribute('aria-pressed','false'); });
+      const accentMap = { viral: 'var(--good)', mediano: 'var(--warn)', flop: 'var(--bad)' };
+      btn.style.borderColor = accentMap[fb];
+      btn.style.color = accentMap[fb];
+      btn.setAttribute('aria-pressed','true');
+      $('#fbStatus').textContent = `Memória atualizada como ${fb.toUpperCase()}.`;
+      showToast(`Salvo: ${fb}`, 'success');
+      renderInsights();
+      updateMemHint();
+    };
+  });
+
+  // ===== REWRITE BRIDGE (Analisar → Criar) =====
+  $('#btnRewrite').onclick = () => {
+    if (!currentAnalysis) return;
+    $('#cTema').value = currentAnalysis.texto.slice(0, 80).replace(/\n/g, ' ');
+    switchTab('criar');
+    showToast('Pré-preenchido no Estúdio', 'info');
+  };
+
+  // ===== SHARE IMAGE =====
+  $('#btnShareImg').onclick = async () => {
+    if (!currentAnalysis) return;
+    const a = currentAnalysis;
+    const W = 1080, H = 1080;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    // Paper background
+    ctx.fillStyle = '#0a0a0b'; ctx.fillRect(0,0,W,H);
+    // Subtle texture overlay
+    for (let i = 0; i < 3000; i++) {
+      ctx.fillStyle = `rgba(244,241,234,${Math.random()*0.02})`;
+      ctx.fillRect(Math.random()*W, Math.random()*H, 1, 1);
+    }
+    // Header
+    ctx.fillStyle = '#a8a39a'; ctx.font = '600 22px "Inter Tight", sans-serif';
+    ctx.fillText('DETECTOR FLOP', 80, 100);
+    ctx.fillStyle = '#6b6760'; ctx.font = '400 16px "Inter Tight"';
+    ctx.fillText('Plataforma de conteúdo', 80, 128);
+
+    // Score (huge serif)
+    const scoreColorHex = a.score >= 70 ? '#6b8e5a' : a.score >= 45 ? '#b89150' : '#a85a4f';
+    ctx.fillStyle = '#ebe7dd'; ctx.font = '500 280px "Fraunces", serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(a.score, W/2, H/2 + 50);
+    ctx.fillStyle = '#6b6760'; ctx.font = '400 24px "Inter Tight"';
+    ctx.fillText('em 100', W/2, H/2 + 90);
+
+    // Class
+    ctx.fillStyle = scoreColorHex; ctx.font = '600 20px "Inter Tight"';
+    ctx.textAlign = 'center';
+    ctx.fillText(a.classificacao + ' · ' + activePlatform.toUpperCase(), W/2, 700);
+
+    // Verdict
+    ctx.fillStyle = '#ebe7dd'; ctx.font = '500 36px "Fraunces", serif';
+    wrapText(ctx, '"' + a.veredito + '"', W/2, 790, W - 200, 46);
+
+    // Footer
+    ctx.textAlign = 'left'; ctx.fillStyle = '#a8a39a';
+    ctx.font = '500 18px "JetBrains Mono", monospace';
+    ctx.fillText(`Gancho ${a.gancho.toFixed(1)}   Retenção ${a.retencao.toFixed(1)}   Share ${a.share.toFixed(1)}`, 80, 980);
+
+    canvas.toBlob(async (blob) => {
+      try {
+        if (navigator.share && navigator.canShare?.({ files: [new File([blob], 'flop.png', {type:'image/png'})] })) {
+          await navigator.share({ files: [new File([blob], 'detector-flop.png', {type:'image/png'})], title: 'Detector Flop', text: `${a.score}/100 · ${a.veredito}` });
+          return;
+        }
+      } catch {}
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = 'detector-flop.png'; link.click();
+      URL.revokeObjectURL(url);
+      showToast('Imagem baixada', 'success');
+    }, 'image/png');
+  };
+
+  function wrapText(ctx, text, x, y, maxW, lh) {
+    const words = text.split(' '); let line = '';
+    for (let n=0; n<words.length; n++) {
+      const test = line + words[n] + ' ';
+      if (ctx.measureText(test).width > maxW && n > 0) { ctx.fillText(line.trim(), x, y); line = words[n] + ' '; y += lh; }
+      else line = test;
+    }
+    ctx.fillText(line.trim(), x, y);
+  }
+
+  // ===== 48H REMINDER =====
+  $('#btnRemind').onclick = () => {
+    if (!currentAnalysis) return;
+    const reminders = JSON.parse(localStorage.getItem(LS_REMINDERS) || '[]');
+    reminders.push({ id: currentAnalysis.id, text: currentAnalysis.texto.slice(0,80), at: Date.now() + 48*60*60*1000 });
+    localStorage.setItem(LS_REMINDERS, JSON.stringify(reminders));
+    showToast('Lembrete em 48h', 'success');
+  };
+
+  function checkPendingReminders() {
+    const reminders = JSON.parse(localStorage.getItem(LS_REMINDERS) || '[]');
+    const due = reminders.find(r => r.at <= Date.now());
+    if (!due) return;
+    $('#followupBanner').classList.remove('hidden');
+    $('#followupText').textContent = '"' + due.text + '…"';
+    $$('.fu-btn').forEach(b => b.onclick = () => {
+      const fb = b.dataset.fu;
+      const idx = memoria.findIndex(m => m.id === due.id);
+      if (idx >= 0) {
+        memoria[idx].feedback = fb;
+        memoria[idx].feedbackAt = Date.now();
+        localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+        $('#memCount').textContent = memoria.length;
+      }
+      const rest = reminders.filter(r => r.id !== due.id);
+      localStorage.setItem(LS_REMINDERS, JSON.stringify(rest));
+      $('#followupBanner').classList.add('hidden');
+      showToast(`Atualizado: ${fb}`, 'success');
+      renderInsights(); renderMemory(); updateMemHint();
+    });
+    $('#fuDismiss').onclick = () => {
+      const upd = reminders.map(r => r.id === due.id ? { ...r, at: Date.now() + 24*60*60*1000 } : r);
+      localStorage.setItem(LS_REMINDERS, JSON.stringify(upd));
+      $('#followupBanner').classList.add('hidden');
+    };
+  }
+
+  // ===== CRIAR (UNIFICADO) =====
+  $$('.fmt-chip').forEach(b => { b.onclick = () => { activeFormato = b.dataset.fmt; activePlatform = FORMATO_PLATAFORMA[activeFormato] || 'tiktok'; $$('.fmt-chip').forEach(x => x.setAttribute('aria-pressed', x.dataset.fmt === activeFormato ? 'true' : 'false')); }; });
+
+  // Nicho da aba Criar — sincroniza com o select do settings e persiste
+  $('#cNichoSelect')?.addEventListener('change', (e) => {
+    activeNicho = e.target.value;
+    localStorage.setItem(LS_NICHO, activeNicho);
+    if ($('#nichoSelect')) $('#nichoSelect').value = activeNicho;
+    if ($('#nichoLabel')) $('#nichoLabel').textContent = activeNicho;
+    updateMemHint();
+  });
+
+  // Tom
+  $('#cTomSelect')?.addEventListener('change', (e) => {
+    activeTom = e.target.value;
+    localStorage.setItem(LS_TOM, activeTom);
+    updateRefineSummary();
+  });
+
+  // Estilo
+  $('#cEstiloSelect')?.addEventListener('change', (e) => {
+    activeEstilo = e.target.value;
+    localStorage.setItem(LS_ESTILO, activeEstilo);
+    updateRefineSummary();
+  });
+
+  // Intensidade
+  $$('.intensity-chip').forEach(b => {
+    b.onclick = () => {
+      activeIntensity = b.dataset.intensity;
+      localStorage.setItem(LS_INTENSITY, activeIntensity);
+      setActiveIntensityBtn();
+      updateRefineSummary();
+    };
+  });
+
+  // Reset
+  $('#cResetRefine')?.addEventListener('click', () => {
+    activeTom = 'auto'; activeEstilo = 'auto'; activeIntensity = 'auto';
+    localStorage.removeItem(LS_TOM); localStorage.removeItem(LS_ESTILO); localStorage.removeItem(LS_INTENSITY);
+    if ($('#cTomSelect')) $('#cTomSelect').value = 'auto';
+    if ($('#cEstiloSelect')) $('#cEstiloSelect').value = 'auto';
+    setActiveIntensityBtn();
+    updateRefineSummary();
+    showToast('Voltando ao automático', 'info', 1800);
+  });
+
+  // === BIBLIOTECA DE TÉCNICAS DE GANCHO ===
+  // Cada técnica tem nome + descrição + 1-2 exemplos curtos. A IA recebe
+  // todas e PRECISA escolher uma e aplicar — não pode mais cair em
+  // ganchos descritivos genéricos.
+  // === DIRETRIZES NARRATIVAS — vão no system + user prompt ===
+  // O prompt é construído em torno do PRINCÍPIO de que toda peça é uma
+  // história com tese, não uma lista de 4 elementos. As "regras técnicas"
+  // (formato de diálogo, técnicas de gancho) são ferramentas pra essa
+  // história funcionar — não checklists isolados.
+
+  const PILARES = `
+SEIS PILARES DE UM CONTEÚDO QUE VIRALIZA EM 2026 (a peça inteira precisa cumprir, não em pedaços separados):
+
+1. GANCHO — abertura que prende a atenção e cria expectativa de pagamento. Não é só uma frase de impacto, é uma promessa implícita: "fica até o fim que vai valer".
+
+2. RETENÇÃO — cada beat (cada momento) precisa criar o próximo. A pessoa nunca pode ter motivo pra ir embora. Boas ferramentas: pergunta aberta no meio, virada de ponto de vista, escalada de tensão, revelação adiada.
+
+3. EMOÇÃO — a peça precisa fazer alguém sentir algo nominável: identificação ("sou eu"), surpresa ("não esperava"), tensão ("e agora?"), indignação ("isso é um absurdo"), ternura ("isso me tocou"). Sem emoção, é nota de rodapé. Com emoção, é vídeo que a pessoa pausa pra reagir.
+
+4. CRÍTICA / TESE — a peça defende UMA ideia clara. Tem opinião. Discorda de algum senso comum, expõe uma contradição, provoca uma reflexão. Conteúdo neutro não viraliza em 2026 — vira documentário esquecido. A peça inteira é a defesa dessa tese, mesmo quando é história.
+
+5. POTENCIAL DE COMPARTILHAMENTO — alguém vê e pensa "preciso mandar isso pra Fulano". Isso acontece quando: a peça expressa o que a pessoa não consegue dizer; entrega identificação rara; ou tem uma frase final tão certeira que vira "carimbo".
+
+6. ESTÍMULO A COMENTÁRIO — provoca posicionamento. A pessoa precisa querer SE COLOCAR. Histórias com tese forte fazem isso naturalmente porque você concorda ou discorda — e o algoritmo come comentário no almoço.
+`;
+
+  const ESTRUTURA = `
+ARQUITETURA NARRATIVA — toda peça tem três atos, mesmo curta:
+
+INÍCIO (gancho expandido): apresenta a tensão, a contradição, a pergunta. Pode ser uma frase forte ou um pequeno parágrafo com ar pra construir. Termina com uma promessa implícita do que vem.
+
+MEIO (desenvolvimento): aprofunda. Tem pelo menos UMA virada — algo que muda o ângulo, contradiz o que parecia, escala o conflito ou revela informação que reorganiza o que veio antes. Sem virada, vira lista. Aqui mora a retenção real.
+
+FIM (fechamento): devolve uma frase que a pessoa quer guardar, repetir ou compartilhar. NÃO é resumo do que foi dito. É o "carimbo" da peça — uma sentença que cristaliza a tese e faz amarração natural com o CTA. Se você apagar a última linha e a peça parecer terminada, ela está fraca.
+`;
+
+  const FORMATO_ROTEIRO = `
+FORMATO DO ROTEIRO — depende do tema:
+
+Se o tema envolve dois ou mais personagens interagindo (mãe e filho, chefe e funcionário, casal, amigos): o roteiro É a cena entre eles, em DIÁLOGO DIRETO.
+- Cada fala em linha começando com travessão (—).
+- SÓ os personagens definidos falam. Nada de terceiros entrando, nada de narrador comentando.
+- Sem "ela disse", "ele falou", "aí respondi". Os personagens conduzem em primeira pessoa, no presente da cena.
+- Pode haver linha breve entre parênteses tipo (silêncio) ou (longa pausa) quando a pausa MUDA a cena. Use raramente.
+- A estrutura de três atos acontece DENTRO do diálogo: a primeira fala é o gancho, alguma fala no meio é a virada, a última fala é o carimbo.
+
+Se o tema não tem personagens definidos (ou só o próprio criador): relato em PRIMEIRA PESSOA falando direto pra câmera, ritmo de fala. Os três atos se desenrolam no próprio relato.
+
+REGISTRO em ambos os casos: português BR natural, ritmo de fala, frases que cabem num fôlego. Densidade > tamanho. Pense em mais ou menos um minuto de fala — espaço pra história acontecer sem pressa, mas cada linha precisa pagar o ingresso de existir.
+
+NO CAMPO "formato_roteiro", retorne "dialogo" ou "relato".
+`;
+
+  function buildPiecePrompt(tema, opts = {}) {
+    const taught = memoryForContext({ nicho: activeNicho, plat: activePlatform, n: 8 });
+    const virais = taught.filter(m => m.feedback === 'viral').slice(0, 3);
+    const flops = taught.filter(m => m.feedback === 'flop').slice(0, 2);
+    const refV = virais.length ? virais.map(m => `  + "${(m.texto||'').slice(0,140)}"`).join('\n') : '  (sem virais ainda)';
+    const refF = flops.length ? flops.map(m => `  - "${(m.texto||'').slice(0,140)}"`).join('\n') : '  (sem flops ainda)';
+    const energyMap = {
+      tensao: 'Tensão (urgência, problema iminente, custo de não agir)',
+      curiosidade: 'Curiosidade (gap de conhecimento, pergunta intrigante)',
+      polemica: 'Polêmica saudável (opinião contrarian forte, sem ofender ninguém)',
+      identificacao: 'Identificação ("sou eu, é a minha vida")',
+      utilidade: 'Utilidade (ensina algo aplicável imediatamente)',
+      indignacao: 'Indignação (algo que precisa ser dito; injustiça, contradição que incomoda)',
+      nostalgia: 'Nostalgia (algo que já foi e marcou; volta no tempo, comparação com antes)',
+      autoridade: 'Autoridade (quem fala sabe; conhecimento de quem viveu, não de quem leu)'
+    };
+
+    const tomMap = {
+      serio: 'sério, sem brincadeira, peso de quem fala uma coisa importante',
+      inspirador: 'inspirador, faz a pessoa olhar pra cima sem ser piegas',
+      sarcastico: 'sarcástico, ironia inteligente, fica engraçado pelo absurdo da situação',
+      critico: 'crítico, expõe sem dó o que tá errado, postura de quem analisa',
+      acolhedor: 'acolhedor, fala junto com a pessoa, sem julgar, abraço em forma de palavra',
+      provocador: 'provocador, cutuca a defesa do espectador pra ele se mexer'
+    };
+
+    const estiloMap = {
+      historia: 'História pessoal — o criador conta algo que aconteceu com ele em primeira pessoa, com começo-meio-virada-fim. A peça é a narrativa.',
+      cena: 'Cena de conflito — a peça é uma cena entre dois ou mais personagens em diálogo direto. A tese emerge do que cada um fala.',
+      argumento: 'Argumento direto — a peça defende a tese com lógica e exemplos. Sem narrativa, sem cena. É um pequeno ensaio falado.',
+      caso: 'Caso real (terceiros) — o criador conta uma história de outra pessoa (cliente, amigo, alguém que viu). Não é a história dele, mas ele é a testemunha que conta.',
+      manifesto: 'Manifesto — declaração forte, posicionamento, frase atrás de frase como se fosse uma carta aberta ao público. Tese transbordando.'
+    };
+
+    const intensityMap = {
+      sutil: 'Intensidade SUTIL: registro contido, frases mais curtas, força no não-dito. Menos adjetivos, menos exclamação. Deixa o silêncio fazer parte.',
+      equilibrado: 'Intensidade EQUILIBRADA: ritmo médio, sem exageros, mas sem economizar emoção. O ponto certo de fala falada com convicção.',
+      intenso: 'Intensidade INTENSA: peso máximo, frases cortantes, energia alta, repetições estratégicas. Vibração de "isso precisa ser dito agora".'
+    };
+
+    // Bloco de diretrizes de estilo — só aparece se algum controle estiver ativo
+    function styleBlock() {
+      const lines = [];
+      if (activeTom !== 'auto' && tomMap[activeTom]) {
+        lines.push(`TOM: ${tomMap[activeTom]}.`);
+      }
+      if (activeEstilo !== 'auto' && estiloMap[activeEstilo]) {
+        lines.push(`ESTILO DE CONSTRUÇÃO: ${estiloMap[activeEstilo]}`);
+        // Override explícito do formato_roteiro quando o estilo determina
+        if (activeEstilo === 'cena') {
+          lines.push('IMPORTANTE: como o estilo é "Cena de conflito", o formato_roteiro DEVE ser "dialogo" (com travessões, dois ou mais personagens), mesmo que o tema não cite personagens explicitamente — invente os personagens necessários a partir do tema.');
+        } else if (activeEstilo === 'historia' || activeEstilo === 'argumento' || activeEstilo === 'manifesto') {
+          lines.push('IMPORTANTE: como o estilo escolhido pede o criador falando direto pra câmera, o formato_roteiro DEVE ser "relato" — primeira pessoa, sem diálogo, sem personagens conversando entre si.');
+        } else if (activeEstilo === 'caso') {
+          lines.push('IMPORTANTE: como o estilo é "Caso real (terceiros)", o criador é a TESTEMUNHA contando a história de outra pessoa. formato_roteiro = "relato". Ele não é o protagonista, ele é quem viu/ouviu/atendeu.');
+        }
+      }
+      if (activeIntensity !== 'auto' && intensityMap[activeIntensity]) {
+        lines.push(intensityMap[activeIntensity]);
+      }
+      if (lines.length === 0) return '';
+      return `\nDIRETRIZES DE ESTILO (siga estas escolhas do criador, elas têm prioridade sobre instintos genéricos):\n${lines.map(l => '- ' + l).join('\n')}\n`;
+    }
+    const styleDirectives = styleBlock();
+
+    // === REGENERAÇÃO GRANULAR ===
+    if (opts.only && opts.piece) {
+      const ctx = `Contexto da peça atual (preserve a tese e o universo, só troque o que for pedido):
+GANCHO: "${opts.piece.gancho}"
+ROTEIRO: "${opts.piece.roteiro}"
+LEGENDA: "${opts.piece.legenda}"
+CTA: "${opts.piece.cta}"`;
+
+      let task = '';
+      let outShape = '';
+
+      if (opts.only === 'gancho') {
+        task = `Reescreva APENAS o GANCHO. Mantenha a TESE e o universo da peça atual. Tente um ângulo de abertura DIFERENTE do que está lá agora — outra técnica, outra entrada na cena, outro recorte. O gancho precisa: prender atenção imediata, criar expectativa, e apontar pra mesma direção temática que o roteiro segue. Sem clichê morto ("você não vai acreditar", "olha só isso", "hoje eu vou te contar"). Sem emoji. Tem liberdade de extensão — uma frase potente ou pequeno parágrafo construindo tensão, conforme a história pede.`;
+        outShape = '{"gancho":"texto novo","tecnica":"abordagem usada em 2-4 palavras"}';
+      }
+      if (opts.only === 'roteiro') {
+        task = `Reescreva APENAS o ROTEIRO. Use o gancho atual como abertura amarrada. Construa início → meio com virada → fim com frase de carimbo. Cumpra os seis pilares. Mantenha o PADRÃO do formato da peça atual (fala corrida / slides numerados / corpo de texto).
+
+${FORMATO_ROTEIRO}`;
+        outShape = '{"roteiro":"texto novo","formato_roteiro":"dialogo|relato"}';
+      }
+      if (opts.only === 'legenda') {
+        task = `Reescreva APENAS a LEGENDA. Pense numa frase (ou pequeno bloco) que: (a) faça a pessoa parar de rolar; (b) sintetize a TESE da peça num ângulo que provoque salvamento ou comentário; (c) NÃO seja resumo do roteiro. É outro ataque na mesma tese. Pode usar um emoji se fizer sentido natural; nunca força.`;
+        outShape = '{"legenda":"texto novo"}';
+      }
+      if (opts.only === 'cta') {
+        task = `Reescreva APENAS o CTA. Uma chamada de fechamento ESPECÍFICA que provoque comentário ou compartilhamento. Conecte com a tese. Exemplos de boa estrutura: "Comenta [palavra-chave] que mando [coisa específica]"; "Manda esse vídeo pra alguém que [situação reconhecível]"; "Você concorda ou tá tentando se justificar?". Evite "comenta aí" sozinho — vazio.`;
+        outShape = '{"cta":"texto novo"}';
+      }
+
+      return `Você é o melhor estrategista de conteúdo viral do Brasil, escrevendo em 2026.
+
+TEMA: "${tema}"
+FORMATO: ${FORMATO_LABEL[activeFormato] || FORMATO_LABEL.video}
+
+${ctx}
+
+${task}
+
+PRESERVE o ângulo, a tese, a energia e o universo JÁ estabelecidos na peça atual — só troque o que foi pedido, mantendo a coerência com o formato (fala / slides / texto).
+
+REGRAS DE CONTEÚDO:
+- Português BR natural, sem clichês de coach
+- Sem promessas médicas/financeiras/jurídicas garantidas
+- Sem humilhar grupos, sem conteúdo sexual/violento
+
+Retorne APENAS JSON: ${outShape}`;
+    }
+
+    // === GERAÇÃO COMPLETA — a IA decide TODA a estratégia; o criador só deu tema + formato ===
+    const fmtLabel = FORMATO_LABEL[activeFormato] || FORMATO_LABEL.video;
+    const fmtBrief = {
+      video: `FORMATO: VÍDEO CURTO falado (Reels/TikTok/Shorts), ~30-60s.
+- GANCHO = os primeiros 1-3 segundos: quebra o scroll e abre um loop (curiosity gap) que só fecha no fim. Sem aquecimento, sem "fala galera".
+- ROTEIRO = fala corrida (relato em 1ª pessoa OU diálogo), ritmo de fôlego, frases curtas, uma ideia puxando a próxima; reforce micro-loops no meio pra segurar até o fim.
+- formato_roteiro = "dialogo" ou "relato".`,
+      carrossel: `FORMATO: CARROSSEL (Instagram/LinkedIn), lido slide a slide.
+- GANCHO = o texto do SLIDE 1: promessa/tensão que obriga a arrastar; curtíssimo, impacto máximo.
+- ROTEIRO = os SLIDES, um por linha, numerados ("Slide 2:", "Slide 3:"… 6-9 slides). Uma ideia por slide, frase enxuta; cada slide termina criando vontade de ver o próximo; o penúltimo vira a chave; o último fecha.
+- formato_roteiro = "relato".`,
+      post: `FORMATO: POST/LEGENDA de feed (Instagram/X/Threads), lido de uma vez.
+- GANCHO = a primeira linha (antes do "…mais"): fisga sozinha.
+- ROTEIRO = o corpo do texto, quebras de linha curtas, ritmo de leitura, virada e fechamento marcante.
+- formato_roteiro = "relato".`
+    }[activeFormato] || '';
+
+    return `Você é o melhor estrategista de conteúdo viral do Brasil, escrevendo em 2026. Domina os algoritmos de TikTok, Instagram (Reels/Carrossel/feed), YouTube e X; padrões históricos de viralização; tendências atuais e emergentes; e a psicologia de retenção, engajamento e compartilhamento.
+
+O CRIADOR te deu apenas DUAS coisas:
+- TEMA: "${tema}"
+- ${fmtLabel}
+
+TODO o resto é DECISÃO SUA, nos bastidores — ele não conhece (nem precisa) marketing, copywriting, gatilhos ou algoritmo. Antes de escrever, DECIDA internamente (não explique isso na resposta):
+1. NICHO e PÚBLICO: quem consome isso e por quê.
+2. ÂNGULO + ENERGIA dominante pra ESTE tema (tensão, curiosidade, polêmica saudável, identificação, utilidade, indignação, nostalgia ou autoridade) — escolha a de maior chance de parar o scroll e gerar comentário, não a óbvia.
+3. TOM, ESTILO (história pessoal / cena de diálogo / argumento direto / caso de terceiros / manifesto) e INTENSIDADE que melhor servem o ângulo.
+4. TESE: a frase que a peça inteira defende, contradiz ou expõe.
+5. A VIRADA do meio e o CARIMBO final (a frase que a pessoa quer guardar/repetir).
+
+PRINCÍPIOS DE 2026 (aplique SEM citá-los):
+- RETENÇÃO: fisgue em 1-3s com um loop aberto; nunca aqueça; corte toda palavra que não paga o ingresso de existir; adie a recompensa com micro-loops.
+- ENGAJAMENTO: tese clara com a qual dá pra concordar OU discordar — posição gera comentário; evite o morno.
+- COMPARTILHAMENTO (o algoritmo de 2026): mire o "isso sou eu / preciso mandar pra alguém" — identificação, utilidade salvável, ou verdade que valida/expõe.
+- DISTRIBUIÇÃO ORGÂNICA: linguagem nativa da plataforma, zero cara de anúncio, zero clichê de coach.
+
+${fmtBrief}
+
+ESTRUTURA INTERNA (bússola — adapte ao formato acima):
+${PILARES}
+
+${ESTRUTURA}
+
+ELEMENTOS A ENTREGAR:
+- GANCHO: a abertura conforme o formato. Liberdade de extensão; o que conta é o impacto e o loop aberto.
+- ROTEIRO: o desenvolvimento completo no padrão do formato (fala / slides / corpo de texto).
+- LEGENDA: um ataque a mais na MESMA tese, num ângulo que provoque salvamento/comentário (não é resumo). Emoji só se natural.
+- CTA: chamada específica que provoque comentário ou compartilhamento, amarrada à tese. Nunca "comenta aí" genérico.
+
+REGRAS DE CONTEÚDO:
+- Português BR natural, ritmo de fala; sem clichês de coach nem aberturas mortas ("você não vai acreditar", "olha só isso", "hoje eu vou te contar").
+- Sem promessas médicas/financeiras/jurídicas garantidas; sem humilhar grupos; sem conteúdo sexual/violento ou voltado a menores. Respeite as diretrizes de TikTok/Instagram/YouTube.
+
+CALIBRE pelo histórico REAL deste criador:
+- Virais dele:
+${refV}
+- Flops dele (NÃO repita o padrão):
+${refF}
+
+REVISE ANTES DE RESPONDER: o gancho para o scroll em 1-3s? a tese é forte e posicionada? a peça serve ao formato escolhido? cada elemento empurra pro próximo? Se não, refaça antes de responder.
+
+Retorne APENAS JSON com TODOS os campos:
+{"tese":"a tese em uma frase","gancho":"...","tecnica":"abordagem do gancho em 2-4 palavras","roteiro":"...","formato_roteiro":"dialogo|relato","legenda":"...","cta":"...","angulo":"3-6 palavras descrevendo a abordagem escolhida","energia":"energia dominante escolhida","nicho":"nicho inferido do tema"}`;
+  }
+
+  const FORBIDDEN = [
+    /garant(o|imos|ido)\s+(que\s+)?(você|voce)\s+(vai|vais)\s+(ficar\s+)?(rico|milion[áa]rio|emagrec)/i,
+    /cura\s+(definitiv|garantid)/i,
+    /m[ée]todo\s+secreto\s+(infal[íi]vel|garantido)/i
+  ];
+  function violates(text) { return FORBIDDEN.some(rx => rx.test(text)); }
+
+  // === ETAPA UI durante geração ===
+  // Mostra ao criador o que está acontecendo nos bastidores: compor, avaliar, refinar.
+  function setLoadingStep(text) {
+    const el = $('#cLoadingStep');
+    if (el) el.textContent = text;
+  }
+
+  // Texto limpo da peça pra mandar pro analisador — sem rótulos, sem labels,
+  // sem score. Junta os 4 elementos como um post real, do jeito que o analista
+  // veria o conteúdo se o criador colasse o que vai postar.
+  function piecePlainText(p) {
+    return [p.gancho, p.roteiro, p.legenda, p.cta].filter(Boolean).join('\n\n').trim();
+  }
+
+  // Gera UMA peça, sem analisar.
+  async function generatePieceOnce({ key, model, tema }) {
+    const content = await callGroq({
+      key, model, temperature: 0.85, maxTokens: 2400,
+      system: 'Você é um copywriter brasileiro especialista. Retorna APENAS JSON válido.',
+      user: buildPiecePrompt(tema)
+    });
+    const json = JSON.parse(content);
+    if (!json.gancho || !json.roteiro || !json.legenda || !json.cta) {
+      throw new Error('Peça incompleta da IA');
+    }
+    if (violates(json.gancho) || violates(json.roteiro) || violates(json.legenda) || violates(json.cta)) {
+      throw new Error('Peça gerada violou normas. Tente outro ângulo.');
+    }
+    json.tema = tema;
+    json.energy = json.energia || activeEnergy;     // a IA escolheu a energia/ângulo
+    json.platform = activePlatform;
+    json.nicho = json.nicho || activeNicho;          // a IA inferiu o nicho do tema
+    json.formato = activeFormato;
+    json.timestamp = Date.now();
+    return json;
+  }
+
+  $('#btnGenerate').onclick = async () => {
+    const tema = $('#cTema').value.trim();
+    if (!tema || tema.length < 3) { showToast('Diga sobre o que vou compor', 'warn'); $('#cTema').focus(); return; }
+    activePlatform = FORMATO_PLATAFORMA[activeFormato] || 'tiktok';   // referência p/ analisar a peça
+    const key = await getApiKey();
+    if (!key) { openSettings(); showToast('Configure sua chave Groq', 'error'); return; }
+    const model = localStorage.getItem(LS_MODEL) || 'llama-3.3-70b-versatile';
+
+    $('#cEmpty').classList.add('hidden');
+    $('#cResult').classList.add('hidden');
+    $('#cLoading').classList.remove('hidden');
+    setLoadingStep('Compondo peça…');
+    $('#btnGenerate').disabled = true;
+
+    const MAX_ATTEMPTS = 3;
+    const VIRAL_THRESHOLD = 70;     // aceita imediato
+    const ACCEPTABLE_THRESHOLD = 50; // aceita se não conseguir Viral
+    const attempts = []; // {piece, analysis}
+    let lastError = null;
+
+    try {
+      for (let i = 1; i <= MAX_ATTEMPTS; i++) {
+        // === GERAÇÃO ===
+        if (i === 1) setLoadingStep('Compondo peça…');
+        else setLoadingStep(`Refinando (tentativa ${i} de ${MAX_ATTEMPTS})…`);
+
+        let piece;
+        try {
+          piece = await generatePieceOnce({ key, model, tema });
+        } catch (err) {
+          lastError = err;
+          // Falha na geração: se já tem tentativa, segue. Senão, propaga.
+          if (attempts.length === 0 && i === MAX_ATTEMPTS) throw err;
+          continue;
+        }
+
+        // === ANÁLISE EXTERNA — usa o MESMO analyzeOne da aba Analisar ===
+        setLoadingStep(i === 1 ? 'Avaliando qualidade…' : `Avaliando tentativa ${i}…`);
+        let analysis;
+        try {
+          analysis = await analyzeOne(piecePlainText(piece), key, model);
+        } catch (err) {
+          // Análise falhou — não é fatal. Seguimos com a peça e marcamos sem análise.
+          console.warn('Análise falhou na tentativa '+i, err);
+          analysis = null;
+        }
+
+        // Se modelo de calibração está pronto, calcula o calibrado já aqui.
+        // O filtro do loop passa a usar calibrated quando disponível — porque
+        // é o que reflete o score real PRA ESSE CRIADOR.
+        if (analysis) {
+          analysis.scoreCalibrado = calibrateScore(analysis.score);
+          analysis.classCalibrada = classifyByScore(analysis.scoreCalibrado);
+          // calibrationReady() pra saber se temos confiança no calibrado
+          analysis.calibrated = calibrationModel().ready;
+        }
+
+        attempts.push({ piece, analysis });
+
+        // Decisão: usa calibrado se disponível (reflete o que esse criador realmente entrega)
+        // Senão, score IA puro.
+        const decisionScore = analysis ? (analysis.calibrated ? analysis.scoreCalibrado : analysis.score) : 0;
+        if (analysis && decisionScore >= VIRAL_THRESHOLD) break;
+
+        // Se análise quebrou em todas as tentativas, fecha com a última peça
+        if (!analysis && i === MAX_ATTEMPTS) break;
+
+        // Se já é última tentativa, fecha (vai pra escolha do melhor)
+        if (i === MAX_ATTEMPTS) break;
+
+        // Se não é viral mas é aceitável, ainda tentamos uma vez mais buscando viral
+        // (a próxima iteração tenta de novo).
+      }
+
+      if (attempts.length === 0) throw lastError || new Error('Nenhuma peça gerada');
+
+      // === SELEÇÃO DA MELHOR ===
+      // Pega a tentativa de maior score; usa calibrado se disponível.
+      const scored = attempts.filter(a => a.analysis);
+      const scoreOf = (a) => a.analysis.calibrated ? a.analysis.scoreCalibrado : a.analysis.score;
+      const chosen = scored.length
+        ? scored.reduce((best, cur) => (scoreOf(cur) > scoreOf(best) ? cur : best), scored[0])
+        : attempts[attempts.length - 1];
+
+      // Aplica score e classificação da análise externa na peça (sobrescreve a auto-avaliação da IA)
+      if (chosen.analysis) {
+        chosen.piece.score = chosen.analysis.score;
+        chosen.piece.classificacao = chosen.analysis.classificacao;
+        chosen.piece.veredito = chosen.analysis.veredito;
+        chosen.piece.previsao = chosen.analysis.score; // mantém compat com renderPiece existente
+        chosen.piece.elementos = chosen.analysis.elementos; // subscores opcionais
+        // Calibração pra esse criador
+        chosen.piece.scoreCalibrado = chosen.analysis.scoreCalibrado;
+        chosen.piece.classCalibrada = chosen.analysis.classCalibrada;
+        chosen.piece.calibrated = chosen.analysis.calibrated;
+      }
+
+      currentPiece = chosen.piece;
+      // Nova peça = histórico zerado. Versão por seção começa do início.
+      pieceHistory = { gancho: [], roteiro: [], legenda: [], cta: [] };
+      renderPiece(chosen.piece);
+      refreshHistoryButtons();
+      saveCreation(chosen.piece);   // histórico de criações — salva automaticamente
+
+      // Mensagem honesta conforme o resultado final — usa calibrado quando disponível
+      const finalScore = chosen.analysis ? (chosen.analysis.calibrated ? chosen.analysis.scoreCalibrado : chosen.analysis.score) : null;
+      const finalClass = chosen.analysis ? (chosen.analysis.calibrated ? chosen.analysis.classCalibrada : chosen.analysis.classificacao) : null;
+      if (!chosen.analysis) {
+        showToast('Peça composta (avaliação indisponível)', 'warn');
+      } else if (finalScore >= VIRAL_THRESHOLD) {
+        showToast(attempts.length > 1
+          ? `Peça forte conquistada na tentativa ${attempts.length}`
+          : 'Peça forte de primeira', 'success');
+      } else if (finalScore >= ACCEPTABLE_THRESHOLD) {
+        showToast(`Melhor versão de ${attempts.length} tentativas — ${finalClass.toLowerCase()}. Você pode regerar partes ou refinar.`, 'info', 5000);
+      } else {
+        showToast(`As ${attempts.length} tentativas vieram fracas. Tente refinar com uma instrução, regerar partes, ou trocar a energia/tema.`, 'warn', 6000);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || 'Falha ao compor', 'error', 4500);
+      $('#cEmpty').classList.remove('hidden');
+    } finally {
+      $('#cLoading').classList.add('hidden');
+      $('#btnGenerate').disabled = false;
+    }
+  };
+
+  // Renderiza roteiro com formatação adequada:
+  // - Se é diálogo (linhas começam com — ou -), cada fala ganha sua própria
+  //   linha com indentação visual e espaçamento entre falas.
+  // - Se é relato, mantém parágrafos naturais com pre-wrap.
+  function renderRoteiro(text, formato) {
+    const el = $('#cRoteiro');
+    el.innerHTML = '';
+    // Detecta se é diálogo independentemente do flag (defesa contra IA esquecer o flag)
+    const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+    const dashRe = /^[—–-]\s*/;
+    const dialogLines = lines.filter(l => dashRe.test(l));
+    const isDialog = formato === 'dialogo' || (dialogLines.length >= 2 && dialogLines.length / lines.length >= 0.5);
+
+    if (isDialog) {
+      el.classList.add('roteiro-dialogo');
+      el.classList.remove('roteiro-relato');
+      lines.forEach(l => {
+        const p = document.createElement('p');
+        if (dashRe.test(l)) {
+          p.className = 'dialog-line';
+          p.textContent = l.replace(dashRe, '— ');
+        } else if (/^\(.+\)$/.test(l)) {
+          p.className = 'dialog-action';
+          p.textContent = l;
+        } else {
+          // linha sem travessão dentro de bloco de diálogo: trata como narração leve
+          p.className = 'dialog-line dialog-line-plain';
+          p.textContent = l;
+        }
+        el.appendChild(p);
+      });
+    } else {
+      el.classList.add('roteiro-relato');
+      el.classList.remove('roteiro-dialogo');
+      // Parágrafos por linha em branco; quebras de linha simples viram <br>
+      const paras = text.split(/\n{2,}/);
+      paras.forEach(par => {
+        const p = document.createElement('p');
+        p.className = 'relato-para';
+        // mantém quebras simples
+        p.textContent = par.trim();
+        el.appendChild(p);
+      });
+    }
+  }
+
+  function renderPiece(p) {
+    $('#cEmpty').classList.add('hidden');
+    $('#cLoading').classList.add('hidden');
+    $('#cResult').classList.remove('hidden');
+
+    $('#cGancho').textContent = p.gancho;
+    renderRoteiro(p.roteiro || '', p.formato_roteiro);
+    $('#cLegenda').textContent = p.legenda;
+    $('#cCta').textContent = p.cta;
+    $('#cRoteiroLen').textContent = (p.roteiro || '').length;
+
+    // Tese — epígrafe da peça
+    const teseWrap = $('#cTeseWrap');
+    const teseEl = $('#cTese');
+    if (teseWrap && teseEl) {
+      if (p.tese && p.tese.trim()) {
+        teseEl.textContent = '"' + p.tese.trim().replace(/^["']|["']$/g, '') + '"';
+        teseWrap.classList.remove('hidden');
+      } else {
+        teseWrap.classList.add('hidden');
+      }
+    }
+
+    // Técnica do gancho — etiqueta discreta abaixo do header da seção
+    const tecEl = $('#cGanchoTecnica');
+    if (tecEl) {
+      if (p.tecnica) { tecEl.textContent = p.tecnica.toLowerCase(); tecEl.classList.remove('hidden'); }
+      else { tecEl.classList.add('hidden'); }
+    }
+    // Formato do roteiro — reflete o formato escolhido (carrossel/post) ou diálogo/relato (vídeo)
+    const fmtEl = $('#cRoteiroFormato');
+    if (fmtEl) {
+      const fmtMap = { carrossel: 'carrossel', post: 'post' };
+      if (p.formato && fmtMap[p.formato]) {
+        fmtEl.textContent = fmtMap[p.formato];
+      } else {
+        const isDial = (p.formato_roteiro === 'dialogo') || $('#cRoteiro').classList.contains('roteiro-dialogo');
+        fmtEl.textContent = isDial ? 'diálogo' : 'relato';
+      }
+    }
+
+    // Score: vem da análise externa (p.previsao recebe analysis.score quando análise rodou)
+    // Se análise indisponível, mostra "—" em vez de "0", pra ser honesto.
+    const hasScore = typeof p.previsao === 'number' && p.previsao > 0;
+    const score = hasScore ? Math.round(p.previsao) : 0;
+    const color = hasScore ? scoreColor(score) : 'var(--text-mute)';
+    const num = $('#cScoreNum'); const lab = $('#cScoreLabel');
+    num.textContent = hasScore ? score : '—';
+    num.style.color = color;
+    lab.textContent = hasScore ? 'avaliação' : 'sem avaliação';
+    lab.style.color = 'var(--text-mute)';
+
+    // Classificação VIRAL / MEDIANO / FLOP — quando há calibração ready, usa a calibrada
+    const classEl = $('#cClassificacao');
+    if (classEl) {
+      const showClass = p.calibrated && p.classCalibrada ? p.classCalibrada : p.classificacao;
+      const showColor = p.calibrated && typeof p.scoreCalibrado === 'number' ? scoreColor(p.scoreCalibrado) : color;
+      if (showClass) {
+        classEl.textContent = showClass;
+        classEl.style.color = showColor;
+      } else {
+        classEl.textContent = '—';
+        classEl.style.color = 'var(--text-mute)';
+      }
+    }
+
+    // Score calibrado — só aparece quando modelo está ready (>= 8 feedbacks)
+    const calibWrap = $('#cScoreCalibradoWrap');
+    const calibEl = $('#cScoreCalibrado');
+    if (calibWrap && calibEl) {
+      if (p.calibrated && typeof p.scoreCalibrado === 'number') {
+        calibEl.textContent = p.scoreCalibrado;
+        calibEl.style.color = scoreColor(p.scoreCalibrado);
+        calibWrap.classList.remove('hidden');
+      } else {
+        calibWrap.classList.add('hidden');
+      }
+    }
+
+    $('#cMeta').innerHTML = `<span class="uppercase mono text-[10.5px]" style="letter-spacing:0.08em; color: var(--text-mute);">${escapeHtml(p.platform)}</span><span class="meta-divider"></span><span class="italic serif" style="font-variation-settings:'opsz' 96;">${escapeHtml(p.angulo || p.energy)}</span>`;
+
+    // Subscores por elemento — só renderiza se análise os entregou
+    renderSubscores(p.elementos);
+  }
+
+  // Renderiza pequenas pontuações ao lado dos labels das 4 seções.
+  // Mostra "8/10" com cor por faixa (verde >=7, âmbar 5-7, terracota <5).
+  // Se elementos for null/undefined, esconde tudo.
+  function renderSubscores(elementos) {
+    const sections = ['gancho','roteiro','legenda','cta'];
+    const elMap = { gancho: 'cGanchoSubscore', roteiro: 'cRoteiroSubscore', legenda: 'cLegendaSubscore', cta: 'cCtaSubscore' };
+    sections.forEach(s => {
+      const el = $('#'+elMap[s]);
+      if (!el) return;
+      const score = elementos && typeof elementos[s] === 'number' ? elementos[s] : null;
+      if (score == null) {
+        el.classList.add('hidden');
+        return;
+      }
+      const rounded = Math.round(score);
+      const cls = rounded >= 7 ? 'subscore-good' : rounded >= 5 ? 'subscore-warn' : 'subscore-bad';
+      el.className = 'subscore ' + cls;
+      el.classList.remove('hidden');
+      el.innerHTML = `<span class="ssn">${rounded}</span><span class="ssd">/10</span>`;
+      el.setAttribute('aria-label', `Pontuação do ${s}: ${rounded} de 10`);
+      // Reseta opacidade — peça nova, sem defasagem
+      el.style.opacity = '';
+      el.title = '';
+    });
+  }
+
+  // ===== Regeração granular =====
+  $$('[data-regen]').forEach(btn => {
+    btn.onclick = () => regen(btn.dataset.regen, btn);
+  });
+
+  // ===== Botões de histórico =====
+  $$('[data-history]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const section = btn.dataset.history;
+      // Toggle: se já está aberto pra essa seção, fecha
+      const existing = document.getElementById('historyPanel');
+      const sectionEl = btn.closest('.section-block');
+      if (existing && sectionEl && sectionEl.contains(existing)) {
+        closeHistoryPanel();
+      } else {
+        openHistoryPanel(section, btn);
+      }
+    };
+  });
+
+  async function regen(piece, btn) {
+    if (!currentPiece) return;
+    const key = await getApiKey();
+    if (!key) { openSettings(); return; }
+    const model = localStorage.getItem(LS_MODEL) || 'llama-3.3-70b-versatile';
+    btn.disabled = true;
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="ri-loader-4-line" style="animation: spin 1s linear infinite;"></i><span>Regerando…</span>';
+    try {
+      const content = await callGroq({
+        key, model, temperature: 0.9, maxTokens: 1600,
+        system: 'Retorna APENAS JSON.',
+        user: buildPiecePrompt(currentPiece.tema, { only: piece, piece: currentPiece })
+      });
+      const json = JSON.parse(content);
+      const newText = json[piece];
+      if (!newText) throw new Error('Falha na regeração');
+      if (violates(newText)) { showToast('Versão violou normas. Tente de novo.', 'warn'); return; }
+
+      // Empilha versão atual no histórico ANTES de sobrescrever
+      pushPieceHistory(piece, currentPiece);
+
+      currentPiece[piece] = newText;
+      // Propaga metadados quando vierem
+      if (piece === 'gancho' && json.tecnica) currentPiece.tecnica = json.tecnica;
+      if (piece === 'roteiro' && json.formato_roteiro) currentPiece.formato_roteiro = json.formato_roteiro;
+
+      const targetEl = piece === 'gancho' ? $('#cGancho') : piece === 'roteiro' ? $('#cRoteiro') : piece === 'legenda' ? $('#cLegenda') : $('#cCta');
+      targetEl.style.opacity = '0.3';
+      targetEl.style.transition = 'opacity 200ms';
+      setTimeout(() => {
+        if (piece === 'roteiro') {
+          renderRoteiro(newText, currentPiece.formato_roteiro);
+          $('#cRoteiroLen').textContent = newText.length;
+          const fmtEl = $('#cRoteiroFormato');
+          if (fmtEl) {
+            const isDial = (currentPiece.formato_roteiro === 'dialogo') || $('#cRoteiro').classList.contains('roteiro-dialogo');
+            fmtEl.textContent = isDial ? 'diálogo' : 'relato';
+          }
+        } else {
+          targetEl.textContent = newText;
+        }
+        if (piece === 'gancho') {
+          const tecEl = $('#cGanchoTecnica');
+          if (tecEl) {
+            if (currentPiece.tecnica) { tecEl.textContent = currentPiece.tecnica.toLowerCase(); tecEl.classList.remove('hidden'); }
+            else { tecEl.classList.add('hidden'); }
+          }
+        }
+        targetEl.style.opacity = '1';
+      }, 200);
+      // Score do header reflete a peça original. Após regerar, marca como editada.
+      markPieceAsEdited();
+      // Atualiza botões de histórico de todas as seções (alterado o piece atual)
+      refreshHistoryButtons();
+      showToast(`${piece} atualizado · score precisa de reanálise`, 'success');
+    } catch (e) {
+      showToast('Falha: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+    }
+  }
+
+  // ===== HISTÓRICO DE VERSÕES =====
+
+  // Empilha o estado atual de uma seção (junto com metadados relacionados)
+  // antes de sobrescrever. Limita a HIST_LIMIT — versões mais antigas caem.
+  function pushPieceHistory(section, piece) {
+    if (!piece) return;
+    const snap = { ts: Date.now() };
+    if (section === 'gancho') {
+      snap.gancho = piece.gancho;
+      snap.tecnica = piece.tecnica;
+    } else if (section === 'roteiro') {
+      snap.roteiro = piece.roteiro;
+      snap.formato_roteiro = piece.formato_roteiro;
+    } else if (section === 'legenda') {
+      snap.legenda = piece.legenda;
+    } else if (section === 'cta') {
+      snap.cta = piece.cta;
+    }
+    pieceHistory[section] = pieceHistory[section] || [];
+    pieceHistory[section].unshift(snap);
+    if (pieceHistory[section].length > HIST_LIMIT) pieceHistory[section] = pieceHistory[section].slice(0, HIST_LIMIT);
+  }
+
+  // Restaura uma versão do histórico. A versão atual vai pro topo do histórico
+  // (não se perde nada). Marca peça como editada porque o conteúdo mudou.
+  function restorePieceVersion(section, index) {
+    if (!currentPiece) return;
+    const hist = pieceHistory[section] || [];
+    if (index < 0 || index >= hist.length) return;
+    const target = hist[index];
+
+    // Empilha versão atual antes de restaurar (sem usar pushPieceHistory pra
+    // não duplicar o snapshot — fazemos o swap manualmente)
+    const currentSnap = { ts: Date.now() };
+    if (section === 'gancho') { currentSnap.gancho = currentPiece.gancho; currentSnap.tecnica = currentPiece.tecnica; }
+    else if (section === 'roteiro') { currentSnap.roteiro = currentPiece.roteiro; currentSnap.formato_roteiro = currentPiece.formato_roteiro; }
+    else if (section === 'legenda') { currentSnap.legenda = currentPiece.legenda; }
+    else if (section === 'cta') { currentSnap.cta = currentPiece.cta; }
+
+    // Remove o snapshot escolhido e coloca o atual no topo
+    hist.splice(index, 1);
+    hist.unshift(currentSnap);
+    pieceHistory[section] = hist.slice(0, HIST_LIMIT);
+
+    // Aplica versão restaurada no currentPiece
+    if (section === 'gancho') {
+      currentPiece.gancho = target.gancho;
+      if (target.tecnica) currentPiece.tecnica = target.tecnica;
+      $('#cGancho').textContent = target.gancho;
+      const tecEl = $('#cGanchoTecnica');
+      if (tecEl) {
+        if (target.tecnica) { tecEl.textContent = target.tecnica.toLowerCase(); tecEl.classList.remove('hidden'); }
+        else { tecEl.classList.add('hidden'); }
+      }
+    } else if (section === 'roteiro') {
+      currentPiece.roteiro = target.roteiro;
+      if (target.formato_roteiro) currentPiece.formato_roteiro = target.formato_roteiro;
+      renderRoteiro(target.roteiro, currentPiece.formato_roteiro);
+      $('#cRoteiroLen').textContent = target.roteiro.length;
+      const fmtEl = $('#cRoteiroFormato');
+      if (fmtEl) {
+        const isDial = (currentPiece.formato_roteiro === 'dialogo') || $('#cRoteiro').classList.contains('roteiro-dialogo');
+        fmtEl.textContent = isDial ? 'diálogo' : 'relato';
+      }
+    } else if (section === 'legenda') {
+      currentPiece.legenda = target.legenda;
+      $('#cLegenda').textContent = target.legenda;
+    } else if (section === 'cta') {
+      currentPiece.cta = target.cta;
+      $('#cCta').textContent = target.cta;
+    }
+
+    markPieceAsEdited();
+    refreshHistoryButtons();
+    closeHistoryPanel();
+    showToast(`${section} restaurado de ${formatRelativeTime(target.ts)}`, 'success', 2200);
+  }
+
+  // Atualiza o estado dos botões de histórico em todas as seções
+  function refreshHistoryButtons() {
+    ['gancho','roteiro','legenda','cta'].forEach(section => {
+      const btn = document.querySelector(`[data-history="${section}"]`);
+      if (!btn) return;
+      const count = (pieceHistory[section] || []).length;
+      const countEl = btn.querySelector('.hist-count');
+      if (count === 0) {
+        btn.classList.add('hidden');
+      } else {
+        btn.classList.remove('hidden');
+        if (countEl) countEl.textContent = count;
+      }
+    });
+  }
+
+  function formatRelativeTime(ts) {
+    const diff = Math.max(0, Date.now() - ts);
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return 'agora há pouco';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min} min atrás`;
+    const hr = Math.floor(min / 60);
+    return `${hr} h atrás`;
+  }
+
+  // ===== Painel de histórico (popover) =====
+  // Aparece sob o header da seção quando o usuário clica "↩ histórico (n)".
+  // Lista versões anteriores em ordem cronológica reversa, com preview do
+  // texto e botão "restaurar".
+  function openHistoryPanel(section, anchorBtn) {
+    closeHistoryPanel();
+    const hist = pieceHistory[section] || [];
+    if (!hist.length) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'historyPanel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', `Histórico de versões de ${section}`);
+    panel.style.cssText = `position:absolute; z-index:50; right:0; top:100%; margin-top:8px; min-width:320px; max-width:420px; background:var(--ink-2); border:1px solid var(--rule-strong); padding:14px; border-radius:2px; box-shadow:0 8px 30px rgba(0,0,0,0.5);`;
+
+    const header = `<div class="flex items-center justify-between mb-3"><p class="eyebrow">Versões anteriores</p><button id="histClose" class="micro-btn w-6 h-6 grid place-items-center" aria-label="Fechar"><i class="ri-close-line text-[14px]"></i></button></div>`;
+
+    const items = hist.map((snap, i) => {
+      const txt = section === 'gancho' ? snap.gancho : section === 'roteiro' ? snap.roteiro : section === 'legenda' ? snap.legenda : snap.cta;
+      const preview = (txt || '').slice(0, 110) + ((txt || '').length > 110 ? '…' : '');
+      return `<div class="hist-item border-t rule pt-3 mt-3 first:border-t-0 first:pt-0 first:mt-0">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[10.5px] mono uppercase" style="letter-spacing: 0.08em; color: var(--text-mute);">${formatRelativeTime(snap.ts)}</span>
+          <button data-restore="${section}" data-idx="${i}" class="micro-btn flex items-center gap-1.5">
+            <span class="serif italic" style="font-variation-settings:'opsz' 96;">↩</span>
+            <span>Restaurar</span>
+          </button>
+        </div>
+        <p class="body-text body-soft text-[13px] leading-snug clamp-3">${escapeHtml(preview)}</p>
+      </div>`;
+    }).join('');
+
+    panel.innerHTML = header + items;
+
+    // Coloca o painel relativo ao container da seção (anchorBtn está no header)
+    const sectionEl = anchorBtn.closest('.section-block');
+    if (sectionEl) {
+      sectionEl.style.position = 'relative';
+      sectionEl.appendChild(panel);
+    } else {
+      document.body.appendChild(panel);
+    }
+
+    panel.querySelector('#histClose').onclick = closeHistoryPanel;
+    panel.querySelectorAll('[data-restore]').forEach(b => {
+      b.onclick = () => restorePieceVersion(b.dataset.restore, parseInt(b.dataset.idx, 10));
+    });
+
+    // Fecha ao clicar fora ou ESC
+    setTimeout(() => {
+      const offClick = (e) => {
+        if (!panel.contains(e.target) && e.target !== anchorBtn && !anchorBtn.contains(e.target)) {
+          closeHistoryPanel();
+          document.removeEventListener('click', offClick);
+        }
+      };
+      document.addEventListener('click', offClick);
+      panel._offClick = offClick;
+    }, 30);
+    const offEsc = (e) => { if (e.key === 'Escape') { closeHistoryPanel(); document.removeEventListener('keydown', offEsc); } };
+    document.addEventListener('keydown', offEsc);
+    panel._offEsc = offEsc;
+  }
+
+  function closeHistoryPanel() {
+    const p = document.getElementById('historyPanel');
+    if (!p) return;
+    if (p._offClick) document.removeEventListener('click', p._offClick);
+    if (p._offEsc) document.removeEventListener('keydown', p._offEsc);
+    p.remove();
+  }
+
+  // Indica visualmente no header que a peça foi alterada e o score
+  // está defasado. O usuário pode reanalisar via botão "Analisar fundo".
+  function markPieceAsEdited() {
+    if (!currentPiece) return;
+    currentPiece.edited = true;
+    const lab = $('#cScoreLabel');
+    if (lab) {
+      lab.textContent = 'avaliação · editado';
+      lab.style.color = 'var(--warn)';
+    }
+    // Subscores também ficam defasados — esmaecidos
+    ['cGanchoSubscore','cRoteiroSubscore','cLegendaSubscore','cCtaSubscore'].forEach(id => {
+      const el = $('#'+id);
+      if (el && !el.classList.contains('hidden')) {
+        el.style.opacity = '0.45';
+        el.title = 'Pontuação da versão anterior — clique "Analisar fundo" para reavaliar';
+      }
+    });
+    // Edição (regerar / restaurar versão) atualiza o item no histórico de criações.
+    saveCreation(currentPiece);
+  }
+
+  // Refine global
+  $('#cBtnRefine').onclick = () => {
+    if (!currentPiece) return;
+    $('#refineModal').classList.remove('hidden');
+    $('#refineInput').value = '';
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => $('#refineInput').focus(), 80);
+  };
+  $('#btnRefineGo').onclick = async () => {
+    const inst = $('#refineInput').value.trim();
+    if (!inst) return;
+    const key = await getApiKey();
+    if (!key) return;
+    $('#refineModal').classList.add('hidden');
+    document.body.style.overflow = '';
+    const model = localStorage.getItem(LS_MODEL) || 'llama-3.3-70b-versatile';
+    showToast('Refinando peça inteira…', 'info');
+    try {
+      const content = await callGroq({
+        key, model, temperature: 0.75, maxTokens: 2400,
+        system: 'Retorna APENAS JSON.',
+        user: `Você é copywriter BR. Refine a PEÇA abaixo seguindo a INSTRUÇÃO. Mantenha tema "${currentPiece.tema}", energia ${activeEnergy}, plataforma ${activePlatform}.
+
+PEÇA ATUAL:
+GANCHO: "${currentPiece.gancho}"
+ROTEIRO: "${currentPiece.roteiro}"
+LEGENDA: "${currentPiece.legenda}"
+CTA: "${currentPiece.cta}"
+
+INSTRUÇÃO: ${inst}
+
+Retorne JSON: {"gancho":"...","roteiro":"...","legenda":"...","cta":"...","tese":"...","angulo":"..."}`
+      });
+      const json = JSON.parse(content);
+      if (!json.gancho || violates(json.gancho) || violates(json.roteiro) || violates(json.legenda) || violates(json.cta)) {
+        throw new Error('Refino violou normas');
+      }
+      // Refine = mudança ampla. Empilha as 4 seções no histórico antes de
+      // sobrescrever, pra usuário poder voltar versão por versão se quiser.
+      pushPieceHistory('gancho', currentPiece);
+      pushPieceHistory('roteiro', currentPiece);
+      pushPieceHistory('legenda', currentPiece);
+      pushPieceHistory('cta', currentPiece);
+      // Aplica refino e re-analisa externa para score honesto
+      Object.assign(currentPiece, json);
+      try {
+        const analysis = await analyzeOne(piecePlainText(currentPiece), key, model);
+        currentPiece.score = analysis.score;
+        currentPiece.classificacao = analysis.classificacao;
+        currentPiece.previsao = analysis.score;
+        currentPiece.veredito = analysis.veredito;
+        currentPiece.elementos = analysis.elementos;
+        currentPiece.scoreCalibrado = calibrateScore(analysis.score);
+        currentPiece.classCalibrada = classifyByScore(currentPiece.scoreCalibrado);
+        currentPiece.calibrated = calibrationModel().ready;
+        currentPiece.edited = false;
+      } catch (e) {
+        // Se análise falha, marca como editado
+        currentPiece.edited = true;
+        currentPiece.elementos = null;
+      }
+      renderPiece(currentPiece);
+      refreshHistoryButtons();
+      saveCreation(currentPiece);   // refino atualiza o item no histórico de criações
+      if (currentPiece.edited) {
+        markPieceAsEdited();
+        showToast('Peça refinada (avaliação indisponível)', 'warn');
+      } else {
+        showToast(`Peça refinada — ${currentPiece.classificacao?.toLowerCase() || 'avaliada'}`, 'success');
+      }
+    } catch (e) {
+      showToast('Falha: ' + e.message, 'error');
+    }
+  };
+
+  // Bridge Criar → Analisar
+  $('#cBtnAnalyze').onclick = () => {
+    if (!currentPiece) return;
+    const fullText = `${currentPiece.gancho}\n\n${currentPiece.roteiro}\n\n${currentPiece.legenda}\n\n${currentPiece.cta}`;
+    $('#inputText').value = fullText;
+    $('#charCount').textContent = fullText.length;
+    switchTab('analisar');
+    setTimeout(() => analyze(), 80);
+  };
+  $('#cBtnCopy').onclick = () => {
+    if (!currentPiece) return;
+    const text = `🎯 GANCHO\n${currentPiece.gancho}\n\n📜 ROTEIRO\n${currentPiece.roteiro}\n\n💬 LEGENDA\n${currentPiece.legenda}\n\n🔔 CTA\n${currentPiece.cta}`;
+    navigator.clipboard.writeText(text).then(() => showToast('Copiado', 'success'));
+  };
+  $('#cBtnReport').onclick = () => {
+    if (!currentPiece) return;
+    const reports = JSON.parse(localStorage.getItem('df_violations') || '[]');
+    reports.push({ piece: currentPiece, when: Date.now() });
+    localStorage.setItem('df_violations', JSON.stringify(reports.slice(-50)));
+    showToast('Reportado. Vou aprender a evitar.', 'info');
+  };
+
+  // ===== MEMÓRIA VIEW =====
+  // Reabre um item da Memória como a TELA DE RESULTADO COMPLETA (idêntica à da
+  // análise original): reaproveita renderResult(); setar currentAnalysis faz os
+  // botões de feedback (Viral/Mediano/Flop) salvarem nesse mesmo item depois.
+  function openFromMemory(id) {
+    const item = memoria.find(m => m.id === id);
+    if (!item) return;
+    // robustez p/ itens antigos (garante os campos que renderResult lê)
+    item.razoes = Array.isArray(item.razoes) ? item.razoes : [];
+    item.melhorias = Array.isArray(item.melhorias) ? item.melhorias : [];
+    ['score', 'gancho', 'retencao', 'share'].forEach(k => { if (typeof item[k] !== 'number') item[k] = 0; });
+    if (!item.classificacao) item.classificacao = '—';
+    currentAnalysis = item;
+    const inp = $('#inputText'); if (inp) inp.value = item.texto || '';   // p/ o "Enviar para…" usar o texto certo
+    switchTab('analisar');
+    renderResult(item);
+    const rw = $('#resultWrap'); if (rw) rw.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ===== HISTÓRICO DE CRIAÇÕES (ferramenta Criar) =====
+  // Espelha a Memória do Analisar: toda peça composta é salva automaticamente,
+  // reabre COMPLETA (renderPiece), e pode ser editada/copiada/reenviada depois.
+  function updateCriacoesCount() {
+    const n = criacoes.length;
+    const c = $('#criacoesCount'); if (c) c.textContent = n;
+    const t = $('#criacoesTotal'); if (t) t.textContent = `(${n})`;
+  }
+
+  // Salva/atualiza uma peça no histórico. Upsert por id: editar NÃO duplica e a
+  // peça recém-mexida sobe pro topo. Snapshot clonado p/ não vazar referências.
+  function saveCreation(piece) {
+    if (!piece) return;
+    try {
+      piece.id = piece.id || ('c' + Date.now() + Math.random().toString(36).slice(2, 6));
+      piece.createdAt = piece.createdAt || Date.now();
+      piece.updatedAt = Date.now();
+      const snap = JSON.parse(JSON.stringify(piece));
+      criacoes = criacoes.filter(c => c.id !== piece.id);
+      criacoes.unshift(snap);
+      criacoes = criacoes.slice(0, 200);
+      localStorage.setItem(LS_CRIACOES, JSON.stringify(criacoes));
+      updateCriacoesCount();
+      if (!$('#criacoesDrawer').classList.contains('hidden')) renderCriacoes();
+    } catch (e) {
+      console.warn('LS save criação', e);
+      showToast('Histórico de criações cheio — limpe itens antigos', 'warn');
+    }
+  }
+
+  function renderCriacoes() {
+    const list = $('#criacoesList'); if (!list) return;
+    const q = ($('#criacoesSearch')?.value || '').toLowerCase().trim();
+    let items = [...criacoes];
+    if (q) items = items.filter(c =>
+      (c.tema || '').toLowerCase().includes(q) ||
+      (c.gancho || '').toLowerCase().includes(q) ||
+      (c.legenda || '').toLowerCase().includes(q) ||
+      (c.roteiro || '').toLowerCase().includes(q));
+    if (items.length === 0) {
+      list.innerHTML = `<div class="text-center py-16 px-6">
+        <p class="serif italic text-base body-mute" style="font-variation-settings:'opsz' 96;">${criacoes.length ? 'Nada encontrado' : 'Nenhuma criação ainda'}</p>
+        <p class="text-[12px] body-mute mt-2">${criacoes.length ? 'Tente outro termo.' : 'Componha uma peça — ela aparece aqui automaticamente.'}</p>
+      </div>`;
+      return;
+    }
+    list.innerHTML = items.map(it => {
+      const cls = (it.calibrated && it.classCalibrada ? it.classCalibrada : it.classificacao || '').toLowerCase();
+      const colorMap = { viral: 'var(--good)', mediano: 'var(--warn)', flop: 'var(--bad)' };
+      const color = colorMap[cls] || 'var(--text-mute)';
+      const score = (it.calibrated && typeof it.scoreCalibrado === 'number') ? it.scoreCalibrado
+        : (typeof it.previsao === 'number' && it.previsao > 0) ? Math.round(it.previsao) : null;
+      const when = new Date(it.createdAt || Date.now()).toLocaleString('pt-BR', { day: '2-digit', month: 'short' });
+      const fmtMap = { video: 'vídeo', carrossel: 'carrossel', post: 'post' };
+      const fmt = fmtMap[it.formato] || it.formato || '';
+      const title = it.tema || it.gancho || 'Peça sem tema';
+      return `<article data-open="${it.id}" role="button" tabindex="0" title="Reabrir criação completa" class="border-b rule py-4 px-4 hover:bg-white/[0.02] transition-colors cursor-pointer rounded-sm">
+        <div class="flex items-start gap-4">
+          <div class="shrink-0 w-11 text-right">
+            <div class="serif text-[21px] font-medium leading-none" style="color: ${color}; font-variation-settings:'opsz' 144;">${score == null ? '—' : score}</div>
+            <div class="text-[10px] body-mute mt-1 uppercase tracking-wider">${when}</div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3 flex-wrap mb-1">
+              ${cls ? `<span class="text-[10.5px] uppercase font-semibold" style="color: ${color}; letter-spacing:0.1em;">${cls}</span>` : ''}
+              ${fmt ? `<span class="text-[10px] body-mute uppercase" style="letter-spacing:0.08em;">${escapeHtml(fmt)}</span>` : ''}
+              ${it.edited ? `<span class="text-[10px] italic serif" style="color: var(--accent); font-variation-settings:'opsz' 96;">editado</span>` : ''}
+            </div>
+            <p class="body-text font-medium truncate text-[14px]">${escapeHtml(title)}</p>
+            <p class="body-text body-soft clamp-2 text-[13px] mt-0.5">${escapeHtml(it.gancho || '')}</p>
+          </div>
+          <button data-delc="${it.id}" class="micro-btn w-7 h-7 grid place-items-center shrink-0" aria-label="Excluir criação"><i class="ri-delete-bin-line" aria-hidden="true"></i></button>
+        </div>
+      </article>`;
+    }).join('');
+
+    list.querySelectorAll('[data-delc]').forEach(b => {
+      b.onclick = (e) => {
+        e.stopPropagation();
+        criacoes = criacoes.filter(c => c.id !== b.dataset.delc);
+        localStorage.setItem(LS_CRIACOES, JSON.stringify(criacoes));
+        updateCriacoesCount();
+        renderCriacoes();
+      };
+    });
+    list.querySelectorAll('[data-open]').forEach(art => {
+      art.onclick = (e) => { if (e.target.closest('[data-delc]')) return; openFromCreation(art.dataset.open); };
+      art.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFromCreation(art.dataset.open); } };
+    });
+  }
+
+  // Reabre uma criação como a TELA DE RESULTADO COMPLETA (renderPiece). Edita uma
+  // cópia ligada ao MESMO id — toda edição posterior atualiza esse mesmo item.
+  function openFromCreation(id) {
+    const item = criacoes.find(c => c.id === id);
+    if (!item) return;
+    currentPiece = JSON.parse(JSON.stringify(item));
+    pieceHistory = { gancho: [], roteiro: [], legenda: [], cta: [] };
+    closeCriacoes();
+    switchTab('criar');
+    renderPiece(currentPiece);
+    refreshHistoryButtons();
+    const r = $('#cResult'); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function openCriacoes() {
+    renderCriacoes();
+    $('#criacoesDrawer').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => $('#criacoesSearch')?.focus(), 60);
+  }
+  function closeCriacoes() {
+    $('#criacoesDrawer').classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+  $('#btnCriacoes')?.addEventListener('click', openCriacoes);
+  $('#criacoesDrawer')?.addEventListener('click', (e) => { if (e.target.closest('[data-close="criacoes"]')) closeCriacoes(); });
+  $('#criacoesSearch')?.addEventListener('input', renderCriacoes);
+  $('#btnClearCriacoes')?.addEventListener('click', () => {
+    if (!criacoes.length) return;
+    if (!confirm('Limpar todo o histórico de criações?')) return;
+    criacoes = [];
+    localStorage.setItem(LS_CRIACOES, JSON.stringify(criacoes));
+    updateCriacoesCount();
+    renderCriacoes();
+    showToast('Histórico de criações limpo', 'info');
+  });
+
+  function renderMemory() {
+    const q = ($('#memSearch')?.value || '').toLowerCase();
+    const f = $('#memFilter')?.value || 'all';
+    const list = $('#memList'); if (!list) return;
+    let items = [...memoria];
+    if (f === 'starred') items = items.filter(i => i.starred);
+    else if (f !== 'all') items = items.filter(i => (i.feedback || i.classificacao?.toLowerCase()) === f);
+    if (q) items = items.filter(i => (i.texto||'').toLowerCase().includes(q) || (i.veredito||'').toLowerCase().includes(q));
+    $('#memTotal').textContent = `(${memoria.length})`;
+    if (items.length === 0) {
+      list.innerHTML = `<div class="text-center py-16"><p class="serif italic text-base body-mute" style="font-variation-settings:'opsz' 96;">Arquivo vazio</p></div>`;
+      return;
+    }
+    list.innerHTML = items.map(it => {
+      const cls = (it.feedback || it.classificacao || '').toLowerCase();
+      const colorMap = { viral: 'var(--good)', mediano: 'var(--warn)', flop: 'var(--bad)' };
+      const color = colorMap[cls] || 'var(--text-mute)';
+      const when = new Date(it.timestamp).toLocaleString('pt-BR', { day:'2-digit', month:'short' });
+      return `<article data-open="${it.id}" role="button" tabindex="0" title="Abrir análise completa" class="border-b rule py-5 px-1 hover:bg-white/[0.015] transition-colors cursor-pointer" style="--row-accent: ${color};">
+        <div class="flex items-start gap-5">
+          <div class="shrink-0 w-12 text-right">
+            <div class="serif text-[22px] font-medium leading-none" style="color: ${color}; font-variation-settings:'opsz' 144;">${it.score||0}</div>
+            <div class="text-[10px] body-mute mt-1 uppercase tracking-wider">${when}</div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3 flex-wrap mb-1.5">
+              <span class="text-[10.5px] uppercase font-semibold" style="color: ${color}; letter-spacing:0.1em;">${cls || '—'}</span>
+              ${it.platform ? `<span class="text-[10px] body-mute uppercase" style="letter-spacing:0.08em;">${escapeHtml(it.platform)}</span>` : ''}
+              ${it.nicho && it.nicho !== 'geral' ? `<span class="text-[10px] body-mute uppercase" style="letter-spacing:0.08em;">${escapeHtml(it.nicho)}</span>` : ''}
+              ${it.feedback ? `<span class="text-[10px] italic serif" style="color: var(--accent); font-variation-settings:'opsz' 96;">ensinado</span>` : ''}
+            </div>
+            <p class="body-text clamp-2 text-[14px]">${escapeHtml(it.texto||'')}</p>
+            ${it.veredito ? `<p class="serif italic text-[13px] body-soft mt-1.5 clamp-2" style="font-variation-settings:'opsz' 96;">"${escapeHtml(it.veredito)}"</p>` : ''}
+          </div>
+          <div class="flex flex-col gap-1 shrink-0">
+            <button data-star="${it.id}" class="micro-btn w-7 h-7 grid place-items-center" style="${it.starred?'color: var(--accent);':''}" aria-label="Favoritar" aria-pressed="${it.starred?'true':'false'}"><i class="ri-star-${it.starred?'fill':'line'}" aria-hidden="true"></i></button>
+            <button data-del="${it.id}" class="micro-btn w-7 h-7 grid place-items-center" aria-label="Excluir"><i class="ri-delete-bin-line" aria-hidden="true"></i></button>
+          </div>
+        </div>
+      </article>`;
+    }).join('');
+
+    list.querySelectorAll('[data-del]').forEach(b => {
+      b.onclick = () => {
+        memoria = memoria.filter(m => m.id !== b.dataset.del);
+        localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+        $('#memCount').textContent = memoria.length;
+        renderMemory(); renderInsights();
+      };
+    });
+    list.querySelectorAll('[data-star]').forEach(b => {
+      b.onclick = () => {
+        const idx = memoria.findIndex(m => m.id === b.dataset.star);
+        if (idx < 0) return;
+        memoria[idx].starred = !memoria[idx].starred;
+        localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+        renderMemory();
+      };
+    });
+    // Clicar no item (fora dos botões ★/excluir) reabre a análise COMPLETA.
+    list.querySelectorAll('[data-open]').forEach(art => {
+      art.onclick = (e) => {
+        if (e.target.closest('[data-star], [data-del]')) return;
+        openFromMemory(art.dataset.open);
+      };
+      art.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFromMemory(art.dataset.open); }
+      };
+    });
+  }
+  $('#memSearch')?.addEventListener('input', renderMemory);
+  $('#memFilter')?.addEventListener('change', renderMemory);
+
+  function renderInsights() {
+    const box = $('#insightsBox'); if (!box) return;
+    const taught = memoria.filter(m => m.feedback);
+    if (taught.length < 3) {
+      box.innerHTML = `<div class="p-5" style="background: var(--ink);">
+        <p class="serif italic text-[15px] body-soft mb-3" style="font-variation-settings:'opsz' 96;">Insights surgem aos 3 feedbacks.</p>
+        <p class="text-[12px] body-mute mb-3 mono">${taught.length} de 3</p>
+        <div class="h-px relative overflow-hidden" style="background: var(--rule);">
+          <div class="absolute h-full" style="background: var(--accent); width: ${(taught.length/3)*100}%; transition: width 400ms;"></div>
+        </div>
+      </div>`;
+      return;
+    }
+    const virais = taught.filter(m => m.feedback === 'viral');
+    const flops = taught.filter(m => m.feedback === 'flop');
+    const winRate = Math.round((virais.length / taught.length) * 100);
+    const avgViralLen = virais.length ? Math.round(virais.reduce((a,m)=>a+(m.texto?.length||0),0)/virais.length) : 0;
+    const avgFlopLen = flops.length ? Math.round(flops.reduce((a,m)=>a+(m.texto?.length||0),0)/flops.length) : 0;
+    const STOP = new Set(['que','para','com','não','nao','uma','você','voce','isso','este','esta','mas','por','dos','das','seu','sua','nas','nos','meu','minha','foi','são','sao','tem','tinha','quando','como','está','estão','estao','sem','até','ate','mais','muito','aqui','ali','assim','pelo','pela','quem','onde','quer','vai','vou','tem','tem','seria','quero','queria']);
+    const wordCount = {};
+    virais.forEach(m => {
+      (m.texto||'').toLowerCase().replace(/[^a-záéíóúâêôãõç ]/gi,'').split(/\s+/).forEach(w => {
+        if (w.length >= 4 && !STOP.has(w)) wordCount[w] = (wordCount[w]||0) + 1;
+      });
+    });
+    const topWords = Object.entries(wordCount).sort((a,b)=>b[1]-a[1]).slice(0,3);
+
+    box.innerHTML = `
+      <div class="p-5" style="background: var(--ink);">
+        <p class="eyebrow mb-2">Win rate</p>
+        <div class="flex items-baseline gap-2">
+          <span class="serif text-[42px] font-medium leading-none" style="color: var(--good); font-variation-settings:'opsz' 144;">${winRate}</span>
+          <span class="body-mute text-[13px]">%</span>
+        </div>
+        <p class="text-[12px] body-mute mt-2">${virais.length} virais em ${taught.length} marcados</p>
+      </div>
+      <div class="p-5" style="background: var(--ink);">
+        <p class="eyebrow mb-2">Tamanho típico</p>
+        <p class="body-text text-[14px]">Virais: <span class="mono font-medium">${avgViralLen}</span> caracteres</p>
+        ${avgFlopLen ? `<p class="body-text body-soft text-[13px] mt-1">Flops: <span class="mono">${avgFlopLen}</span> caracteres</p>` : ''}
+        ${avgViralLen && avgFlopLen ? `<p class="serif italic text-[12px] mt-3" style="color: var(--accent); font-variation-settings:'opsz' 96;">→ ${avgViralLen < avgFlopLen ? 'seus virais são mais curtos' : avgViralLen > avgFlopLen ? 'seus virais são mais longos' : 'tamanho não diferencia'}</p>` : ''}
+      </div>
+      ${topWords.length ? `<div class="p-5" style="background: var(--ink);">
+        <p class="eyebrow mb-3">Voz dos virais</p>
+        <div class="flex flex-wrap gap-1.5">
+          ${topWords.map(([w,c])=>`<span class="text-[12px] px-2.5 py-1 border rule-strong" style="color: var(--text);">${escapeHtml(w)} <span class="mono body-mute">×${c}</span></span>`).join('')}
+        </div>
+      </div>` : ''}
+    `;
+  }
+
+  // Modo Treinamento
+  $('#btnTraining').onclick = () => {
+    const taught = memoria.filter(m => m.feedback);
+    if (taught.length < 5) return showToast('Precisa de 5+ feedbacks salvos', 'warn');
+    const sample = [...taught].sort(()=>Math.random()-0.5).slice(0, Math.min(5, taught.length));
+    let idx = 0, score = 0;
+    const modal = $('#trainingModal'); const body = $('#trainingBody');
+    modal.classList.remove('hidden'); document.body.style.overflow='hidden';
+    function step() {
+      if (idx >= sample.length) {
+        body.innerHTML = `<div class="text-center py-8">
+          <p class="serif italic text-[16px] body-soft mb-3" style="font-variation-settings:'opsz' 96;">${score >= 4 ? 'Calibrado.' : score >= 3 ? 'No caminho.' : 'A memória te calibra.'}</p>
+          <div class="serif text-[64px] font-medium leading-none mb-6" style="color: var(--accent); font-variation-settings:'opsz' 144;">${score}<span class="body-mute text-[24px]">/${sample.length}</span></div>
+          <button id="trEnd" class="btn-primary px-5 h-11 text-[13px] font-semibold rounded-sm">Fechar</button>
+        </div>`;
+        $('#trEnd').onclick = () => { modal.classList.add('hidden'); document.body.style.overflow=''; };
+        return;
+      }
+      const it = sample[idx];
+      body.innerHTML = `<div>
+        <p class="eyebrow mb-2">Caso ${idx+1} / ${sample.length} · acertos ${score}</p>
+        <div class="border rule-strong p-5 my-5"><p class="body-text text-[14px]" style="white-space: pre-wrap;">${escapeHtml(it.texto||'')}</p></div>
+        <p class="body-text body-soft mb-4 text-[14px]">Como esse foi na vida real?</p>
+        <div class="grid grid-cols-3 gap-2">
+          <button data-g="viral" class="g-btn btn-ghost h-11 text-[13px] font-medium rounded-sm">Viral</button>
+          <button data-g="mediano" class="g-btn btn-ghost h-11 text-[13px] font-medium rounded-sm">Mediano</button>
+          <button data-g="flop" class="g-btn btn-ghost h-11 text-[13px] font-medium rounded-sm">Flop</button>
+        </div>
+      </div>`;
+      body.querySelectorAll('.g-btn').forEach(b => {
+        b.onclick = () => {
+          const right = b.dataset.g === it.feedback;
+          if (right) score++;
+          b.style.borderColor = right ? 'var(--good)' : 'var(--bad)';
+          b.style.color = right ? 'var(--good)' : 'var(--bad)';
+          setTimeout(()=>{ idx++; step(); }, 600);
+        };
+      });
+    }
+    step();
+  };
+
+  // Init
+  load();
+  switchTab('analisar');
+  if (!localStorage.getItem(LS_API) && !localStorage.getItem(LS_API_ENC)) {
+    setTimeout(()=> showToast('Configure sua chave Groq em Configurações', 'info', 5000), 800);
+  }
+
+  // Spin keyframe (used by inline icons)
+  const styleSpin = document.createElement('style');
+  styleSpin.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(styleSpin);
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) { addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+</script>
+</body>
+</html>

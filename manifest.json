@@ -1,7 +1,7 @@
 {
-  "name": "Agente de Postagem",
-  "short_name": "Ag. Postagem",
-  "description": "Criação de matérias e postagens para redes sociais com IA.",
+  "name": "Agente · Plataforma de conteúdo",
+  "short_name": "Agente",
+  "description": "Plataforma de criação e transformação de conteúdo — ferramentas integradas, direto no navegador.",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#16140f",

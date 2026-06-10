@@ -1,0 +1,17 @@
+{
+  "name": "agente-de-postagem",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agente de Postagem - PWA client-side para criação de matérias com IA",
+  "scripts": {
+    "lint": "eslint \"src/**/*.js\"",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.8"
+  }
+}

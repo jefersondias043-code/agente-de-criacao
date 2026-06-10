@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Replicador — Engenharia reversa de roteiros</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a09;
+  --bg-elev: #131311;
+  --bg-elev-2: #1c1c19;
+  --ink: #f5f1e8;
+  --ink-dim: #a8a298;
+  --ink-faint: #6b665d;
+  --accent: #d4a574;
+  --accent-soft: #2a221a;
+  --danger: #c87b6b;
+  --success: #8aa67a;
+  --border: rgba(245, 241, 232, 0.08);
+  --border-strong: rgba(245, 241, 232, 0.16);
+  --serif: 'Fraunces', Georgia, serif;
+  --sans: 'Inter Tight', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(212, 165, 116, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(212, 165, 116, 0.04), transparent);
+  background-attachment: fixed;
+}
+
+.noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 48px 32px 80px;
+  position: relative;
+  z-index: 2;
+}
+
+/* ============= HEADER ============= */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 64px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-size: 18px;
+  font-style: italic;
+  color: var(--accent);
+}
+
+.brand-name {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.config-btn {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--ink-dim);
+  padding: 8px 16px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.config-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink-dim);
+}
+
+.config-btn.connected {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.config-btn.connected::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 10px var(--success);
+}
+
+/* ============= HERO ============= */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: end;
+  margin-bottom: 80px;
+}
+
+.hero-title {
+  font-family: var(--serif);
+  font-size: clamp(48px, 7vw, 88px);
+  font-weight: 300;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.hero-title em {
+  font-style: italic;
+  color: var(--accent);
+  font-weight: 400;
+}
+
+.hero-tag {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-tag::before {
+  content: '';
+  width: 32px;
+  height: 1px;
+  background: var(--accent);
+}
+
+.hero-sub {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  padding-bottom: 16px;
+}
+
+.hero-sub em {
+  color: var(--ink);
+  font-style: italic;
+}
+
+/* ============= WORKSPACE ============= */
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin-bottom: 24px;
+}
+
+.panel {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  padding: 32px;
+  position: relative;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.1em;
+}
+
+.panel-title {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.panel-title em { font-style: italic; color: var(--accent); }
+
+/* ============= TEXTAREA ============= */
+textarea {
+  width: 100%;
+  min-height: 320px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  padding: 18px 20px;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.7;
+  resize: vertical;
+  transition: border 0.2s;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+textarea::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.char-count {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.05em;
+}
+
+.char-count .clear-btn {
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.char-count .clear-btn:hover { color: var(--danger); }
+
+/* ============= NIVEL CARDS ============= */
+.label-line {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.niveis {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.nivel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 18px 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  font-family: var(--sans);
+}
+
+.nivel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  transition: width 0.3s;
+}
+
+.nivel:hover { border-color: var(--border-strong); }
+
+.nivel.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.nivel.active::before { width: 100%; }
+
+.nivel-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+  letter-spacing: 0.1em;
+}
+
+.nivel.active .nivel-num { color: var(--accent); }
+
+.nivel-name {
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+
+.nivel-desc {
+  font-size: 12px;
+  color: var(--ink-dim);
+  line-height: 1.4;
+}
+
+.nivel.active .nivel-desc { color: var(--ink); }
+
+/* ============= MODEL SELECT ============= */
+.model-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.model-row label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.model-row select {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.model-row select:focus { outline: none; }
+
+.model-row select option {
+  background: var(--bg-elev);
+  color: var(--ink);
+}
+
+/* ============= GENERATE BTN ============= */
+.generate-btn {
+  width: 100%;
+  background: var(--ink);
+  color: var(--bg);
+  border: none;
+  padding: 18px 24px;
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.generate-btn:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.generate-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.generate-btn em {
+  font-style: italic;
+}
+
+.generate-btn .arrow {
+  font-family: var(--sans);
+  font-style: normal;
+  transition: transform 0.3s;
+}
+
+.generate-btn:hover:not(:disabled) .arrow { transform: translateX(4px); }
+
+/* ============= OUTPUT ============= */
+.output-area {
+  min-height: 380px;
+  display: flex;
+  flex-direction: column;
+}
+
+.output-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16px;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.output-empty-mark {
+  font-family: var(--serif);
+  font-size: 80px;
+  font-weight: 300;
+  color: var(--accent);
+  opacity: 0.2;
+  margin-bottom: 16px;
+  line-height: 1;
+}
+
+.loader {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 40px;
+}
+
+.loader-bars {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  height: 32px;
+}
+
+.loader-bar {
+  width: 4px;
+  background: var(--accent);
+  animation: bounce 1.2s ease-in-out infinite;
+}
+
+.loader-bar:nth-child(1) { animation-delay: 0s; height: 60%; }
+.loader-bar:nth-child(2) { animation-delay: 0.15s; height: 80%; }
+.loader-bar:nth-child(3) { animation-delay: 0.3s; height: 100%; }
+.loader-bar:nth-child(4) { animation-delay: 0.45s; height: 70%; }
+.loader-bar:nth-child(5) { animation-delay: 0.6s; height: 90%; }
+
+@keyframes bounce {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+.loader-text {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  font-size: 15px;
+}
+
+.output-content {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 24px 28px;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.8;
+  color: var(--ink);
+  white-space: pre-wrap;
+  max-height: 540px;
+  overflow-y: auto;
+}
+
+.output-content::-webkit-scrollbar { width: 8px; }
+.output-content::-webkit-scrollbar-track { background: var(--bg); }
+.output-content::-webkit-scrollbar-thumb { background: var(--border-strong); }
+
+.output-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.action-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--ink-dim);
+  padding: 11px 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink-dim);
+  background: var(--bg-elev-2);
+}
+
+.action-btn.regen { color: var(--accent); border-color: var(--accent); }
+.action-btn.regen:hover { background: var(--accent-soft); }
+
+/* ============= ERROR ============= */
+.error-banner {
+  background: rgba(200, 123, 107, 0.08);
+  border: 1px solid var(--danger);
+  border-left-width: 3px;
+  padding: 14px 18px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--danger);
+  display: none;
+  font-family: var(--sans);
+}
+
+/* ============= MODAL ============= */
+.modal-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 9, 0.85);
+  backdrop-filter: blur(12px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+
+.modal-bg.open { display: flex; }
+
+.modal {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  max-width: 560px;
+  width: 100%;
+  padding: 40px;
+  position: relative;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--ink-faint);
+  font-size: 24px;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.modal-close:hover { color: var(--ink); }
+
+.modal-eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.modal-title {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  line-height: 1.1;
+}
+
+.modal-title em { font-style: italic; color: var(--accent); }
+
+.modal-desc {
+  color: var(--ink-dim);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.modal label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  margin-top: 16px;
+}
+
+.modal input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 13px;
+  transition: border 0.2s;
+}
+
+.modal input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.modal-help {
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.modal-help a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 13px 20px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.modal-btn-primary {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.modal-btn-primary:hover { background: var(--accent); }
+
+.modal-btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--ink-dim);
+}
+
+.modal-btn-secondary:hover { color: var(--ink); border-color: var(--ink); }
+
+.modal-status {
+  font-size: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  display: none;
+  font-family: var(--sans);
+}
+
+.modal-status.success {
+  display: block;
+  background: rgba(138, 166, 122, 0.1);
+  border-left: 2px solid var(--success);
+  color: var(--success);
+}
+
+.modal-status.error {
+  display: block;
+  background: rgba(200, 123, 107, 0.1);
+  border-left: 2px solid var(--danger);
+  color: var(--danger);
+}
+
+/* ============= TOAST ============= */
+.toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 12px 20px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ============= FOOTER ============= */
+.footer {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.1em;
+}
+
+.footer-meta {
+  display: flex;
+  gap: 24px;
+}
+
+/* ============= RESPONSIVE ============= */
+@media (max-width: 880px) {
+  .shell { padding: 32px 20px 60px; }
+  .hero { grid-template-columns: 1fr; gap: 32px; }
+  .workspace { grid-template-columns: 1fr; gap: 20px; }
+  .panel { padding: 24px 20px; }
+  textarea { min-height: 240px; }
+  .niveis { grid-template-columns: 1fr; }
+  .modal { padding: 28px 24px; }
+  .modal-title { font-size: 26px; }
+}
+</style>
+<style id="agente-light-theme">
+  /* Identidade visual da PLATAFORMA (tema claro "jornal") sobreposta ao tema
+     escuro original do Replicador — só remapeia as CSS vars + alguns ajustes. */
+  :root {
+    --bg: #faf8f4;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f3efe7;
+    --ink: #16140f;
+    --ink-dim: #5a544a;
+    --ink-faint: #8a8378;
+    --accent: #b8341c;
+    --accent-soft: #f0d5cd;
+    --danger: #b8341c;
+    --success: #4a7c59;
+    --border: rgba(22, 20, 15, 0.10);
+    --border-strong: rgba(22, 20, 15, 0.18);
+  }
+  body {
+    background: var(--bg) !important;
+    color: var(--ink) !important;
+    background-image:
+      radial-gradient(circle at 25% 10%, rgba(184, 52, 28, 0.025) 0%, transparent 50%),
+      radial-gradient(circle at 80% 90%, rgba(184, 153, 104, 0.05) 0%, transparent 60%) !important;
+  }
+  .noise { display: none !important; }
+  /* CTAs primários no vermelho da plataforma (eram escuros via var(--ink)). */
+  .generate-btn { background: var(--accent) !important; color: #fff !important; }
+  .generate-btn:hover { background: #6e1a09 !important; }
+  .modal-btn-primary { background: var(--accent) !important; color: #fff !important; }
+  .modal-btn-primary:hover { background: #6e1a09 !important; }
+  .action-btn:hover { background: var(--bg-elev-2) !important; }
+
+  /* === Densidade (plataforma): menos rolagem até a ação principal. ===
+     O hero tinha título de ~79px + 80px de margem — a transcrição só
+     aparecia em y≈637. Identidade preservada, em escala editorial sã. */
+  .shell { padding-top: 24px !important; }
+  .topbar { margin-bottom: 24px !important; padding-bottom: 14px !important; }
+  .hero { margin-bottom: 28px !important; }
+  .hero-title { font-size: clamp(26px, 3.2vw, 40px) !important; }
+  .hero-sub { font-size: 13.5px !important; }
+  .footer { margin-top: 40px !important; }
+  /* Painéis e CTA em escala eficiente (era padding 32 / botão 18px serif 18) */
+  .panel { padding: 22px 24px !important; }
+  .panel-header { margin-bottom: 16px !important; padding-bottom: 12px !important; }
+  textarea { min-height: 240px !important; }
+  .generate-btn { padding: 13px 22px !important; font-size: 16px !important; }
+  .panel > div[style*="margin-top: 32px"] { margin-top: 20px !important; }
+  /* Saída vazia: presença mínima até existir conteúdo */
+  .output-area { min-height: 240px !important; }
+  .output-empty { padding: 20px 16px !important; font-size: 14.5px !important; }
+  .output-empty-mark { font-size: 44px !important; margin-bottom: 8px !important; }
+  /* Mobile: os 3 níveis empilhados viravam ~240px — lado a lado preservam tudo */
+  @media (max-width: 880px) {
+    .niveis { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+    .nivel { padding: 10px 8px !important; }
+    .nivel-num { display: none !important; } /* numeração decorativa */
+    .nivel-name { font-size: 14px !important; }
+    .nivel-desc { font-size: 10px !important; line-height: 1.35 !important; }
+    .hero { margin-bottom: 20px !important; }
+    .shell { padding-top: 16px !important; }
+  }
+</style>
+<script>
+/* ===== Ponte de configuração + conteúdo com o app principal (Agente) ====
+   Funciona em file:// e em servidor. Recebe chave/modelo (agente:config) e
+   conteúdo enviado por outras ferramentas (agente:content). */
+(function(){
+  function applyCfg(c){
+    if(!c) return;
+    window.__AGENTE_CONFIG__ = { groqKey: c.groqKey||"", groqModel: c.groqModel||"" };
+    try {
+      if(c.groqKey){ localStorage.setItem("replicador_groq_api_key", c.groqKey); localStorage.setItem("groq_api_key", c.groqKey); }
+      if(c.groqModel){ localStorage.setItem("groq_model", c.groqModel); }
+    } catch(_){}
+  }
+  function applyContent(d){ try{ var ta=document.getElementById("transcricao"); if(ta){ ta.value=d.text||""; ta.dispatchEvent(new Event("input",{bubbles:true})); ta.focus(); ta.scrollIntoView({behavior:"smooth",block:"center"}); } }catch(_){} }
+  /* Segurança: só aceita comandos da janela PAI (o app); ignora outras fontes. */
+  window.addEventListener("message", function(e){ if(!e||!e.data||e.source!==window.parent) return; if(e.data.type==="agente:config") applyCfg(e.data); if(e.data.type==="agente:content") applyContent(e.data); });
+  try { if(window.parent && window.parent!==window) window.parent.postMessage({type:"agente:config-request"}, location.protocol==="file:"?"*":location.origin); } catch(_){}
+})();
+/* ===== Saída: "Enviar para…" — devolve o roteiro replicado ao ecossistema.
+   Aditivo (MutationObserver), não edita o render do Replicador. */
+(function(){
+  function makeBar(getText){
+    var bar=document.createElement("div"); bar.className="agente-sendout";
+    bar.style.cssText="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);";
+    var lab=document.createElement("span"); lab.textContent="Enviar para";
+    lab.style.cssText="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-faint);font-family:var(--mono);font-weight:700;";
+    bar.appendChild(lab);
+    [["autopost","AutoPost"],["generate","Gerar matéria"],["cartazes","Cartaz"],["carrossel","Carrossel"],["detector","Detector"],["reescrita","Reescrever"]].forEach(function(d){
+      var b=document.createElement("button"); b.type="button"; b.className="action-btn"; b.textContent=d[1]+" →";
+      b.addEventListener("click",function(){ var t=(getText()||"").trim(); if(!t) return; try{ window.parent.postMessage({type:"agente:content-out",target:d[0],text:t}, location.protocol==="file:"?"*":location.origin); }catch(_){} });
+      bar.appendChild(b);
+    });
+    return bar;
+  }
+  function outText(){ var el=document.getElementById("output-content"); return el?(el.textContent||"").trim():""; }
+  function inject(){
+    var actions=document.getElementById("output-actions"); if(!actions) return;
+    if(actions.style.display==="none") return;            // só quando há resultado
+    if(document.getElementById("replicadorSendout")) return;
+    var bar=makeBar(outText); bar.id="replicadorSendout";
+    actions.insertAdjacentElement("afterend", bar);
+  }
+  try{ var obs=new MutationObserver(inject); obs.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:["style"]}); }catch(_){}
+  setTimeout(inject, 400);
+})();
+/* ===== Entrada universal: anexar QUALQUER arquivo (texto/TXT/PDF/DOCX/imagem/
+   áudio/vídeo). O app pai converte via src/ingest.js (OCR + Whisper) e devolve
+   o texto, que é acrescentado à transcrição. */
+(function(){
+  var pending={};
+  var ACCEPT=".txt,.pdf,.docx,.png,.jpg,.jpeg,.bmp,.gif,.webp,.tiff,.tif,.mp3,.wav,.m4a,.ogg,.flac,.aac,.mp4,.mpeg,.mpga,.webm,.mov,.3gp,text/plain,application/pdf,image/*,audio/*,video/*";
+  window.addEventListener("message", function(e){
+    if(!e||e.source!==window.parent) return;
+    var d=e.data; if(!d||!d.reqId) return;
+    var cb=pending[d.reqId]; if(!cb) return;
+    if(d.type==="agente:ingest-progress"){ cb.status.textContent=d.msg||"Processando…"; }
+    else if(d.type==="agente:ingest-result"){
+      var ta=cb.target, cur=(ta.value||"").trim();
+      ta.value = cur ? (cur+"\n\n"+(d.text||"")) : (d.text||"");
+      ta.dispatchEvent(new Event("input",{bubbles:true}));
+      cb.status.textContent="Conteúdo adicionado.";
+      setTimeout(function(){ cb.status.textContent=""; }, 2600);
+      delete pending[d.reqId];
+    } else if(d.type==="agente:ingest-error"){
+      cb.status.textContent=d.error||"Não foi possível processar o arquivo.";
+      delete pending[d.reqId];
+    }
+  });
+  function inject(){
+    var ta=document.getElementById("transcricao"); if(!ta||!ta.parentNode) return;
+    if(document.getElementById("replicadorAttach")) return;
+    var wrap=document.createElement("div"); wrap.id="replicadorAttach";
+    wrap.style.cssText="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;";
+    var inp=document.createElement("input"); inp.type="file"; inp.style.display="none"; inp.accept=ACCEPT;
+    var btn=document.createElement("button"); btn.type="button"; btn.className="action-btn";
+    btn.style.cssText="display:inline-flex;align-items:center;gap:7px;";
+    btn.textContent="📎 Anexar arquivo (PDF, imagem, áudio, vídeo…)";
+    var status=document.createElement("span"); status.style.cssText="font-size:11.5px;color:var(--ink-faint);";
+    btn.onclick=function(){ inp.click(); };
+    inp.onchange=function(){
+      var f=inp.files&&inp.files[0]; if(!f) return;
+      var reqId="ing-"+Date.now()+"-"+Math.random().toString(16).slice(2);
+      pending[reqId]={target:ta,status:status}; status.textContent="Processando…";
+      try{ window.parent.postMessage({type:"agente:ingest",reqId:reqId,file:f}, location.protocol==="file:"?"*":location.origin); }
+      catch(_){ status.textContent="Não foi possível enviar o arquivo."; delete pending[reqId]; }
+      inp.value="";
+    };
+    wrap.appendChild(inp); wrap.appendChild(btn); wrap.appendChild(status);
+    ta.insertAdjacentElement("afterend", wrap);
+  }
+  try{ var obs=new MutationObserver(inject); obs.observe(document.documentElement,{childList:true,subtree:true}); }catch(_){}
+  setTimeout(inject, 300);
+})();
+/* Mobile: em coluna única o painel de saída fica ABAIXO do formulário — ao
+   gerar, rola até o loader (feedback) e, ao concluir, até o roteiro. */
+(function(){
+  if (!window.matchMedia) return;
+  var mq = window.matchMedia("(max-width: 880px)");
+  var prev = {};
+  function check(){
+    [["loader","center"],["output-content","start"]].forEach(function(p){
+      var el = document.getElementById(p[0]); if (!el) return;
+      var v = el.style.display !== "none" && el.style.display !== "";
+      if (prev[p[0]] === undefined) { prev[p[0]] = v; return; }
+      if (v && !prev[p[0]] && mq.matches) {
+        try { el.scrollIntoView({ behavior: "smooth", block: p[1] }); } catch(_) {}
+      }
+      prev[p[0]] = v;
+    });
+  }
+  try { new MutationObserver(check).observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ["style"] }); } catch(_) {}
+  setTimeout(check, 400);
+})();
+</script>
+</head>
+<body>
+
+<div class="noise"></div>
+
+<div class="shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">R</div>
+      <div class="brand-name">Replicador</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button class="config-btn" id="hist-btn" type="button" onclick="abrirHistorico()">
+        <span>Histórico</span>
+        <span id="hist-count" style="font-family:var(--mono); font-size:11px; opacity:.7;">0</span>
+      </button>
+      <button class="config-btn" id="config-btn" onclick="abrirModal()">
+        <span id="config-text">Configurar API</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <div class="hero-tag">Engenharia reversa de roteiros</div>
+      <h1 class="hero-title">O que <em>funcionou</em><br>vai funcionar<br>de <em>novo</em>.</h1>
+    </div>
+    <div>
+      <p class="hero-sub">Cole a transcrição de um vídeo que já <em>provou ter audiência</em>. O sistema identifica a arquitetura invisível por trás do sucesso e devolve uma versão nova, com a mesma estrutura, em outra roupagem.</p>
+    </div>
+  </section>
+
+  <div class="workspace">
+
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-num">01 — ENTRADA</div>
+          <div class="panel-title">A <em>referência</em></div>
+        </div>
+      </div>
+
+      <textarea id="transcricao" placeholder="Cole aqui a transcrição completa do vídeo que você quer replicar. Pode ser do seu canal, de outro criador, de qualquer nicho — humor, motivacional, drama, noticiário. O sistema identifica tudo sozinho."></textarea>
+
+      <div class="char-count">
+        <span id="contador">0 caracteres</span>
+        <button class="clear-btn" onclick="limpar()">Limpar</button>
+      </div>
+
+      <div style="margin-top: 32px;">
+        <div class="label-line">02 — Nível de afastamento</div>
+        <div class="niveis">
+          <button class="nivel active" data-nivel="proximo">
+            <div class="nivel-num">01</div>
+            <div class="nivel-name">Próximo</div>
+            <div class="nivel-desc">Troca só os detalhes</div>
+          </button>
+          <button class="nivel" data-nivel="medio">
+            <div class="nivel-num">02</div>
+            <div class="nivel-name">Médio</div>
+            <div class="nivel-desc">Mesma estrutura, ideias novas</div>
+          </button>
+          <button class="nivel" data-nivel="livre">
+            <div class="nivel-num">03</div>
+            <div class="nivel-name">Livre</div>
+            <div class="nivel-desc">Pega só a essência</div>
+          </button>
+        </div>
+      </div>
+
+      <div class="model-row">
+        <label>Modelo</label>
+        <select id="modelo">
+          <option value="llama-3.3-70b-versatile">Llama 3.3 70B — qualidade máxima</option>
+          <option value="llama-3.1-8b-instant">Llama 3.1 8B — instantâneo</option>
+          <option value="openai/gpt-oss-120b">GPT-OSS 120B — maior modelo</option>
+          <option value="openai/gpt-oss-20b">GPT-OSS 20B — equilibrado</option>
+        </select>
+      </div>
+
+      <button class="generate-btn" id="gerar-btn" onclick="gerar()">
+        <span>Gerar <em>nova versão</em></span>
+        <span class="arrow">→</span>
+      </button>
+
+      <div class="error-banner" id="erro"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-num">03 — SAÍDA</div>
+          <div class="panel-title">O <em>roteiro</em></div>
+        </div>
+      </div>
+
+      <div class="output-area" id="output-area">
+        <div class="output-empty" id="output-empty">
+          <div class="output-empty-mark">"</div>
+          <div>O roteiro reescrito vai aparecer aqui.</div>
+        </div>
+
+        <div class="loader" id="loader" style="display:none;">
+          <div class="loader-bars">
+            <div class="loader-bar"></div>
+            <div class="loader-bar"></div>
+            <div class="loader-bar"></div>
+            <div class="loader-bar"></div>
+            <div class="loader-bar"></div>
+          </div>
+          <div class="loader-text" id="loader-text">Analisando a estrutura...</div>
+        </div>
+
+        <div class="output-content" id="output-content" style="display:none;"></div>
+
+        <div class="output-actions" id="output-actions" style="display:none;">
+          <button class="action-btn" onclick="copiarSaida()">
+            <span>Copiar</span>
+          </button>
+          <button class="action-btn" onclick="baixarSaida()">
+            <span>Baixar</span>
+          </button>
+          <button class="action-btn regen" onclick="gerar()">
+            <span>Outra versão</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="footer">
+    <div>REPLICADOR · v1.0</div>
+    <div class="footer-meta">
+      <span>POWERED BY GROQ</span>
+      <span id="footer-status">·</span>
+    </div>
+  </footer>
+
+</div>
+
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <button class="modal-close" onclick="fecharModal()">×</button>
+    <div class="modal-eyebrow">Configuração</div>
+    <h2 class="modal-title">Chave da <em>API Groq</em></h2>
+    <p class="modal-desc">O Groq oferece uma chave gratuita com limite generoso. A chave fica guardada apenas no seu navegador — nunca sai daqui.</p>
+
+    <label for="api-key">Chave da API</label>
+    <input type="password" id="api-key" placeholder="gsk_..." autocomplete="off">
+    <p class="modal-help">Não tem? Cria de graça em <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">console.groq.com/keys</a></p>
+
+    <div class="modal-status" id="modal-status"></div>
+
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="modal-btn modal-btn-primary" onclick="salvarChave()">Salvar chave</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============= HISTÓRICO DE REPLICAÇÕES ============= -->
+<style>
+  #hist-drawer { position: fixed; inset: 0; z-index: 150; display: none; }
+  #hist-drawer.open { display: block; }
+  #hist-drawer .hist-backdrop { position: absolute; inset: 0; background: rgba(10,10,9,0.55); backdrop-filter: blur(6px); }
+  #hist-drawer .hist-panel { position: absolute; top: 0; right: 0; height: 100%; width: 100%; max-width: 560px;
+    background: var(--bg-elev); border-left: 1px solid var(--border-strong); display: flex; flex-direction: column;
+    animation: histIn .26s cubic-bezier(.2,.7,.3,1); }
+  @keyframes histIn { from { transform: translateX(28px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  #hist-drawer .hist-head { display: flex; align-items: flex-start; justify-content: space-between; padding: 24px 28px; border-bottom: 1px solid var(--border); }
+  #hist-drawer .hist-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+  #hist-drawer .hist-title { font-family: var(--serif); font-size: 22px; font-weight: 500; letter-spacing: -.01em; }
+  #hist-drawer .hist-title span { font-family: var(--mono); font-size: 13px; color: var(--ink-faint); }
+  #hist-drawer .hist-search { padding: 16px 28px; border-bottom: 1px solid var(--border); }
+  #hist-drawer .hist-search input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--ink);
+    padding: 10px 12px; font-family: var(--mono); font-size: 13px; }
+  #hist-drawer .hist-search input:focus { outline: none; border-color: var(--accent); }
+  #hist-list { flex: 1; overflow-y: auto; padding: 8px 16px; }
+  .hist-item { border-bottom: 1px solid var(--border); padding: 16px 12px; cursor: pointer; display: flex; gap: 14px; transition: background .15s; }
+  .hist-item:hover { background: var(--bg-elev-2); }
+  .hist-item .hist-when { flex-shrink: 0; width: 54px; text-align: right; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
+  .hist-item .hist-body { flex: 1; min-width: 0; }
+  .hist-item .hist-meta { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
+  .hist-item .hist-nivel { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); font-weight: 600; }
+  .hist-item .hist-prev { font-size: 13.5px; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .hist-item .hist-out { font-family: var(--serif); font-style: italic; font-size: 12.5px; color: var(--ink-dim); margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hist-item .hist-del { flex-shrink: 0; background: none; border: none; color: var(--ink-faint); cursor: pointer; font-size: 16px; padding: 0 4px; align-self: flex-start; }
+  .hist-item .hist-del:hover { color: var(--danger); }
+  #hist-drawer .hist-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; border-top: 1px solid var(--border); }
+  #hist-drawer .hist-foot span { font-size: 11px; color: var(--ink-faint); }
+  #hist-drawer .hist-clear { background: none; border: none; color: var(--danger); font-family: var(--sans); font-size: 12px; cursor: pointer; }
+  #hist-drawer .hist-empty { text-align: center; padding: 56px 24px; }
+  #hist-drawer .hist-empty p { font-family: var(--serif); font-style: italic; color: var(--ink-faint); }
+</style>
+<div id="hist-drawer">
+  <div class="hist-backdrop" onclick="fecharHistorico()"></div>
+  <div class="hist-panel">
+    <div class="hist-head">
+      <div>
+        <div class="hist-eyebrow">Ferramenta Replicador</div>
+        <div class="hist-title">Histórico de replicações <span id="hist-total">(0)</span></div>
+      </div>
+      <button class="modal-close" onclick="fecharHistorico()" aria-label="Fechar">×</button>
+    </div>
+    <div class="hist-search">
+      <input id="hist-search-input" type="text" placeholder="Buscar por referência, roteiro ou nível…">
+    </div>
+    <div id="hist-list"></div>
+    <div class="hist-foot">
+      <span>Cada replicação é salva aqui automaticamente.</span>
+      <button class="hist-clear" id="hist-clear-btn" type="button">Limpar tudo</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let nivelAtual = 'proximo';
+let chaveAPI = '';
+let ultimoTexto = '';
+
+const STORAGE_KEY = 'replicador_groq_api_key';
+
+const INSTRUCOES = {
+  proximo: "MANTENHA a estrutura, o ritmo, a ordem dos blocos e o tom EXATAMENTE iguais ao original. Troque APENAS os detalhes específicos: nomes, lugares, objetos, exemplos concretos. O leitor deve sentir que é o mesmo vídeo, só com outros elementos. Mantenha o mesmo número aproximado de frases e o mesmo comprimento de cada bloco.",
+  medio: "MANTENHA a estrutura geral (abertura/gancho, desenvolvimento, virada, encerramento), o tom, o ritmo e o tipo de humor/emoção do original. Crie um conteúdo NOVO sobre um tema parecido ou adjacente, com exemplos, situações e falas diferentes. Não copie frases. O leitor deve sentir 'isso parece feito pelo mesmo criador', mas não reconhecer o vídeo original.",
+  livre: "Pegue APENAS a essência do original: que tipo de gancho funcionou, qual emoção ele provoca, qual é a virada cômica/dramática, qual o tipo de encerramento. Use isso como inspiração para criar um conteúdo COMPLETAMENTE NOVO, podendo mudar tema, cenário, personagens e exemplos. Mantenha apenas o que tornou o original eficaz: o padrão emocional e narrativo."
+};
+
+const FRASES_LOADER = [
+  'Analisando a estrutura...',
+  'Identificando o nicho...',
+  'Mapeando o ritmo...',
+  'Reescrevendo com novas ideias...',
+  'Costurando os blocos...',
+  'Quase pronto...'
+];
+
+// Etapa 1 — análise profunda (diagnóstico). Etapa 2 — replicação inteligente.
+const FRASES_ANALISE = [
+  'Lendo o conteúdo com atenção...',
+  'Identificando tema, objetivo e público...',
+  'Mapeando estrutura, ritmo e tom...',
+  'Detectando gatilhos, humor e emoção...',
+  'Fechando o diagnóstico...'
+];
+const FRASES_REPLICA = [
+  'Replicando com base no diagnóstico...',
+  'Preservando estilo e voz...',
+  'Recriando a estrutura e o ritmo...',
+  'Aplicando os gatilhos do original...',
+  'Finalizando a nova versão...'
+];
+
+// ============= INIT =============
+document.addEventListener('DOMContentLoaded', () => {
+  carregarChave();
+  setupNiveis();
+  setupContador();
+});
+
+function setupNiveis() {
+  document.querySelectorAll('.nivel').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nivel').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      nivelAtual = btn.dataset.nivel;
+    });
+  });
+}
+
+function setupContador() {
+  const ta = document.getElementById('transcricao');
+  const c = document.getElementById('contador');
+  ta.addEventListener('input', () => {
+    const n = ta.value.length;
+    c.textContent = n.toLocaleString('pt-BR') + ' caractere' + (n === 1 ? '' : 's');
+  });
+}
+
+function limpar() {
+  document.getElementById('transcricao').value = '';
+  document.getElementById('contador').textContent = '0 caracteres';
+}
+
+// ============= STORAGE =============
+function carregarChave() {
+  try {
+    const k = localStorage.getItem(STORAGE_KEY);
+    if (k) {
+      chaveAPI = k;
+      atualizarStatusBtn(true);
+    }
+  } catch(e) {}
+}
+
+function atualizarStatusBtn(conectado) {
+  const btn = document.getElementById('config-btn');
+  const txt = document.getElementById('config-text');
+  const foot = document.getElementById('footer-status');
+  if (conectado) {
+    btn.classList.add('connected');
+    txt.textContent = 'API conectada';
+    foot.textContent = 'CONECTADO';
+  } else {
+    btn.classList.remove('connected');
+    txt.textContent = 'Configurar API';
+    foot.textContent = 'DESCONECTADO';
+  }
+}
+
+// ============= MODAL =============
+function abrirModal() {
+  document.getElementById('modal-bg').classList.add('open');
+  document.getElementById('api-key').value = chaveAPI || '';
+  document.getElementById('modal-status').className = 'modal-status';
+}
+
+function fecharModal() {
+  document.getElementById('modal-bg').classList.remove('open');
+}
+
+function salvarChave() {
+  const input = document.getElementById('api-key').value.trim();
+  const status = document.getElementById('modal-status');
+  if (!input) {
+    status.className = 'modal-status error';
+    status.textContent = 'Cole a chave da API antes de salvar.';
+    return;
+  }
+  if (!input.startsWith('gsk_')) {
+    status.className = 'modal-status error';
+    status.textContent = 'Chave inválida. Chaves do Groq começam com "gsk_".';
+    return;
+  }
+  chaveAPI = input;
+  try {
+    localStorage.setItem(STORAGE_KEY, input);
+  } catch(e) {}
+  atualizarStatusBtn(true);
+  status.className = 'modal-status success';
+  status.textContent = 'Chave salva. Você já pode gerar roteiros.';
+  setTimeout(fecharModal, 1200);
+}
+
+document.getElementById('modal-bg').addEventListener('click', (e) => {
+  if (e.target.id === 'modal-bg') fecharModal();
+});
+
+// ============= TOAST =============
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ============= GERAR =============
+async function gerar() {
+  const transcricao = document.getElementById('transcricao').value.trim();
+  const erro = document.getElementById('erro');
+  const empty = document.getElementById('output-empty');
+  const loader = document.getElementById('loader');
+  const content = document.getElementById('output-content');
+  const actions = document.getElementById('output-actions');
+  const btn = document.getElementById('gerar-btn');
+  const modelo = document.getElementById('modelo').value;
+
+  erro.style.display = 'none';
+
+  if (!chaveAPI) {
+    erro.textContent = 'Configure sua chave da API Groq primeiro (botão no topo).';
+    erro.style.display = 'block';
+    abrirModal();
+    return;
+  }
+
+  if (!transcricao || transcricao.length < 30) {
+    erro.textContent = 'Cole uma transcrição válida (mínimo 30 caracteres).';
+    erro.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+  content.style.display = 'none';
+  actions.style.display = 'none';
+  loader.style.display = 'flex';
+  btn.disabled = true;
+
+  const loaderText = document.getElementById('loader-text');
+  let frases = FRASES_ANALISE;
+  let idx = 0;
+  loaderText.textContent = frases[0];
+  const intervalo = setInterval(() => {
+    idx = (idx + 1) % frases.length;
+    loaderText.textContent = frases[idx];
+  }, 1800);
+
+  // O sistema da ETAPA 2: só o roteiro pronto, sem análises nem direção de cena.
+  const promptSistema = "Você é um especialista em análise estrutural de conteúdo audiovisual e roteirização para redes sociais (TikTok, Reels, YouTube Shorts). Você responde APENAS com o texto do roteiro pronto, sem análises, sem explicações, sem títulos, sem marcadores de cena, sem direção de câmera. Apenas o texto que será falado ou narrado.";
+
+  // ===== ETAPA 1 — ANÁLISE PROFUNDA (prompts) =====
+  // Objetivo: COMPREENDER o conteúdo, não criar. Gera um diagnóstico interno
+  // que vira o contexto qualificado da Etapa 2.
+  const promptAnaliseSistema = "Você é um analista sênior de conteúdo para redes sociais (TikTok, Reels, YouTube Shorts), especialista em engenharia reversa de roteiros que viralizaram. Sua tarefa é DISSECAR o conteúdo recebido — você não cria nada novo. Produz um diagnóstico técnico, preciso e aprofundado, em português, que sirva de briefing para outro redator recriar o conteúdo SEM ver o original.";
+
+  const promptAnaliseUsuario = `Analise PROFUNDAMENTE a transcrição abaixo de um vídeo que JÁ FUNCIONOU. Não resuma o enredo: explique a ENGENHARIA por trás do sucesso dele. Cubra, com objetividade e exemplos curtos extraídos do próprio texto:
+
+- Tema principal e assunto central
+- Objetivo do conteúdo (o que ele quer provocar no público)
+- Estilo de comunicação e tom de voz
+- Nível de formalidade e tipo de linguagem (gírias, regionalismos, vocabulário)
+- Estrutura narrativa: forma de ABERTURA (gancho), de DESENVOLVIMENTO e de ENCERRAMENTO
+- Ritmo da comunicação (frases curtas/longas, cadência, pausas)
+- Presença e uso de humor, ironia e sarcasmo
+- Emoções predominantes que o conteúdo desperta
+- Perfil do público-alvo
+- Técnicas de retenção (loops abertos, quebras de expectativa, cliffhangers)
+- Gatilhos psicológicos e estratégias de engajamento
+- Padrões argumentativos / lógica de persuasão
+- As características específicas que tornam ESTE conteúdo único e eficaz (a "fórmula")
+
+Seja específico e técnico. Este diagnóstico será o ÚNICO guia de quem vai recriar o conteúdo.
+
+TRANSCRIÇÃO ORIGINAL:
+"""
+${transcricao}
+"""
+
+Entregue o diagnóstico estruturado:`;
+
+  try {
+    // ===== ETAPA 1 — executa a análise (1ª chamada, independente) =====
+    const relatorio = await chamarGroq(modelo, [
+      { role: 'system', content: promptAnaliseSistema },
+      { role: 'user', content: promptAnaliseUsuario }
+    ], 1800, 0.4);
+    if (!relatorio) throw new Error('A análise do conteúdo não retornou. Tente novamente.');
+
+    // Transição visual para a Etapa 2
+    frases = FRASES_REPLICA; idx = 0; loaderText.textContent = frases[0];
+
+    // ===== ETAPA 2 — REPLICAÇÃO INTELIGENTE (2ª chamada, usa o diagnóstico) =====
+    const promptReplicaUsuario = `Você vai criar uma NOVA VERSÃO de um conteúdo que já funcionou, com fidelidade máxima à sua essência estratégica. Você recebe DOIS insumos:
+
+[A] DIAGNÓSTICO técnico do conteúdo original (a engenharia por trás do sucesso):
+"""
+${relatorio}
+"""
+
+[B] TRANSCRIÇÃO ORIGINAL (referência viva de estilo, voz e ritmo):
+"""
+${transcricao}
+"""
+
+REGRA DE AFASTAMENTO (o quanto a nova versão deve se distanciar do original):
+${INSTRUCOES[nivelAtual]}
+
+Use o DIAGNÓSTICO como guia ativo: preserve o estilo, o tom, a intenção, a personalidade, o ritmo, a estrutura (abertura/desenvolvimento/encerramento), os gatilhos psicológicos e a carga emocional identificados — aplicando-os à nova versão.
+
+REGRAS OBRIGATÓRIAS DA SUA RESPOSTA:
+- Responda APENAS com o texto do novo roteiro, nada mais.
+- NÃO escreva análises, explicações, títulos, introduções, comentários ou observações.
+- NÃO use marcadores como "Cena 1", "Abertura", "Plano fechado", colchetes com direção — apenas o texto que será falado/narrado.
+- Se o original tem diálogo entre personagens, mantenha o formato PERSONAGEM: fala.
+- Se o original é monólogo/narração, mantenha como monólogo/narração corrida.
+- Use o mesmo idioma, vocabulário e registro (formal/informal/regional) do original.
+- O novo conteúdo deve ser autêntico, natural, sem clichês.
+
+Agora gere a nova versão:`;
+
+    const texto = await chamarGroq(modelo, [
+      { role: 'system', content: promptSistema },
+      { role: 'user', content: promptReplicaUsuario }
+    ], 2048, 0.85);
+
+    clearInterval(intervalo);
+
+    if (!texto) throw new Error('A IA não retornou texto. Tente novamente.');
+
+    ultimoTexto = texto;
+    loader.style.display = 'none';
+    content.textContent = texto;
+    content.style.display = 'block';
+    actions.style.display = 'flex';
+    content.scrollTop = 0;
+    salvarReplica(transcricao, nivelAtual, modelo, texto, relatorio);   // histórico (auto-save) + diagnóstico
+
+  } catch (e) {
+    clearInterval(intervalo);
+    loader.style.display = 'none';
+    empty.style.display = 'flex';
+    erro.textContent = e.message || 'Erro ao gerar roteiro.';
+    erro.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Uma chamada à API Groq (chat completions). Lança erro tratável em falha.
+async function chamarGroq(modelo, messages, maxTokens, temperature) {
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + chaveAPI
+    },
+    body: JSON.stringify({
+      model: modelo,
+      messages: messages,
+      temperature: typeof temperature === 'number' ? temperature : 0.85,
+      max_completion_tokens: maxTokens || 2048,
+      top_p: 0.9
+    })
+  });
+  if (!resp.ok) {
+    const errData = await resp.json().catch(() => ({}));
+    let msg = 'Erro ' + resp.status + '.';
+    if (resp.status === 401) msg = 'Chave da API inválida ou expirada. Verifique nas configurações.';
+    else if (resp.status === 429) msg = 'Limite de requisições atingido. Aguarde um minuto e tente novamente.';
+    else if (errData.error && errData.error.message) msg = errData.error.message;
+    throw new Error(msg);
+  }
+  const data = await resp.json();
+  return (data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '').trim();
+}
+
+// ============= AÇÕES SAÍDA =============
+function copiarSaida() {
+  if (!ultimoTexto) return;
+  navigator.clipboard.writeText(ultimoTexto).then(() => toast('Roteiro copiado'));
+}
+
+function baixarSaida() {
+  if (!ultimoTexto) return;
+  const blob = new Blob([ultimoTexto], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'roteiro-' + Date.now() + '.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Arquivo baixado');
+}
+
+// ============= HISTÓRICO DE REPLICAÇÕES =============
+const HIST_KEY = 'replicador_history_v1';
+let historico = [];
+const NIVEL_LABEL = { proximo: 'Próximo', medio: 'Médio', livre: 'Livre' };
+
+function carregarHistorico() {
+  try { historico = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch(e) { historico = []; }
+  atualizarHistCount();
+}
+function atualizarHistCount() {
+  const n = historico.length;
+  const c = document.getElementById('hist-count'); if (c) c.textContent = n;
+  const t = document.getElementById('hist-total'); if (t) t.textContent = '(' + n + ')';
+}
+// Salva uma replicação (entrada + saída + nível + modelo). Mais recente no topo.
+function salvarReplica(transcricao, nivel, modelo, saida, analise) {
+  try {
+    historico.unshift({
+      id: 'r' + Date.now() + Math.random().toString(36).slice(2, 6),
+      transcricao: transcricao || '', nivel: nivel || 'proximo', modelo: modelo || '',
+      saida: saida || '', analise: analise || '', createdAt: Date.now()
+    });
+    historico = historico.slice(0, 200);
+    localStorage.setItem(HIST_KEY, JSON.stringify(historico));
+    atualizarHistCount();
+    if (document.getElementById('hist-drawer').classList.contains('open')) renderHistorico();
+  } catch(e) { console.warn('hist save', e); toast('Histórico cheio — limpe itens antigos'); }
+}
+function escapeHist(s) { return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function renderHistorico() {
+  const list = document.getElementById('hist-list'); if (!list) return;
+  const q = (document.getElementById('hist-search-input') && document.getElementById('hist-search-input').value || '').toLowerCase().trim();
+  let items = historico.slice();
+  if (q) items = items.filter(it =>
+    (it.transcricao||'').toLowerCase().includes(q) ||
+    (it.saida||'').toLowerCase().includes(q) ||
+    (NIVEL_LABEL[it.nivel]||'').toLowerCase().includes(q));
+  if (!items.length) {
+    list.innerHTML = '<div class="hist-empty"><p>' + (historico.length ? 'Nada encontrado' : 'Nenhuma replicação ainda') + '</p></div>';
+    return;
+  }
+  list.innerHTML = items.map(it => {
+    const when = new Date(it.createdAt).toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
+    return '<article class="hist-item" data-open="' + it.id + '" role="button" tabindex="0">' +
+      '<div class="hist-when">' + when + '</div>' +
+      '<div class="hist-body">' +
+        '<div class="hist-meta"><span class="hist-nivel">' + (NIVEL_LABEL[it.nivel]||it.nivel) + '</span></div>' +
+        '<div class="hist-prev">' + escapeHist((it.transcricao||'').slice(0,120)) + '</div>' +
+        '<div class="hist-out">' + escapeHist((it.saida||'').slice(0,160)) + '</div>' +
+      '</div>' +
+      '<button class="hist-del" data-del="' + it.id + '" aria-label="Excluir">×</button>' +
+    '</article>';
+  }).join('');
+  list.querySelectorAll('[data-del]').forEach(b => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      historico = historico.filter(h => h.id !== b.dataset.del);
+      localStorage.setItem(HIST_KEY, JSON.stringify(historico));
+      atualizarHistCount(); renderHistorico();
+    };
+  });
+  list.querySelectorAll('[data-open]').forEach(a => {
+    a.onclick = (e) => { if (e.target.closest('[data-del]')) return; reabrirReplica(a.dataset.open); };
+    a.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reabrirReplica(a.dataset.open); } };
+  });
+}
+// Reabre uma replicação: restaura entrada, nível, modelo e a saída completa.
+function reabrirReplica(id) {
+  const it = historico.find(h => h.id === id); if (!it) return;
+  const ta = document.getElementById('transcricao');
+  ta.value = it.transcricao || '';
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+  nivelAtual = it.nivel || 'proximo';
+  document.querySelectorAll('.nivel').forEach(b => b.classList.toggle('active', b.dataset.nivel === nivelAtual));
+  const sel = document.getElementById('modelo');
+  if (sel && it.modelo && [...sel.options].some(o => o.value === it.modelo)) sel.value = it.modelo;
+  ultimoTexto = it.saida || '';
+  document.getElementById('output-empty').style.display = 'none';
+  document.getElementById('loader').style.display = 'none';
+  const content = document.getElementById('output-content');
+  content.textContent = it.saida || '';
+  content.style.display = 'block';
+  document.getElementById('output-actions').style.display = 'flex';
+  fecharHistorico();
+  toast('Replicação reaberta');
+}
+function abrirHistorico() {
+  renderHistorico();
+  document.getElementById('hist-drawer').classList.add('open');
+  setTimeout(() => { const s = document.getElementById('hist-search-input'); if (s) s.focus(); }, 60);
+}
+function fecharHistorico() { document.getElementById('hist-drawer').classList.remove('open'); }
+document.getElementById('hist-search-input').addEventListener('input', renderHistorico);
+document.getElementById('hist-clear-btn').addEventListener('click', () => {
+  if (!historico.length) return;
+  if (!confirm('Limpar todo o histórico de replicações?')) return;
+  historico = []; localStorage.setItem(HIST_KEY, JSON.stringify(historico));
+  atualizarHistCount(); renderHistorico(); toast('Histórico limpo');
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('hist-drawer').classList.contains('open')) fecharHistorico();
+});
+carregarHistorico();
+
+// ===== Config ao vivo (chave/modelo) vinda do app principal (Settings global) =====
+window.addEventListener('message', function(e){
+  if (!e || !e.data || e.data.type !== 'agente:config' || e.source !== window.parent) return;
+  const c = e.data;
+  if (c.groqKey) { chaveAPI = c.groqKey; try { localStorage.setItem(STORAGE_KEY, chaveAPI); } catch(_){} atualizarStatusBtn(true); }
+  if (c.groqModel) { const sel = document.getElementById('modelo'); if (sel && [...sel.options].some(o => o.value === c.groqModel)) sel.value = c.groqModel; }
+});
+</script>
+
+</body>
+</html>

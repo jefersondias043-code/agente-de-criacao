@@ -83,5 +83,9 @@ syncGroqModel();
 renderNav();
 goTo('welcome');
 
+// Reidrata as imagens dos cartazes/carrosséis do IndexedDB (assíncrono; a view
+// inicial é a 'welcome', então há tempo de sobra antes de Cartazes).
+if (typeof hydratePosters === 'function') { hydratePosters(); }
+
 console.log('%c Agente de Postagem ', 'background: #16140f; color: #b8341c; font-size: 14px; font-weight: bold; padding: 4px 8px;', 'pronto.');
 

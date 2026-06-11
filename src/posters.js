@@ -2,6 +2,114 @@
 // Gerado pela refatoração (split do index.html monolítico). Código movido verbatim.
 
 /* ============================================================
+   PERSISTÊNCIA DE CARTAZES — imagens no IndexedDB (escalabilidade)
+   As imagens (cartaz + carrossel) são o único dado binário pesado e viviam
+   como base64 dentro do localStorage (~5MB) → enchia rápido. Agora:
+   - State.posters (em memória) SEGUE com as imagens inline → render/export
+     inalterados (caminho síncrono intocado).
+   - No localStorage gravamos só METADADOS; cada imagem confirmada no IDB vira
+     uma sentinela "@idb:<chave>". À prova de perda: a imagem só é trocada por
+     sentinela DEPOIS de confirmada no IndexedDB (idbSet await).
+   - No boot, hydratePosters() reidrata as imagens do IDB para a memória.
+   ============================================================ */
+const POSTER_TOP_IMG_FIELDS = ['image1', 'image2', 'image3', 'image4', 'figure'];
+const POSTER_SLIDE_IMG_FIELDS = ['image1', 'image2', 'image3', 'image4'];
+const idbConfirmedKeys = new Set();   // chaves de imagem já confirmadas no IDB
+
+// Todas as posições de imagem de um cartaz (top-level + slides do carrossel).
+function posterImagePositions(p) {
+  const out = [];
+  if (!p) return out;
+  POSTER_TOP_IMG_FIELDS.forEach((f) => out.push({ get: () => p[f], set: (v) => { p[f] = v; }, key: 'pimg:' + p.id + ':' + f }));
+  if (Array.isArray(p.slides)) {
+    p.slides.forEach((s, i) => {
+      if (!s) return;
+      POSTER_SLIDE_IMG_FIELDS.forEach((f) => out.push({ get: () => s[f], set: (v) => { s[f] = v; }, key: 'pimg:' + p.id + ':s' + i + ':' + f }));
+    });
+  }
+  return out;
+}
+
+// Cópia "leve" do cartaz: imagens já confirmadas no IDB viram sentinela; as
+// ainda não confirmadas permanecem inline (segurança). Não muta o original.
+function lightPosterCopy(p) {
+  const c = Object.assign({}, p);
+  POSTER_TOP_IMG_FIELDS.forEach((f) => {
+    const k = 'pimg:' + p.id + ':' + f;
+    if (idbConfirmedKeys.has(k) && typeof c[f] === 'string' && c[f].startsWith('data:')) c[f] = '@idb:' + k;
+  });
+  if (Array.isArray(p.slides)) {
+    c.slides = p.slides.map((s, i) => {
+      if (!s) return s;
+      const sc = Object.assign({}, s);
+      POSTER_SLIDE_IMG_FIELDS.forEach((f) => {
+        const k = 'pimg:' + p.id + ':s' + i + ':' + f;
+        if (idbConfirmedKeys.has(k) && typeof sc[f] === 'string' && sc[f].startsWith('data:')) sc[f] = '@idb:' + k;
+      });
+      return sc;
+    });
+  }
+  return c;
+}
+
+// Grava cartazes: metadados (leves) no localStorage + descarga de imagens no IDB.
+function savePosters() {
+  try {
+    const light = State.posters.map(lightPosterCopy);
+    localStorage.setItem(STORAGE_KEYS.posters, JSON.stringify(light));
+  } catch (e) {
+    toast('Não foi possível salvar — o armazenamento do navegador pode estar cheio. Exporte um backup em Configurações.', 'error', 6000);
+  }
+  offloadPosterImagesToIDB();
+}
+
+let _posterOffloadTimer = null;
+// Move imagens inline (data:) para o IDB e, SÓ após confirmar, reescreve o
+// localStorage com sentinelas (libera espaço sem janela de perda).
+function offloadPosterImagesToIDB() {
+  if (typeof idbSet !== 'function') return;
+  clearTimeout(_posterOffloadTimer);
+  _posterOffloadTimer = setTimeout(async () => {
+    let newlyConfirmed = false;
+    for (const p of State.posters) {
+      for (const pos of posterImagePositions(p)) {
+        const v = pos.get();
+        if (typeof v === 'string' && v.startsWith('data:') && !idbConfirmedKeys.has(pos.key)) {
+          try { await idbSet(pos.key, v); idbConfirmedKeys.add(pos.key); newlyConfirmed = true; } catch (_) { /* mantém inline */ }
+        }
+      }
+    }
+    if (newlyConfirmed) {
+      try {
+        const light = State.posters.map(lightPosterCopy);
+        localStorage.setItem(STORAGE_KEYS.posters, JSON.stringify(light));
+      } catch (_) { /* */ }
+    }
+  }, 350);
+}
+
+// Boot: reidrata as imagens do IDB para a memória (render/export usam inline).
+async function hydratePosters() {
+  if (typeof idbGet !== 'function' || !Array.isArray(State.posters)) return;
+  let any = false;
+  for (const p of State.posters) {
+    for (const pos of posterImagePositions(p)) {
+      const v = pos.get();
+      if (typeof v === 'string' && v.startsWith('@idb:')) {
+        const key = v.slice(5);
+        try {
+          const data = await idbGet(key);
+          if (data) { pos.set(data); idbConfirmedKeys.add(key); any = true; }
+          else { pos.set(null); }
+        } catch (_) { /* */ }
+      }
+    }
+  }
+  if (any && State.currentView === 'posters' && typeof renderPosters === 'function') renderPosters();
+  offloadPosterImagesToIDB(); // descarrega quaisquer imagens ainda inline
+}
+
+/* ============================================================
    POSTERS — parser + template + export
    ============================================================ */
 
@@ -244,7 +352,7 @@ function createPosterFromGeneration(g) {
     updatedAt: new Date().toISOString(),
   };
   State.posters.unshift(poster);
-  saveJSON(STORAGE_KEYS.posters, State.posters);
+  savePosters();
   State.activePosterId = poster.id;
   toast('Cartaz criado.', 'success');
   goTo('posters');
@@ -342,7 +450,7 @@ function createBlankPoster() {
     updatedAt: new Date().toISOString(),
   };
   State.posters.unshift(poster);
-  saveJSON(STORAGE_KEYS.posters, State.posters);
+  savePosters();
   State.activePosterId = poster.id;
   renderPosters();
   toast('Cartaz criado.', 'success');
@@ -507,7 +615,7 @@ function renderPosterEditor() {
       if (i >= 0) off.splice(i, 1); else off.push(key);
       s.imagesOff = off;
       p.updatedAt = new Date().toISOString();
-      saveJSON(STORAGE_KEYS.posters, State.posters);
+      savePosters();
       refreshImageToggles();
       updateMosaicControl();
       updatePreview();
@@ -537,7 +645,7 @@ function renderPosterEditor() {
       if (idx >= 0) hidden.splice(idx, 1); else hidden.push(key);
       s.hidden = hidden;
       p.updatedAt = new Date().toISOString();
-      saveJSON(STORAGE_KEYS.posters, State.posters);
+      savePosters();
       refreshElementEyes();
       updatePreview();
     };
@@ -550,7 +658,7 @@ function renderPosterEditor() {
     $('#p-theme').onchange = () => {
       p.theme = $('#p-theme').value;
       p.updatedAt = new Date().toISOString();
-      saveJSON(STORAGE_KEYS.posters, State.posters);
+      savePosters();
       if (typeof renderCarouselBar === 'function' && typeof posterIsCarousel === 'function' && posterIsCarousel(p)) renderCarouselBar(p);
       updatePreview();
     };
@@ -573,7 +681,7 @@ function renderPosterEditor() {
         if (typeof renderCarouselBar === 'function') renderCarouselBar(p);
       }
       p.updatedAt = new Date().toISOString();
-      saveJSON(STORAGE_KEYS.posters, State.posters);
+      savePosters();
       updateMosaicControl();
       updateExtraFields();
       updatePreview();
@@ -589,7 +697,7 @@ function renderPosterEditor() {
     $('#p-mosaic').onchange = () => {
       s.mosaic = $('#p-mosaic').value;
       p.updatedAt = new Date().toISOString();
-      saveJSON(STORAGE_KEYS.posters, State.posters);
+      savePosters();
       updatePreview();
       requestAnimationFrame(() => {
         fitPosterPreview();
@@ -604,7 +712,7 @@ function renderPosterEditor() {
     $('#p-theme').onchange = () => {
       p.theme = $('#p-theme').value;
       p.updatedAt = new Date().toISOString();
-      saveJSON(STORAGE_KEYS.posters, State.posters);
+      savePosters();
       updatePreview();
       requestAnimationFrame(() => {
         fitPosterPreview();
@@ -641,7 +749,7 @@ function renderPosterEditor() {
     applyEditorTo(s);
     if ($('#p-theme')) p.theme = $('#p-theme').value;   // tema é do cartaz (nível p)
     p.updatedAt = new Date().toISOString();
-    saveJSON(STORAGE_KEYS.posters, State.posters);
+    savePosters();
     renderPostersList();
     toast(isCarousel() ? 'Carrossel salvo.' : 'Cartaz salvo.', 'success');
   };
@@ -649,7 +757,7 @@ function renderPosterEditor() {
   $('#p-delete').onclick = () => {
     if (!confirm('Remover este cartaz?')) return;
     State.posters = State.posters.filter(x => x.id !== p.id);
-    saveJSON(STORAGE_KEYS.posters, State.posters);
+    savePosters();
     State.activePosterId = State.posters[0]?.id || null;
     renderPosters();
     toast('Cartaz removido.', 'success');
@@ -664,7 +772,7 @@ function renderPosterEditor() {
 
   const doExport = (fn) => {
     applyEditorTo(s); // aplica valores atuais ao alvo (cartaz ou slide ativo)
-    saveJSON(STORAGE_KEYS.posters, State.posters);
+    savePosters();
     fn();
   };
   $('#p-export').onclick = () => doExport(() => exportPoster(p));
@@ -736,7 +844,7 @@ function setupMediaUpload(poster, field, idPrefix, onChange) {
       const base64 = await fileToBase64Compressed(file);
       poster[field] = base64;
       poster.updatedAt = new Date().toISOString();
-      saveJSON(STORAGE_KEYS.posters, State.posters);
+      savePosters();
       refresh();
       renderPosterTemplate(poster);
       if (onChange) onChange();
@@ -753,7 +861,7 @@ function setupMediaUpload(poster, field, idPrefix, onChange) {
     // ao apagar, tira o slot de imagesOff (não fica "desativado fantasma")
     if (Array.isArray(poster.imagesOff)) poster.imagesOff = poster.imagesOff.filter(k => k !== field);
     poster.updatedAt = new Date().toISOString();
-    saveJSON(STORAGE_KEYS.posters, State.posters);
+    savePosters();
     refresh();
     renderPosterTemplate(poster);
     if (onChange) onChange();
@@ -1564,7 +1672,7 @@ function setupImagePanning(stageEl) {
     tgt[field + 'PosY'] = clamp(numAttr(img.dataset.posy, 50), 0, 100);
     tgt[field + 'Scale'] = clamp(parseFloat(img.dataset.scale) || 1, g ? g.minScale : 0.5, 3);
     poster.updatedAt = new Date().toISOString();
-    saveJSON(STORAGE_KEYS.posters, State.posters);
+    savePosters();
   }
 
   function onPointerDown(e) {

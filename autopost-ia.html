@@ -1516,13 +1516,13 @@ const REGRAS_PALAVRAS_CHAVE = `==== REGRAS DAS ~10 PALAVRAS-CHAVE ====
 const REGRAS_HASHTAGS = `==== REGRAS DAS 5 HASHTAGS (fórmula viral brasileira) ====
 Você deve devolver EXATAMENTE 5 hashtags, distribuídas assim:
 
-1. UMA hashtag AMPLA / viral: alcance massivo (ex: #fyp, #foryou, #viral, #parati, #trend)
+1. UMA hashtag AMPLA / viral: amplo alcance E relevante para a categoria do conteúdo — NÃO use sempre #fyp ou #foryou. Escolha a tag ampla que mais se alinhe com o ASSUNTO do vídeo: para conteúdo de trabalho/carreira → #trabalho, para saúde/bem-estar → #saude, para receitas → #culinaria, para humor/entretenimento geral → #viral, para lifestyle → #parati, para educação → #aprender, para esportes → #esportes, para relacionamentos → #relacionamentos, para empreendedorismo → #negocios, etc. Use #fyp/#foryou APENAS quando o conteúdo for genuinamente de entretenimento geral sem categoria dominante.
 2. UMA hashtag de ASSUNTO / categoria: descreve literalmente o tipo de conteúdo, volume médio (ex: #storytime, #relato, #historiareal, #desabafo, #conselho)
 3. DUAS hashtags de NICHO: específicas do tema/canal, volume menor mas público qualificado (extraídas do tema/nicho informado e do conteúdo — ex: #historiasdetrabalho, #vidaclt, #rh, #empreendedorismo)
 4. UMA hashtag de INTENÇÃO / EMOÇÃO: o que a pessoa SENTE ao assistir ou busca quando procura esse conteúdo (ex: #indignacao, #justicapoetica, #reflexao, #lifelesson, #aprendizado)
 
 REGRAS DAS HASHTAGS:
-- Todas em português brasileiro quando aplicável (exceto #fyp, #foryou que são universais)
+- Todas em português brasileiro quando aplicável; tags em inglês são aceitas quando genuinamente mais usadas na plataforma para aquele nicho
 - Sem espaços, sem acentos, sem caracteres especiais (transformar "ação" em "acao", "história" em "historia")
 - Sem # repetido — escreva só uma vez: "fyp" (o app adiciona o # depois)
 - Minúsculas
@@ -1574,7 +1574,7 @@ RESPONDA APENAS COM JSON VÁLIDO, sem markdown, sem texto antes ou depois:
   "titulo": "string entre 50 e 80 caracteres",
   "legenda": "string entre 150 e 300 caracteres, com pergunta no final",
   "hashtags": [
-    {"tag": "fyp", "tipo": "ampla"},
+    {"tag": "HASHTAG_AMPLA", "tipo": "ampla"},
     {"tag": "storytime", "tipo": "assunto"},
     {"tag": "historiasdetrabalho", "tipo": "nicho"},
     {"tag": "vidaclt", "tipo": "nicho"},

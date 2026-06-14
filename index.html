@@ -39,7 +39,7 @@ if ('serviceWorker' in navigator) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-06-05-r56" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-06-12-r57" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -123,13 +123,13 @@ if ('serviceWorker' in navigator) {
             </div>
             <span class="quick-card-arrow">→</span>
           </div>
-          <div class="card quick-card" data-go="downloads" role="button" tabindex="0">
+          <div class="card quick-card" data-go="videograb" role="button" tabindex="0">
             <div class="quick-card-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </div>
             <div class="quick-card-body">
-              <h3 class="serif" style="font-size: 1rem;">Downloads</h3>
-              <p class="text-xs text-soft">Baixe vídeos de redes sociais.</p>
+              <h3 class="serif" style="font-size: 1rem;">VideoGrab</h3>
+              <p class="text-xs text-soft">Baixe vídeos sem marca d'água.</p>
             </div>
             <span class="quick-card-arrow">→</span>
           </div>
@@ -675,46 +675,18 @@ if ('serviceWorker' in navigator) {
       </aside>
     </section>
 
-    <!-- Downloads -->
-    <section class="page view" id="view-downloads">
-      <header class="page-head">
-        <div class="kicker mb-1">Downloads</div>
-        <h1 class="page-title">Vídeos de redes sociais</h1>
-        <p class="page-desc">Cole o link de um vídeo público e baixe via serviços externos.</p>
-      </header>
-
-      <details class="portal-block">
-        <summary>
-          <div class="portal-block-summary-text">
-            <div class="kicker">Como funciona</div>
-            <span class="text-sm text-soft">Download via serviço externo confiável — você escolhe qual usar</span>
-          </div>
-          <span class="portal-block-toggle">▾</span>
-        </summary>
-        <div class="portal-block-form text-sm text-soft">
-          Tudo roda no seu navegador. Plataformas como Instagram, TikTok e Facebook bloqueiam o download direto por segurança (CORS),
-          então abrimos o link em um <strong>serviço externo confiável</strong> que extrai o vídeo — você escolhe qual usar.
-        </div>
-      </details>
-
-      <div class="card mb-3">
-        <div class="card-head"><div class="card-title">URL do vídeo</div></div>
-        <div class="flex gap-1">
-          <input class="input flex-1" id="d-url" placeholder="Cole o link do vídeo (Instagram, TikTok, YouTube…)" />
-          <button class="btn btn-icon btn-ghost" id="d-clear" title="Limpar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        <div id="d-platform-badge" class="mt-2"></div>
-        <div id="d-services" class="mt-3"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title">Histórico</div>
-          <button class="btn btn-danger btn-sm" id="d-clear-history">Limpar</button>
-        </div>
-        <div id="d-history"></div>
+    <!-- VideoGrab (embed) -->
+    <section class="page view view-fullbleed" id="view-videograb">
+      <div class="detector-frame-wrap">
+        <iframe
+          id="videograbFrame"
+          title="VideoGrab"
+          loading="lazy"
+          src=""
+          referrerpolicy="no-referrer"
+          allow="clipboard-read; clipboard-write"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups"
+        ></iframe>
       </div>
     </section>
 
@@ -843,7 +815,7 @@ if ('serviceWorker' in navigator) {
 <script src="src/posters.js"></script>
 <script src="src/poster-templates.js"></script>
 <script src="src/carousels.js"></script>
-<script src="src/downloads.js"></script>
+<script src="src/videograb.js"></script>
 <script src="src/history.js"></script>
 <script src="src/settings.js"></script>
 <script src="src/detector.js"></script>

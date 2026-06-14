@@ -21,7 +21,6 @@ const STORAGE_KEYS = {
   generations: 'agp.generations',
   extractions: 'agp.extractions',
   posters: 'agp.posters',
-  downloads: 'agp.downloads',
 };
 
 function loadJSON(key, fallback) {
@@ -91,7 +90,6 @@ const State = (() => {
     generations: loadJSON(STORAGE_KEYS.generations, []),
     extractions: loadJSON(STORAGE_KEYS.extractions, []),
     posters: loadJSON(STORAGE_KEYS.posters, []),
-    downloads: loadJSON(STORAGE_KEYS.downloads, []),
     currentView: 'welcome',
     activeExtractionId: null,
     activePosterId: null,

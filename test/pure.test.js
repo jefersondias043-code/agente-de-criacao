@@ -11,8 +11,8 @@ const read = (f) => fs.readFileSync(path.join(srcDir, f), 'utf8');
 
 let A;
 beforeAll(() => {
-  const code = ['catalogs.js', 'core.js', 'llm.js', 'downloads.js'].map(read).join('\n;\n')
-    + '\n;globalThis.__APP__ = { escapeHtml, truncate, formatBytes, uuid, buildPrompt, cleanText, MAX_CONTENT_CHARS, detectPlatform, extractYoutubeId };';
+  const code = ['catalogs.js', 'core.js', 'llm.js'].map(read).join('\n;\n')
+    + '\n;globalThis.__APP__ = { escapeHtml, truncate, formatBytes, uuid, buildPrompt, cleanText, MAX_CONTENT_CHARS };';
   (0, eval)(code); // eval indireto => escopo global (jsdom); localStorage via test/setup.js
   A = globalThis.__APP__;
 });
@@ -57,17 +57,5 @@ describe('llm prompt', () => {
     const r = A.buildPrompt('Jornalístico', 'Neutro', big);
     expect(r.wasTruncated).toBe(true);
     expect(r.finalCharCount).toBe(A.MAX_CONTENT_CHARS);
-  });
-});
-
-describe('downloads detection', () => {
-  it('detectPlatform reconhece plataformas', () => {
-    expect(A.detectPlatform('https://www.tiktok.com/@x/video/123')?.id).toBe('tiktok');
-    expect(A.detectPlatform('https://www.instagram.com/reel/abc/')?.id).toBe('instagram');
-    expect(A.detectPlatform('https://exemplo.com/video')).toBeNull();
-  });
-  it('extractYoutubeId extrai o id de 11 chars', () => {
-    expect(A.extractYoutubeId('https://youtu.be/abcdefghijk')).toBe('abcdefghijk');
-    expect(A.extractYoutubeId('https://www.youtube.com/watch?v=ABCDEFGHIJK')).toBe('ABCDEFGHIJK');
   });
 });

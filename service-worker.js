@@ -1,4 +1,4 @@
-const CACHE = 'agp-v70';
+const CACHE = 'agp-v73';
 const URLS = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const URLS = [
   './detector-flop.html',
   './autopost-ia.html',
   './replicador.html',
+  './videograb.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -20,7 +21,7 @@ const URLS = [
   './src/posters.js',
   './src/poster-templates.js',
   './src/carousels.js',
-  './src/downloads.js',
+  './src/videograb.js',
   './src/history.js',
   './src/settings.js',
   './src/detector.js',

@@ -249,7 +249,7 @@ async function storageBreakdown() {
     { label: 'Detector Flop', prefixes: ['df_'] },
     { label: 'AutoPost IA', prefixes: ['rv_'] },
     { label: 'Replicador', prefixes: ['replicador_'] },
-    { label: 'Downloads e config.', prefixes: ['agp.downloads', 'agp.apiKeys', 'agp.models', 'agp.provider', 'agp.portals', 'groq_'] },
+    { label: 'Configurações', prefixes: ['agp.apiKeys', 'agp.models', 'agp.provider', 'agp.portals', 'groq_'] },
   ];
   const sizeOf = (k) => { const v = localStorage.getItem(k) || ''; return (k.length + v.length) * 2; };
   const rows = cats.map((c) => {

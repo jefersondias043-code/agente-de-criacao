@@ -523,7 +523,7 @@ function renderPosterEditor() {
     const nImg = (typeof posterImageKeys === 'function'
       ? posterImageKeys(s)
       : [s.image1, s.image2, s.image3, s.image4].filter(Boolean)).length;
-    const isMultiImage = /^(manchete|destaque-foto|headline-premium|photo-story|carousel-cover)/.test(tpl);
+    const isMultiImage = /^(manchete|destaque-foto|headline-premium|photo-story|carousel-cover|mosaic-hero|lower-third)/.test(tpl);
     if (!isMultiImage || nImg < 2 || typeof mosaicOptionsFor !== 'function') { field.style.display = 'none'; return; }
     field.style.display = '';
     const opts = mosaicOptionsFor(nImg);

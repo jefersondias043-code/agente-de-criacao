@@ -122,6 +122,85 @@ const PT_THEMES = {
     gradDark: 'linear-gradient(155deg,#232833 0%,#171A21 58%,#10131A 100%)',
     symbol: 'acronym', display: POPPINS,
   }),
+  // ===== PALETAS GENÉRICAS — servem a QUALQUER portal (usam a SIGLA, não o M).
+  // Cada uma é um tema completo via makeTheme → aplica-se automaticamente a TODOS
+  // os modelos (token-driven). accent2 é sempre legível sobre foto/escuro (vira
+  // `redOnDark`), por isso nenhuma é quase-preta. =====
+  'oceano': makeTheme({
+    name: 'Oceano — Azul profundo', bg: '#0A1A2F', bg2: '#12304F', bgDeep: '#06121F',
+    accent: '#00B4D8', accent2: '#48CAE4', accentDeep: '#0077B6', accentSoft: 'rgba(0,180,216,0.18)',
+    gradSolid: 'linear-gradient(150deg,#48CAE4 0%,#00B4D8 52%,#0077B6 100%)',
+    gradDark: 'linear-gradient(155deg,#12304F 0%,#0A1A2F 58%,#06121F 100%)',
+    symbol: 'acronym', display: POPPINS,
+  }),
+  'esmeralda': makeTheme({
+    name: 'Esmeralda — Verde', bg: '#0C1F18', bg2: '#143A2C', bgDeep: '#07140F',
+    accent: '#10B981', accent2: '#5EEAD4', accentDeep: '#047857', accentSoft: 'rgba(16,185,129,0.18)',
+    gradSolid: 'linear-gradient(150deg,#34D399 0%,#10B981 52%,#047857 100%)',
+    gradDark: 'linear-gradient(155deg,#143A2C 0%,#0C1F18 58%,#07140F 100%)',
+    symbol: 'acronym', display: POPPINS,
+  }),
+  'ametista': makeTheme({
+    name: 'Ametista — Violeta', bg: '#1A0F2E', bg2: '#2C1A4A', bgDeep: '#110A1F',
+    accent: '#A855F7', accent2: '#F472B6', accentDeep: '#7E22CE', accentSoft: 'rgba(168,85,247,0.18)',
+    gradSolid: 'linear-gradient(150deg,#F472B6 0%,#A855F7 52%,#7E22CE 100%)',
+    gradDark: 'linear-gradient(155deg,#2C1A4A 0%,#1A0F2E 58%,#110A1F 100%)',
+    symbol: 'acronym', display: POPPINS,
+  }),
+  // Quente CLARO — papel creme, laranja/coral protagonistas.
+  'solar': makeTheme({
+    name: 'Solar — Quente claro', light: true, bg: '#FFFBF5', bg2: '#FFF1DF', bgDeep: '#FBE6CE',
+    accent: '#F4820B', accent2: '#FF5A3C', accentDeep: '#C25E00', accentSoft: 'rgba(244,130,11,0.16)',
+    gradSolid: 'linear-gradient(150deg,#FFB02E 0%,#F4820B 50%,#E0490F 100%)',
+    gradDark: 'linear-gradient(155deg,#FFFBF5 0%,#FFF1DF 60%,#FBE6CE 100%)',
+    symbol: 'acronym', display: POPPINS,
+  }),
+  // Editorial impresso — papel off-white, vermelho de jornal, tinta quase-preta no texto.
+  'tinta': makeTheme({
+    name: 'Tinta — Jornal', light: true, bg: '#FAF9F6', bg2: '#EFEDE6', bgDeep: '#E4E1D8',
+    text: '#14110C', textRgb: '20,17,12',
+    accent: '#C1121F', accent2: '#E0454E', accentDeep: '#8B0D16', accentSoft: 'rgba(193,18,31,0.12)',
+    gradSolid: 'linear-gradient(150deg,#C1121F 0%,#8B0D16 100%)',
+    gradDark: 'linear-gradient(155deg,#FAF9F6 0%,#EFEDE6 60%,#E4E1D8 100%)',
+    symbol: 'acronym', display: POPPINS,
+  }),
+  // ===== 2ª leva de paletas genéricas (r58b). Mesmas regras: sigla, accent2
+  // legível sobre escuro, gradSolid sem topo claro demais (texto branco). =====
+  'rose': makeTheme({
+    name: 'Rosé — Magenta claro', light: true, bg: '#FFF7F9', bg2: '#FCE9EF', bgDeep: '#F8DCE6',
+    accent: '#E11D74', accent2: '#FF6B9D', accentDeep: '#B0145A', accentSoft: 'rgba(225,29,116,0.14)',
+    gradSolid: 'linear-gradient(150deg,#FF6B9D 0%,#E11D74 52%,#B0145A 100%)',
+    gradDark: 'linear-gradient(155deg,#FFF7F9 0%,#FCE9EF 60%,#F8DCE6 100%)',
+    symbol: 'acronym', display: POPPINS,
+  }),
+  'areia': makeTheme({
+    name: 'Areia — Terroso claro', light: true, bg: '#FBF7F0', bg2: '#F1E8D8', bgDeep: '#E8DBC4',
+    accent: '#B5651D', accent2: '#D98E04', accentDeep: '#8A4A12', accentSoft: 'rgba(181,101,29,0.14)',
+    gradSolid: 'linear-gradient(150deg,#D98E04 0%,#B5651D 52%,#8A4A12 100%)',
+    gradDark: 'linear-gradient(155deg,#FBF7F0 0%,#F1E8D8 60%,#E8DBC4 100%)',
+    symbol: 'acronym', display: POPPINS,
+  }),
+  'indigo': makeTheme({
+    name: 'Índigo — Carvão', bg: '#121214', bg2: '#1E1E24', bgDeep: '#0A0A0C',
+    accent: '#6366F1', accent2: '#818CF8', accentDeep: '#4338CA', accentSoft: 'rgba(99,102,241,0.18)',
+    gradSolid: 'linear-gradient(150deg,#818CF8 0%,#6366F1 52%,#4338CA 100%)',
+    gradDark: 'linear-gradient(155deg,#1E1E24 0%,#121214 58%,#0A0A0C 100%)',
+    symbol: 'acronym', display: POPPINS,
+  }),
+  'marinho': makeTheme({
+    name: 'Marinho — Navy & ouro', bg: '#0A1828', bg2: '#14243A', bgDeep: '#061018',
+    accent: '#E0A53B', accent2: '#F2C879', accentDeep: '#A8761A', accentSoft: 'rgba(224,165,59,0.18)',
+    gradSolid: 'linear-gradient(150deg,#E0A53B 0%,#B07E1E 55%,#8A5E12 100%)',
+    gradDark: 'linear-gradient(155deg,#14243A 0%,#0A1828 58%,#061018 100%)',
+    symbol: 'acronym', display: POPPINS,
+  }),
+  'vinho': makeTheme({
+    name: 'Vinho — Bordô', bg: '#2A0E16', bg2: '#3D1620', bgDeep: '#1C0810',
+    accent: '#C84B5A', accent2: '#E8927E', accentDeep: '#8E2733', accentSoft: 'rgba(200,75,90,0.18)',
+    gradSolid: 'linear-gradient(150deg,#C84B5A 0%,#8E2733 55%,#5E1822 100%)',
+    gradDark: 'linear-gradient(155deg,#3D1620 0%,#2A0E16 58%,#1C0810 100%)',
+    symbol: 'acronym', display: POPPINS,
+  }),
 };
 // Tema ATIVO (mutado por applyTheme antes de cada render). Default = institucional.
 let PT = Object.assign({}, PT_THEMES['municipios-bahia']);
@@ -258,6 +337,11 @@ function posterPhotoMosaic(p, opt) {
     const css = pts.split(',').map(s => { const a = s.trim().split(/\s+/); return `${a[0]}% ${a[1]}%`; }).join(', ');
     return `<div data-clip="${pts}" style="position:absolute;inset:0;overflow:hidden;clip-path:polygon(${css});-webkit-clip-path:polygon(${css});">${posterImageLayer(p, k)}</div>`;
   };
+  // Caixa POSICIONADA livre (absolute) com uma imagem dentro — base do
+  // picture-in-picture. O export lê este div como `container` da imagem
+  // (offsetWidth/Height) e a achata num canvas, então qualquer posição/tamanho
+  // sobrevive ao PNG. `css` define posição/dimensão/borda.
+  const absBox = (k, css) => `<div style="position:absolute;overflow:hidden;${css}">${posterImageLayer(p, k)}</div>`;
 
   let inner;
   if (n === 0) {
@@ -273,14 +357,14 @@ function posterPhotoMosaic(p, opt) {
       if (compat[mode]) mode = compat[mode];
       if (!mode) mode = (n === 2 ? 'row' : n === 3 ? 'feature-left' : 'grid');
     }
-    inner = buildMosaic(keys, n, mode, { cell, rowOf, colOf, frame, clipCell });
+    inner = buildMosaic(keys, n, mode, { cell, rowOf, colOf, frame, clipCell, absBox });
   }
   return `<div style="position:absolute;inset:0;overflow:hidden;background:${bg};">${inner}</div>`;
 }
 
 /** Monta o HTML de um mosaico para o modo dado (flex puro — html2canvas-safe). */
 function buildMosaic(keys, n, mode, h) {
-  const { cell, rowOf, colOf, frame, clipCell } = h;
+  const { cell, rowOf, colOf, frame, clipCell, absBox } = h;
   const lead = (flex) => cell(keys[0], flex);
   const last = (flex) => cell(keys[n - 1], flex);
   const restCol = () => colOf(keys.slice(1).map(k => cell(k)).join(''));
@@ -303,6 +387,37 @@ function buildMosaic(keys, n, mode, h) {
     case 'diag':      return clipCell(keys[0], '0 0, 100 0, 100 100, 0 100') + clipCell(keys[1], '100 0, 100 100, 0 100');
     case 'diag-back': return clipCell(keys[0], '0 0, 100 0, 100 100, 0 100') + clipCell(keys[1], '0 0, 100 100, 0 100');
     case 'slant':     return slantColumns(keys, n, clipCell);
+    // ----- NOVAS DISPOSIÇÕES -----
+    case 'pip':         // 2 imgs: uma sobre a outra (picture-in-picture)
+      return absBox(keys[0], 'inset:0;') +
+             absBox(keys[1], 'right:5%;bottom:5%;width:40%;height:40%;border:6px solid #fff;box-sizing:border-box;');
+    case 'diag-h':      // 2 imgs: divisória diagonal HORIZONTAL (cima/baixo)
+      return clipCell(keys[0], '0 0, 100 0, 100 100, 0 100') + clipCell(keys[1], '0 56, 100 44, 100 100, 0 100');
+    case 'center-wide': // 3 imgs: destaque no CENTRO, apoios nas laterais
+      if (n >= 3) return frame(cell(keys[1]) + cell(keys[0], 1.7) + cell(keys[2]), 'row');
+      return frame(lead(1.7) + cell(keys[1]), 'row');
+    case 'pinwheel':    // 4 imgs: cata-vento (colunas com pesos alternados)
+      if (n >= 4) return frame(colOf(cell(keys[0], 1.4) + cell(keys[1], 1)) + colOf(cell(keys[2], 1) + cell(keys[3], 1.4)), 'row');
+      return frame(allCells, 'row');
+    case 'grid-bottom': // base em destaque (linha de baixo maior)
+      if (n >= 4) return frame(rowOf(cell(keys[0]) + cell(keys[1]), 1) + rowOf(cell(keys[2]) + cell(keys[3]), 1.35), 'column');
+      if (n === 3) return frame(rowOf(cell(keys[0]) + cell(keys[1]), 1) + cell(keys[2], 1.35), 'column');
+      return frame(allCells, 'column');
+    case 'bricks':      // 4 imgs: tijolos (larguras alternadas por linha)
+      if (n >= 4) return frame(rowOf(cell(keys[0], 1.6) + cell(keys[1], 1)) + rowOf(cell(keys[2], 1) + cell(keys[3], 1.6)), 'column');
+      return frame(allCells, 'column');
+    case 'diag-cross':  // 4 imgs: quatro triângulos a partir do centro (X)
+      if (n >= 4) return clipCell(keys[0], '0 0, 100 0, 50 50') + clipCell(keys[1], '100 0, 100 100, 50 50') + clipCell(keys[2], '0 100, 100 100, 50 50') + clipCell(keys[3], '0 0, 0 100, 50 50');
+      return frame(allCells, 'row');
+    case 'band-center': // 3 imgs: três faixas horizontais, a do meio maior
+      if (n >= 3) return frame(cell(keys[0]) + cell(keys[1], 1.7) + cell(keys[2]), 'column');
+      return frame(allCells, 'column');
+    case 'band-top':    // faixa larga em cima + colunas embaixo
+      if (n >= 4) return frame(cell(keys[0], 1.4) + rowOf(cell(keys[1]) + cell(keys[2]) + cell(keys[3]), 1), 'column');
+      if (n === 3) return frame(cell(keys[0], 1.4) + rowOf(cell(keys[1]) + cell(keys[2]), 1), 'column');
+      return frame(allCells, 'column');
+    case 'center-pip':  // 2 imgs: inset CENTRALIZADO sobre o fundo
+      return absBox(keys[0], 'inset:0;') + absBox(keys[1], 'left:24%;top:31%;width:52%;height:38%;border:6px solid #fff;box-sizing:border-box;');
     case 'grid-top':
       if (n >= 4) return frame(rowOf(cell(keys[0]) + cell(keys[1]), 1.35) + rowOf(cell(keys[2]) + cell(keys[3]), 1), 'column');
       if (n === 3) return frame(rowOf(cell(keys[0]) + cell(keys[1]), 1.35) + cell(keys[2], 1), 'column');
@@ -345,14 +460,21 @@ function mosaicOptionsFor(n) {
       { v: 'col-wide', l: 'Destaque + apoio (vertical)' },
       { v: 'diag', l: 'Diagonal /' },
       { v: 'diag-back', l: 'Diagonal \\' },
+      { v: 'diag-h', l: 'Diagonal horizontal' },
+      { v: 'pip', l: 'Imagem sobre imagem' },
+      { v: 'center-pip', l: 'Inset centralizado' },
       { v: 'slant', l: 'Atravessada' }
     );
   } else if (n === 3) {
     o.push(
       { v: 'feature-left', l: 'Destaque à esquerda' },
       { v: 'feature-right', l: 'Destaque à direita' },
+      { v: 'center-wide', l: 'Destaque no centro' },
       { v: 'feature-top', l: 'Destaque em cima' },
       { v: 'feature-bottom', l: 'Destaque embaixo' },
+      { v: 'grid-bottom', l: 'Base em destaque' },
+      { v: 'band-center', l: 'Faixa central' },
+      { v: 'band-top', l: 'Faixa no topo' },
       { v: 'row', l: 'Três colunas' },
       { v: 'col', l: 'Três faixas' },
       { v: 'slant', l: 'Atravessadas' }
@@ -361,6 +483,11 @@ function mosaicOptionsFor(n) {
     o.push(
       { v: 'grid', l: 'Grade 2×2' },
       { v: 'grid-top', l: 'Grade — topo em destaque' },
+      { v: 'grid-bottom', l: 'Grade — base em destaque' },
+      { v: 'pinwheel', l: 'Cata-vento' },
+      { v: 'bricks', l: 'Tijolos' },
+      { v: 'diag-cross', l: 'Cruz diagonal' },
+      { v: 'band-top', l: 'Faixa no topo' },
       { v: 'feature-left', l: 'Destaque + 3 (lado)' },
       { v: 'feature-top', l: 'Destaque + 3 (abaixo)' },
       { v: 'row', l: 'Quatro colunas' },
@@ -1126,6 +1253,351 @@ function tplEditorialSignature(p, fmt, portal) {
   `;
 }
 
+/* ==========================================================================
+ * MODELOS ADICIONAIS (r58) — composições novas, distintas das anteriores.
+ * Mesmos campos do cartaz; token-driven (PT.*); só técnicas html2canvas-safe.
+ * ==========================================================================*/
+
+/** 11 — MOSAICO DE FOTOS: o mosaico é o PROTAGONISTA (até 4 fotos) + faixa de texto. */
+function tplMosaicHero(p, fmt, portal) {
+  const layer = posterPhotoMosaic(p, { two: 'row', three: 'grid', four: 'grid', gapColor: PT.ink });
+  const headline = p.headline || 'Título principal';
+  const hSize = posterPickSize(headline, [[40, 70], [80, 56], [140, 44]], 40);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.ink};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;">
+      <div style="flex:2.4;min-height:0;position:relative;overflow:hidden;">
+        ${layer}
+        <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom, rgba(15,12,8,0.5) 0%, rgba(15,12,8,0) 24%);"></div>
+        <div style="position:absolute;top:46px;left:50px;right:50px;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;pointer-events:none;">
+          ${_dfMasthChip(portal)}
+          ${p._total ? `<div style="background:rgba(15,12,8,0.44);border:1px solid rgba(245,239,227,0.22);border-radius:9px;padding:10px 14px;">${ptCounter(p, { onDark: true })}</div>` : (p.location ? posterLocationPill(p.location, true) : '')}
+        </div>
+      </div>
+      ${posterShow('graphics') ? `<div style="height:8px;background:${PT.terra};flex-shrink:0;"></div>` : ''}
+      <div style="flex:1;min-height:0;background:${PT.ink};padding:36px 50px;display:flex;flex-direction:column;justify-content:center;gap:16px;box-sizing:border-box;">
+        ${posterKicker(p.category, { color: PT.redOnDark })}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('footer') ? `<div style="border-top:1.5px solid ${PT.creamLine};padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
+          ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 48, nameSize: 22 }) : '<span></span>'}
+          ${posterShow('location') && p.location ? `<span style="font-family:${PT.sans};font-size:20px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46%;">${escapeHtml(p.location)}</span>` : ''}
+        </div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+/** 12 — REVISTA: coluna de texto (papel) à esquerda + foto à direita (split editorial). */
+function tplRevistaSplit(p, fmt, portal) {
+  const k0 = posterImageKeys(p)[0];
+  const headline = p.headline || 'Título principal';
+  const hSize = posterPickSize(headline, [[28, 60], [56, 48], [100, 38]], 32);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:row;overflow:hidden;box-sizing:border-box;">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:60px 46px;box-sizing:border-box;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 56, nameSize: 25 }) : ''}
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;">
+          ${posterKicker(p.category)}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.04;letter-spacing:-0.02em;color:${PT.cream};margin:22px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.5;color:${PT.muted};margin:24px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+        </div>
+        ${posterShow('footer') ? `<div style="flex-shrink:0;border-top:1.5px solid ${PT.creamLine};padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+          ${p._total ? ptCounter(p, { size: 22 }) : ''}
+        </div>` : ''}
+      </div>
+      <div style="flex:1.05;min-width:0;position:relative;overflow:hidden;background:${PT.inkPanel};">
+        ${k0 ? `<div style="position:absolute;inset:0;">${posterImageLayer(p, k0)}</div>` : posterPhotoPlaceholder()}
+        ${p.location ? `<div style="position:absolute;left:24px;bottom:24px;pointer-events:none;">${posterLocationPill(p.location, true)}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+/** 13 — FAIXA INFERIOR (lower-third de TV): foto cheia + barra inferior com tag + título. */
+function tplLowerThird(p, fmt, portal) {
+  const k0 = posterImageKeys(p)[0];
+  const layer = posterPhotoMosaic(p, { two: 'row', three: 'feature-left', four: 'grid', gapColor: PT.ink });
+  const headline = p.headline || 'Título principal';
+  const hSize = posterPickSize(headline, [[36, 64], [70, 52], [120, 42]], 36);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.ink};color:#fff;font-family:${PT.sans};position:relative;overflow:hidden;box-sizing:border-box;">
+      <div style="position:absolute;inset:0;">${k0 ? layer : posterPhotoPlaceholder()}</div>
+      <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top, rgba(11,20,33,0.92) 0%, rgba(11,20,33,0.2) 34%, rgba(11,20,33,0) 50%, rgba(11,20,33,0.45) 100%);"></div>
+      <div style="position:absolute;top:48px;left:52px;right:52px;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;pointer-events:none;">
+        ${_dfMasthChip(portal)}
+        ${p._total ? `<div style="background:rgba(15,12,8,0.44);border:1px solid rgba(245,239,227,0.22);border-radius:9px;padding:10px 14px;">${ptCounter(p, { onDark: true })}</div>` : (p.location ? posterLocationPill(p.location, true) : '')}
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:54px;pointer-events:none;">
+        ${posterShow('category') ? `<div style="display:inline-block;background:${PT.terra};color:#fff;font-family:${PT.cond};font-weight:800;font-size:26px;letter-spacing:0.16em;text-transform:uppercase;padding:12px 28px 12px 52px;">${escapeHtml(p.category || 'Ao vivo')}</div>` : ''}
+        <div style="background:linear-gradient(to right, rgba(11,20,33,0.86) 0%, rgba(11,20,33,0.62) 100%);border-left:8px solid ${PT.terra};padding:26px 52px;">
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.95);margin:12px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+          ${posterShow('footer') && posterShow('handle') ? `<div style="margin-top:16px;font-family:${PT.sans};font-size:21px;font-weight:700;letter-spacing:0.02em;color:rgba(255,255,255,0.9);">${escapeHtml(portal.handle || '@portal')}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/** 14 — CORTE DIAGONAL: foto recortada em diagonal (data-clip) sobre fundo de acento. */
+function tplDiagonalSplit(p, fmt, portal) {
+  const k0 = posterImageKeys(p)[0];
+  const headline = p.headline || 'Título principal';
+  const hSize = posterPickSize(headline, [[40, 88], [85, 66], [140, 52]], 44);
+  // Só a FOTO é recortada (clip-path no preview + data-clip no export). A cor de
+  // acento é o FUNDO da página (clip-path em bloco sólido não exporta).
+  const clip = 'polygon(0% 0%, 100% 0%, 100% 50%, 0% 72%)';
+  const photo = k0
+    ? `<div data-clip="0 0, 100 0, 100 50, 0 72" style="position:absolute;inset:0;overflow:hidden;clip-path:${clip};-webkit-clip-path:${clip};">${posterImageLayer(p, k0)}</div>`
+    : '';
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.gradSolid};color:#fff;font-family:${PT.sans};position:relative;overflow:hidden;box-sizing:border-box;">
+      ${photo}
+      <div style="position:absolute;top:46px;left:52px;right:52px;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;pointer-events:none;z-index:2;">
+        ${_dfMasthChip(portal) || (posterShow('header') ? ptMasthead(portal, { onDark: true, size: 64, nameSize: 26 }) : '<span></span>')}
+        ${p._total ? `<div style="background:rgba(15,12,8,0.44);border:1px solid rgba(245,239,227,0.22);border-radius:9px;padding:10px 14px;">${ptCounter(p, { onDark: true })}</div>` : ''}
+      </div>
+      <div style="position:absolute;left:52px;right:52px;bottom:54px;z-index:2;display:flex;flex-direction:column;gap:18px;">
+        ${posterShow('category') && p.category ? posterBadge(p.category, '#fff', PT.terraDeep) : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.95);margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+        ${posterShow('footer') ? `<div style="border-top:1.5px solid rgba(255,255,255,0.32);padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
+          ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:22px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+          ${posterShow('location') && p.location ? `<span style="font-family:${PT.serif};font-style:italic;font-weight:600;font-size:22px;color:rgba(255,255,255,0.92);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%;">${escapeHtml(p.location)}</span>` : ''}
+        </div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+/** 15 — PERFIL: retrato arredondado central + nome + cargo + frase + marca. */
+function tplPerfilCard(p, fmt, portal) {
+  const k0 = posterImageKeys(p)[0];
+  const onDark = !PT.light;
+  const name = p.personName || p.headline || 'Nome da pessoa';
+  const role = p.personRole || '';
+  const quote = p.subtitle || p.description || '';
+  const qSize = posterPickSize(quote, [[80, 38], [160, 32], [260, 27]], 23);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.gradDark};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;align-items:center;padding:72px 64px;box-sizing:border-box;overflow:hidden;position:relative;">
+      <div style="flex-shrink:0;width:100%;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { onDark, size: 58, nameSize: 24 }) : '<span></span>'}
+        ${p._total ? ptCounter(p, { onDark, size: 24 }) : ''}
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:0;width:100%;">
+        <div style="width:300px;height:300px;border-radius:36px;overflow:hidden;position:relative;background:${PT.inkPanel};border:4px solid ${PT.terra};flex-shrink:0;">
+          ${k0 ? `<div style="position:absolute;inset:0;">${posterImageLayer(p, k0)}</div>` : posterPhotoPlaceholder()}
+        </div>
+        ${posterShow('category') && p.category ? `<div style="margin-top:30px;">${posterBadge(p.category, PT.terra, '#fff')}</div>` : ''}
+        ${posterShow('personName') && name ? `<h1 style="font-family:${PT.serif};font-weight:800;font-size:54px;line-height:1.05;letter-spacing:-0.01em;color:${PT.cream};margin:26px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(name)}</h1>` : ''}
+        ${posterShow('personRole') && role ? `<div style="font-family:${PT.sans};font-weight:600;font-size:26px;letter-spacing:0.04em;color:${PT.terra};margin-top:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">${escapeHtml(role)}</div>` : ''}
+        ${posterShow('subtitle') && quote ? `<p style="font-family:${PT.serif};font-style:italic;font-size:${qSize}px;font-weight:500;line-height:1.4;color:${PT.creamMute};margin:28px 0 0 0;max-width:84%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(quote)}</p>` : ''}
+      </div>
+      ${posterShow('footer') && posterShow('handle') ? `<div style="flex-shrink:0;width:100%;border-top:1.5px solid ${PT.creamLine};padding-top:20px;display:flex;align-items:center;justify-content:center;gap:14px;">
+        <span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>
+      </div>` : ''}
+    </div>
+  `;
+}
+
+/** 16 — LINHA DO TEMPO: etapas conectadas por uma linha vertical com marcadores. */
+function tplTimeline(p, fmt, portal) {
+  const hSize = posterPickSize(p.headline, [[36, 70], [64, 56]], 46);
+  let bullets = posterBullets(p, 5);
+  const empty = bullets.length === 0;
+  if (empty) bullets = ['Use o campo Texto (ou gere a partir de uma matéria) para preencher as etapas.'];
+  const items = bullets.map((b, i) => {
+    const last = i === bullets.length - 1;
+    return `
+      <div style="display:flex;align-items:stretch;gap:24px;">
+        <div style="flex-shrink:0;width:46px;display:flex;flex-direction:column;align-items:center;">
+          <div style="width:46px;height:46px;border-radius:50%;background:${empty ? PT.line : PT.terra};color:#fff;display:flex;align-items:center;justify-content:center;font-family:${PT.cond};font-weight:800;font-size:24px;flex-shrink:0;">${empty ? '·' : num2(i + 1)}</div>
+          ${!last ? `<div style="flex:1;width:4px;background:${PT.line};margin:6px 0;"></div>` : ''}
+        </div>
+        <div style="flex:1;min-width:0;padding-top:6px;padding-bottom:${last ? 0 : 30}px;font-family:${PT.sans};font-size:${empty ? 28 : 30}px;font-weight:500;line-height:1.34;color:${empty ? PT.muted : PT.inkSoft};overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(b)}</div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:60px 56px;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;">
+        <div style="min-width:0;">
+          ${posterKicker(p.category || 'Passo a passo')}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:-0.005em;margin:18px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.headline || 'Linha do tempo')}</h1>` : ''}
+        </div>
+        ${ptCounter(p)}
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;overflow:hidden;padding:28px 0;">
+        ${items}
+      </div>
+      ${posterMetaFooter(portal, { right: p.location || '' })}
+    </div>
+  `;
+}
+
+/* ==========================================================================
+ * MODELOS ADICIONAIS (r58b) — utilidade municipal/jornalística.
+ * ==========================================================================*/
+
+/** 17 — EVENTO / AGENDA: bloco de DATA em destaque (campo figure) + nome + detalhes. */
+function tplEvento(p, fmt, portal) {
+  const headline = p.headline || 'Nome do evento';
+  const hSize = posterPickSize(headline, [[36, 72], [70, 56], [120, 44]], 38);
+  const date = ((p.figure && p.figure.trim()) || 'EM BREVE').toUpperCase();
+  const dSize = posterPickSize(date, [[6, 116], [11, 84], [18, 60]], 46);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:60px 56px;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 58, nameSize: 26 }) : '<span></span>'}
+        ${p._total ? ptCounter(p, { size: 24 }) : ''}
+      </div>
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:26px;">
+        ${posterKicker(p.category || 'Agenda')}
+        ${posterShow('figure') ? `<div style="display:inline-flex;flex-direction:column;align-items:flex-start;background:${PT.gradSolid};border-radius:20px;padding:24px 38px;align-self:flex-start;">
+          <span style="font-family:${PT.sans};font-weight:700;font-size:19px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.85);">Data</span>
+          <span style="font-family:${PT.cond};font-weight:800;font-size:${dSize}px;line-height:0.92;letter-spacing:0.01em;color:#fff;margin-top:6px;">${escapeHtml(date)}</span>
+        </div>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.32;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+        ${posterShow('location') && p.location ? `<div style="align-self:flex-start;">${posterLocationPill(p.location, false)}</div>` : ''}
+      </div>
+      ${posterMetaFooter(portal, { right: portal.handle || '' })}
+    </div>
+  `;
+}
+
+/** 18 — INFORME / SERVIÇO: linhas "rótulo: valor" com marcador (utilidade pública). */
+function tplInforme(p, fmt, portal) {
+  const headline = p.headline || 'Informe de serviço';
+  const hSize = posterPickSize(headline, [[36, 64], [70, 50]], 42);
+  let rows = posterBullets(p, 5);
+  const empty = rows.length === 0;
+  if (empty) rows = ['Use o campo Texto para listar as informações (ex.: "Horário: 8h às 17h").'];
+  const items = rows.map((b) => {
+    const m = b.split(/\s*[:—–]\s+/);
+    const hasLabel = !empty && m.length >= 2 && m[0].length <= 28;
+    const label = hasLabel ? m[0] : '';
+    const val = hasLabel ? m.slice(1).join(' — ') : b;
+    return `
+      <div style="display:flex;align-items:flex-start;gap:20px;background:${PT.inkPanel};border-radius:12px;padding:22px 26px;border-left:6px solid ${empty ? PT.line : PT.terra};">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="${empty ? PT.muted : PT.terra}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:4px;"><polyline points="20 6 9 17 4 12"/></svg>
+        <div style="flex:1;min-width:0;">
+          ${hasLabel ? `<div style="font-family:${PT.sans};font-weight:700;font-size:21px;letter-spacing:0.06em;text-transform:uppercase;color:${PT.terra};margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(label)}</div>` : ''}
+          <div style="font-family:${PT.sans};font-size:27px;font-weight:500;line-height:1.3;color:${empty ? PT.muted : PT.inkSoft};overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(val)}</div>
+        </div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:58px 54px;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;">
+        ${posterKicker(p.category || 'Informe')}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:-0.005em;margin:16px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      </div>
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:24px 0;">
+        ${items}
+      </div>
+      ${posterMetaFooter(portal, { right: p.location || '' })}
+    </div>
+  `;
+}
+
+/** 19 — VOCÊ SABIA?: card de curiosidade/fato (interrogação fantasma + frase + explicação). */
+function tplFato(p, fmt, portal) {
+  const headline = p.headline || 'Você sabia disso?';
+  const hSize = posterPickSize(headline, [[40, 84], [85, 62], [150, 48]], 42);
+  const body = p.subtitle || p.description || '';
+  const bSize = posterPickSize(body, [[120, 30], [240, 26]], 22);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.gradDark};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:64px 58px;box-sizing:border-box;overflow:hidden;position:relative;">
+      ${posterShow('graphics') ? `<div style="position:absolute;right:-50px;bottom:-150px;font-family:${PT.serif};font-weight:900;font-size:520px;line-height:1;color:${PT.terraSoft};pointer-events:none;">?</div>` : ''}
+      <div style="position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;z-index:2;">
+        ${posterShow('header') ? ptMasthead(portal, { onDark: !PT.light, size: 58, nameSize: 24 }) : '<span></span>'}
+        ${p._total ? ptCounter(p, { onDark: !PT.light, size: 24 }) : ''}
+      </div>
+      <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;z-index:2;">
+        <div style="margin-bottom:18px;">${posterKicker(p.category || 'Você sabia?', { color: PT.redOnDark })}</div>
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:700;font-size:${hSize}px;line-height:1.06;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && body ? `<p style="font-family:${PT.sans};font-size:${bSize}px;font-weight:400;line-height:1.5;color:${PT.creamMute};margin:28px 0 0 0;max-width:90%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(body)}</p>` : ''}
+      </div>
+      ${posterShow('footer') ? `<div style="position:relative;z-index:2;border-top:1.5px solid ${PT.creamLine};padding-top:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+        ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+        ${posterShow('location') && p.location ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%;">${escapeHtml(p.location)}</span>` : ''}
+      </div>` : ''}
+    </div>
+  `;
+}
+
+/** 20 — DADO SOBRE FOTO: número/estatística gigante sobreposto a uma foto. */
+function tplDadoFoto(p, fmt, portal) {
+  const figure = (p.figure && p.figure.trim()) || posterFigureExtract(p.headline) || '00';
+  const fSize = posterPickSize(figure, [[3, 290], [5, 220], [8, 160]], 116);
+  const headline = p.headline || 'Indicador em destaque';
+  const hSize = posterPickSize(headline, [[40, 54], [80, 44], [140, 36]], 32);
+  const k0 = posterImageKeys(p)[0];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.ink};color:#fff;font-family:${PT.sans};position:relative;overflow:hidden;box-sizing:border-box;">
+      <div style="position:absolute;inset:0;">${k0 ? posterImageLayer(p, k0) : posterPhotoPlaceholder()}</div>
+      <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top, rgba(11,20,33,0.95) 0%, rgba(11,20,33,0.55) 34%, rgba(11,20,33,0) 60%, rgba(11,20,33,0.4) 100%);"></div>
+      <div style="position:absolute;top:50px;left:54px;right:54px;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;pointer-events:none;">
+        ${_dfMasthChip(portal)}
+        ${p._total ? `<div style="background:rgba(15,12,8,0.44);border:1px solid rgba(245,239,227,0.22);border-radius:9px;padding:10px 14px;">${ptCounter(p, { onDark: true })}</div>` : (p.location ? posterLocationPill(p.location, true) : '')}
+      </div>
+      <div style="position:absolute;left:54px;right:54px;bottom:54px;pointer-events:none;display:flex;flex-direction:column;gap:8px;">
+        ${posterShow('category') ? `<div style="margin-bottom:6px;">${posterKicker(p.category || 'Dados', { color: PT.redOnDark })}</div>` : ''}
+        ${posterShow('figure') ? `<div style="font-family:${PT.cond};font-weight:800;font-size:${fSize}px;line-height:0.84;letter-spacing:-0.02em;color:#fff;text-shadow:0 2px 24px rgba(0,0,0,0.45);">${escapeHtml(figure)}</div>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;letter-spacing:0.004em;color:#fff;margin:6px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.92);margin:6px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+/** 21 — INDICADORES: 2–4 blocos de KPI (valor + rótulo) extraídos do texto. */
+function tplKpis(p, fmt, portal) {
+  const headline = p.headline || 'Indicadores';
+  const hSize = posterPickSize(headline, [[36, 58], [70, 46]], 38);
+  let rows = posterBullets(p, 4);
+  let kpis = rows.map(b => {
+    const m = b.split(/\s*[:—–]\s+/);
+    if (m.length >= 2) return { v: m[0].trim(), l: m.slice(1).join(' — ').trim() };
+    const mm = b.match(/^(\S+)\s+(.*)$/);
+    return mm ? { v: mm[1], l: mm[2] } : { v: b, l: '' };
+  }).filter(k => k.v);
+  const empty = kpis.length === 0;
+  if (empty) kpis = [{ v: '00', l: 'Use o campo Texto: "47% — cobertura"' }];
+  kpis = kpis.slice(0, 4);
+  const kpiCard = (k) => {
+    const vSize = posterPickSize(k.v, [[4, 78], [7, 60], [12, 44]], 34);
+    return `<div style="flex:1;min-width:0;min-height:0;background:${PT.inkPanel};border-radius:16px;padding:30px 28px;border-top:6px solid ${empty ? PT.line : PT.terra};display:flex;flex-direction:column;justify-content:center;">
+        <div style="font-family:${PT.cond};font-weight:800;font-size:${vSize}px;line-height:0.9;letter-spacing:-0.01em;color:${empty ? PT.muted : PT.terra};overflow:hidden;">${escapeHtml(k.v)}</div>
+        ${k.l ? `<div style="font-family:${PT.sans};font-weight:500;font-size:22px;line-height:1.28;color:${PT.inkSoft};margin-top:12px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(k.l)}</div>` : ''}
+      </div>`;
+  };
+  const c = kpis.map(kpiCard);
+  let grid;
+  if (kpis.length <= 2) grid = `<div style="flex:1;display:flex;flex-direction:column;gap:18px;min-height:0;">${c.join('')}</div>`;
+  else if (kpis.length === 3) grid = `<div style="flex:1;display:flex;flex-direction:row;gap:18px;min-height:0;">${c.join('')}</div>`;
+  else grid = `<div style="flex:1;display:flex;flex-direction:column;gap:18px;min-height:0;">
+      <div style="flex:1;display:flex;gap:18px;min-height:0;">${c[0]}${c[1]}</div>
+      <div style="flex:1;display:flex;gap:18px;min-height:0;">${c[2]}${c[3]}</div>
+    </div>`;
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:58px 54px;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;">
+        <div style="min-width:0;">
+          ${posterKicker(p.category || 'Balanço')}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:-0.005em;margin:16px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        </div>
+        ${p._total ? ptCounter(p, { size: 24 }) : ''}
+      </div>
+      <div style="flex:1;min-height:0;display:flex;padding:24px 0;">
+        ${grid}
+      </div>
+      ${posterShow('subtitle') && p.subtitle ? `<div style="flex-shrink:0;font-family:${PT.sans};font-size:22px;font-weight:500;color:${PT.muted};text-align:center;padding-bottom:8px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</div>` : ''}
+      ${posterMetaFooter(portal, { right: p.location || '' })}
+    </div>
+  `;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Registro de modelos (a ordem define a aparição no seletor do editor).       */
 /* manchete delega a tplManchete() (definido em posters.js) via wrapper.       */
@@ -1154,4 +1626,17 @@ const POSTER_TEMPLATES = {
   minimalista:          { label: 'Minimalista',          usesImages: false, render: tplMinimalista },
   texto:                { label: 'Texto / parágrafo',    usesImages: false, render: tplTexto },
   'cor-solida':         { label: 'Cor sólida',           usesImages: false, render: tplCorSolida },
+  // --- Modelos adicionais (r58) ---
+  'mosaic-hero':        { label: 'Mosaico de fotos',     usesImages: true,  render: tplMosaicHero },
+  'revista-split':      { label: 'Revista',              usesImages: true,  render: tplRevistaSplit },
+  'lower-third':        { label: 'Faixa inferior',       usesImages: true,  render: tplLowerThird },
+  'diagonal-split':     { label: 'Corte diagonal',       usesImages: true,  render: tplDiagonalSplit },
+  'perfil-card':        { label: 'Perfil',               usesImages: true,  render: tplPerfilCard },
+  timeline:             { label: 'Linha do tempo',       usesImages: false, render: tplTimeline },
+  // --- Modelos adicionais (r58b) ---
+  evento:               { label: 'Evento / agenda',      usesImages: false, render: tplEvento },
+  informe:              { label: 'Informe / serviço',    usesImages: false, render: tplInforme },
+  fato:                 { label: 'Você sabia?',          usesImages: false, render: tplFato },
+  'dado-foto':          { label: 'Dado sobre foto',      usesImages: true,  render: tplDadoFoto },
+  kpis:                 { label: 'Indicadores',          usesImages: false, render: tplKpis },
 };

@@ -497,6 +497,10 @@ function renderPosterEditor() {
   // Barra de carrossel (slides) — additiva; fica vazia p/ cartaz único.
   if (typeof renderCarouselBar === 'function') renderCarouselBar(p);
 
+  // Navegação por categorias (Layout/Conteúdo/Imagens/Cores/Portal/Elementos):
+  // mostra só o grupo ativo. Re-liga os cliques a cada render (idempotente).
+  if (typeof setupPosterEditorTabs === 'function') setupPosterEditorTabs();
+
   // Preencher campos com valores do alvo (cartaz ou slide)
   $('#p-headline').value = s.headline || '';
   $('#p-category').value = s.category || '';
@@ -572,6 +576,8 @@ function renderPosterEditor() {
       description: $('#p-description') ? $('#p-description').value : s.description,
       mosaic: $('#p-mosaic') ? $('#p-mosaic').value : s.mosaic,
       theme: $('#p-theme') ? $('#p-theme').value : p.theme,   // tema é do CARTAZ (não do slide)
+      custom: (typeof readPosterCustom === 'function') ? readPosterCustom() : p.custom,   // identidade visual ao vivo
+
       personName: $('#p-person-name') ? $('#p-person-name').value : s.personName,
       personRole: $('#p-person-role') ? $('#p-person-role').value : s.personRole,
       figure: $('#p-figure') ? $('#p-figure').value : s.figure,
@@ -722,6 +728,18 @@ function renderPosterEditor() {
     };
   }
 
+  // Identidade visual (paleta/cores/gradiente/fundo/presets): nível-CARTAZ (p.custom),
+  // persistido ao vivo como o tema, para export/carrossel/reload baterem com o preview.
+  if (typeof setupPosterStyleControls === 'function') {
+    setupPosterStyleControls(p, () => {
+      p.custom = readPosterCustom();
+      p.updatedAt = new Date().toISOString();
+      savePosters();
+      updatePreview();
+      if (typeof renderCarouselBar === 'function' && typeof posterIsCarousel === 'function' && posterIsCarousel(p)) renderCarouselBar(p);
+    });
+  }
+
   updatePreview();
   requestAnimationFrame(() => {
     fitPosterPreview();
@@ -748,6 +766,7 @@ function renderPosterEditor() {
   $('#p-save').onclick = () => {
     applyEditorTo(s);
     if ($('#p-theme')) p.theme = $('#p-theme').value;   // tema é do cartaz (nível p)
+    if (typeof readPosterCustom === 'function') p.custom = readPosterCustom();   // identidade visual (nível p)
     p.updatedAt = new Date().toISOString();
     savePosters();
     renderPostersList();
@@ -778,6 +797,200 @@ function renderPosterEditor() {
   $('#p-export').onclick = () => doExport(() => exportPoster(p));
   if ($('#p-export-imgs')) $('#p-export-imgs').onclick = () => doExport(() => exportCarousel(p, 'images'));
   if ($('#p-export-zip')) $('#p-export-zip').onclick = () => doExport(() => exportCarousel(p, 'zip'));
+}
+
+/* ===========================================================================
+ * NAVEGAÇÃO POR CATEGORIAS do editor — só o grupo ativo fica visível.
+ * Os controles são os MESMOS (mesmos IDs/handlers); muda só a organização.
+ * O grupo ativo persiste entre re-renders (variável de módulo).
+ * ==========================================================================*/
+let _pEditGroup = 'layout';
+function setupPosterEditorTabs() {
+  const tabs = document.querySelectorAll('#p-edit-tabs .pedit-tab');
+  const panels = document.querySelectorAll('#p-editor .pedit-panel');
+  if (!tabs.length) return;
+  const activate = (g) => {
+    if (g) _pEditGroup = g;
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.pgroup === _pEditGroup));
+    panels.forEach(pa => pa.classList.toggle('active', pa.dataset.pgroup === _pEditGroup));
+  };
+  tabs.forEach(t => { t.onclick = () => activate(t.dataset.pgroup); });
+  // restaura o grupo salvo; se não existir mais, cai no primeiro
+  const exists = [...tabs].some(t => t.dataset.pgroup === _pEditGroup);
+  activate(exists ? _pEditGroup : (tabs[0] && tabs[0].dataset.pgroup));
+}
+
+/* ===========================================================================
+ * IDENTIDADE VISUAL — controles do editor (paleta/cores/gradiente/fundo/presets).
+ * Lê/escreve o objeto `p.custom` consumido por applyPosterCustom() no render.
+ * ==========================================================================*/
+
+// Mapa controle→chave de cor (a caixinha "-on" liga o override; sem ela, herda o tema).
+const PC_COLOR_MAP = { bg: '#pc-bg', card: '#pc-card', accent: '#pc-accent', accent2: '#pc-accent2', text: '#pc-text', text2: '#pc-text2', border: '#pc-border' };
+
+/** Lê os controles → objeto `custom` (ou undefined se nada foi personalizado). */
+function readPosterCustom() {
+  const val = sel => { const el = $(sel); return el ? el.value : ''; };
+  const on = sel => { const el = $(sel); return !!(el && el.checked); };
+  const colors = {};
+  Object.keys(PC_COLOR_MAP).forEach(k => { if (on(PC_COLOR_MAP[k] + '-on')) colors[k] = val(PC_COLOR_MAP[k]); });
+  const bg = val('#pb-type') || 'theme';
+  const num = (sel, d) => { const n = parseInt(val(sel), 10); return Number.isFinite(n) ? n : d; };
+  const custom = {
+    palette: val('#p-palette') || '',
+    colors,
+    autoContrast: on('#pc-auto'),
+    gradient: { from: val('#pg-from'), to: val('#pg-to'), angle: parseInt(val('#pg-angle'), 10) || 150 },
+    useGradientAccent: on('#pg-accent'),
+    bg,
+    pattern: val('#pb-pattern') || 'dots',
+    // opções do padrão gráfico — só quando o fundo é padrão (mantém o custom enxuto)
+    patternOpts: bg === 'pattern' ? {
+      c1: on('#pat-c1-on') ? val('#pat-c1') : undefined,
+      c2: on('#pat-c2-on') ? val('#pat-c2') : undefined,
+      alpha: num('#pat-alpha', 12) / 100,
+      scale: num('#pat-scale', 100) / 100,
+      angle: num('#pat-angle', 0),
+      posX: num('#pat-px', 0),
+      posY: num('#pat-py', 0),
+    } : undefined,
+  };
+  const active = custom.palette || Object.keys(colors).length || custom.useGradientAccent || (bg && bg !== 'theme');
+  return active ? custom : undefined;
+}
+
+/** Escreve um objeto `custom` (ou null = limpar) de volta nos controles. */
+function writeControlsFromCustom(c) {
+  c = c || {};
+  const set = (sel, v) => { const el = $(sel); if (el && v != null) el.value = v; };
+  const chk = (sel, b) => { const el = $(sel); if (el) el.checked = !!b; };
+  set('#p-palette', c.palette || '');
+  const cols = c.colors || {};
+  Object.keys(PC_COLOR_MAP).forEach(k => { chk(PC_COLOR_MAP[k] + '-on', cols[k] != null); if (cols[k]) set(PC_COLOR_MAP[k], cols[k]); });
+  chk('#pc-auto', c.autoContrast !== false);
+  const g = c.gradient || {};
+  if (g.from) set('#pg-from', g.from);
+  if (g.to) set('#pg-to', g.to);
+  set('#pg-angle', g.angle != null ? g.angle : 150);
+  chk('#pg-accent', !!c.useGradientAccent);
+  set('#pb-type', c.bg || 'theme');
+  set('#pb-pattern', c.pattern || 'dots');
+  // opções do padrão gráfico
+  const po = c.patternOpts || {};
+  chk('#pat-c1-on', po.c1 != null); if (po.c1) set('#pat-c1', po.c1);
+  chk('#pat-c2-on', po.c2 != null); if (po.c2) set('#pat-c2', po.c2);
+  set('#pat-alpha', po.alpha != null ? Math.round(po.alpha * 100) : patternDefaultAlpha(c.pattern));
+  set('#pat-scale', po.scale != null ? Math.round(po.scale * 100) : 100);
+  set('#pat-angle', po.angle != null ? po.angle : 0);
+  set('#pat-px', po.posX != null ? po.posX : 0);
+  set('#pat-py', po.posY != null ? po.posY : 0);
+  const pf = $('#pb-pattern'); if (pf) pf.style.display = (c.bg === 'pattern') ? '' : 'none';
+  const pc = $('#pat-controls'); if (pc) pc.style.display = (c.bg === 'pattern') ? '' : 'none';
+}
+
+/** Opacidade-padrão (0–100) de um padrão — usada como ponto de partida do slider. */
+function patternDefaultAlpha(id) {
+  const e = (typeof POSTER_PATTERNS !== 'undefined') && POSTER_PATTERNS[id];
+  return e ? Math.round(e.a * 100) : 12;
+}
+
+function savePosterPresets() { saveJSON(STORAGE_KEYS.posterPresets, State.posterPresets || []); }
+
+function refreshPosterPresetList(selName) {
+  const lst = $('#pp-list');
+  if (!lst) return;
+  const list = Array.isArray(State.posterPresets) ? State.posterPresets : [];
+  lst.innerHTML = '<option value="">— escolher preset —</option>' +
+    list.map(x => `<option value="${escapeHtml(x.name)}">${escapeHtml(x.name)}</option>`).join('');
+  if (selName) lst.value = selName;
+}
+
+/** Popula selects, carrega valores de p.custom e liga os handlers. `onChange`
+ * persiste p.custom + re-renderiza (passado por renderPosterEditor). */
+function setupPosterStyleControls(p, onChange) {
+  const pal = $('#p-palette');
+  if (pal && typeof POSTER_PALETTES !== 'undefined') {
+    pal.innerHTML = '<option value="">Sem paleta (usar tema)</option>' +
+      Object.entries(POSTER_PALETTES).map(([k, v]) => `<option value="${k}">${escapeHtml(v.label)}</option>`).join('');
+  }
+  const gp = $('#pg-preset');
+  if (gp && typeof POSTER_GRADIENTS !== 'undefined') {
+    gp.innerHTML = '<option value="">Personalizado</option>' +
+      Object.entries(POSTER_GRADIENTS).map(([k, v]) => `<option value="${k}">${escapeHtml(v.label)}</option>`).join('');
+  }
+  // Biblioteca de padrões gráficos — optgroups por categoria (data-driven: novos
+  // padrões em POSTER_PATTERNS aparecem aqui sozinhos).
+  const pbPat = $('#pb-pattern');
+  if (pbPat && typeof POSTER_PATTERNS !== 'undefined' && typeof POSTER_PATTERN_CATS !== 'undefined') {
+    pbPat.innerHTML = Object.entries(POSTER_PATTERN_CATS).map(([catKey, catLabel]) => {
+      const items = Object.entries(POSTER_PATTERNS).filter(([, v]) => v.cat === catKey);
+      if (!items.length) return '';
+      return `<optgroup label="${escapeHtml(catLabel)}">` +
+        items.map(([id, v]) => `<option value="${id}">${escapeHtml(v.label)}</option>`).join('') + '</optgroup>';
+    }).join('');
+  }
+  refreshPosterPresetList();
+  writeControlsFromCustom(p.custom);
+
+  const fire = () => onChange();
+  // Todos os controles de cor/gradiente/padrão/checagem disparam o mesmo onChange.
+  ['#p-palette', '#pc-auto', '#pg-from', '#pg-to', '#pg-angle', '#pg-accent',
+   '#pat-c1', '#pat-c2', '#pat-c1-on', '#pat-c2-on', '#pat-alpha', '#pat-scale', '#pat-angle', '#pat-px', '#pat-py']
+    .concat(Object.values(PC_COLOR_MAP))
+    .concat(Object.values(PC_COLOR_MAP).map(s => s + '-on'))
+    .forEach(sel => { const el = $(sel); if (el) { el.oninput = fire; el.onchange = fire; } });
+
+  // Gradiente pronto → preenche De/Até e dispara.
+  if (gp) gp.onchange = () => {
+    const g = (typeof POSTER_GRADIENTS !== 'undefined') ? POSTER_GRADIENTS[gp.value] : null;
+    if (g) { const f = $('#pg-from'), t = $('#pg-to'); if (f) f.value = g.from; if (t) t.value = g.to; }
+    fire();
+  };
+  // Trocar de PADRÃO → reseta a opacidade para o default afinado do novo padrão e dispara.
+  const pbp = $('#pb-pattern');
+  if (pbp) pbp.onchange = () => { const a = $('#pat-alpha'); if (a) a.value = patternDefaultAlpha(pbp.value); fire(); };
+  // Tipo de fundo → mostra/oculta o seletor de padrão e os controles do padrão.
+  const bt = $('#pb-type');
+  if (bt) bt.onchange = () => {
+    const isPat = bt.value === 'pattern';
+    const pf = $('#pb-pattern'); if (pf) pf.style.display = isPat ? '' : 'none';
+    const pc = $('#pat-controls'); if (pc) pc.style.display = isPat ? '' : 'none';
+    if (isPat) { const a = $('#pat-alpha'); if (a) a.value = patternDefaultAlpha(pf ? pf.value : 'dots'); }
+    fire();
+  };
+  // Limpar personalização.
+  const rs = $('#pc-reset');
+  if (rs) rs.onclick = () => { writeControlsFromCustom(null); fire(); toast('Personalização removida — voltou ao tema.', 'success'); };
+
+  // Presets: salvar / aplicar / excluir.
+  const sv = $('#pp-save');
+  if (sv) sv.onclick = () => {
+    const cur = readPosterCustom();
+    if (!cur) { toast('Nada para salvar — personalize alguma cor antes.', 'info'); return; }
+    const name = (prompt('Nome do preset (ex.: Meu Portal, Política, Esportes):') || '').trim();
+    if (!name) return;
+    if (!Array.isArray(State.posterPresets)) State.posterPresets = [];
+    const ix = State.posterPresets.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
+    const entry = { name, custom: cur };
+    if (ix >= 0) State.posterPresets[ix] = entry; else State.posterPresets.push(entry);
+    savePosterPresets();
+    refreshPosterPresetList(name);
+    toast('Preset salvo.', 'success');
+  };
+  const lst = $('#pp-list');
+  if (lst) lst.onchange = () => {
+    const e = (State.posterPresets || []).find(x => x.name === lst.value);
+    if (e) { writeControlsFromCustom(e.custom); fire(); toast(`Preset "${e.name}" aplicado.`, 'success'); }
+  };
+  const del = $('#pp-del');
+  if (del) del.onclick = () => {
+    const cur = $('#pp-list');
+    if (!cur || !cur.value) { toast('Escolha um preset para excluir.', 'info'); return; }
+    State.posterPresets = (State.posterPresets || []).filter(x => x.name !== cur.value);
+    savePosterPresets();
+    refreshPosterPresetList();
+    toast('Preset excluído.', 'success');
+  };
 }
 
 /**
@@ -1194,8 +1407,10 @@ function renderPosterTemplate(p) {
   const reg = (typeof POSTER_TEMPLATES !== 'undefined') ? POSTER_TEMPLATES : null;
   const tpl = (reg && reg[p.template]) || (reg && reg.manchete);
   if (typeof applyTheme === 'function') applyTheme(p.theme || portal.theme);   // tema do cartaz (override) ou do portal
+  if (typeof applyPosterCustom === 'function') applyPosterCustom(p.custom);    // identidade visual (paleta/cores/gradiente) por cima do tema
   if (typeof setPosterHidden === 'function') setPosterHidden(p);   // elementos ocultos (olho) ativos neste render
   $('#p-stage').innerHTML = tpl ? tpl.render(p, fmt, portal) : tplManchete(p, fmt, portal);
+  if (typeof applyPosterRootBg === 'function') applyPosterRootBg(p.custom, $('#p-stage'), fmt);   // fundo custom (sólido/gradiente/padrão) no nó raiz
   fitPosterPreview();
   applyAllImageTransforms($('#p-stage'));
 }

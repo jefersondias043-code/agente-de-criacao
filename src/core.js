@@ -21,6 +21,7 @@ const STORAGE_KEYS = {
   generations: 'agp.generations',
   extractions: 'agp.extractions',
   posters: 'agp.posters',
+  posterPresets: 'agp.posterPresets',
 };
 
 function loadJSON(key, fallback) {
@@ -90,6 +91,7 @@ const State = (() => {
     generations: loadJSON(STORAGE_KEYS.generations, []),
     extractions: loadJSON(STORAGE_KEYS.extractions, []),
     posters: loadJSON(STORAGE_KEYS.posters, []),
+    posterPresets: loadJSON(STORAGE_KEYS.posterPresets, []),   // presets de identidade visual (nome + custom)
     currentView: 'welcome',
     activeExtractionId: null,
     activePosterId: null,

@@ -289,6 +289,7 @@ function renderCarouselBar(p) {
   const reg = (typeof POSTER_TEMPLATES !== 'undefined') ? POSTER_TEMPLATES : null;
   const portal = { ...(p.portalSnapshot || {}), ...(State.portals[State.activePortalIndex] || State.portals[0] || {}) };
   if (typeof applyTheme === 'function') applyTheme(p.theme || portal.theme);   // tema do carrossel nos thumbs
+  if (typeof applyPosterCustom === 'function') applyPosterCustom(p.custom);     // identidade visual nos thumbs
   const chips = p.slides.map((sl, idx) => {
     const active = idx === i;
     const fmt = (typeof POSTER_FORMATS !== 'undefined' && POSTER_FORMATS[sl.format]) || { w: 1080, h: 1440 };
@@ -438,7 +439,7 @@ async function exportCarousel(p, mode) {
     for (let idx = 0; idx < slides.length; idx++) {
       const slide = slides[idx];
       const fmt = (typeof POSTER_FORMATS !== 'undefined' && POSTER_FORMATS[slide.format]) || posterActiveFormat();
-      renderPosterTemplate({ ...slide, theme: p.theme, portalSnapshot: p.portalSnapshot, _idx: idx + 1, _total: slides.length });
+      renderPosterTemplate({ ...slide, theme: p.theme, custom: p.custom, portalSnapshot: p.portalSnapshot, _idx: idx + 1, _total: slides.length });
       // espera layout + imagens decodificarem antes de capturar
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       await waitForStageImages();
@@ -476,7 +477,7 @@ async function exportCarousel(p, mode) {
   } finally {
     // restaura o slide ativo no preview
     p.slideIndex = prevIndex;
-    renderPosterTemplate({ ...getSlide(p), theme: p.theme, portalSnapshot: p.portalSnapshot, _idx: (p.slideIndex || 0) + 1, _total: p.slides.length });
+    renderPosterTemplate({ ...getSlide(p), theme: p.theme, custom: p.custom, portalSnapshot: p.portalSnapshot, _idx: (p.slideIndex || 0) + 1, _total: p.slides.length });
     fitPosterPreview();
   }
 }

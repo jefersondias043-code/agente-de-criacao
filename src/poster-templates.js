@@ -209,6 +209,303 @@ function applyTheme(id) {
 }
 function applyPortalTheme(portal) { applyTheme(portal && portal.theme); }
 
+/* ===========================================================================
+ * IDENTIDADE VISUAL — camada de personalização de COR por cartaz (`p.custom`).
+ *
+ * Filosofia: NÃO mexe em estrutura/layout/modelo/mosaico — só nas CORES. Roda
+ * DEPOIS de applyTheme() em cada render: reconstrói os tokens `PT` via makeTheme()
+ * a partir de poucas "seeds" (fundo, destaque, texto…), então TODO o sistema de
+ * derivação (contraste, hierarquia, bordas, gradientes) se recalcula sozinho —
+ * é a "aplicação inteligente". Os modelos não sabem que isso existe (leem `PT.*`).
+ *
+ * `p.custom = {
+ *    palette,            // id de POSTER_PALETTES (base de cor) ou '' (= tema atual)
+ *    colors:{bg,card,accent,accent2,text,text2,border},  // overrides opcionais (hex)
+ *    autoContrast,       // recalcula claro/escuro + cor de texto a partir do fundo
+ *    gradient:{from,to,angle}, useGradientAccent,         // gradiente nos destaques
+ *    bg:'theme'|'solid'|'gradient'|'pattern', pattern:'dots'|'grid'|'diag'
+ * }` — tudo opcional; objeto vazio/ausente = comportamento idêntico ao de antes.
+ * ==========================================================================*/
+
+/* PALETAS prontas — specs MÍNIMOS de makeTheme (bg/accent/accent2/accentDeep + light);
+ * o resto (bg2, bgDeep, gradientes, accentSoft) é derivado em applyPosterCustom.
+ * Servem a QUALQUER portal: a marca/tipografia do tema são preservadas (muda só cor). */
+const POSTER_PALETTES = {
+  'vermelho-noticia':   { label:'Vermelho Notícia',            light:false, bg:'#0B1421', accent:'#E30613', accent2:'#FF5A4D', accentDeep:'#A60410' },
+  'vermelho-premium':   { label:'Vermelho Jornalístico Premium', light:true,  bg:'#FAF9F6', accent:'#C1121F', accent2:'#E0454E', accentDeep:'#8B0D16' },
+  'azul-institucional': { label:'Azul Institucional',          light:false, bg:'#0A1A2F', accent:'#1D6FB8', accent2:'#4FA3E3', accentDeep:'#0E4E86' },
+  'azul-editorial':     { label:'Azul Editorial',              light:true,  bg:'#F7FAFD', accent:'#1565C0', accent2:'#42A5F5', accentDeep:'#0D47A1' },
+  'verde-editorial':    { label:'Verde Editorial',             light:true,  bg:'#F5FAF6', accent:'#1B8A5A', accent2:'#3FBF82', accentDeep:'#116B43' },
+  'roxo-premium':       { label:'Roxo Premium',                light:false, bg:'#1A0F2E', accent:'#A855F7', accent2:'#C77DFF', accentDeep:'#7E22CE' },
+  'dourado-premium':    { label:'Dourado Premium',             light:false, bg:'#10131A', accent:'#E0A53B', accent2:'#F2C879', accentDeep:'#A8761A' },
+  'preto-elegante':     { label:'Preto Elegante',              light:false, bg:'#0C0C0E', accent:'#C9CDD6', accent2:'#EDEFF4', accentDeep:'#8A8F9C' },
+  'cinza-corporativo':  { label:'Cinza Corporativo',           light:false, bg:'#1B1E24', accent:'#5B6B82', accent2:'#9AAAC2', accentDeep:'#3C4757' },
+  'laranja-criativo':   { label:'Laranja Criativo',            light:false, bg:'#161310', accent:'#F4820B', accent2:'#FFB02E', accentDeep:'#C25E00' },
+  'tons-neutros':       { label:'Tons Neutros',                light:true,  bg:'#F6F4EF', accent:'#7A7468', accent2:'#A39C8C', accentDeep:'#544F45' },
+  'tons-modernos':      { label:'Tons Modernos',               light:false, bg:'#101418', accent:'#14B8C4', accent2:'#5EE6D0', accentDeep:'#0C7A86' },
+  'tons-vibrantes':     { label:'Tons Vibrantes',              light:false, bg:'#15101D', accent:'#FF2E97', accent2:'#36E2FF', accentDeep:'#C71585' },
+  'tons-minimalistas':  { label:'Tons Minimalistas',           light:true,  bg:'#FCFCFB', accent:'#222222', accent2:'#666666', accentDeep:'#000000' },
+  'tons-premium':       { label:'Tons Premium',                light:false, bg:'#1C1322', accent:'#B08D57', accent2:'#E6C988', accentDeep:'#7C5E2E' },
+  'tons-tecnologicos':  { label:'Tons Tecnológicos',           light:false, bg:'#080C14', accent:'#2D8CFF', accent2:'#27E1FF', accentDeep:'#1659C7' },
+  'tons-corporativos':  { label:'Tons Corporativos',           light:true,  bg:'#F6F8FB', accent:'#26425E', accent2:'#5C7A99', accentDeep:'#16293C' },
+};
+
+/* GRADIENTES prontos (combinações harmônicas) para o construtor de gradiente. */
+const POSTER_GRADIENTS = {
+  'vermelho-bordo':    { label:'Vermelho → Bordô',       from:'#E30613', to:'#6A0D14' },
+  'azul-roxo':         { label:'Azul → Roxo',            from:'#2D6FE0', to:'#7E22CE' },
+  'azulesc-azulclaro': { label:'Azul Escuro → Azul Claro', from:'#0A2E5C', to:'#4FA3E3' },
+  'preto-grafite':     { label:'Preto → Cinza Grafite',  from:'#0C0C0E', to:'#3A3F47' },
+  'roxo-magenta':      { label:'Roxo → Magenta',         from:'#7E22CE', to:'#FF2E97' },
+  'verde-esc-claro':   { label:'Verde Escuro → Verde Claro', from:'#0E5C3A', to:'#3FBF82' },
+  'dourado-laranja':   { label:'Dourado → Laranja',      from:'#E6C988', to:'#F4820B' },
+  'vermelho-preto':    { label:'Vermelho → Preto',       from:'#E30613', to:'#0C0C0E' },
+};
+
+/* --- Helpers de cor (puros; entrada hex #rgb ou #rrggbb) --- */
+function _hex2rgb(h) {
+  h = String(h || '').trim().replace('#', '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const n = parseInt(h || '0', 16) || 0;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function _rgbStr(h) { return _hex2rgb(h).join(','); }
+function _lum(h) {
+  const c = _hex2rgb(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+function _mix(a, b, t) {
+  const A = _hex2rgb(a), B = _hex2rgb(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+function _lighten(h, t) { return _mix(h, '#ffffff', t); }
+function _darken(h, t) { return _mix(h, '#000000', t); }
+function _gradCss(g) { return `linear-gradient(${g.angle == null ? 150 : g.angle}deg, ${g.from} 0%, ${g.to} 100%)`; }
+function _rgba(c, a) { return `rgba(${String(c).indexOf('#') === 0 ? _rgbStr(c) : c},${a})`; }
+
+/* ===========================================================================
+ * BIBLIOTECA DE PADRÕES GRÁFICOS — catálogo amplo e categorizado.
+ * Desenhados em CANVAS 2D e rasterizados numa IMAGEM única (_patternDataURL),
+ * usada IGUAL no preview e no export. Motivo: html2canvas 1.4.1 NÃO renderiza
+ * gradientes repeating/tiled no nó-raiz do cartaz (somavam ao preview mas SUMIAM
+ * no PNG) — bitmap único é confiável. Cor/alpha derivam do TEMA por padrão
+ * (adaptação automática) e podem ser sobrescritas. IDs 'dots'/'grid'/'diag' = legados.
+ * ==========================================================================*/
+const POSTER_PATTERN_CATS = {
+  geometricos: 'Geométricos', jornalisticos: 'Jornalísticos', modernos: 'Modernos',
+  premium: 'Premium', tecnologia: 'Tecnologia', esportes: 'Esportes', institucional: 'Institucional',
+};
+// Cada padrão: draw(ctx,w,h,P) pinta o CANVAS inteiro (base já preenchida).
+// P = { c1, c2 (rgba já com alpha), s (escala) }. Rotação (ang) e posição (px,py)
+// são aplicadas GLOBALMENTE em _patternDataURL (translate+rotate antes do draw).
+const POSTER_PATTERNS = {
+  // ---- legados (mantêm cartazes antigos) ----
+  'dots': { label: 'Pontos', cat: 'geometricos', a: 0.10, draw: (x, w, h, P) => _pDT(x, w, h, P.c1, 2.6 * P.s, 26 * P.s) },
+  'grid': { label: 'Grade', cat: 'geometricos', a: 0.10, draw: (x, w, h, P) => _pGR(x, w, h, P.c1, Math.max(1, 1.6 * P.s), 42 * P.s) },
+  'diag': { label: 'Diagonais', cat: 'geometricos', a: 0.10, draw: (x, w, h, P) => _pST(x, w, h, P.c1, 2.4 * P.s, 17 * P.s, 45) },
+  // ---- GEOMÉTRICOS ----
+  'diag-fine': { label: 'Diagonais finas', cat: 'geometricos', a: 0.11, draw: (x, w, h, P) => _pST(x, w, h, P.c1, 1.4 * P.s, 9 * P.s, 45) },
+  'horiz': { label: 'Linhas horizontais', cat: 'geometricos', a: 0.11, draw: (x, w, h, P) => _pST(x, w, h, P.c1, 2.4 * P.s, 17 * P.s, 0) },
+  'vert': { label: 'Linhas verticais', cat: 'geometricos', a: 0.11, draw: (x, w, h, P) => _pST(x, w, h, P.c1, 2.4 * P.s, 17 * P.s, 90) },
+  'cross': { label: 'Linhas cruzadas', cat: 'geometricos', a: 0.09, draw: (x, w, h, P) => { _pST(x, w, h, P.c1, 2 * P.s, 15 * P.s, 45); _pST(x, w, h, P.c1, 2 * P.s, 15 * P.s, 135); } },
+  'grid-fine': { label: 'Grade fina', cat: 'geometricos', a: 0.08, draw: (x, w, h, P) => _pGR(x, w, h, P.c1, Math.max(1, 1.2 * P.s), 20 * P.s) },
+  'dots-lg': { label: 'Pontos grandes', cat: 'geometricos', a: 0.11, draw: (x, w, h, P) => _pDT(x, w, h, P.c1, 5 * P.s, 44 * P.s) },
+  'checker': { label: 'Xadrez', cat: 'geometricos', a: 0.11, draw: (x, w, h, P) => _pCK(x, w, h, P.c1, 50 * P.s) },
+  'triangles': { label: 'Triângulos', cat: 'geometricos', a: 0.12, draw: (x, w, h, P) => { _pTRI(x, w, h, P.c1, 46 * P.s, 78 * P.s, false); _pTRI(x, w, h, P.c2, 46 * P.s, 78 * P.s, true); } },
+  'diamonds': { label: 'Losangos', cat: 'geometricos', a: 0.10, draw: (x, w, h, P) => { _pST(x, w, h, P.c1, 1.6 * P.s, 24 * P.s, 45); _pST(x, w, h, P.c1, 1.6 * P.s, 24 * P.s, 135); } },
+  'zigzag': { label: 'Ziguezague', cat: 'geometricos', a: 0.13, draw: (x, w, h, P) => _pCH(x, w, h, P.c1, 26 * P.s, Math.max(2, 3 * P.s), true) },
+  'chevron': { label: 'Chevron', cat: 'geometricos', a: 0.12, draw: (x, w, h, P) => _pCH(x, w, h, P.c1, 30 * P.s, Math.max(2, 3.5 * P.s), false) },
+  'hex': { label: 'Hexagonal', cat: 'geometricos', a: 0.10, draw: (x, w, h, P) => { _pST(x, w, h, P.c1, 1.3 * P.s, 22 * P.s, 0); _pST(x, w, h, P.c1, 1.3 * P.s, 22 * P.s, 60); _pST(x, w, h, P.c1, 1.3 * P.s, 22 * P.s, 120); } },
+  'plus': { label: 'Cruzetas', cat: 'geometricos', a: 0.12, draw: (x, w, h, P) => _pPLUS(x, w, h, P.c1, 32 * P.s) },
+  'rings': { label: 'Círculos concêntricos', cat: 'geometricos', a: 0.10, draw: (x, w, h, P) => _pRG(x, w, h, P.c1, 22 * P.s, Math.max(1.5, 2 * P.s), w / 2, h / 2) },
+  // ---- JORNALÍSTICOS ----
+  'topband': { label: 'Faixa editorial (topo)', cat: 'jornalisticos', a: 0.92, accent: true, draw: (x, w, h, P) => _pBAND(x, w, h, P.c1, 'top', 110 * P.s) },
+  'sidebar': { label: 'Barra lateral', cat: 'jornalisticos', a: 0.90, accent: true, draw: (x, w, h, P) => _pBAND(x, w, h, P.c1, 'left', 64 * P.s) },
+  'headline-bar': { label: 'Marcador de manchete', cat: 'jornalisticos', a: 0.95, accent: true, draw: (x, w, h, P) => { x.fillStyle = P.c1; x.fillRect(0, 120 * P.s, w, 12 * P.s); } },
+  'rules': { label: 'Linhas de leitura', cat: 'jornalisticos', a: 0.09, draw: (x, w, h, P) => _pST(x, w, h, P.c1, Math.max(1, 1.2 * P.s), 36 * P.s, 0) },
+  'columns': { label: 'Colunas (filetes)', cat: 'jornalisticos', a: 0.09, draw: (x, w, h, P) => _pST(x, w, h, P.c1, Math.max(1, 1.2 * P.s), 120 * P.s, 90) },
+  'double-rule': { label: 'Divisores (topo e base)', cat: 'jornalisticos', a: 0.6, accent: true, draw: (x, w, h, P) => { _pBAND(x, w, h, P.c1, 'top', 5 * P.s); _pBAND(x, w, h, P.c1, 'bottom', 5 * P.s); } },
+  'ticker': { label: 'Ticker (diagonais)', cat: 'jornalisticos', a: 0.16, accent: true, draw: (x, w, h, P) => _pST(x, w, h, P.c1, 6 * P.s, 13 * P.s, 60) },
+  // ---- MODERNOS ----
+  'glow': { label: 'Brilho suave (canto)', cat: 'modernos', a: 0.32, accent: true, draw: (x, w, h, P) => _pGLOW(x, w, h, P.c1, w, 0, Math.max(w, h) * 0.95 * P.s) },
+  'dual-glow': { label: 'Duplo brilho', cat: 'modernos', a: 0.28, accent: true, draw: (x, w, h, P) => { _pGLOW(x, w, h, P.c1, 0, 0, Math.max(w, h) * 0.8 * P.s); _pGLOW(x, w, h, P.c2, w, h, Math.max(w, h) * 0.8 * P.s); } },
+  'mesh': { label: 'Malha de cor', cat: 'modernos', a: 0.24, accent: true, draw: (x, w, h, P) => { _pGLOW(x, w, h, P.c1, w * 0.15, h * 0.2, w * 0.7 * P.s); _pGLOW(x, w, h, P.c2, w * 0.85, h * 0.3, w * 0.7 * P.s); _pGLOW(x, w, h, P.c1, w * 0.5, h, w * 0.8 * P.s); } },
+  'wave': { label: 'Ondas', cat: 'modernos', a: 0.12, draw: (x, w, h, P) => _pWAVE(x, w, h, P.c1, 10 * P.s, 26 * P.s, Math.max(1.5, 2 * P.s)) },
+  'soft-diag': { label: 'Corte diagonal suave', cat: 'modernos', a: 0.18, accent: true, draw: (x, w, h, P) => _pLIN(x, w, h, 130, [[0, P.c1], [0.45, 'rgba(0,0,0,0)'], [0.55, 'rgba(0,0,0,0)'], [1, P.c2]]) },
+  'corner': { label: 'Acento de canto', cat: 'modernos', a: 0.30, accent: true, draw: (x, w, h, P) => _pGLOW(x, w, h, P.c1, 0, h, Math.max(w, h) * 0.7 * P.s) },
+  'blobs': { label: 'Formas orgânicas', cat: 'modernos', a: 0.20, accent: true, draw: (x, w, h, P) => { _pGLOW(x, w, h, P.c1, w * 0.22, h * 0.28, w * 0.34 * P.s); _pGLOW(x, w, h, P.c2, w * 0.78, h * 0.64, w * 0.3 * P.s); _pGLOW(x, w, h, P.c1, w * 0.6, h * 0.18, w * 0.26 * P.s); } },
+  // ---- PREMIUM ----
+  'sheen': { label: 'Brilho metálico', cat: 'premium', a: 0.14, draw: (x, w, h, P) => _pLIN(x, w, h, 105, [[0, P.c2], [0.18, P.c1], [0.3, 'rgba(0,0,0,0)'], [0.5, P.c2], [0.7, 'rgba(0,0,0,0)'], [0.84, P.c1], [1, P.c2]]) },
+  'pinstripe': { label: 'Risca de giz', cat: 'premium', a: 0.08, draw: (x, w, h, P) => _pST(x, w, h, P.c1, 1, 10 * P.s, 90) },
+  'carbon': { label: 'Fibra de carbono', cat: 'premium', a: 0.16, draw: (x, w, h, P) => { _pST(x, w, h, P.c1, 1.6 * P.s, 8 * P.s, 45); _pST(x, w, h, P.c2, 1.6 * P.s, 8 * P.s, 135); } },
+  'frame': { label: 'Moldura elegante', cat: 'premium', a: 0.6, accent: true, draw: (x, w, h, P) => _pFRAME(x, w, h, P.c1, 8 * P.s) },
+  'damask': { label: 'Damasco', cat: 'premium', a: 0.09, draw: (x, w, h, P) => { _pDT(x, w, h, P.c1, 2.4 * P.s, 42 * P.s); x.save(); x.translate(21 * P.s, 21 * P.s); _pDT(x, w, h, P.c2, 3.4 * P.s, 42 * P.s); x.restore(); } },
+  'fine-cross': { label: 'Crosshatch refinado', cat: 'premium', a: 0.06, draw: (x, w, h, P) => { _pST(x, w, h, P.c1, 1, 8 * P.s, 45); _pST(x, w, h, P.c1, 1, 8 * P.s, 135); } },
+  // ---- TECNOLOGIA ----
+  'circuit': { label: 'Circuito', cat: 'tecnologia', a: 0.16, accent: true, draw: (x, w, h, P) => { _pGR(x, w, h, P.c2, 1, 44 * P.s); _pDT(x, w, h, P.c1, 2.6 * P.s, 44 * P.s); } },
+  'nodes': { label: 'Rede de nós', cat: 'tecnologia', a: 0.14, accent: true, draw: (x, w, h, P) => { _pST(x, w, h, P.c2, 1, 54 * P.s, 45); _pDT(x, w, h, P.c1, 3 * P.s, 54 * P.s); } },
+  'hex-tech': { label: 'Grade hexagonal tech', cat: 'tecnologia', a: 0.12, accent: true, draw: (x, w, h, P) => { _pST(x, w, h, P.c1, 1.2 * P.s, 28 * P.s, 0); _pST(x, w, h, P.c1, 1.2 * P.s, 28 * P.s, 60); _pST(x, w, h, P.c2, 1.2 * P.s, 28 * P.s, 120); } },
+  'datagrid': { label: 'Data grid', cat: 'tecnologia', a: 0.11, accent: true, draw: (x, w, h, P) => { _pGR(x, w, h, P.c2, 1, 30 * P.s); _pDT(x, w, h, P.c1, 2 * P.s, 30 * P.s); } },
+  'scanlines': { label: 'Scanlines', cat: 'tecnologia', a: 0.11, draw: (x, w, h, P) => _pST(x, w, h, P.c1, Math.max(1, 1.4 * P.s), 5 * P.s, 0) },
+  'matrix': { label: 'Colunas (matrix)', cat: 'tecnologia', a: 0.13, accent: true, draw: (x, w, h, P) => _pDT(x, w, h, P.c1, 1.8 * P.s, 16 * P.s, 11 * P.s) },
+  // ---- ESPORTES ----
+  'speed': { label: 'Linhas de velocidade', cat: 'esportes', a: 0.18, accent: true, draw: (x, w, h, P) => _pST(x, w, h, P.c1, 3 * P.s, 14 * P.s, 72) },
+  'bands': { label: 'Faixas dinâmicas', cat: 'esportes', a: 0.20, accent: true, draw: (x, w, h, P) => _pBANDS(x, w, h, P.c1, P.c2, 20 * P.s, 120) },
+  'streaks': { label: 'Riscos de movimento', cat: 'esportes', a: 0.16, accent: true, draw: (x, w, h, P) => _pST(x, w, h, P.c1, 2 * P.s, 26 * P.s, 100) },
+  'energy-chevron': { label: 'Chevron de energia', cat: 'esportes', a: 0.17, accent: true, draw: (x, w, h, P) => _pCH(x, w, h, P.c1, 36 * P.s, Math.max(2, 3.5 * P.s), false) },
+  // ---- INSTITUCIONAL ----
+  'sub-dots': { label: 'Pontos discretos', cat: 'institucional', a: 0.05, draw: (x, w, h, P) => _pDT(x, w, h, P.c1, 1.8 * P.s, 28 * P.s) },
+  'sub-grid': { label: 'Grade discreta', cat: 'institucional', a: 0.05, draw: (x, w, h, P) => _pGR(x, w, h, P.c1, 1, 50 * P.s) },
+  'sub-diag': { label: 'Diagonais discretas', cat: 'institucional', a: 0.05, draw: (x, w, h, P) => _pST(x, w, h, P.c1, 1, 24 * P.s, 45) },
+  'wash': { label: 'Lavagem executiva', cat: 'institucional', a: 0.16, draw: (x, w, h, P) => _pGLOW(x, w, h, P.c1, w * 0.7, -h * 0.1, Math.max(w, h) * 1.2 * P.s) },
+  'sub-lines': { label: 'Linhas discretas', cat: 'institucional', a: 0.05, draw: (x, w, h, P) => _pST(x, w, h, P.c1, 1, 30 * P.s, 0) },
+};
+
+/* --- Primitivas de desenho em CANVAS 2D (over-draw generoso p/ cobrir após
+ * translate/rotate globais). html2canvas renderiza o BITMAP resultante de forma
+ * confiável (ao contrário de gradientes repeating/tiled em CSS no nó-raiz). --- */
+function _pST(ctx, w, h, c, lw, gap, deg) { gap = Math.max(2, gap); ctx.save(); ctx.translate(w / 2, h / 2); ctx.rotate((deg || 0) * Math.PI / 180); ctx.fillStyle = c; const L = Math.hypot(w, h); for (let y = -L; y < L; y += gap) ctx.fillRect(-L, y, 2 * L, lw); ctx.restore(); }
+function _pGR(ctx, w, h, c, lw, gap) { gap = Math.max(3, gap); ctx.fillStyle = c; for (let x = -gap; x < w + gap; x += gap) ctx.fillRect(x, -gap, lw, h + 2 * gap); for (let y = -gap; y < h + gap; y += gap) ctx.fillRect(-gap, y, w + 2 * gap, lw); }
+function _pDT(ctx, w, h, c, r, gx, gy) { gx = Math.max(4, gx); gy = gy || gx; ctx.fillStyle = c; for (let y = -gy; y < h + gy; y += gy) for (let x = -gx; x < w + gx; x += gx) { ctx.beginPath(); ctx.arc(x, y, Math.max(0.5, r), 0, 6.2832); ctx.fill(); } }
+function _pCK(ctx, w, h, c, sz) { sz = Math.max(4, sz); ctx.fillStyle = c; let ry = 0; for (let y = -sz; y < h + sz; y += sz, ry++) { let rx = 0; for (let x = -sz; x < w + sz; x += sz, rx++) if ((rx + ry) % 2 === 0) ctx.fillRect(x, y, sz, sz); } }
+function _pTRI(ctx, w, h, c, bw, bh, up) { bw = Math.max(6, bw); bh = Math.max(6, bh); ctx.fillStyle = c; for (let y = -bh; y < h + bh; y += bh) for (let x = -bw; x < w + bw; x += bw) { ctx.beginPath(); if (up) { ctx.moveTo(x, y); ctx.lineTo(x + bw / 2, y + bh); ctx.lineTo(x + bw, y); } else { ctx.moveTo(x, y + bh); ctx.lineTo(x + bw / 2, y); ctx.lineTo(x + bw, y + bh); } ctx.closePath(); ctx.fill(); } }
+function _pRG(ctx, w, h, c, gap, lw, cx, cy) { gap = Math.max(4, gap); ctx.strokeStyle = c; ctx.lineWidth = lw; const R = Math.hypot(w, h); for (let r = gap; r < R; r += gap) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.stroke(); } }
+function _pCH(ctx, w, h, c, sz, lw, fill) { sz = Math.max(8, sz); ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = lw; for (let y = -sz; y < h + sz; y += sz) for (let x = -sz; x < w + sz; x += sz) { ctx.beginPath(); ctx.moveTo(x, y + sz * 0.68); ctx.lineTo(x + sz / 2, y + sz * 0.18); ctx.lineTo(x + sz, y + sz * 0.68); if (fill) { ctx.lineTo(x + sz, y + sz * 0.68 + lw * 1.6); ctx.lineTo(x + sz / 2, y + sz * 0.18 + lw * 1.6); ctx.lineTo(x, y + sz * 0.68 + lw * 1.6); ctx.closePath(); ctx.fill(); } else ctx.stroke(); } }
+function _pPLUS(ctx, w, h, c, gap) { gap = Math.max(8, gap); ctx.strokeStyle = c; ctx.lineWidth = Math.max(1, gap * 0.07); const a = gap * 0.2; for (let y = gap / 2; y < h + gap; y += gap) for (let x = gap / 2; x < w + gap; x += gap) { ctx.beginPath(); ctx.moveTo(x - a, y); ctx.lineTo(x + a, y); ctx.moveTo(x, y - a); ctx.lineTo(x, y + a); ctx.stroke(); } }
+function _pGLOW(ctx, w, h, c, fx, fy, r) { r = Math.max(20, r); const g = ctx.createRadialGradient(fx, fy, 0, fx, fy, r); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(-w, -h, 3 * w, 3 * h); }
+function _pLIN(ctx, w, h, deg, stops) { const rad = deg * Math.PI / 180, cx = w / 2, cy = h / 2, L = Math.hypot(w, h) / 2, dx = Math.cos(rad) * L, dy = Math.sin(rad) * L; const g = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy); stops.forEach(s => g.addColorStop(s[0], s[1])); ctx.fillStyle = g; ctx.fillRect(-w, -h, 3 * w, 3 * h); }
+function _pWAVE(ctx, w, h, c, amp, gap, lw) { gap = Math.max(6, gap); ctx.strokeStyle = c; ctx.lineWidth = lw; for (let y = 0; y < h + gap; y += gap) { ctx.beginPath(); for (let x = 0; x <= w; x += 6) { const yy = y + Math.sin(x / 28) * amp; if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy); } ctx.stroke(); } }
+function _pBAND(ctx, w, h, c, side, t) { ctx.fillStyle = c; if (side === 'top') ctx.fillRect(0, 0, w, t); else if (side === 'bottom') ctx.fillRect(0, h - t, w, t); else if (side === 'left') ctx.fillRect(0, 0, t, h); else ctx.fillRect(w - t, 0, t, h); }
+function _pFRAME(ctx, w, h, c, t) { ctx.fillStyle = c; ctx.fillRect(0, 0, w, t); ctx.fillRect(0, h - t, w, t); ctx.fillRect(0, 0, t, h); ctx.fillRect(w - t, 0, t, h); }
+function _pBANDS(ctx, w, h, c1, c2, bw, deg) { bw = Math.max(6, bw); ctx.save(); ctx.translate(w / 2, h / 2); ctx.rotate(deg * Math.PI / 180); const L = Math.hypot(w, h); let i = 0; for (let y = -L; y < L; y += bw, i++) { ctx.fillStyle = (i % 2 === 0) ? c1 : c2; ctx.fillRect(-L, y, 2 * L, bw); } ctx.restore(); }
+
+const _patCache = new Map();   // dataURL por (id|opts|base|fmt) — evita re-desenhar no preview ao vivo
+/** Rasteriza o padrão num CANVAS full-size (imagem única) → dataURL. Cor/alpha
+ * derivam do tema (PT) quando não sobrescritas. PREVIEW e EXPORT usam a MESMA
+ * imagem → idênticos, e o html2canvas pinta bitmap de forma confiável. */
+function _patternDataURL(id, opts, baseColor, fmt) {
+  opts = opts || {};
+  const entry = POSTER_PATTERNS[id] || POSTER_PATTERNS['dots'];
+  const a = (opts.alpha != null) ? opts.alpha : entry.a;
+  const contrast = PT.light ? '#141414' : '#FFFFFF';
+  const accent = PT.red || PT.terra || contrast;
+  const c1 = opts.c1 || (entry.accent ? accent : contrast);
+  const c2 = opts.c2 || (entry.accent ? contrast : accent);
+  const P = {
+    c1: _rgba(c1, a), c2: _rgba(c2, Math.max(0.03, a * (entry.accent ? 0.85 : 0.6))),
+    s: (opts.scale != null) ? opts.scale : 1,
+  };
+  const ang = (opts.angle != null) ? opts.angle : 0;
+  const px = (opts.posX != null) ? opts.posX : 0;
+  const py = (opts.posY != null) ? opts.posY : 0;
+  const w = fmt && fmt.w || 1080, hh = fmt && fmt.h || 1440;
+  const key = [id, a, c1, c2, P.s, ang, px, py, baseColor, w, hh].join('|');
+  if (_patCache.has(key)) return _patCache.get(key);
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = hh;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = baseColor; ctx.fillRect(0, 0, w, hh);
+  ctx.save();
+  ctx.translate(px, py);
+  if (ang) { ctx.translate(w / 2, hh / 2); ctx.rotate(ang * Math.PI / 180); ctx.translate(-w / 2, -hh / 2); }
+  try { entry.draw(ctx, w, hh, P); } catch (e) { /* desenho defensivo */ }
+  ctx.restore();
+  const url = cv.toDataURL('image/png');
+  if (_patCache.size > 32) _patCache.clear();
+  _patCache.set(key, url);
+  return url;
+}
+
+/* Reconstrói uma SPEC de makeTheme a partir do tema ATIVO (PT) — base quando o
+ * usuário não escolheu paleta (personaliza sobre o tema atual). */
+function _specFromPT() {
+  return {
+    light: PT.light,
+    bg: PT.navy, bg2: PT.navy2, bgDeep: PT.sandDeep,
+    accent: PT.red, accent2: PT.orange, accentDeep: PT.redDeep,
+    accentSoft: PT.terraSoft, gradSolid: PT.gradSolid, gradDark: PT.gradDark,
+    text: PT.cream, textRgb: _rgbStr(PT.cream), symbolBg: PT.symbolBg,
+  };
+}
+
+/** Aplica `p.custom` SOBRE o tema já aplicado (muta PT). No-op se vazio. */
+function applyPosterCustom(c) {
+  if (!c) return;
+  const seeds = c.colors || {};
+  const anyColor = Object.keys(seeds).some(k => seeds[k]);
+  const active = c.palette || anyColor || (c.useGradientAccent && c.gradient);
+  if (!active) return;   // nada de cor para mudar (bg-only é tratado no root, fora daqui)
+
+  // 1) base: paleta escolhida OU o tema ativo
+  const spec = c.palette && POSTER_PALETTES[c.palette]
+    ? Object.assign({}, POSTER_PALETTES[c.palette])
+    : _specFromPT();
+  // preserva MARCA + TIPOGRAFIA (personalização muda só cor)
+  const keep = { name: PT.name, symbol: PT.symbol, symbolBg: PT.symbolBg, display: PT.display };
+
+  // 2) seeds do usuário
+  if (seeds.bg) spec.bg = seeds.bg;
+  if (seeds.accent) spec.accent = seeds.accent;
+  if (seeds.accent2) spec.accent2 = seeds.accent2;
+  if (seeds.text) { spec.text = seeds.text; spec.textRgb = _rgbStr(seeds.text); }
+
+  // 3) contraste automático: claro/escuro + cor de texto a partir do FUNDO
+  if (c.autoContrast !== false && (seeds.bg || c.palette)) {
+    spec.light = _lum(spec.bg) > 0.55;
+    if (!seeds.text) {
+      spec.text = spec.light ? '#161616' : '#FFFFFF';
+      spec.textRgb = spec.light ? '22,22,22' : '255,255,255';
+    }
+  }
+
+  // 4) deriva rampas/gradientes ausentes (mantém harmonia)
+  const lt = !!spec.light;
+  if (seeds.bg || !spec.bg2) spec.bg2 = lt ? _darken(spec.bg, 0.05) : _lighten(spec.bg, 0.09);
+  if (seeds.bg || !spec.bgDeep) spec.bgDeep = lt ? _darken(spec.bg, 0.10) : _darken(spec.bg, 0.34);
+  if (!spec.accentDeep) spec.accentDeep = _darken(spec.accent, 0.22);
+  if (!spec.accentSoft || seeds.accent) spec.accentSoft = `rgba(${_rgbStr(spec.accent)},0.18)`;
+  if (!spec.gradSolid || seeds.accent || seeds.accent2)
+    spec.gradSolid = `linear-gradient(150deg, ${spec.accent2 || spec.accent} 0%, ${spec.accent} 52%, ${spec.accentDeep} 100%)`;
+  if (!spec.gradDark || seeds.bg)
+    spec.gradDark = `linear-gradient(155deg, ${spec.bg2} 0%, ${spec.bg} 58%, ${spec.bgDeep} 100%)`;
+
+  // 5) gradiente custom nos DESTAQUES
+  if (c.useGradientAccent && c.gradient && c.gradient.from && c.gradient.to)
+    spec.gradSolid = _gradCss(c.gradient);
+
+  // 6) reconstrói TODOS os tokens (recalcula contraste/hierarquia), preserva marca/fonte
+  Object.assign(PT, makeTheme(spec));
+  PT.name = keep.name; PT.symbol = keep.symbol;
+  if (keep.symbolBg) PT.symbolBg = keep.symbolBg;
+  PT.display = keep.display; PT.serif = keep.display; PT.cond = keep.display;
+
+  // 7) overrides granulares (avançado) por cima da derivação
+  if (seeds.card) { PT.navy2 = PT.paper2 = PT.sand = PT.inkPanel = PT.navySoft = seeds.card; }
+  if (seeds.text2) { PT.creamMute = PT.muted = seeds.text2; }
+  if (seeds.border) { PT.line = PT.creamLine = seeds.border; }
+}
+
+/** Fundo do cartaz (sólido/gradiente/padrão) aplicado ao NÓ RAIZ após o render.
+ * 'theme' (ou ausente) = mantém o fundo do próprio modelo. Não toca em estrutura. */
+function applyPosterRootBg(c, stageEl, fmt) {
+  if (!c || !c.bg || c.bg === 'theme') return;
+  const root = stageEl && (stageEl.querySelector('.poster-1440') || stageEl.firstElementChild);
+  if (!root) return;
+  if (c.bg === 'solid' && c.colors && c.colors.bg) root.style.background = c.colors.bg;
+  else if (c.bg === 'gradient' && c.gradient && c.gradient.from && c.gradient.to) root.style.background = _gradCss(c.gradient);
+  else if (c.bg === 'pattern') {
+    // Padrão rasterizado em IMAGEM única (base = cor de fundo escolhida OU o fundo do
+    // tema → adapta-se ao tema/paleta). Imagem única de cobertura sobrevive ao export
+    // html2canvas (gradientes repeating/tiled no nó-raiz NÃO sobrevivem). PREVIEW ≡ PNG.
+    const base = (c.colors && c.colors.bg) || PT.navy;
+    const url = _patternDataURL(c.pattern, c.patternOpts, base, fmt || { w: 1080, h: 1440 });
+    root.style.backgroundColor = base;
+    root.style.backgroundImage = `url(${url})`;
+    root.style.backgroundSize = '100% 100%';
+    root.style.backgroundPosition = '0 0';
+    root.style.backgroundRepeat = 'no-repeat';
+  }
+}
+
 /* VISIBILIDADE POR ELEMENTO — conjunto OCULTO ativo (espelha o `PT` do tema).
  * `setPosterHidden(p)` é chamado junto de `applyTheme` antes de cada render;
  * `posterShow(key)` é consultado pelos helpers e modelos. O usuário oculta

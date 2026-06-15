@@ -1348,6 +1348,52 @@ h3 { font-size: 1.15rem; line-height: 1.3; }
 .editor-section[open] .chev { transform: rotate(180deg); }
 .editor-section-body { padding: 0.7rem; }
 
+/* ====== Navegação por categorias do editor de cartaz ======
+   Barra de abas (rolável no horizontal em telas estreitas) + painéis: só o grupo
+   ativo aparece. Mesma estrutura em qualquer largura (consistência mobile/desktop). */
+.pedit-tabs {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  margin: 0 -0.25rem 0.15rem;
+  padding: 0.15rem 0.25rem;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: #fff;
+}
+.pedit-tabs::-webkit-scrollbar { display: none; }
+.pedit-tab {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 58px;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-mute);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.pedit-tab svg { width: 18px; height: 18px; }
+.pedit-tab:hover { color: var(--ink); background: var(--line-soft); }
+.pedit-tab.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+}
+.pedit-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pedit-panel { display: none; }
+.pedit-panel.active { display: flex; flex-direction: column; gap: 0.6rem; }
+
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }

@@ -1,0 +1,32 @@
+// FONTE ÚNICA da ordem de carregamento dos módulos de src/.
+// Editar AQUI e rodar `npm run sync:manifest` regenera os blocos marcados em
+// index.html (<script>) e service-worker.js (URLS). Elimina o drift manual que
+// quebrava o boot (função undefined) ou servia cache obsoleto.
+// Ordem = dependência (app.js por último faz o boot).
+export const SCRIPTS = [
+  'server-config.js',
+  'catalogs.js',
+  'core.js',
+  'crypto.js',
+  'storage.js',
+  'apikey-sync.js',
+  'lock.js',
+  'llm.js',
+  'generate.js',
+  'extract.js',
+  'posters.js',
+  'poster-templates.js',
+  'carousels.js',
+  'poster-elements.js',
+  'poster-editor-pro.js',
+  'videograb.js',
+  'history.js',
+  'settings.js',
+  'detector.js',
+  'autopost.js',
+  'replicador.js',
+  'removedor.js',
+  'handoff.js',
+  'ingest.js',
+  'app.js',
+];

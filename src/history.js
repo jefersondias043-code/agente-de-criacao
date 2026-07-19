@@ -18,7 +18,7 @@ function renderGenHistory() {
     if (!State.generations.length) return;
     if (!confirm('Apagar TODO o histórico de matérias?')) return;
     State.generations = [];
-    saveJSON(STORAGE_KEYS.generations, State.generations);
+    saveGenerations();
     renderGenHistory();
     toast('Histórico limpo.', 'success');
   };
@@ -61,7 +61,7 @@ function renderGenHistory() {
       e.stopPropagation();
       if (!confirm('Remover esta matéria?')) return;
       State.generations = State.generations.filter(x => x.id !== btn.dataset.del);
-      saveJSON(STORAGE_KEYS.generations, State.generations);
+      saveGenerations();
       renderGenHistory();
       toast('Matéria removida.', 'success');
     };

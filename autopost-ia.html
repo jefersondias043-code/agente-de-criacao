@@ -857,9 +857,10 @@
 (function(){
   function applyCfg(c){
     if(!c) return;
-    window.__AGENTE_CONFIG__ = { groqKey: c.groqKey||"", groqModel: c.groqModel||"" };
+    window.__AGENTE_CONFIG__ = { groqKey: c.groqKey||"", groqModel: c.groqModel||"", locked: !!c.locked };
     try {
-      if(c.groqKey){ localStorage.setItem("groq_api_key", c.groqKey); localStorage.setItem("df_groq_key", c.groqKey); }
+      /* Workspace bloqueado: NÃO persiste a chave (fica só em memória). */
+      if(c.groqKey && !c.locked){ localStorage.setItem("groq_api_key", c.groqKey); localStorage.setItem("df_groq_key", c.groqKey); }
       if(c.groqModel){ localStorage.setItem("groq_model", c.groqModel); localStorage.setItem("df_model", c.groqModel); }
     } catch(_){}
   }
@@ -905,8 +906,10 @@
     obs.observe(document.documentElement,{childList:true,subtree:true});
   }catch(_){}
 })();
-/* Entrada universal: o AutoPost já cobre texto/TXT/áudio/vídeo nativamente. Aqui
-   injetamos os formatos que faltam — PDF e imagem (OCR) — via app pai. */
+/* Entrada UNIFICADA: um único botão "Anexar arquivo" que aceita TODOS os formatos.
+   O botão nativo do AutoPost é ocultado. Roteamento por tipo: áudio/vídeo seguem
+   pelo pipeline nativo (transcrição + chunking); PDF/imagem/DOCX/TXT vão ao app
+   pai (OCR/extração via agente:ingest). Aditivo — não altera o render do AutoPost. */
 (function(){
   var pending={};
   window.addEventListener("message", function(e){
@@ -929,25 +932,50 @@
   function inject(){
     var sb=document.getElementById("smartbox"); var ta=document.getElementById("transcricaoTexto");
     if(!sb||!ta||!sb.parentNode) return;
+    // Botao UNIFICADO de entrada: esconde o "Anexar arquivo" nativo para deixar
+    // UM unico botao (como nas outras ferramentas). O input nativo continua no DOM
+    // (oculto) e e reaproveitado para rotear audio/video ao pipeline do AutoPost.
+    var natLbl=document.querySelector('label.sb-attach[for="transcricaoFile"]');
+    if(natLbl) natLbl.style.display="none";
     if(sb.parentNode.querySelector(".agente-attach")) return;
+    var nat=document.getElementById("transcricaoFile");
     var wrap=document.createElement("div"); wrap.className="agente-attach";
     wrap.style.cssText="margin:10px 0 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;";
     var inp=document.createElement("input"); inp.type="file"; inp.style.display="none";
-    inp.accept=".pdf,.png,.jpg,.jpeg,.bmp,.gif,.webp,.tiff,application/pdf,image/*";
+    // Aceita TODOS os formatos do ecossistema (mesma lista do "Extrair").
+    inp.accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,.bmp,.gif,.webp,.tiff,.tif,.mp3,.wav,.m4a,.ogg,.flac,.aac,.mp4,.mpeg,.mpga,.webm,.mov,.3gp,text/plain,application/pdf,image/*,audio/*,video/*";
     var btn=document.createElement("button"); btn.type="button"; btn.className="copy-btn";
     btn.style.cssText="display:inline-flex;align-items:center;gap:6px;";
-    btn.textContent="📎 PDF ou imagem (OCR)";
+    btn.textContent="📎 Anexar arquivo";
+    var hint=document.createElement("span"); hint.style.cssText="font-size:11.5px;color:var(--ink-faded);";
+    var HINT_DEFAULT="áudio, vídeo, PDF, imagem ou texto"; hint.textContent=HINT_DEFAULT;
     var status=document.createElement("span"); status.style.cssText="font-size:11.5px;color:var(--ink-faded);";
     btn.onclick=function(){ inp.click(); };
-    inp.onchange=function(){
-      var f=inp.files&&inp.files[0]; if(!f) return;
+    function sendToParent(f){
       var reqId="ing-"+Date.now()+"-"+Math.random().toString(16).slice(2);
       pending[reqId]={target:ta,status:status}; status.textContent="Processando…";
       try{ window.parent.postMessage({type:"agente:ingest",reqId:reqId,file:f}, location.protocol==="file:"?"*":location.origin); }
       catch(_){ status.textContent="Não foi possível enviar o arquivo."; delete pending[reqId]; }
+    }
+    inp.onchange=function(){
+      var f=inp.files&&inp.files[0]; if(!f){ return; }
+      var nm=(f.name||"").toLowerCase();
+      var isMedia=/^audio\//.test(f.type)||/^video\//.test(f.type)||/\.(mp3|wav|m4a|ogg|flac|aac|mp4|mpeg|mpga|webm|mov|3gp)$/.test(nm);
+      if(isMedia && nat){
+        // Audio/video -> pipeline NATIVO do AutoPost (transcricao + chunking p/ arquivos grandes).
+        try{
+          var dt=new DataTransfer(); dt.items.add(f); nat.files=dt.files;
+          nat.dispatchEvent(new Event("change",{bubbles:true}));
+          status.textContent="Mídia adicionada para transcrição.";
+          setTimeout(function(){ status.textContent=""; }, 2500);
+        }catch(_){ sendToParent(f); }
+      } else {
+        // PDF, imagem, DOCX, TXT... -> extracao/OCR/transcricao no app pai (universal).
+        sendToParent(f);
+      }
       inp.value="";
     };
-    wrap.appendChild(inp); wrap.appendChild(btn); wrap.appendChild(status);
+    wrap.appendChild(inp); wrap.appendChild(btn); wrap.appendChild(hint); wrap.appendChild(status);
     sb.parentNode.insertBefore(wrap, sb.nextSibling);
   }
   try{ var obs2=new MutationObserver(inject); obs2.observe(document.documentElement,{childList:true,subtree:true}); }catch(_){}
@@ -1392,7 +1420,8 @@ function getGroqKey() {
   let k = ((window.__AGENTE_CONFIG__ && window.__AGENTE_CONFIG__.groqKey) || GROQ_API_KEY || localStorage.getItem('groq_api_key') || '').trim();
   if (!k) {
     k = (window.prompt('Cole sua chave da API Groq (começa com "gsk_"). Pegue em console.groq.com/keys.\nEla fica salva só neste navegador.') || '').trim();
-    if (k) localStorage.setItem('groq_api_key', k);
+    /* Workspace bloqueado: não persiste em claro nem a digitação manual. */
+    if (k && !(window.__AGENTE_CONFIG__ && window.__AGENTE_CONFIG__.locked)) localStorage.setItem('groq_api_key', k);
   }
   return k;
 }
@@ -2030,9 +2059,25 @@ ${keywordsSection}
 }
 
 // =================== HISTÓRICO (biblioteca pessoal, localStorage) ===================
-const HIST_KEY = 'rv_historico';
+const HIST_KEY = 'rv_historico';        // chave legada (localStorage) — migrada p/ IDB
+const HIST_IDB_KEY = 'hist:autopost';   // histórico no IndexedDB (limite = dispositivo)
+
+/* ============================================================
+   HISTÓRICO NO INDEXEDDB — capacidade = DISPOSITIVO (não os ~5 MB do localStorage)
+   Mesmo store do app pai ('agente-store'/'kv'): em http (mesma origem) o backup
+   da plataforma já inclui este histórico automaticamente. O array fica em memória
+   (_histCache) como fonte SÍNCRONA do render; a gravação no IDB é assíncrona.
+   histHydrate() carrega no boot e migra o rv_historico antigo uma única vez.
+   ============================================================ */
+function _apIdbOpen() { return new Promise((res, rej) => { try { const r = indexedDB.open('agente-store', 1); r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv'); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }); }
+function _apIdbGet(k) { return _apIdbOpen().then((db) => new Promise((res, rej) => { const tx = db.transaction('kv', 'readonly'); const rq = tx.objectStore('kv').get(k); rq.onsuccess = () => { db.close(); res(rq.result); }; rq.onerror = () => { db.close(); rej(rq.error); }; })); }
+function _apIdbSet(k, v) { return _apIdbOpen().then((db) => new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => { db.close(); res(true); }; tx.onerror = () => { db.close(); rej(tx.error); }; })); }
+
+let _histCache = null;                   // array em memória (fonte síncrona do render)
 
 function histLoad() {
+  if (Array.isArray(_histCache)) return _histCache;
+  // Antes da hidratação assíncrona: lê do localStorage (compat) sem quebrar o render.
   try {
     const raw = localStorage.getItem(HIST_KEY);
     const arr = raw ? JSON.parse(raw) : [];
@@ -2040,13 +2085,40 @@ function histLoad() {
   } catch (_) { return []; }
 }
 function histSaveAll(arr) {
-  try {
-    localStorage.setItem(HIST_KEY, JSON.stringify(arr));
+  _histCache = Array.isArray(arr) ? arr : [];
+  if (typeof indexedDB !== 'undefined') {
+    // Persiste no IndexedDB; só avisa em caso de cota REAL do dispositivo.
+    _apIdbSet(HIST_IDB_KEY, _histCache)
+      .then(() => { try { localStorage.removeItem(HIST_KEY); } catch (_) { /* */ } })
+      .catch(() => alert('Não foi possível salvar no histórico (o armazenamento do dispositivo encheu). Exclua itens antigos e tente de novo.'));
     return true;
-  } catch (e) {
-    alert('Não foi possível salvar no histórico (o armazenamento do navegador encheu). Exclua itens antigos e tente de novo.');
-    return false;
   }
+  // Sem IndexedDB (raro): modo degradado no localStorage.
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(_histCache)); return true; }
+  catch (e) { alert('Não foi possível salvar no histórico (o armazenamento do navegador encheu). Exclua itens antigos e tente de novo.'); return false; }
+}
+
+// Boot: carrega o histórico do IndexedDB (migra do localStorage antigo 1x) e
+// atualiza a interface. O render síncrono usa o cache em memória.
+async function histHydrate() {
+  if (typeof indexedDB === 'undefined') return;
+  try {
+    let arr = await _apIdbGet(HIST_IDB_KEY);
+    if (!Array.isArray(arr)) {
+      let legacy = [];
+      try { const raw = localStorage.getItem(HIST_KEY); legacy = raw ? JSON.parse(raw) : []; } catch (_) { legacy = []; }
+      arr = Array.isArray(legacy) ? legacy : [];
+      // Só grava a migração se ninguém salvou durante a hidratação (evita clobber).
+      if (_histCache === null && arr.length) { try { await _apIdbSet(HIST_IDB_KEY, arr); } catch (_) { /* */ } }
+    }
+    // Não sobrescreve o cache se um save já ocorreu na janela de hidratação.
+    if (_histCache === null) {
+      _histCache = arr;
+      try { localStorage.removeItem(HIST_KEY); } catch (_) { /* */ }
+    }
+    try { updateHistBadge(); } catch (_) { /* */ }
+    try { const hv = document.querySelector('#historyView'); if (hv && hv.style.display !== 'none') voltarHistorico(); } catch (_) { /* */ }
+  } catch (_) { /* mantém fallback do localStorage */ }
 }
 function histCount() { return histLoad().length; }
 function histGet(id) { return histLoad().find(it => it.id === id) || null; }
@@ -2361,7 +2433,18 @@ function renderHistoryList() {
       </div>
     </div>`;
   }).join('');
-  cont.innerHTML = `<div class="hist-list">${cards}</div>`;
+  cont.innerHTML = `
+    <div style="display:flex; justify-content:flex-end; margin-bottom:0.6rem;">
+      <button type="button" id="histClearAll" class="btn-reset btn-danger" style="font-size:12px; padding:0.4rem 0.8rem; border-radius:6px;">Limpar tudo</button>
+    </div>
+    <div class="hist-list">${cards}</div>`;
+  const cb = $('histClearAll');
+  if (cb) cb.onclick = () => {
+    if (!confirm('Apagar TODO o histórico do AutoPost? Isso não pode ser desfeito.')) return;
+    histSaveAll([]);            // grava [] no IndexedDB (limpa só o AutoPost)
+    updateHistBadge();
+    voltarHistorico();
+  };
 }
 
 // Mostra a lista e esconde o detalhe.
@@ -2928,6 +3011,7 @@ async function transcreverMedia(arquivo, onProgress) {
 // Começa o assistente na etapa 1 (Enviar) e mostra a contagem do histórico.
 setWizardStep(1);
 updateHistBadge();
+histHydrate();  // carrega o histórico do IndexedDB (capacidade = dispositivo)
 </script>
 </body>
 </html>

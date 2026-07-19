@@ -15,11 +15,19 @@
 
 import express from 'express';
 import crypto from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import { detectPlatform, SUPPORTED_LABEL } from './src/platforms.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Raiz do app (a pasta acima de videograb-server/). Este mesmo servidor serve a
+// plataforma INTEIRA — assim um único processo local roda o app E a API do
+// VideoGrab, e o card de status já abre conectado (mesma origem). Continua
+// funcionando também via file:// (a API permite CORS '*').
+const APP_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 app.disable('x-powered-by');
 
@@ -182,6 +190,10 @@ function formatTimestamp(date) {
   );
 }
 
+// Servir a plataforma INTEIRA (depois das rotas /api). GET / → index.html, e os
+// módulos/estilos/HTMLs das ferramentas. Um único processo serve app + API.
+app.use(express.static(APP_ROOT));
+
 app.listen(PORT, () => {
-  console.log(`VideoGrab rodando em http://localhost:${PORT}`);
+  console.log(`Agente + VideoGrab rodando em http://localhost:${PORT}`);
 });

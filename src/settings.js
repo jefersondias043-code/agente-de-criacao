@@ -91,7 +91,7 @@ function renderSettings() {
     const v = $('#s-apikey').value.trim();
     if (v.length < 8) { toast('A chave de API é muito curta.', 'error'); return; }
     State.apiKeys[provider] = v;
-    saveJSON(STORAGE_KEYS.apiKeys, State.apiKeys);
+    if (typeof persistApiKeys === 'function') persistApiKeys(); else saveJSON(STORAGE_KEYS.apiKeys, State.apiKeys);
     syncGroqKey();
     if (provider === 'groq') pushConfigToTools();
     renderSettings();
@@ -102,7 +102,7 @@ function renderSettings() {
     clearBtn.onclick = () => {
       if (!confirm(`Remover a chave de API da ${providerNames[provider]}?`)) return;
       State.apiKeys[provider] = '';
-      saveJSON(STORAGE_KEYS.apiKeys, State.apiKeys);
+      if (typeof persistApiKeys === 'function') persistApiKeys(); else saveJSON(STORAGE_KEYS.apiKeys, State.apiKeys);
       if (provider === 'groq') { clearGroqMirrors(); pushConfigToTools(); }
       renderSettings();
       toast('Chave de API removida.', 'success');

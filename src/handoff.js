@@ -55,6 +55,13 @@ function sendTextTo(consumerId, text) {
     goTo(c.view); // dispara o lazy-load do iframe (render*)
     const f = $(c.frame);
     if (f && f.dataset.ready) deliverPendingContent(); // já carregado de fato: entrega já
+    // Confiabilidade: se a ferramenta não consumir o conteúdo a tempo (iframe que
+    // não carrega), avisa em vez de deixar pendente em silêncio.
+    setTimeout(() => {
+      if (State.pendingContent && State.pendingContent.frame === c.frame) {
+        toast(c.label + ' demorou a responder — reabra a ferramenta e tente de novo.', 'error', 6000);
+      }
+    }, 8000);
   }
   toast('Enviado para ' + c.label + '.', 'success');
 }
@@ -83,9 +90,17 @@ function wireSendTo(rootEl, getText) {
 // SEGURANÇA: só aceita comandos vindos dos iframes das nossas ferramentas.
 if (typeof window !== 'undefined') {
   window.addEventListener('message', function (e) {
-    if (e && e.data && e.data.type === 'agente:content-out' && e.data.target &&
-        typeof isToolFrameSource === 'function' && isToolFrameSource(e)) {
+    if (!e || !e.data || typeof isToolFrameSource !== 'function' || !isToolFrameSource(e)) return;
+    // Canal de TEXTO: roteia para a ferramenta consumidora escolhida.
+    if (e.data.type === 'agente:content-out' && e.data.target) {
       sendTextTo(e.data.target, String(e.data.text || ''));
+    }
+    // Canal de IMAGEM (novo): o Removedor de Fundo envia o recorte pronto (PNG
+    // transparente) para virar uma CAMADA no editor de Cartaz. Reusa o sistema
+    // de camadas unificado (r116). Só aceita data URL de imagem.
+    else if (e.data.type === 'agente:image-out' && typeof e.data.dataUrl === 'string' &&
+             /^data:image\//.test(e.data.dataUrl) && typeof addImageAsLayer === 'function') {
+      addImageAsLayer(e.data.dataUrl);
     }
   });
 }

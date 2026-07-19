@@ -241,6 +241,10 @@ async function callAnthropic({ apiKey, model, prompt }) {
 }
 
 async function callLLM(prompt) {
+  // Workspace bloqueado e ainda não aberto nesta sessão → pede a senha primeiro.
+  if (State.locked && !State.unlocked && typeof ensureUnlocked === 'function') {
+    await ensureUnlocked();
+  }
   const provider = State.provider || 'groq';
   const apiKey = State.apiKeys[provider];
   const model = State.models[provider];

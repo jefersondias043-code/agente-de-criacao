@@ -58,4 +58,19 @@ srv.listen(port, '0.0.0.0', () => {
 "@
 
 $nodePath = (Get-Command node).Source
+
+# Sobe o servidor do VideoGrab (videograb-server/) em janela propria, para o
+# download de videos funcionar sem passos manuais. O card de status do VideoGrab
+# detecta a conexao sozinho.
+$vgDir = Join-Path $dir 'videograb-server'
+if (Test-Path (Join-Path $vgDir 'server.js')) {
+  if (Test-Path (Join-Path $vgDir 'node_modules')) {
+    Write-Host "Iniciando o servidor do VideoGrab (http://localhost:3000)..." -ForegroundColor Yellow
+    Start-Process -FilePath $nodePath -ArgumentList 'server.js' -WorkingDirectory $vgDir -WindowStyle Minimized
+  } else {
+    Write-Host "VideoGrab: rode 'npm install' em videograb-server/ para habilitar o download de videos." -ForegroundColor DarkYellow
+  }
+  Write-Host ""
+}
+
 Start-Process -FilePath $nodePath -ArgumentList "-e", $serverCode -NoNewWindow -Wait

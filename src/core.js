@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   model: 'agp.model',
   provider: 'agp.provider',
   apiKeys: 'agp.apiKeys',
+  apiKeysEnc: 'agp.apiKeys.enc',   // bloqueio do workspace: chaves cifradas (AES-GCM) — opcional
   models: 'agp.models',
   portal: 'agp.portal',
   portals: 'agp.portals',
@@ -33,11 +34,24 @@ function loadJSON(key, fallback) {
     return fallback;
   }
 }
+// Grava JSON com falha VISÍVEL e acionável. Antes, sob cota, a gravação falhava
+// em silêncio → o State em memória divergia do persistido (o usuário achava que
+// salvou). Agora distingue "armazenamento cheio" (com instrução de backup/limpeza)
+// e devolve true/false para quem quiser reagir (retrocompatível: callers antigos
+// ignoram o retorno).
 function saveJSON(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch (e) {
-    toast('Não foi possível salvar — o armazenamento do navegador pode estar cheio.', 'error');
+    const quota = !!e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+      e.code === 22 || e.code === 1014 || /quota|exceeded/i.test(e.message || ''));
+    if (quota) {
+      toast('Armazenamento cheio: esta alteração NÃO foi salva. Exporte um backup e remova itens antigos em Configurações → Dados e backup.', 'error', 9000);
+    } else {
+      toast('Não foi possível salvar neste navegador.', 'error');
+    }
+    return false;
   }
 }
 
@@ -78,11 +92,16 @@ const State = (() => {
   // Migrate old single-provider state to multi-provider
   const apiKeys = savedKeys || (oldKey ? { groq: oldKey, openai: '', anthropic: '' } : { groq: '', openai: '', anthropic: '' });
   const models = savedModels || (oldModel ? { groq: oldModel, openai: 'gpt-5.4', anthropic: 'claude-sonnet-4-6' } : { groq: 'llama-3.3-70b-versatile', openai: 'gpt-5.4', anthropic: 'claude-sonnet-4-6' });
-  if (!savedKeys) saveJSON(STORAGE_KEYS.apiKeys, apiKeys);
+  // Bloqueio do workspace: se há chaves CIFRADAS, não gravamos o padrão em claro
+  // (as chaves reais só entram na memória após o desbloqueio com senha).
+  const locked = !!localStorage.getItem(STORAGE_KEYS.apiKeysEnc);
+  if (!savedKeys && !locked) saveJSON(STORAGE_KEYS.apiKeys, apiKeys);
   if (!savedModels) saveJSON(STORAGE_KEYS.models, models);
   return {
     provider: localStorage.getItem(STORAGE_KEYS.provider) || 'groq',
     apiKeys, models,
+    locked,        // chaves estão cifradas em repouso?
+    unlocked: !locked,  // já há chave utilizável em memória nesta sessão?
     // backwards compat — kept for legacy safety
     apiKey: oldKey || apiKeys.groq || '',
     model: oldModel || models.groq || 'llama-3.3-70b-versatile',

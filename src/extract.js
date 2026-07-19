@@ -126,7 +126,7 @@ function renderExtract() {
       createdAt: new Date().toISOString(),
     };
     State.extractions.unshift(extraction);
-    saveJSON(STORAGE_KEYS.extractions, State.extractions);
+    saveExtractions();
 
     const btn = $('#e-submit');
     btn.disabled = true;
@@ -178,7 +178,7 @@ function renderExtract() {
         fileMeta.error = err.message;
         toast(`Falha ao extrair ${file.name}: ${err.message}`, 'error');
       }
-      saveJSON(STORAGE_KEYS.extractions, State.extractions);
+      saveExtractions();
       renderExtractionsList();
     }
 
@@ -190,7 +190,7 @@ function renderExtract() {
     const allOk = extraction.files.every(f => f.status === 'completed');
     const allFail = extraction.files.every(f => f.status === 'failed');
     extraction.status = allOk ? 'completed' : (allFail ? 'failed' : 'partial');
-    saveJSON(STORAGE_KEYS.extractions, State.extractions);
+    saveExtractions();
 
     btn.disabled = false;
     btn.innerHTML = 'Extrair texto';
@@ -207,6 +207,21 @@ function renderExtract() {
 
 function renderExtractionsList() {
   const listEl = $('#e-history');
+  // "Limpar tudo" — apaga só o histórico de extrações (mesmo padrão da Gerar).
+  const clearBtn = $('#e-history-clear');
+  if (clearBtn) {
+    clearBtn.style.display = State.extractions.length ? '' : 'none';
+    clearBtn.onclick = () => {
+      if (!State.extractions.length) return;
+      if (!confirm('Apagar TODO o histórico de extrações?')) return;
+      State.extractions = [];
+      State.activeExtractionId = null;
+      saveExtractions();
+      renderExtractionsList();
+      renderExtractionDetail();
+      toast('Histórico limpo.', 'success');
+    };
+  }
   if (!State.extractions.length) {
     listEl.innerHTML = `
       <div class="empty">
@@ -296,7 +311,7 @@ function renderExtractionDetail() {
   $('#e-detail-delete').onclick = () => {
     if (!confirm('Remover esta extração?')) return;
     State.extractions = State.extractions.filter(x => x.id !== e.id);
-    saveJSON(STORAGE_KEYS.extractions, State.extractions);
+    saveExtractions();
     State.activeExtractionId = null;
     renderExtractionsList();
     wrap.classList.add('hidden');

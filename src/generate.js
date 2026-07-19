@@ -37,12 +37,11 @@ function renderGenerate() {
   // gasta área nobre); o card âmbar com CTA só aparece quando FALTA a chave.
   const providerName = (State.provider || 'groq').charAt(0).toUpperCase() + (State.provider || 'groq').slice(1);
   const hasKey = !!State.apiKeys[State.provider || 'groq'];
-  const pill = $('#g-api-pill');
+  // O indicador "conectado" foi removido (config de IA é unificada na plataforma).
+  // Mantemos só o aviso âmbar, que aparece quando FALTA a chave (acionável).
   if (hasKey) {
     $('#api-warning').classList.add('hidden');
-    if (pill) { pill.textContent = `✔ ${providerName}`; pill.classList.remove('hidden'); }
   } else {
-    if (pill) pill.classList.add('hidden');
     $('#api-warning').innerHTML = `
       <div class="flex items-center gap-2">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--amber); flex-shrink: 0;">
@@ -176,7 +175,7 @@ function renderGenerate() {
         createdAt: new Date().toISOString(),
       };
       State.generations.unshift(generation);
-      saveJSON(STORAGE_KEYS.generations, State.generations);
+      saveGenerations();
       toast('Matéria gerada.', 'success');
       renderGenerationResult(generation);
     } catch (err) {
@@ -265,7 +264,7 @@ function renderGenerationResult(g) {
     $('#g-result-edit').outerHTML = `<button class="btn btn-primary btn-sm" id="g-result-save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg> Salvar</button>`;
     $('#g-result-save').onclick = () => {
       g.content = taEl.value;
-      saveJSON(STORAGE_KEYS.generations, State.generations);
+      saveGenerations();
       renderGenerationResult(g);
       const drawer = $('#g-history-drawer');
       if (drawer && drawer.classList.contains('open') && typeof renderGenHistory === 'function') renderGenHistory();
@@ -276,7 +275,7 @@ function renderGenerationResult(g) {
   $('#g-result-delete').onclick = () => {
     if (!confirm('Remover esta matéria?')) return;
     State.generations = State.generations.filter(x => x.id !== g.id);
-    saveJSON(STORAGE_KEYS.generations, State.generations);
+    saveGenerations();
     $('#g-result-badge').innerHTML = '';
     $('#g-result-area').innerHTML = `
       <div class="empty">

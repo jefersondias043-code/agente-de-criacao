@@ -6,7 +6,11 @@
   "description": "Agente de Postagem - PWA client-side para criação de matérias com IA",
   "scripts": {
     "lint": "eslint \"src/**/*.js\"",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:manifest": "node scripts/check-manifest.mjs",
+    "sync:manifest": "node scripts/sync-manifest.mjs",
+    "bump:version": "node scripts/bump-version.mjs",
+    "verify": "npm run lint && npm run test && npm run check:manifest && node scripts/sync-manifest.mjs --check"
   },
   "devDependencies": {
     "eslint": "^9.18.0",

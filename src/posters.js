@@ -30,6 +30,15 @@ function posterImagePositions(p) {
   return out;
 }
 
+// Libera as imagens de UM cartaz no IndexedDB (recupera espaço do dispositivo).
+// Usado ao excluir um cartaz individual ou ao limpar todo o histórico.
+function freePosterImages(p) {
+  if (typeof idbDel !== 'function' || !p) return;
+  try {
+    posterImagePositions(p).forEach((pos) => { idbDel(pos.key).catch(() => {}); idbConfirmedKeys.delete(pos.key); });
+  } catch (_) { /* */ }
+}
+
 // Cópia "leve" do cartaz: imagens já confirmadas no IDB viram sentinela; as
 // ainda não confirmadas permanecem inline (segurança). Não muta o original.
 function lightPosterCopy(p) {
@@ -52,15 +61,24 @@ function lightPosterCopy(p) {
   return c;
 }
 
-// Grava cartazes: metadados (leves) no localStorage + descarga de imagens no IDB.
+// Persiste o ÍNDICE de cartazes (metadados leves, imagens como sentinela) no
+// IndexedDB — limite = capacidade do dispositivo, não os ~5 MB do localStorage.
+function _persistPosterIndex() {
+  if (typeof idbSet !== 'function') return Promise.resolve();
+  let light;
+  try { light = State.posters.map(lightPosterCopy); } catch (_) { return Promise.resolve(); }
+  return idbSet(HIST_KEYS.posters, light).catch((e) => {
+    if (typeof _onHistSaveError === 'function') _onHistSaveError(e, 'arte');
+    else if (typeof toast === 'function') toast('Não foi possível salvar a arte — armazenamento do dispositivo cheio. Exporte um backup.', 'error', 6000);
+  });
+}
+
+// Grava cartazes: índice (leve) no IndexedDB + descarga de imagens (Blob) no IDB.
 function savePosters() {
-  try {
-    const light = State.posters.map(lightPosterCopy);
-    localStorage.setItem(STORAGE_KEYS.posters, JSON.stringify(light));
-  } catch (e) {
-    toast('Não foi possível salvar — o armazenamento do navegador pode estar cheio. Exporte um backup em Configurações.', 'error', 6000);
-  }
+  _persistPosterIndex();
   offloadPosterImagesToIDB();
+  // Histórico de edição (desfazer/refazer) — captura debounced do cartaz ativo.
+  if (typeof posterHistoryCapture === 'function') posterHistoryCapture();
 }
 
 let _posterOffloadTimer = null;
@@ -75,22 +93,33 @@ function offloadPosterImagesToIDB() {
       for (const pos of posterImagePositions(p)) {
         const v = pos.get();
         if (typeof v === 'string' && v.startsWith('data:') && !idbConfirmedKeys.has(pos.key)) {
-          try { await idbSet(pos.key, v); idbConfirmedKeys.add(pos.key); newlyConfirmed = true; } catch (_) { /* mantém inline */ }
+          // Guarda como Blob (binário, ~⅓ menor); fallback p/ string se a conversão falhar.
+          const payload = (typeof dataUrlToBlob === 'function' && dataUrlToBlob(v)) || v;
+          try { await idbSet(pos.key, payload); idbConfirmedKeys.add(pos.key); newlyConfirmed = true; } catch (_) { /* mantém inline */ }
         }
       }
     }
-    if (newlyConfirmed) {
-      try {
-        const light = State.posters.map(lightPosterCopy);
-        localStorage.setItem(STORAGE_KEYS.posters, JSON.stringify(light));
-      } catch (_) { /* */ }
-    }
+    if (newlyConfirmed) _persistPosterIndex();
   }, 350);
 }
 
-// Boot: reidrata as imagens do IDB para a memória (render/export usam inline).
+// Boot: carrega o índice de cartazes do IDB (migra do localStorage antigo, 1x) e
+// reidrata as imagens do IDB para a memória (render/export usam inline).
 async function hydratePosters() {
-  if (typeof idbGet !== 'function' || !Array.isArray(State.posters)) return;
+  if (typeof idbGet !== 'function') return;
+  try {
+    const idx = await idbGet(HIST_KEYS.posters);
+    let persisted = true;
+    if (Array.isArray(idx)) {
+      State.posters = idx;                                  // já no IDB (formato novo)
+    } else if (Array.isArray(State.posters) && State.posters.length) {
+      // Migração: o índice veio do localStorage no init (já é cópia leve c/ sentinelas).
+      try { await idbSet(HIST_KEYS.posters, State.posters); } catch (_) { persisted = false; }
+    }
+    // IDB é a fonte da verdade — limpa a chave legada (até vazia), salvo se falhou.
+    if (persisted) { try { localStorage.removeItem(STORAGE_KEYS.posters); } catch (_) { /* */ } }
+  } catch (_) { /* */ }
+  if (!Array.isArray(State.posters)) return;
   let any = false;
   for (const p of State.posters) {
     for (const pos of posterImagePositions(p)) {
@@ -99,8 +128,13 @@ async function hydratePosters() {
         const key = v.slice(5);
         try {
           const data = await idbGet(key);
-          if (data) { pos.set(data); idbConfirmedKeys.add(key); any = true; }
-          else { pos.set(null); }
+          if (data) {
+            // IDB guarda Blob (novo) ou string dataURL (legado/importado) → o
+            // caminho quente usa SEMPRE dataURL em memória.
+            const url = (typeof Blob !== 'undefined' && data instanceof Blob && typeof blobToDataUrl === 'function')
+              ? await blobToDataUrl(data) : data;
+            pos.set(url); idbConfirmedKeys.add(key); any = true;
+          } else { pos.set(null); }
         } catch (_) { /* */ }
       }
     }
@@ -188,11 +222,13 @@ function extractCategory(text) {
 }
 
 function extractLocation(text) {
-  let m = text.match(/([A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+)*)\s*\/\s*BA/i);
+  // Separador entre palavras = espaço/tab (NUNCA \s, que casa \n e atravessaria a
+  // quebra de linha, colando o início do parágrafo seguinte no nome da cidade).
+  let m = text.match(/([A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+(?:[ \t]+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+)*)[ \t]*\/[ \t]*BA/i);
   if (m) return `${m[1].trim()}, BA`;
-  m = text.match(/([A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+)*)\s*,\s*BA/i);
+  m = text.match(/([A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+(?:[ \t]+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+)*)[ \t]*,[ \t]*BA/i);
   if (m) return `${m[1].trim()}, BA`;
-  m = text.match(/\bem\s+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+)*)/);
+  m = text.match(/\bem[ \t]+([A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+(?:[ \t]+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇÑ][a-záàâãéêíóôõúç]+)*)/);
   if (m) return `${m[1].trim()}, BA`;
   const cities = ['Ilhéus','Itabuna','Salvador','Vitória da Conquista','Feira de Santana','Camaçari','Juazeiro','Porto Seguro','Lauro de Freitas','Teixeira de Freitas','Eunápolis','Itamaraju','Santa Cruz Cabrália','Canavieiras','Una','Belmonte','Mascote','Camacan','Arataca','Ibicaraí','Ibirapitanga','Gandu','Igrapiúna','Nilo Peçanha','Taperoá','Valença','Piraí do Norte','Presidente Tancredo Neves','Wenceslau Guimarães','Ibirataia','Aurelino Leal','Ubatã','Gongogi','Dário Meira','Nova Ibiá','Manoel Vitorino','Planaltino','Aiquara','Jiquiriçá','Laje','Mutuípe','São Miguel das Matas','Amargosa','Santo Antônio de Jesus','Cachoeira','São Félix','Maragogipe','Salinas da Margarida','Conceição do Almeida','Santo Amaro','Saúde','Irará','Ouriçangas','Sapeaçu','Castro Alves','Elísio Medrado','Santa Teresinha','Dom Macedo Costa','Pedrão','Tanquinho','Rafael Jambeiro'];
   for (const c of cities) if (text.includes(c)) return `${c}, BA`;
@@ -308,28 +344,100 @@ function stripPrefix(line) {
     .trim();
 }
 
-function createPosterFromGeneration(g) {
-  const parsed = parseFromText(g.content);
-  const struct = parseGenerationStructure(g.content);
+/* ============================================================
+   REGRA ÚNICA DE AUTOPREENCHIMENTO — parseArticle()
+   Fonte ÚNICA usada por TODOS os fluxos que enviam conteúdo para Cartaz/Carrossel
+   (Gerar, Detector, Replicador…). Aproveita ao máximo o que a IA já produziu e
+   DERIVA do próprio texto o que faltar. Retorna a estrutura normalizada:
+   { title, subtitle, lead, body, bodyParagraphs, cta, category, location }.
+   ============================================================ */
+// Linhas de metadados (descartadas) e de estrutura (prefixo removido, valor mantido).
+const ARTICLE_DROP_RE = /^[\*#>\-•\s]*(hashtags?|tags?|legenda|cr[eé]ditos?|fonte|imagem|foto)\s*[:\-—]/i;
+const ARTICLE_LABEL_RE = /^[\*#>\-•\s]*(t[íi]tulo|subt[íi]tulo|lead|corpo|descri[çc][ãa]o|se[çc][ãa]o|intert[íi]tulo|chamada|resumo)\s*[:\-—]\s*/i;
 
-  // Headline: prioriza título estruturado; cai para o parser antigo se vazio
-  const headline = struct.title || parsed.headline;
-  // Subtítulo: prioriza parser estruturado, depois parser simples
-  const subtitle = struct.subtitle || parsed.subtitle || '';
-  // Descrição (= lead da matéria, resumo abaixo do título no cartaz)
-  const description = struct.description || '';
+/** Parágrafos do CORPO: sem metadados, sem o título, com rótulos removidos. */
+function articleBodyParagraphs(raw, title) {
+  const titleNorm = String(title || '').trim().toLowerCase();
+  const out = [];
+  for (const lineRaw of String(raw || '').split('\n')) {
+    const t = lineRaw.trim();
+    if (!t) continue;
+    if (ARTICLE_DROP_RE.test(t)) continue;
+    const line = t.replace(ARTICLE_LABEL_RE, '').replace(/^[\*#>\-•\s]+/, '').trim();
+    if (line.length < 2) continue;
+    if (line.toLowerCase() === titleNorm) continue;
+    out.push(line);
+  }
+  return out;
+}
+
+/** 1ª frase de um texto (para derivar um subtítulo curto quando não há um). */
+function firstSentence(text) {
+  const s = String(text || '').trim();
+  if (!s) return '';
+  const m = s.match(/^[\s\S]*?[.!?](?=\s|$)/);
+  const out = (m ? m[0] : s).trim();
+  return out.length <= 200 ? out : truncate(out, 160);
+}
+
+/** Procura um subtítulo declarado por rótulo ("Subtítulo: ..."). */
+function matchLabeledSubtitle(raw) {
+  for (const lineRaw of String(raw || '').split('\n')) {
+    const m = lineRaw.trim().match(/^[\*#>\-•\s]*subt[íi]tulo\s*[:\-—]\s*(.{5,})$/i);
+    if (m) return m[1].trim();
+  }
+  return '';
+}
+
+function parseArticle(content) {
+  const raw = String(content || '');
+  const meta = parseFromText(raw);                 // categoria / local / footer / fallback de título
+  const struct = parseGenerationStructure(raw);    // título (rótulo OU posicional)
+  const title = (struct.title || meta.headline || '').trim();
+
+  // Corpo completo (todas as linhas substanciais menos título/metadados).
+  let bodyLines = articleBodyParagraphs(raw, title);
+
+  // Subtítulo: rótulo explícito > 1ª linha curta do corpo > 1ª frase do lead.
+  let subtitle = matchLabeledSubtitle(raw);
+  if (subtitle) {
+    bodyLines = bodyLines.filter((l) => l.toLowerCase() !== subtitle.toLowerCase());
+  } else if (bodyLines.length >= 2 && bodyLines[0].length <= 160) {
+    subtitle = bodyLines.shift();                   // 1ª linha curta = subtítulo; resto = corpo
+  }
+
+  const lead = bodyLines[0] || subtitle || '';
+  if (!subtitle) subtitle = firstSentence(lead) || truncate(lead, 160) || title;
+
+  const body = bodyLines.join('\n\n').trim() || lead || subtitle || title;
+
+  return {
+    title,
+    subtitle: subtitle.trim(),
+    lead: lead.trim(),
+    body,
+    bodyParagraphs: bodyLines,
+    cta: '',                                        // sem "chamada" explícita na matéria
+    category: meta.category,
+    location: meta.location,
+  };
+}
+
+function createPosterFromGeneration(g) {
+  // Regra ÚNICA de autopreenchimento: distribui TODO o conteúdo disponível.
+  const art = parseArticle(g.content);
 
   const poster = {
     id: uuid(),
     generationId: g.id,
     template: 'manchete',
     format: '3:4',
-    headline,
-    category: parsed.category,
-    location: parsed.location,
-    subtitle,
-    description,
-    footer: parsed.footer,
+    headline: art.title,           // Título → Headline
+    category: art.category,        // categoria inferida
+    location: art.location,        // local inferido
+    subtitle: art.subtitle,        // Subtítulo / resumo / chamada → Subtítulo
+    description: art.body,          // Corpo COMPLETO → Texto longo
+    footer: art.cta,
     image1: null,
     image2: null,
     image3: null,
@@ -354,29 +462,142 @@ function createPosterFromGeneration(g) {
   State.posters.unshift(poster);
   savePosters();
   State.activePosterId = poster.id;
+  _peOpen = true;                      // handoff (matéria → cartaz) abre o editor
   toast('Cartaz criado.', 'success');
   goTo('posters');
 }
 
+/* Estado de APRESENTAÇÃO da ferramenta (r98.1): a tela tem 3 modos —
+   vazio → galeria "Meus cartazes" → editor focado. `_peOpen` diz se o editor
+   está aberto; abrir/fechar passa por openPosterEditor()/closePosterEditor(). */
+let _peOpen = false;
+
+function openPosterEditor(id) {
+  if (id) State.activePosterId = id;
+  _peOpen = true;
+  if (State.currentView !== 'posters') goTo('posters');
+  else renderPosters();
+}
+
+function closePosterEditor() {
+  _peOpen = false;
+  renderPosters();
+  const main = document.querySelector('.main');
+  if (main) main.scrollTo({ top: 0, behavior: 'auto' });
+}
+
 function renderPosters() {
   initPortalForm();
-  if (!State.posters.length) {
-    $('#p-empty').classList.remove('hidden');
-    $('#p-content').classList.add('hidden');
-    $('#p-new').onclick = () => createBlankPoster();
-    return;
-  }
-  $('#p-empty').classList.add('hidden');
-  $('#p-content').classList.remove('hidden');
-
-  if (!State.activePosterId || !State.posters.find(p => p.id === State.activePosterId)) {
+  const has = State.posters.length > 0;
+  if (!has) _peOpen = false;
+  if (has && (!State.activePosterId || !State.posters.find(p => p.id === State.activePosterId))) {
     State.activePosterId = State.posters[0].id;
   }
-  renderPostersList();
-  renderPosterEditor();
+  const editing = has && _peOpen;
 
-  $('#p-new').onclick = () => createBlankPoster();
+  // A GALERIA cobre o estado vazio (o tile "Novo cartaz" é o único ponto de
+  // criação — r109.1: removido o botão duplicado do topo). #p-empty aposentado.
+  $('#p-empty').classList.add('hidden');
+  const gal = $('#p-gallery');
+  if (gal) gal.classList.toggle('hidden', editing);
+  $('#p-content').classList.toggle('hidden', !editing);
+  // Modo focado: esconde appbar + tab bar (o editor tem topbar e dock próprios)
+  document.body.classList.toggle('pe-full', editing);
+
+  renderPostersList();
+  if (!editing) { renderPosterGallery(); return; }
+
+  renderPosterEditor();
   setupPostersChrome();
+  setupEditorChrome();
+  // Refit após o layout assentar (a troca p/ modo focado muda o container do canvas):
+  // síncrono (leitura força reflow) + RAF de reforço (RAF pode não disparar em aba oculta).
+  if (typeof fitPosterPreview === 'function') {
+    fitPosterPreview();
+    requestAnimationFrame(() => fitPosterPreview());
+  }
+}
+
+/** Galeria "Meus cartazes": grade com miniaturas + tile "Novo". Porta de entrada
+ *  da ferramenta — tocar um cartaz abre o editor focado. */
+function renderPosterGallery() {
+  const host = $('#p-gallery');
+  if (!host) return;
+  host.innerHTML = `
+    <button class="pg-card pg-new" id="pg-new" type="button" aria-label="Criar novo cartaz">
+      <span class="pg-new-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+      <span class="pg-new-label">Novo cartaz</span>
+    </button>` + State.posters.map(p => {
+    const isCar = (typeof posterIsCarousel === 'function' && posterIsCarousel(p));
+    const title = ((typeof posterDisplayTitle === 'function') ? posterDisplayTitle(p) : p.headline) || 'Cartaz';
+    const img = (typeof p.image1 === 'string' && p.image1.slice(0, 5) === 'data:') ? p.image1 : null;
+    return `
+    <div class="pg-card" data-pid="${p.id}" role="button" tabindex="0" aria-label="${escapeHtml(truncate(title, 60))}">
+      <div class="pg-thumb">
+        ${img ? `<img src="${img}" alt="" loading="lazy">` : `<span class="pg-thumb-ph">${escapeHtml(title.trim().charAt(0).toUpperCase() || '?')}</span>`}
+        ${isCar ? `<span class="pg-badge">▤ ${p.slides.length}</span>` : ''}
+      </div>
+      <div class="pg-name">${escapeHtml(truncate(title, 52))}</div>
+      <div class="pg-meta">${formatDate(p.updatedAt || p.createdAt)}</div>
+    </div>`;
+  }).join('');
+  const nb = $('#pg-new');
+  if (nb) nb.onclick = () => createBlankPoster();
+  host.querySelectorAll('[data-pid]').forEach(el => {
+    const open = () => openPosterEditor(el.dataset.pid);
+    el.onclick = open;
+    el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+  });
+}
+
+/** Reorganiza o chrome do editor (idempotente): MOVE os botões de ação existentes
+ *  — com seus handlers — para a topbar (#et-actions) e para o menu ⋯ (#et-menu).
+ *  Frequente fica a 1 toque (desfazer/refazer/salvar/exportar); secundário
+ *  (qualidade, IA, modo, zip, excluir) mora no menu. Nada é perdido. */
+function setupEditorChrome() {
+  const top = $('#et-top');
+  if (!top) return;
+  const acts = $('#et-actions');
+  const menuItems = $('#et-menu-items');
+  const scaleSlot = $('#et-scale-slot');
+  const put = (id, host) => { const el = $(`#${id}`); if (el && host && el.parentElement !== host) host.appendChild(el); };
+  ['p-undo', 'p-redo', 'p-save', 'p-export', 'p-export-imgs'].forEach(id => put(id, acts));
+  put('p-export-scale', scaleSlot);
+  ['p-export-zip', 'p-improve', 'p-delete'].forEach(id => put(id, menuItems));
+  // No menu, o botão de excluir (ícone-só na barra antiga) ganha rótulo
+  const del = $('#p-delete');
+  if (del && !del.dataset.labeled) { del.dataset.labeled = '1'; del.appendChild(document.createTextNode(' Excluir cartaz')); }
+  // "Exportar imagens" (carrossel) encurta para caber na topbar
+  const expImgs = $('#p-export-imgs');
+  if (expImgs && !expImgs.dataset.short) {
+    expImgs.dataset.short = '1';
+    expImgs.childNodes.forEach(n => { if (n.nodeType === 3 && n.textContent.trim()) n.textContent = ' Exportar'; });
+  }
+  // Título = cartaz ativo
+  const p = State.posters.find(x => x.id === State.activePosterId);
+  const t = $('#et-title');
+  if (t && p) t.textContent = ((typeof posterDisplayTitle === 'function') ? posterDisplayTitle(p) : p.headline) || 'Cartaz';
+  // "Transformar em carrossel" mora no menu ⋯ (r112) — só aparece na peça única.
+  const toCar = $('#et-to-carousel');
+  if (toCar) {
+    const isCar = p && typeof posterIsCarousel === 'function' && posterIsCarousel(p);
+    toCar.classList.toggle('hidden', !p || isCar);
+    toCar.onclick = () => { if (p && typeof convertToCarousel === 'function') convertToCarousel(p); };
+  }
+  // Navegação
+  const back = $('#et-back');
+  if (back) back.onclick = () => closePosterEditor();
+  const menu = $('#et-menu'), backdrop = $('#et-menu-backdrop');
+  const openMenu = () => { if (menu) menu.classList.add('open'); if (backdrop) backdrop.classList.add('open'); };
+  const closeMenu = () => { if (menu) menu.classList.remove('open'); if (backdrop) backdrop.classList.remove('open'); };
+  const mb = $('#et-menu-btn');
+  if (mb) mb.onclick = openMenu;
+  if (backdrop) backdrop.onclick = closeMenu;
+  if (menu && !menu._wired) {
+    menu._wired = true;
+    // Qualquer ação do menu fecha o sheet (a qualidade — select — mantém aberto)
+    menu.addEventListener('click', (e) => { if (e.target.closest('.btn')) closeMenu(); });
+  }
 }
 
 /** Abre/fecha o painel lateral (drawer) do histórico de cartazes. */
@@ -452,11 +673,53 @@ function createBlankPoster() {
   State.posters.unshift(poster);
   savePosters();
   State.activePosterId = poster.id;
+  _peOpen = true;                      // criar leva direto ao editor
   renderPosters();
   toast('Cartaz criado.', 'success');
 }
 
+/** Recebe uma imagem pronta (data URL — ex.: recorte do Removedor de Fundo) e a
+ *  adiciona como CAMADA no cartaz ativo, reusando o sistema de camadas unificado
+ *  (r116): a imagem chega já movível, redimensionável e excluível. Se não houver
+ *  cartaz ativo, cria um em branco. Chamado pelo canal 'agente:image-out'
+ *  (src/handoff.js). */
+function addImageAsLayer(dataUrl) {
+  if (!dataUrl || !/^data:image\//.test(String(dataUrl))) return;
+  let p = State.posters.find((x) => x.id === State.activePosterId);
+  if (!p) {
+    createBlankPoster();               // já define activePosterId + abre o editor
+    p = State.posters.find((x) => x.id === State.activePosterId);
+  }
+  if (!p) return;
+  const s = (typeof getSlide === 'function') ? (getSlide(p) || p) : p;
+  if (!Array.isArray(s.layers)) s.layers = [];
+  s.layers.push({ id: uuid(), src: String(dataUrl), x: 50, y: 50, scale: 1, z: nextOverlayZ(s) });
+  p.updatedAt = new Date().toISOString();
+  savePosters();
+  State.activePosterId = p.id;
+  _peOpen = true;
+  goTo('posters');                     // troca para a view Cartazes (renderiza o editor)
+  if (typeof renderLayerList === 'function') renderLayerList();
+  if (typeof _refreshPosterPreview === 'function') _refreshPosterPreview();
+  toast('Recorte adicionado como camada no cartaz.', 'success');
+}
+
 function renderPostersList() {
+  // "Limpar tudo" — apaga só o histórico de cartazes/carrosséis (padrão da Gerar).
+  const clearBtn = $('#p-history-clear');
+  if (clearBtn) {
+    clearBtn.style.display = State.posters.length ? '' : 'none';
+    clearBtn.onclick = () => {
+      if (!State.posters.length) return;
+      if (!confirm('Apagar TODO o histórico de cartazes e carrosséis?')) return;
+      State.posters.forEach(freePosterImages);   // libera as imagens no IDB
+      State.posters = [];
+      State.activePosterId = null;
+      savePosters();
+      renderPosters();
+      toast('Histórico limpo.', 'success');
+    };
+  }
   $('#p-list').innerHTML = State.posters.map(p => {
     const isCar = (typeof posterIsCarousel === 'function' && posterIsCarousel(p));
     const title = (typeof posterDisplayTitle === 'function') ? posterDisplayTitle(p) : p.headline;
@@ -466,6 +729,7 @@ function renderPostersList() {
       : '';
     return `
     <div class="list-item ${State.activePosterId === p.id ? 'active' : ''}" data-pid="${p.id}">
+      <button class="list-item-del" data-del="${p.id}" type="button" title="Excluir cartaz" aria-label="Excluir">×</button>
       <div class="list-item-header">
         <div class="list-item-title">${escapeHtml(truncate(title, 80))}</div>
       </div>
@@ -477,11 +741,23 @@ function renderPostersList() {
     </div>
   `; }).join('');
   $('#p-list').querySelectorAll('[data-pid]').forEach(el => {
-    el.onclick = () => {
-      State.activePosterId = el.dataset.pid;
-      renderPostersList();
-      renderPosterEditor();
+    el.onclick = (e) => {
+      if (e.target.closest('[data-del]')) return;            // o × não seleciona
       if (typeof closeHistoryDrawer === 'function') closeHistoryDrawer();   // fecha o painel ao escolher
+      openPosterEditor(el.dataset.pid);                      // abre direto no editor
+    };
+  });
+  $('#p-list').querySelectorAll('[data-del]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      if (!confirm('Remover este cartaz?')) return;
+      const p = State.posters.find(x => x.id === btn.dataset.del);
+      if (p) freePosterImages(p);                            // libera as imagens no IDB
+      State.posters = State.posters.filter(x => x.id !== btn.dataset.del);
+      if (State.activePosterId === btn.dataset.del) State.activePosterId = State.posters[0]?.id || null;
+      savePosters();
+      renderPosters();
+      toast('Cartaz removido.', 'success');
     };
   });
 }
@@ -493,6 +769,9 @@ function renderPosterEditor() {
   // Alvo de edição: o próprio cartaz, ou o SLIDE ativo se for carrossel.
   // (getSlide devolve o próprio p quando não há slides → cartaz único intacto.)
   const s = (typeof getSlide === 'function') ? getSlide(p) : p;
+
+  // Migra o z-order unificado dos overlays (1ª vez que abre um cartaz legado).
+  if (typeof ensureOverlayZ === 'function' && ensureOverlayZ(s)) savePosters();
 
   // Barra de carrossel (slides) — additiva; fica vazia p/ cartaz único.
   if (typeof renderCarouselBar === 'function') renderCarouselBar(p);
@@ -557,6 +836,7 @@ function renderPosterEditor() {
   setupMediaUpload(s, 'image3', 'p-image3', onMediaChange);
   setupMediaUpload(s, 'image4', 'p-image4', onMediaChange);
   setupMediaUpload(s, 'avatar', 'p-avatar');
+  setupMediaReorder();   // arrastar-e-soltar para reordenar as imagens (r103)
   updateProgressiveVisibility();
   updateMosaicControl();
   updateExtraFields();
@@ -587,6 +867,9 @@ function renderPosterEditor() {
     renderPosterTemplate(draft);
     updateCounters();
   };
+  // Expõe o updatePreview ATUAL (closure com os inputs vivos) para funções de
+  // topo — camadas (r107) precisam re-renderizar o preview de fora do editor.
+  _posterUpdatePreview = updatePreview;
 
   function updateCounters() {
     const updateOne = (id, max) => {
@@ -658,18 +941,6 @@ function renderPosterEditor() {
   });
   refreshElementEyes();
 
-  // Tema do CARTAZ: persiste em p.theme AO VIVO (não só no Salvar) → o export do
-  // carrossel (que re-renderiza por p.theme) bate com o preview mesmo sem salvar.
-  if ($('#p-theme')) {
-    $('#p-theme').onchange = () => {
-      p.theme = $('#p-theme').value;
-      p.updatedAt = new Date().toISOString();
-      savePosters();
-      if (typeof renderCarouselBar === 'function' && typeof posterIsCarousel === 'function' && posterIsCarousel(p)) renderCarouselBar(p);
-      updatePreview();
-    };
-  }
-
   // Troca de modelo/formato: persiste e re-renderiza (re-ativa pan pois alguns
   // modelos passam a usar imagem arrastável, e o formato muda as dimensões).
   ['p-template', 'p-format'].forEach(id => {
@@ -714,9 +985,17 @@ function renderPosterEditor() {
   }
 
   // Tema visual do CARTAZ (override do tema do portal; '' = herda). É nível-cartaz.
+  // FIX r100: a personalização de cor (p.custom: paleta/cores/fundo) roda POR CIMA
+  // do tema no render — com ela ativa, trocar o tema não tinha efeito visível.
+  // Escolher um tema agora REDEFINE a personalização de cor (o tema vale de verdade).
   if ($('#p-theme')) {
     $('#p-theme').onchange = () => {
       p.theme = $('#p-theme').value;
+      if (p.custom) {
+        p.custom = undefined;
+        if (typeof writeControlsFromCustom === 'function') writeControlsFromCustom(null);
+        toast('Tema aplicado — cores personalizadas redefinidas.', 'info');
+      }
       p.updatedAt = new Date().toISOString();
       savePosters();
       updatePreview();
@@ -744,7 +1023,12 @@ function renderPosterEditor() {
   requestAnimationFrame(() => {
     fitPosterPreview();
     setupImagePanning($('#p-stage'));
+    if (typeof setupPosterElementEditing === 'function') setupPosterElementEditing();
   });
+  // Painel "Elementos" (adicionar formas/badges, camadas, controles do selecionado).
+  if (typeof renderPosterElementsPanel === 'function') renderPosterElementsPanel();
+  // Recursos pro do editor (desfazer/refazer, modo simples/pro, melhorar design).
+  if (typeof setupPosterProUI === 'function') setupPosterProUI();
 
   // Aplica os valores atuais do editor a um alvo (cartaz ou slide).
   const applyEditorTo = (t) => {
@@ -775,9 +1059,11 @@ function renderPosterEditor() {
 
   $('#p-delete').onclick = () => {
     if (!confirm('Remover este cartaz?')) return;
+    freePosterImages(p);   // libera as imagens no IndexedDB (recupera espaço)
     State.posters = State.posters.filter(x => x.id !== p.id);
     savePosters();
     State.activePosterId = State.posters[0]?.id || null;
+    _peOpen = false;       // após excluir, volta à galeria (feedback claro)
     renderPosters();
     toast('Cartaz removido.', 'success');
   };
@@ -794,9 +1080,401 @@ function renderPosterEditor() {
     savePosters();
     fn();
   };
-  $('#p-export').onclick = () => doExport(() => exportPoster(p));
-  if ($('#p-export-imgs')) $('#p-export-imgs').onclick = () => doExport(() => exportCarousel(p, 'images'));
-  if ($('#p-export-zip')) $('#p-export-zip').onclick = () => doExport(() => exportCarousel(p, 'zip'));
+  // Qualidade da exportação: 1× (1080, padrão) ou 2× (2160, alta resolução).
+  const exportScale = () => { const sel = $('#p-export-scale'); return sel && sel.value === '2' ? 2 : 1; };
+  $('#p-export').onclick = () => doExport(() => exportPoster(p, exportScale()));
+  if ($('#p-export-imgs')) $('#p-export-imgs').onclick = () => doExport(() => exportCarousel(p, 'images', exportScale()));
+  if ($('#p-export-zip')) $('#p-export-zip').onclick = () => doExport(() => exportCarousel(p, 'zip', exportScale()));
+
+  // Pickers em cards (r100): selects visuais viram áreas dedicadas com cards.
+  if (typeof setupPosterPickers === 'function') setupPosterPickers();
+  // Sub-navegação da aba Estilo (r111): Modelo·Formato·Temas·Ajustes·Favoritos.
+  if (typeof setupStyleSubnav === 'function') setupStyleSubnav();
+  // Aba Visibilidade (r106): linhas de imagem sincronizadas com imagesOff.
+  if (typeof setupVisibilityImages === 'function') setupVisibilityImages();
+  // Camadas (r107): botão adicionar + lista.
+  if (typeof setupLayerControls === 'function') setupLayerControls();
+}
+
+/* ===== CAMADAS — controles na aba Imagens (r107) ===== */
+// Ponte para o updatePreview vivo do editor (setado por renderPosterEditor).
+let _posterUpdatePreview = null;
+function _refreshPosterPreview() { if (typeof _posterUpdatePreview === 'function') _posterUpdatePreview(); }
+
+function _activeSlideForLayers() {
+  const p = State.posters.find(x => x.id === State.activePosterId);
+  if (!p) return null;
+  return (typeof getSlide === 'function') ? getSlide(p) : p;
+}
+
+function setupLayerControls() {
+  const addBtn = $('#p-layer-add');
+  const input = $('#p-layer-file');
+  if (!addBtn || !input) return;
+  addBtn.onclick = () => input.click();
+  input.onchange = () => {
+    const files = Array.from(input.files || []).filter(f => /^image\//.test(f.type));
+    if (!files.length) return;
+    const s = _activeSlideForLayers();
+    if (!s) return;
+    if (!Array.isArray(s.layers)) s.layers = [];
+    let pending = files.length;
+    files.forEach((f) => {
+      const rd = new FileReader();
+      rd.onload = () => {
+        s.layers.push({ id: uuid(), src: String(rd.result), x: 50, y: 50, scale: 1, z: nextOverlayZ(s) });
+        if (--pending === 0) {
+          const p = State.posters.find(x => x.id === State.activePosterId);
+          if (p) p.updatedAt = new Date().toISOString();
+          savePosters();
+          renderLayerList();
+          _refreshPosterPreview();
+        }
+      };
+      rd.onerror = () => { if (--pending === 0) { renderLayerList(); _refreshPosterPreview(); } };
+      rd.readAsDataURL(f);
+    });
+    input.value = '';
+  };
+  renderLayerList();
+}
+
+function renderLayerList() {
+  const host = $('#p-layers-list');
+  if (!host) return;
+  const s = _activeSlideForLayers();
+  const layers = (s && Array.isArray(s.layers)) ? s.layers : [];
+  if (!layers.length) {
+    host.innerHTML = '<div class="layers-empty">Nenhuma camada. Toque em “Adicionar” para sobrepor imagens ao cartaz.</div>';
+    return;
+  }
+  // Ordem visual: a última camada é a que fica por cima → lista de cima p/ baixo invertida
+  host.innerHTML = layers.map((L, i) => `
+    <div class="layer-row" data-lid="${L.id}">
+      <div class="layer-thumb"><img src="${escapeHtml(L.src)}" alt=""></div>
+      <div class="layer-info">
+        <div class="layer-name">Camada ${i + 1}</div>
+        <input type="range" class="layer-size" data-lid="${L.id}" min="15" max="300" value="${Math.round((L.scale || 1) * 100)}" title="Tamanho">
+      </div>
+      <div class="layer-actions">
+        <button type="button" class="layer-btn" data-lup="${L.id}" title="Trazer para frente">▲</button>
+        <button type="button" class="layer-btn" data-ldown="${L.id}" title="Enviar para trás">▼</button>
+        <button type="button" class="layer-btn danger" data-ldel="${L.id}" title="Excluir camada">×</button>
+      </div>
+    </div>`).join('');
+
+  const commitAndRerender = (rerenderList) => {
+    const p = State.posters.find(x => x.id === State.activePosterId);
+    if (p) p.updatedAt = new Date().toISOString();
+    savePosters();
+    _refreshPosterPreview();
+    if (rerenderList) renderLayerList();
+  };
+
+  host.querySelectorAll('.layer-size').forEach(sl => {
+    sl.oninput = () => {
+      const L = layers.find(x => x.id === sl.dataset.lid);
+      if (!L) return;
+      L.scale = Math.max(0.15, Math.min(3, (parseInt(sl.value, 10) || 100) / 100));
+      commitAndRerender(false);
+    };
+  });
+  host.querySelectorAll('[data-ldel]').forEach(b => {
+    b.onclick = () => {
+      const idx = layers.findIndex(x => x.id === b.dataset.ldel);
+      if (idx < 0) return;
+      layers.splice(idx, 1);
+      commitAndRerender(true);
+    };
+  });
+  // Reordenar usa a HIERARQUIA UNIFICADA (z-order de todos os overlays), não só
+  // entre camadas — assim a imagem pode passar à frente/atrás de texto, avatar etc.
+  host.querySelectorAll('[data-lup]').forEach(b => { b.onclick = () => reorderOverlay(b.dataset.lup, 'up'); });
+  host.querySelectorAll('[data-ldown]').forEach(b => { b.onclick = () => reorderOverlay(b.dataset.ldown, 'down'); });
+}
+
+/** Aba VISIBILIDADE — linhas das imagens 1..4 ([data-imgvis]). Os demais itens
+ *  usam .el-eye[data-el] (wiring genérico). Aqui: estado vem de s.imagesOff e o
+ *  clique é PROXY para o toggle da miniatura (#p-imageN-toggle) — reusa toda a
+ *  lógica existente (persistir + preview + estado do tile). */
+function setupVisibilityImages() {
+  const p = State.posters.find(x => x.id === State.activePosterId);
+  if (!p) return;
+  const s = (typeof getSlide === 'function') ? getSlide(p) : p;
+  const off = Array.isArray(s.imagesOff) ? s.imagesOff : [];
+  document.querySelectorAll('[data-imgvis]').forEach(row => {
+    const key = row.dataset.imgvis;                 // 'image1'..'image4'
+    const has = !!s[key];
+    const isOff = has && off.includes(key);
+    row.classList.toggle('empty', !has);
+    row.classList.toggle('off', isOff);
+    const btn = row.querySelector('.vis-img-eye');
+    if (!btn) return;
+    btn.classList.toggle('off', isOff);
+    btn.disabled = !has;
+    btn.onclick = () => {
+      if (!has) return;
+      const t = $(`#p-${key}-toggle`);
+      if (t) { t.click(); setTimeout(setupVisibilityImages, 0); }
+    };
+  });
+}
+
+/* ===========================================================================
+ * PICKERS EM CARDS (r100) — escolhas visuais (modelo/formato/tema/paleta/mosaico)
+ * abrem uma ÁREA DEDICADA com um card por opção, no lugar do dropdown.
+ * O <select> original permanece no DOM (oculto) como FONTE DA VERDADE: os cards
+ * apenas setam .value e disparam 'change' — todo o wiring existente continua igual.
+ * ==========================================================================*/
+const POSTER_PICKER_DEFS = {
+  'p-template':     { title: 'Modelo',                 kind: 'plain' },
+  'p-format':       { title: 'Formato',                kind: 'format' },
+  'p-theme':        { title: 'Tema',                   kind: 'theme' },
+  'p-palette':      { title: 'Paleta de cores',        kind: 'palette' },
+  'p-mosaic':       { title: 'Disposição das imagens', kind: 'plain' },
+  'pb-type':        { title: 'Fundo do cartaz',        kind: 'plain' },
+  'pb-pattern':     { title: 'Padrão gráfico',         kind: 'plain' },
+  'pg-preset':      { title: 'Gradiente pronto',       kind: 'gradient' },
+  's-portal-theme': { title: 'Tema visual do perfil',  kind: 'theme' },
+};
+
+function _pickerSwatch(value, kind) {
+  const sw = (bg, a, b, c) => `<span class="pk-sw" style="background:${bg}"><i style="background:${a}"></i><i style="background:${b}"></i><i style="background:${c}"></i></span>`;
+  if (kind === 'theme') {
+    const t = (typeof PT_THEMES !== 'undefined') ? PT_THEMES[value] : null;
+    if (!t) return '<span class="pk-sw pk-sw-auto">Perfil</span>';   // '' = herda o tema do perfil ativo
+    return sw(t.navy, t.red, t.orange, t.cream);
+  }
+  if (kind === 'palette') {
+    const t = (typeof POSTER_PALETTES !== 'undefined') ? POSTER_PALETTES[value] : null;
+    if (!t) return '<span class="pk-sw pk-sw-auto">Tema</span>';     // '' = sem paleta (usa o tema)
+    return sw(t.bg, t.accent, t.accent2, t.light ? '#1E1E1E' : '#FFFFFF');
+  }
+  if (kind === 'format') {
+    const f = (typeof POSTER_FORMATS !== 'undefined') ? POSTER_FORMATS[value] : null;
+    const ar = f ? `${f.w}/${f.h}` : '3/4';
+    return `<span class="pk-fmt-wrap"><span class="pk-fmt" style="aspect-ratio:${ar}"></span></span>`;
+  }
+  if (kind === 'gradient') {
+    const g = (typeof POSTER_GRADIENTS !== 'undefined') ? POSTER_GRADIENTS[value] : null;
+    if (!g) return '<span class="pk-sw pk-sw-auto">Livre</span>';   // '' = personalizado (De/Até)
+    return `<span class="pk-sw" style="background:linear-gradient(135deg,${g.from},${g.to})"></span>`;
+  }
+  return '';
+}
+
+/** Esconde os selects-alvo e coloca no lugar uma linha "valor atual ›" que abre
+ *  a área de cards. Também liga QUALQUER `.picker-row[data-for]` estática — os
+ *  ATALHOS CONTEXTUAIS em outros painéis (ex.: Modelo/Formato dentro de Imagens)
+ *  usam o mesmo mecanismo e ficam sincronizados. Idempotente. */
+function setupPosterPickers() {
+  Object.keys(POSTER_PICKER_DEFS).forEach((id) => {
+    const sel = $(`#${id}`);
+    if (!sel || !sel.parentElement) return;
+    sel.classList.add('picker-bound');
+    let row = sel.parentElement.querySelector(`.picker-row[data-for="${id}"]`);
+    if (!row) {
+      row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'picker-row';
+      row.dataset.for = id;
+      row.innerHTML = '<span class="picker-row-value"></span><svg class="picker-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
+      sel.insertAdjacentElement('afterend', row);
+    }
+  });
+  // Fiação + sincronização de TODAS as linhas (dinâmicas e atalhos estáticos)
+  document.querySelectorAll('.picker-row[data-for]').forEach((row) => {
+    if (!row._wired) {
+      row._wired = true;
+      row.onclick = () => openPosterPicker(row.dataset.for);
+    }
+    _syncPickerRowEl(row);
+  });
+  // Linha "Temas" unificada (aba Estilo) — tema-base + variações por família
+  const ur = $('#p-unified-theme-row');
+  if (ur) {
+    if (!ur._wired) { ur._wired = true; ur.onclick = openUnifiedThemePicker; }
+    syncUnifiedThemeRow();
+  }
+}
+
+function _syncPickerRowEl(row) {
+  const sel = $(`#${row.dataset.for}`);
+  if (!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  const v = row.querySelector('.picker-row-value');
+  if (v) v.textContent = opt ? opt.textContent : '—';
+  // Linhas junto do select seguem a visibilidade que o wiring lhe dá (ex.:
+  // #pb-pattern só aparece com Fundo = Padrão). Atalhos (.picker-quick) não.
+  if (!row.classList.contains('picker-quick')) {
+    row.style.display = sel.style.display === 'none' ? 'none' : '';
+  }
+}
+
+function _syncPickerRow(id) {
+  document.querySelectorAll(`.picker-row[data-for="${id}"]`).forEach(_syncPickerRowEl);
+}
+
+function openPosterPicker(id) {
+  const def = POSTER_PICKER_DEFS[id];
+  const sel = $(`#${id}`);
+  const box = $('#p-picker');
+  if (!def || !sel || !box) return;
+  box.dataset.for = id;
+  const title = $('#p-picker-title');
+  if (title) title.textContent = def.title;
+  const grid = $('#p-picker-grid');
+  grid.innerHTML = Array.from(sel.options).map(o => `
+    <button type="button" class="pk-card ${o.value === sel.value ? 'active' : ''}" data-val="${escapeHtml(o.value)}">
+      ${_pickerSwatch(o.value, def.kind)}
+      <span class="pk-card-label">${escapeHtml(o.textContent)}</span>
+    </button>`).join('');
+  grid.querySelectorAll('.pk-card').forEach(card => {
+    card.onclick = () => {
+      sel.value = card.dataset.val;
+      sel.dispatchEvent(new Event('change'));   // aciona o wiring existente (preview ao vivo)
+      grid.querySelectorAll('.pk-card').forEach(c => c.classList.toggle('active', c === card));
+      setupPosterPickers();                      // re-sincroniza as linhas de valor
+    };
+  });
+  const panels = document.querySelector('#p-editor .pedit-panels');
+  if (panels) panels.classList.add('picker-open');
+  box.classList.remove('hidden');
+  const back = $('#p-picker-back');
+  if (back) back.onclick = closePosterPicker;
+}
+
+function closePosterPicker() {
+  const panels = document.querySelector('#p-editor .pedit-panels');
+  if (panels) panels.classList.remove('picker-open');
+  const box = $('#p-picker');
+  if (box) box.classList.add('hidden');
+}
+
+/* ===== TEMAS UNIFICADO (r105) =====
+ * Um único seletor de cards que junta: temas-base (identidade/marca, select
+ * #p-theme) + variações de cor POR FAMÍLIA DE FUNDO (paletas geradas, select
+ * #p-palette). Tema-base limpa a personalização (regra r100); variação mantém
+ * o fundo da família e troca só as cores dos demais elementos. */
+function syncUnifiedThemeRow() {
+  const row = $('#p-unified-theme-row');
+  if (!row) return;
+  const v = row.querySelector('.picker-row-value');
+  if (!v) return;
+  const palSel = $('#p-palette');
+  const themeSel = $('#p-theme');
+  const palVal = palSel && palSel.value;
+  if (palVal && typeof POSTER_PALETTES !== 'undefined' && POSTER_PALETTES[palVal]) {
+    const entry = POSTER_PALETTES[palVal];
+    const fam = entry.family && (typeof POSTER_BG_FAMILIES !== 'undefined') && POSTER_BG_FAMILIES[entry.family];
+    v.textContent = fam ? `${fam.label} · ${entry.label}` : entry.label;
+  } else if (themeSel) {
+    const opt = themeSel.options[themeSel.selectedIndex];
+    v.textContent = opt ? opt.textContent : '—';
+  }
+}
+
+/** Constrói o grid unificado de temas (identidade + famílias de fundo + clássicas)
+ *  em QUALQUER elemento — usado inline (sub-aba Temas) e no overlay legado. */
+function _renderUnifiedThemeInto(grid) {
+  const themeSel = $('#p-theme');
+  const palSel = $('#p-palette');
+  if (!grid || !themeSel || !palSel) return;
+  const activeKey = palSel.value ? `palette:${palSel.value}` : `theme:${themeSel.value}`;
+  const card = (kind, val, label, swatch) => `
+    <button type="button" class="pk-card ${activeKey === `${kind}:${val}` ? 'active' : ''}" data-kind="${kind}" data-val="${escapeHtml(val)}">
+      ${swatch}
+      <span class="pk-card-label">${escapeHtml(label)}</span>
+    </button>`;
+  let html = '<div class="pk-section">Identidade &amp; marca</div>';
+  html += Array.from(themeSel.options).map(o => card('theme', o.value, o.textContent, _pickerSwatch(o.value, 'theme'))).join('');
+  const pals = (typeof POSTER_PALETTES !== 'undefined') ? POSTER_PALETTES : {};
+  if (typeof POSTER_BG_FAMILIES !== 'undefined') {
+    Object.entries(POSTER_BG_FAMILIES).forEach(([famKey, fam]) => {
+      const keys = Object.keys(pals).filter(k => pals[k].family === famKey);
+      if (!keys.length) return;
+      html += `<div class="pk-section">${escapeHtml(fam.label)}</div>`;
+      html += keys.map(k => card('palette', k, pals[k].label, _pickerSwatch(k, 'palette'))).join('');
+    });
+  }
+  const classics = Object.keys(pals).filter(k => !pals[k].family);
+  if (classics.length) {
+    html += '<div class="pk-section">Combinações clássicas</div>';
+    html += classics.map(k => card('palette', k, pals[k].label, _pickerSwatch(k, 'palette'))).join('');
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.pk-card').forEach(c => {
+    c.onclick = () => {
+      const kind = c.dataset.kind, val = c.dataset.val;
+      if (kind === 'theme') {
+        themeSel.value = val;
+        themeSel.dispatchEvent(new Event('change'));   // limpa personalização (r100) + re-render
+      } else {
+        palSel.value = val;
+        palSel.dispatchEvent(new Event('change'));     // aplica a variação por cima do tema
+      }
+      const ak = kind === 'theme' ? `theme:${val}` : `palette:${val}`;
+      grid.querySelectorAll('.pk-card').forEach(x =>
+        x.classList.toggle('active', `${x.dataset.kind}:${x.dataset.val}` === ak));
+      if (typeof syncUnifiedThemeRow === 'function') syncUnifiedThemeRow();
+      if (typeof setupPosterPickers === 'function') setupPosterPickers();
+    };
+  });
+}
+
+function openUnifiedThemePicker() {
+  const box = $('#p-picker');
+  const grid = $('#p-picker-grid');
+  if (!box || !grid) return;
+  const title = $('#p-picker-title');
+  if (title) title.textContent = 'Temas';
+  _renderUnifiedThemeInto(grid);
+  const panels = document.querySelector('#p-editor .pedit-panels');
+  if (panels) panels.classList.add('picker-open');
+  box.classList.remove('hidden');
+  const back = $('#p-picker-back');
+  if (back) back.onclick = closePosterPicker;
+}
+
+/* ===========================================================================
+ * ABA ESTILO — sub-navegação horizontal (r111): Modelo · Formato · Temas ·
+ * Ajustes manuais · Favoritos. Barra sempre visível; cada botão mostra sua
+ * sub-área. Modelo/Formato/Temas = grids de cards inline (mesmos selects-fonte).
+ * ==========================================================================*/
+let _pStyleSub = 'model';
+
+/** Cards inline a partir das options de um <select> (Modelo/Formato). */
+function _renderSelectCards(grid, sel, kind) {
+  if (!grid || !sel) return;
+  grid.innerHTML = Array.from(sel.options).map(o =>
+    `<button type="button" class="pk-card ${o.value === sel.value ? 'active' : ''}" data-val="${escapeHtml(o.value)}">${_pickerSwatch(o.value, kind)}<span class="pk-card-label">${escapeHtml(o.textContent)}</span></button>`).join('');
+  grid.querySelectorAll('.pk-card').forEach(card => {
+    card.onclick = () => {
+      sel.value = card.dataset.val;
+      sel.dispatchEvent(new Event('change'));   // aciona o wiring existente (preview ao vivo)
+      grid.querySelectorAll('.pk-card').forEach(c => c.classList.toggle('active', c === card));
+      if (typeof setupPosterPickers === 'function') setupPosterPickers();   // sincroniza atalhos
+    };
+  });
+}
+
+function activateStyleSub(key) {
+  _pStyleSub = key;
+  const panel = $('#p-style-section');
+  if (!panel) return;
+  panel.querySelectorAll('.style-subnav button[data-sub]').forEach(b => b.classList.toggle('active', b.dataset.sub === key));
+  panel.querySelectorAll('.style-sub[data-sub]').forEach(s => s.classList.toggle('active', s.dataset.sub === key));
+  if (key === 'model') _renderSelectCards($('#p-sub-model'), $('#p-template'), 'plain');
+  else if (key === 'format') _renderSelectCards($('#p-sub-format'), $('#p-format'), 'format');
+  else if (key === 'themes') _renderUnifiedThemeInto($('#p-sub-themes'));
+}
+
+function setupStyleSubnav() {
+  const nav = $('#p-style-subnav');
+  if (!nav) return;
+  nav.querySelectorAll('button[data-sub]').forEach(b => { b.onclick = () => activateStyleSub(b.dataset.sub); });
+  const has = [...nav.querySelectorAll('button[data-sub]')].some(b => b.dataset.sub === _pStyleSub);
+  activateStyleSub(has ? _pStyleSub : 'model');
 }
 
 /* ===========================================================================
@@ -804,17 +1482,39 @@ function renderPosterEditor() {
  * Os controles são os MESMOS (mesmos IDs/handlers); muda só a organização.
  * O grupo ativo persiste entre re-renders (variável de módulo).
  * ==========================================================================*/
-let _pEditGroup = 'layout';
+let _pEditGroup = 'portal';   // r111: 'layout' (Modelo) foi fundido em Estilo
 function setupPosterEditorTabs() {
   const tabs = document.querySelectorAll('#p-edit-tabs .pedit-tab');
   const panels = document.querySelectorAll('#p-editor .pedit-panel');
   if (!tabs.length) return;
   const activate = (g) => {
     if (g) _pEditGroup = g;
+    if (typeof closePosterPicker === 'function') closePosterPicker();   // troca de categoria sai do picker
     tabs.forEach(t => t.classList.toggle('active', t.dataset.pgroup === _pEditGroup));
     panels.forEach(pa => pa.classList.toggle('active', pa.dataset.pgroup === _pEditGroup));
   };
-  tabs.forEach(t => { t.onclick = () => activate(t.dataset.pgroup); });
+  tabs.forEach(t => { t.onclick = () => {
+    // Mobile: o painel da categoria é um SHEET sob demanda — tocar a categoria
+    // ativa fecha; tocar outra troca. O canvas recalcula a escala para o
+    // espaço restante (fitPosterPreview usa a altura real do container).
+    const editor = $('#p-editor');
+    // Refit imediato (leitura força reflow → medidas corretas) + RAF de reforço.
+    const refit = () => {
+      if (typeof fitPosterPreview !== 'function') return;
+      fitPosterPreview();
+      requestAnimationFrame(() => fitPosterPreview());
+    };
+    if (window.innerWidth <= 900 && editor) {
+      if (editor.classList.contains('sheet-open') && _pEditGroup === t.dataset.pgroup) {
+        editor.classList.remove('sheet-open');
+        refit();
+        return;
+      }
+      editor.classList.add('sheet-open');
+      refit();
+    }
+    activate(t.dataset.pgroup);
+  }; });
   // restaura o grupo salvo; se não existir mais, cai no primeiro
   const exists = [...tabs].some(t => t.dataset.pgroup === _pEditGroup);
   activate(exists ? _pEditGroup : (tabs[0] && tabs[0].dataset.pgroup));
@@ -956,6 +1656,7 @@ function setupPosterStyleControls(p, onChange) {
     const pf = $('#pb-pattern'); if (pf) pf.style.display = isPat ? '' : 'none';
     const pc = $('#pat-controls'); if (pc) pc.style.display = isPat ? '' : 'none';
     if (isPat) { const a = $('#pat-alpha'); if (a) a.value = patternDefaultAlpha(pf ? pf.value : 'dots'); }
+    if (typeof _syncPickerRow === 'function') _syncPickerRow('pb-pattern');   // a linha do picker acompanha
     fire();
   };
   // Limpar personalização.
@@ -997,6 +1698,107 @@ function setupPosterStyleControls(p, onChange) {
  * Configura um uploader de mídia (clique para escolher arquivo,
  * lê como base64 e salva no objeto poster).
  */
+/* ===== Reordenar mídias por arrastar-e-soltar (r103) =====
+ * As imagens 1..4 trocam de posição arrastando a miniatura (mouse ou toque).
+ * A imagem viaja com TODOS os seus metadados (enquadramento posX/posY/scale e
+ * o estado ativado/desativado em imagesOff). */
+function reorderPosterImages(from, to) {
+  const p = State.posters.find(x => x.id === State.activePosterId);
+  if (!p) return;
+  const s = (typeof getSlide === 'function') ? getSlide(p) : p;
+  const off = new Set(Array.isArray(s.imagesOff) ? s.imagesOff : []);
+  const tuple = (i) => ({
+    img: s[`image${i + 1}`],
+    px: s[`image${i + 1}PosX`],
+    py: s[`image${i + 1}PosY`],
+    sc: s[`image${i + 1}Scale`],
+    off: off.has(`image${i + 1}`),
+  });
+  const arr = [0, 1, 2, 3].map(tuple);
+  const [moved] = arr.splice(from, 1);
+  arr.splice(to, 0, moved);
+  arr.forEach((o, i) => {
+    s[`image${i + 1}`] = o.img;
+    s[`image${i + 1}PosX`] = o.px;
+    s[`image${i + 1}PosY`] = o.py;
+    s[`image${i + 1}Scale`] = o.sc;
+  });
+  s.imagesOff = arr.map((o, i) => (o.off ? `image${i + 1}` : null)).filter(Boolean);
+  p.updatedAt = new Date().toISOString();
+  savePosters();
+  renderPosterEditor();   // re-popula miniaturas + preview na nova ordem
+}
+
+/** Wiring DELEGADO no host .media-uploads (uma vez): setupMediaUpload CLONA os
+ *  tiles a cada render (para limpar handlers) — listeners diretos morreriam.
+ *  Toque: touch-action pan-y nas miniaturas (CSS) mantém o scroll vertical;
+ *  o arraste do reorder é essencialmente horizontal (grade de 1 linha). */
+function setupMediaReorder() {
+  const host = document.querySelector('.media-uploads');
+  if (!host || host._reorderWired) return;
+  host._reorderWired = true;
+  // Cinto e suspensório contra o drag NATIVO (ghost de imagem) — ele cancelaria
+  // os pointer events do reorder em arrastes reais de mouse.
+  host.addEventListener('dragstart', (e) => e.preventDefault(), true);
+  const slotAt = (el) => {
+    const t = el && el.closest ? el.closest('.media-upload[id^="p-image"]') : null;
+    if (!t) return null;
+    const m = t.id.match(/^p-image(\d)-upload$/);
+    return m ? { idx: +m[1] - 1, tile: t } : null;
+  };
+  // Após um arraste, o click subsequente NÃO deve abrir o seletor de arquivo
+  host.addEventListener('click', (e) => {
+    if (host._justDragged) {
+      host._justDragged = false;
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
+  host.addEventListener('pointerdown', (e) => {
+    const src = slotAt(e.target);
+    if (!src) return;
+    // Só reordena slots COM imagem (vazio segue abrindo o upload no click)
+    const p = State.posters.find(x => x.id === State.activePosterId);
+    const s = p && ((typeof getSlide === 'function') ? getSlide(p) : p);
+    if (!s || !s[`image${src.idx + 1}`]) return;
+    const startX = e.clientX, startY = e.clientY;
+    let dragging = false, target = null;
+    const clearTarget = () => { if (target) { target.tile.classList.remove('drop-target'); target = null; } };
+    const onMove = (ev) => {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 8) return;
+        dragging = true;
+        src.tile.classList.add('dragging');
+        try { src.tile.setPointerCapture(ev.pointerId); } catch (_) {}
+      }
+      ev.preventDefault();
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const hit = slotAt(under);
+      clearTarget();
+      if (hit && hit.idx !== src.idx) {
+        target = hit;
+        hit.tile.classList.add('drop-target');
+      }
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+      src.tile.classList.remove('dragging');
+      const dest = target ? target.idx : null;
+      clearTarget();
+      if (dragging) {
+        host._justDragged = true;
+        setTimeout(() => { host._justDragged = false; }, 250);
+        if (dest != null) reorderPosterImages(src.idx, dest);
+      }
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  });
+}
+
 function setupMediaUpload(poster, field, idPrefix, onChange) {
   let wrap = $(`#${idPrefix}-upload`);
   let input = $(`#${idPrefix}-file`);
@@ -1012,6 +1814,10 @@ function setupMediaUpload(poster, field, idPrefix, onChange) {
       const img = document.createElement('img');
       img.src = value;
       img.alt = '';
+      // CRÍTICO p/ o reorder: o drag NATIVO de <img> do navegador cancela os
+      // pointer events (pointercancel) — sem isto, arrastar a miniatura com o
+      // mouse dispara o ghost nativo e o arrastar-e-soltar nunca acontece.
+      img.draggable = false;
       preview.appendChild(img);
       clearBtn.classList.remove('hidden');
     } else {
@@ -1409,10 +2215,350 @@ function renderPosterTemplate(p) {
   if (typeof applyTheme === 'function') applyTheme(p.theme || portal.theme);   // tema do cartaz (override) ou do portal
   if (typeof applyPosterCustom === 'function') applyPosterCustom(p.custom);    // identidade visual (paleta/cores/gradiente) por cima do tema
   if (typeof setPosterHidden === 'function') setPosterHidden(p);   // elementos ocultos (olho) ativos neste render
-  $('#p-stage').innerHTML = tpl ? tpl.render(p, fmt, portal) : tplManchete(p, fmt, portal);
+  // r103: dedupe de marca em 2 passadas ("o de baixo vence") quando disponível.
+  $('#p-stage').innerHTML = tpl
+    ? (typeof renderTemplateDeduped === 'function'
+        ? renderTemplateDeduped(() => tpl.render(p, fmt, portal))
+        : tpl.render(p, fmt, portal))
+    : tplManchete(p, fmt, portal);
   if (typeof applyPosterRootBg === 'function') applyPosterRootBg(p.custom, $('#p-stage'), fmt);   // fundo custom (sólido/gradiente/padrão) no nó raiz
   fitPosterPreview();
   applyAllImageTransforms($('#p-stage'));
+  // OVERLAYS unificados (r116): elementos livres + avatar + camadas de imagem numa
+  // ÚNICA hierarquia de z-order, no MESMO stacking context — o usuário controla a
+  // ordem de qualquer objeto entre si. Interações do editor reatam a cada render
+  // (elementos ficam editáveis em QUALQUER aba, não só na aba Elementos).
+  if (typeof renderPosterOverlays === 'function') renderPosterOverlays(p, fmt);
+}
+
+/** Núcleo de ARRASTE de overlay (r107, compartilhado por avatar e camadas): mouse
+ *  OU toque; converte o delta de tela → % do formato (÷ escala do stage); snap com
+ *  LINHAS-GUIA (.pe-guides, escondidas no export) no centro (50%) e margens (8/92).
+ *  getBase() → {x,y} iniciais; commit(x,y) persiste ao soltar. */
+function _overlayDrag(el, rootEl, fmt, getBase, commit) {
+  const SNAPS = [8, 50, 92];
+  const TOL = 1.6;
+  const mkGuide = (axis, pct) => {
+    const g = document.createElement('div');
+    g.className = 'pe-guides';
+    g.style.cssText = axis === 'v'
+      ? `position:absolute;top:0;bottom:0;left:${pct}%;width:0;border-left:3px dashed rgba(207,52,24,0.9);z-index:60;pointer-events:none;`
+      : `position:absolute;left:0;right:0;top:${pct}%;height:0;border-top:3px dashed rgba(207,52,24,0.9);z-index:60;pointer-events:none;`;
+    rootEl.appendChild(g);
+    return g;
+  };
+  let gv = null, gh = null;
+  const clearGuides = () => { if (gv) gv.remove(); if (gh) gh.remove(); gv = gh = null; };
+
+  el.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('[data-lresize]')) return;   // a alça de redimensão cuida de si
+    e.preventDefault();
+    e.stopPropagation();                       // não aciona o pan das imagens do modelo
+    const stage = $('#p-stage');
+    let scale = 1;
+    try { scale = (new DOMMatrixReadOnly(getComputedStyle(stage).transform)).a || 1; } catch (_) {}
+    const startX = e.clientX, startY = e.clientY;
+    const base = getBase();
+    let curX = base.x, curY = base.y;
+    el.style.cursor = 'grabbing';
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+
+    const onMove = (ev) => {
+      let px = base.x + (((ev.clientX - startX) / scale) / fmt.w) * 100;
+      let py = base.y + (((ev.clientY - startY) / scale) / fmt.h) * 100;
+      px = Math.max(2, Math.min(98, px));
+      py = Math.max(2, Math.min(98, py));
+      let sx = null, sy = null;
+      SNAPS.forEach(t => { if (Math.abs(px - t) < TOL) sx = t; });
+      SNAPS.forEach(t => { if (Math.abs(py - t) < TOL) sy = t; });
+      if (sx != null) { px = sx; if (!gv) gv = mkGuide('v', sx); gv.style.left = sx + '%'; }
+      else if (gv) { gv.remove(); gv = null; }
+      if (sy != null) { py = sy; if (!gh) gh = mkGuide('h', sy); gh.style.top = sy + '%'; }
+      else if (gh) { gh.remove(); gh = null; }
+      curX = px; curY = py;
+      el.style.left = px + '%';
+      el.style.top = py + '%';
+    };
+    const onUp = () => {
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onUp);
+      el.style.cursor = 'grab';
+      clearGuides();
+      commit(Math.round(curX * 10) / 10, Math.round(curY * 10) / 10);
+    };
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointercancel', onUp);
+  });
+}
+
+/** AVATAR arrastável — persiste avatarX/avatarY no slide REAL. */
+function setupAvatarDrag(av, rootEl, fmt) {
+  _overlayDrag(av, rootEl, fmt,
+    () => ({ x: parseFloat(av.style.left) || 84, y: parseFloat(av.style.top) || 84 }),
+    (x, y) => {
+      const tp = State.posters.find(p => p.id === State.activePosterId);
+      if (!tp) return;
+      const ts = (typeof getSlide === 'function') ? getSlide(tp) : tp;
+      ts.avatarX = x; ts.avatarY = y;
+      tp.updatedAt = new Date().toISOString();
+      savePosters();
+    });
+}
+
+const LAYER_BASE_W = 360;   // largura (px, no cartaz 1080) de uma camada com escala 1
+const AVATAR_BASE_W = 150;  // diâmetro (px) do avatar com escala 1
+
+/* ===== Chrome compartilhado dos overlays (avatar/camadas) — resize + excluir (r115) ===== */
+/** Alça de redimensionamento (canto inferior-direito). `.pe-ov-chrome` = só visível
+ *  quando o overlay está selecionado; some no export. */
+function _overlayResizeHandle() {
+  const h = document.createElement('div');
+  h.className = 'pe-layer-handle pe-ov-chrome';
+  h.style.cssText = 'position:absolute;right:-15px;bottom:-15px;width:30px;height:30px;' +
+    'border-radius:50%;background:#fff;border:2px solid var(--accent,#cf3418);' +
+    'box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:nwse-resize;touch-action:none;z-index:9;';
+  return h;
+}
+/** Botão X VAZADO (sem fundo, traço branco com sombra → visível em qualquer fundo).
+ *  Maior p/ toque; `.pe-ov-chrome` = só quando selecionado; some no export. */
+function _overlayDeleteBtn(onDel) {
+  const d = document.createElement('button');
+  d.type = 'button';
+  d.className = 'pe-del-badge pe-ov-chrome';
+  d.setAttribute('aria-label', 'Excluir');
+  d.style.cssText = 'position:absolute;right:-18px;top:-44px;width:38px;height:38px;border:none;' +
+    'background:none;cursor:pointer;padding:0;z-index:10;touch-action:none;';
+  d.innerHTML = '<svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.9));"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+  d.onpointerdown = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+  d.onclick = (ev) => { ev.stopPropagation(); onDel(); };
+  return d;
+}
+/** Resize genérico de overlay pela alça (largura acompanha o cursor; escala = w/base).
+ *  opts: { square, min, max, commit(scale) }. Usado por camadas e avatar. */
+function _setupOverlayResize(handle, box, baseW, opts) {
+  opts = opts || {};
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const stage = $('#p-stage');
+    let scale = 1;
+    try { scale = (new DOMMatrixReadOnly(getComputedStyle(stage).transform)).a || 1; } catch (_) {}
+    const startX = e.clientX;
+    const startW = parseFloat(box.style.width) || baseW;
+    let curScale = startW / baseW;
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    const onMove = (ev) => {
+      const dw = ((ev.clientX - startX) / scale) * 2;   // *2: caixa centrada
+      const w = Math.max(baseW * (opts.min || 0.15), Math.min(baseW * (opts.max || 3), startW + dw));
+      curScale = Math.round((w / baseW) * 100) / 100;
+      box.style.width = Math.round(w) + 'px';
+      if (opts.square) box.style.height = Math.round(w) + 'px';
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      if (opts.commit) opts.commit(curScale);
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  });
+}
+/** Grava campos do avatar no slide REAL. */
+function _commitAvatar(patch) {
+  const tp = State.posters.find((x) => x.id === State.activePosterId);
+  if (!tp) return;
+  const ts = (typeof getSlide === 'function') ? getSlide(tp) : tp;
+  Object.assign(ts, patch);
+  tp.updatedAt = new Date().toISOString();
+  savePosters();
+}
+/** Remove o avatar (X sobre ele) e re-renderiza o editor (some do cartaz e da mídia). */
+function _clearAvatar() {
+  _commitAvatar({ avatar: null });
+  if (typeof renderPosterEditor === 'function') renderPosterEditor();
+  else if (typeof _refreshPosterPreview === 'function') _refreshPosterPreview();
+}
+/** Remove uma camada (X sobre ela). */
+function _deleteLayer(lid) {
+  const tp = State.posters.find((x) => x.id === State.activePosterId);
+  if (!tp) return;
+  const ts = (typeof getSlide === 'function') ? getSlide(tp) : tp;
+  if (!Array.isArray(ts.layers)) return;
+  const i = ts.layers.findIndex((l) => l && l.id === lid);
+  if (i < 0) return;
+  ts.layers.splice(i, 1);
+  tp.updatedAt = new Date().toISOString();
+  savePosters();
+  if (typeof renderLayerList === 'function') renderLayerList();
+  if (typeof _refreshPosterPreview === 'function') _refreshPosterPreview();
+}
+
+/* ============================================================
+   SISTEMA UNIFICADO DE CAMADAS/OVERLAYS (r116)
+   Elementos livres, avatar e camadas de imagem participam de UMA hierarquia
+   de z-order (campo `z`) e são pintados no MESMO stacking context, permitindo
+   ordenar qualquer objeto entre si. Um único `_peSelected` (poster-elements.js)
+   controla qual overlay mostra os controles.
+   ============================================================ */
+
+function _overlayZMax(s) {
+  let m = 0;
+  if (s && typeof s.avatarZ === 'number') m = Math.max(m, s.avatarZ);
+  if (s && Array.isArray(s.layers)) s.layers.forEach((L) => { if (typeof L.z === 'number') m = Math.max(m, L.z); });
+  if (s && Array.isArray(s.elements)) s.elements.forEach((e) => { if (typeof e.z === 'number') m = Math.max(m, e.z); });
+  return m;
+}
+function nextOverlayZ(s) { return _overlayZMax(s) + 1; }
+
+/** Garante `z` em todo overlay. Legado (nenhum z): ordem de pintura antiga
+ *  (avatar < camadas < elementos). Novos itens: topo. Retorna se mudou algo. */
+function ensureOverlayZ(s) {
+  if (!s) return false;
+  const anyZ = (typeof s.avatarZ === 'number')
+    || (Array.isArray(s.layers) && s.layers.some((L) => typeof L.z === 'number'))
+    || (Array.isArray(s.elements) && s.elements.some((e) => typeof e.z === 'number'));
+  let changed = false;
+  if (!anyZ) {
+    let z = 1;
+    if (s.avatar) { s.avatarZ = z++; changed = true; }
+    (s.layers || []).forEach((L) => { L.z = z++; changed = true; });
+    (s.elements || []).forEach((e) => { e.z = z++; changed = true; });
+    return changed;
+  }
+  if (s.avatar && typeof s.avatarZ !== 'number') { s.avatarZ = nextOverlayZ(s); changed = true; }
+  (s.layers || []).forEach((L) => { if (typeof L.z !== 'number') { L.z = nextOverlayZ(s); changed = true; } });
+  (s.elements || []).forEach((e) => { if (typeof e.z !== 'number') { e.z = nextOverlayZ(s); changed = true; } });
+  return changed;
+}
+
+/** TODOS os overlays do cartaz/slide, ordenados por z ascendente (trás→frente). */
+function collectOverlays(p) {
+  const items = [];
+  (Array.isArray(p.elements) ? p.elements : []).forEach((e) => items.push({ kind: 'element', id: e.id, z: (typeof e.z === 'number' ? e.z : 0), ref: e }));
+  if (p.avatar && (typeof posterShow !== 'function' || posterShow('avatar'))) items.push({ kind: 'avatar', id: '__avatar', z: (typeof p.avatarZ === 'number' ? p.avatarZ : 0) });
+  (Array.isArray(p.layers) ? p.layers : []).forEach((L) => items.push({ kind: 'layer', id: L.id, z: (typeof L.z === 'number' ? L.z : 0), ref: L }));
+  items.sort((a, b) => (a.z - b.z));
+  return items;
+}
+function _ovZGet(s, it) { return it.kind === 'avatar' ? s.avatarZ : (it.ref ? it.ref.z : 0); }
+function _ovZSet(s, it, v) { if (it.kind === 'avatar') s.avatarZ = v; else if (it.ref) it.ref.z = v; }
+
+/** Reordena um overlay trocando z com o vizinho. dir: 'up'(frente)|'down'(trás). */
+function reorderOverlay(id, dir) {
+  const tp = State.posters.find((x) => x.id === State.activePosterId);
+  if (!tp) return;
+  const s = (typeof getSlide === 'function') ? getSlide(tp) : tp;
+  ensureOverlayZ(s);
+  const items = collectOverlays(s);
+  const idx = items.findIndex((it) => it.id === id);
+  const j = dir === 'up' ? idx + 1 : idx - 1;
+  if (idx < 0 || j < 0 || j >= items.length) return;
+  const a = _ovZGet(s, items[idx]), b = _ovZGet(s, items[j]);
+  _ovZSet(s, items[idx], b); _ovZSet(s, items[j], a);
+  tp.updatedAt = new Date().toISOString();
+  savePosters();
+  if (typeof _refreshPosterPreview === 'function') _refreshPosterPreview();
+  if (typeof renderPosterElementsPanel === 'function') renderPosterElementsPanel();
+  if (typeof renderLayerList === 'function') renderLayerList();
+}
+
+/** Nó do AVATAR (arrastável, redimensionável, excluível), com z-index dado. */
+function buildAvatarOverlay(p, rootEl, fmt, zi) {
+  const ax = (typeof p.avatarX === 'number') ? p.avatarX : 84;
+  const ay = (typeof p.avatarY === 'number') ? p.avatarY : 84;
+  const asc = (typeof p.avatarScale === 'number') ? p.avatarScale : 1;
+  const aw = Math.round(AVATAR_BASE_W * asc);
+  const av = document.createElement('div');
+  av.setAttribute('data-pt', 'avatar-overlay');
+  av.style.cssText = 'position:absolute;left:' + ax + '%;top:' + ay + '%;' +
+    'transform:translate(-50%,-50%);width:' + aw + 'px;height:' + aw + 'px;' +
+    'border-radius:50%;background-image:url("' + p.avatar.replace(/"/g, '%22') + '");' +
+    'background-size:cover;background-position:center;border:6px solid rgba(255,255,255,0.94);' +
+    'z-index:' + zi + ';cursor:grab;touch-action:none;';
+  rootEl.appendChild(av);
+  if (typeof _peSelectOverlay === 'function') av.addEventListener('pointerdown', () => _peSelectOverlay('__avatar'), true);
+  if (typeof _peOpenEditorFor === 'function') av.addEventListener('dblclick', (e) => { e.stopPropagation(); _peOpenEditorFor('avatar', '__avatar'); });
+  setupAvatarDrag(av, rootEl, fmt);
+  const ah = _overlayResizeHandle();
+  av.appendChild(ah);
+  _setupOverlayResize(ah, av, AVATAR_BASE_W, { square: true, min: 0.3, max: 3, commit: (sc) => _commitAvatar({ avatarScale: sc }) });
+  av.appendChild(_overlayDeleteBtn(() => _clearAvatar()));
+  return av;
+}
+
+/** Nó de uma CAMADA de imagem, com z-index dado. */
+function buildLayerOverlay(p, layer, rootEl, fmt, zi) {
+  const x = (typeof layer.x === 'number') ? layer.x : 50;
+  const y = (typeof layer.y === 'number') ? layer.y : 50;
+  const sc = (typeof layer.scale === 'number') ? layer.scale : 1;
+  const w = Math.round(LAYER_BASE_W * sc);
+  const box = document.createElement('div');
+  box.setAttribute('data-pt', 'layer');
+  box.dataset.lid = layer.id;
+  box.style.cssText = `position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);width:${w}px;z-index:${zi};cursor:grab;touch-action:none;`;
+  const img = document.createElement('img');
+  img.src = layer.src; img.alt = ''; img.draggable = false;
+  img.style.cssText = 'width:100%;height:auto;display:block;pointer-events:none;user-select:none;';
+  box.appendChild(img);
+  const handle = _overlayResizeHandle();
+  handle.dataset.lresize = layer.id;
+  box.appendChild(handle);
+  box.appendChild(_overlayDeleteBtn(() => _deleteLayer(layer.id)));
+  rootEl.appendChild(box);
+  if (typeof _peSelectOverlay === 'function') box.addEventListener('pointerdown', () => _peSelectOverlay(layer.id), true);
+  if (typeof _peOpenEditorFor === 'function') box.addEventListener('dblclick', (e) => { e.stopPropagation(); _peOpenEditorFor('layer', layer.id); });
+  _overlayDrag(box, rootEl, fmt,
+    () => ({ x: parseFloat(box.style.left) || 50, y: parseFloat(box.style.top) || 50 }),
+    (nx, ny) => _commitLayer(layer.id, { x: nx, y: ny }));
+  _setupOverlayResize(handle, box, LAYER_BASE_W, {
+    min: 0.15, max: 3,
+    commit: (sc2) => { _commitLayer(layer.id, { scale: sc2 }); if (typeof renderLayerList === 'function') renderLayerList(); },
+  });
+  return box;
+}
+
+/** Render UNIFICADO de todos os overlays em z-order (limpa e repinta). */
+function renderPosterOverlays(p, fmt) {
+  const rootEl = $('#p-stage') && $('#p-stage').querySelector('.poster-1440');
+  if (!rootEl) return;
+  rootEl.querySelectorAll('.pe-el, [data-pt="avatar-overlay"], [data-pt="layer"], .pe-layer, .pe-ui-layer, .pe-guides, .pe-safe').forEach((n) => n.remove());
+  if (getComputedStyle(rootEl).position === 'static') rootEl.style.position = 'relative';
+  const H = (fmt && fmt.h) || 1440;
+  collectOverlays(p).forEach((it, i) => {
+    const zi = 10 + i;
+    if (it.kind === 'element') {
+      if (it.ref.hidden) return;
+      const node = buildElementNode(it.ref, H);
+      node.style.zIndex = zi;
+      rootEl.appendChild(node);
+    } else if (it.kind === 'avatar') {
+      buildAvatarOverlay(p, rootEl, fmt, zi);
+    } else if (it.kind === 'layer') {
+      buildLayerOverlay(p, it.ref, rootEl, fmt, zi);
+    }
+  });
+  // Interações + seleção dos elementos livres, guias e classes de seleção dos overlays.
+  if (typeof setupPosterElementEditing === 'function') setupPosterElementEditing();
+}
+
+/** Compat: chamadas antigas delegam ao render unificado. */
+function renderPosterLayers(p, fmt) { renderPosterOverlays(p, fmt); }
+
+/** Grava campos de uma camada no slide REAL (o render usa draft descartável). */
+function _commitLayer(lid, patch) {
+  const tp = State.posters.find(p => p.id === State.activePosterId);
+  if (!tp) return;
+  const ts = (typeof getSlide === 'function') ? getSlide(tp) : tp;
+  if (!Array.isArray(ts.layers)) return;
+  const L = ts.layers.find(l => l && l.id === lid);
+  if (!L) return;
+  Object.assign(L, patch);
+  tp.updatedAt = new Date().toISOString();
+  savePosters();
 }
 
 /**
@@ -1449,7 +2595,14 @@ function fitPosterPreview() {
   // altura usa o VIEWPORT (− cabeçalho/margens) para o preview STICKY caber inteiro
   // na tela e o preview em ABA (mobile) não estourar a vertical.
   const fmt = posterActiveFormat();
-  const availableHeight = Math.max(240, window.innerHeight - 160 - padY);
+  // Mobile (≤900px): o canvas tem ALTURA FIXA (38vh, ver CSS) e fica sempre visível
+  // no topo enquanto as ferramentas rolam abaixo — escala para caber nesse container.
+  // Desktop: usa o viewport (preview sticky cabe inteiro na tela).
+  const mobile = window.innerWidth <= 900;
+  const budget = mobile && outer.clientHeight > 40
+    ? outer.clientHeight - padY
+    : window.innerHeight - 160 - padY;
+  const availableHeight = Math.max(180, budget);
   const scale = Math.min(1, availableWidth / fmt.w, availableHeight / fmt.h);
   stage.style.transform = `scale(${scale})`;
   // O wrap precisa reservar a altura escalada para que o card cresça corretamente
@@ -1521,7 +2674,25 @@ function _applyExportEllipsis(target) {
  * Reutilizado pela exportação de cartaz único E de carrossel. Restaura o stage.
  * @returns {Promise<HTMLCanvasElement|null>}
  */
-async function captureStageCanvas(fmt) {
+// Geometria de enquadramento (cover + zoom + pan) do EXPORT — pura e testável.
+// É o "contrato" do recorte que o flatten do PNG deve reproduzir do preview:
+// a imagem (original) é cover-fit, escalada por `scale` e deslocada por pan
+// (posX/posY 0..100, onde 50 = centro). Devolve o retângulo de destino no canvas.
+function posterCoverRect(W, H, iw, ih, scale, posX, posY) {
+  const cl = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const scaleCover = Math.max(W / iw, H / ih);
+  const sc = cl(scale || 1, 0.05, 3);
+  const renderW = iw * scaleCover * sc;
+  const renderH = ih * scaleCover * sc;
+  const txMax = Math.max(0, (renderW - W) / 2);
+  const tyMax = Math.max(0, (renderH - H) / 2);
+  const tx = txMax * (1 - cl(posX, 0, 100) / 50);
+  const ty = tyMax * (1 - cl(posY, 0, 100) / 50);
+  return { renderW, renderH, dx: (W - renderW) / 2 + tx, dy: (H - renderH) / 2 + ty };
+}
+
+async function captureStageCanvas(fmt, scale) {
+  const s = Math.max(1, scale || 1);   // 1× (padrão) ou 2× (alta resolução)
   const stage = $('#p-stage');
   const wrap = $('#p-stage-wrap');
   const target = stage && stage.querySelector('.poster-1440');
@@ -1576,8 +2747,8 @@ async function captureStageCanvas(fmt) {
     const H = container.offsetHeight;
 
     const cvs = document.createElement('canvas');
-    cvs.width = W;
-    cvs.height = H;
+    cvs.width = W * s;            // bitmap em alta-res; CSS continua 100% (= W×H px)
+    cvs.height = H * s;
     cvs.style.cssText = 'display: block; width: 100%; height: 100%;';
     const ctx = cvs.getContext('2d');
 
@@ -1587,16 +2758,7 @@ async function captureStageCanvas(fmt) {
     // por (tx,ty). Ao AFASTAR além do cover, a imagem fica MENOR que a célula e as
     // margens transparentes do canvas revelam o matte (cor da junção) → a foto
     // INTEIRA aparece, sem distorção nem recorte permanente. posX/posY 0..100 = bordas.
-    const scaleCover = Math.max(W / iw, H / ih);
-    const sc = clamp(scale, 0.05, 3);
-    const renderW = iw * scaleCover * sc;
-    const renderH = ih * scaleCover * sc;
-    const txMax = Math.max(0, (renderW - W) / 2);
-    const tyMax = Math.max(0, (renderH - H) / 2);
-    const tx = txMax * (1 - clamp(posX, 0, 100) / 50);
-    const ty = tyMax * (1 - clamp(posY, 0, 100) / 50);
-    const dx = (W - renderW) / 2 + tx;
-    const dy = (H - renderH) / 2 + ty;
+    const { renderW, renderH, dx, dy } = posterCoverRect(W, H, iw, ih, scale, posX, posY);
     // Recorte DIAGONAL (mosaicos com data-clip): clipa o canvas no MESMO polígono
     // que o clip-path usa no preview — assim a forma diagonal sobrevive ao PNG.
     const clipPts = container.dataset.clip;
@@ -1605,13 +2767,13 @@ async function captureStageCanvas(fmt) {
       ctx.beginPath();
       clipPts.split(',').forEach((s, i) => {
         const xy = s.trim().split(/\s+/).map(Number);
-        const X = (xy[0] / 100) * W, Y = (xy[1] / 100) * H;
+        const X = (xy[0] / 100) * W * s, Y = (xy[1] / 100) * H * s;
         if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
       });
       ctx.closePath();
       ctx.clip();
     }
-    ctx.drawImage(img, dx, dy, renderW, renderH);
+    ctx.drawImage(img, dx * s, dy * s, renderW * s, renderH * s);
     if (clipPts) ctx.restore();
 
     snapshots.push({ container, wrapEl, cvs });
@@ -1628,13 +2790,13 @@ async function captureStageCanvas(fmt) {
     if (!lw || !lh || !iw || !ih) continue;
     const radius = numAttr(logo.dataset.radius, 0);
     const lc = document.createElement('canvas');
-    lc.width = lw; lc.height = lh;
+    lc.width = lw * s; lc.height = lh * s;   // bitmap em alta-res; CSS continua em px
     lc.style.cssText = `display:block;width:${lw}px;height:${lh}px;flex-shrink:0;`;
     const lctx = lc.getContext('2d');
-    if (radius > 0 && typeof _mbRoundRect === 'function') { _mbRoundRect(lctx, 0, 0, lw, lh, radius); lctx.clip(); }
+    if (radius > 0 && typeof _mbRoundRect === 'function') { _mbRoundRect(lctx, 0, 0, lw * s, lh * s, radius * s); lctx.clip(); }
     const sCover = Math.max(lw / iw, lh / ih);   // cover: preenche, recorta o excedente
-    const rW = iw * sCover, rH = ih * sCover;
-    lctx.drawImage(logo, (lw - rW) / 2, (lh - rH) / 2, rW, rH);
+    const rW = iw * sCover * s, rH = ih * sCover * s;
+    lctx.drawImage(logo, (lw * s - rW) / 2, (lh * s - rH) / 2, rW, rH);
     logo.style.display = 'none';
     logo.parentNode.insertBefore(lc, logo);
     snapshots.push({ wrapEl: logo, cvs: lc });   // restaurado no finally (display + remove)
@@ -1644,7 +2806,7 @@ async function captureStageCanvas(fmt) {
     return await html2canvas(target, {
       width: fmt.w,
       height: fmt.h,
-      scale: 1,
+      scale: s,
       backgroundColor: '#FFFFFF',
       useCORS: true,
       logging: false,
@@ -1662,10 +2824,10 @@ async function captureStageCanvas(fmt) {
   }
 }
 
-async function exportPoster(p) {
+async function exportPoster(p, scale) {
   toast('Gerando o cartaz em alta resolução…', 'info');
   try {
-    const canvas = await captureStageCanvas(posterActiveFormat());
+    const canvas = await captureStageCanvas(posterActiveFormat(), scale);
     if (!canvas) { toast('Não foi possível exportar.', 'error'); return; }
     const link = document.createElement('a');
     link.download = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`;
@@ -1996,6 +3158,7 @@ function initPortalForm() {
     if ($('#s-portal-theme')) $('#s-portal-theme').value = p.theme || (editIdx === 0 ? 'municipios-bahia' : 'neutral');
     refreshLogoPreview();
     updateTabs();
+    if (typeof _syncPickerRow === 'function') _syncPickerRow('s-portal-theme');   // linha do picker acompanha o slot
   }
 
   function savePortalToState() {
@@ -2105,26 +3268,31 @@ function initPortalForm() {
     updatePortalSummary();
     const active = State.posters.find(p => p.id === State.activePosterId);
     if (active) { renderPosterTemplate(active); requestAnimationFrame(() => fitPosterPreview()); }
-    toast('Portal ' + (editIdx + 1) + ' definido como ativo.', 'success');
+    toast('Perfil ' + (editIdx + 1) + ' definido como ativo.', 'success');
   };
 
   $('#s-portal-save').onclick = () => {
     savePortalToState();
     const active = State.posters.find(p => p.id === State.activePosterId);
     if (active) { renderPosterTemplate(active); requestAnimationFrame(() => fitPosterPreview()); }
-    toast('Dados do portal salvos.', 'success');
+    toast('Perfil do usuário salvo.', 'success');
   };
 
   loadForm();
+  updatePortalSummary();   // resumo no cabeçalho do painel Perfil desde o 1º render
+  // r102: dentro do painel Perfil o bloco fica SEMPRE aberto (o colapsável era
+  // chrome redundante — a aba já é a área dedicada do perfil). CSS aplana o visual.
+  const det = $('#p-portal-block');
+  if (det) det.open = true;
 }
 
 function updatePortalSummary() {
   const el = $('#p-portal-info');
   if (!el) return;
   const p = State.portals[State.activePortalIndex] || State.portals[0] || {};
-  const label = 'Portal ' + (State.activePortalIndex + 1) + ':';
+  const label = 'Perfil ' + (State.activePortalIndex + 1) + ':';
   const parts = [p.name, p.handle].filter(Boolean);
   if (p.logo) parts.push('✓ logo');
-  el.textContent = label + ' ' + (parts.length ? parts.join(' · ') : 'Configure o nome do portal');
+  el.textContent = label + ' ' + (parts.length ? parts.join(' · ') : 'Configure o nome do perfil');
 }
 

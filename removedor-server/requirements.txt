@@ -1,0 +1,15 @@
+# Removedor de Fundo — dependências do servidor de IA.
+# Instale com:  pip install -r requirements.txt
+#
+# GPU (NVIDIA/CUDA): troque "onnxruntime" por "onnxruntime-gpu" e "rembg[cpu]"
+# por "rembg[gpu]" nas duas linhas abaixo. Sem GPU, deixe como está (roda na CPU).
+
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+pillow>=10.0
+numpy>=1.24
+
+# Motor de IA (modelos BiRefNet / ISNet / U²-Net / SAM + alpha matting).
+rembg[cpu]>=2.0.59
+onnxruntime>=1.17

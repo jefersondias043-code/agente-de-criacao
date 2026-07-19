@@ -379,9 +379,10 @@
 (function(){
   function applyCfg(c){
     if(!c) return;
-    window.__AGENTE_CONFIG__ = { groqKey: c.groqKey||"", groqModel: c.groqModel||"" };
+    window.__AGENTE_CONFIG__ = { groqKey: c.groqKey||"", groqModel: c.groqModel||"", locked: !!c.locked };
     try {
-      if(c.groqKey){ localStorage.setItem("groq_api_key", c.groqKey); localStorage.setItem("df_groq_key", c.groqKey); }
+      /* Workspace bloqueado: NÃO persiste a chave (fica só em memória). */
+      if(c.groqKey && !c.locked){ localStorage.setItem("groq_api_key", c.groqKey); localStorage.setItem("df_groq_key", c.groqKey); }
       if(c.groqModel){ localStorage.setItem("groq_model", c.groqModel); localStorage.setItem("df_model", c.groqModel); }
     } catch(_){}
   }
@@ -1116,7 +1117,6 @@
   // Reseta quando novo `currentPiece` é criado por `btnGenerate`.
   // Cada slot guarda { gancho, tecnica } | { roteiro, formato_roteiro } | { legenda } | { cta }
   // junto com timestamp, pra poder restaurar versões anteriores sem perder metadados.
-  const HIST_LIMIT = 5;
   let pieceHistory = { gancho: [], roteiro: [], legenda: [], cta: [] };
   let cachedKey = null;
   let activePlatform = 'tiktok';
@@ -1142,6 +1142,58 @@
   const LS_TOM = 'df_tom';
   const LS_ESTILO = 'df_estilo';
   const LS_INTENSITY = 'df_intensity';
+
+  /* ============================================================
+     HISTÓRICOS NO INDEXEDDB — capacidade = DISPOSITIVO (não os ~5 MB do localStorage)
+     'memoria' (análises) e 'criacoes' (peças) deixam o localStorage e passam ao
+     IndexedDB (mesmo store do app pai: 'agente-store'/'kv' → o backup da plataforma
+     já os inclui em http). Os arrays seguem em memória como fonte síncrona do render;
+     persistMemoria()/persistCriacoes() gravam no IDB; hydrateDetectorHistory()
+     carrega no boot e migra as chaves antigas (df_memoria_v94/df_criacoes_v1) 1x.
+     ============================================================ */
+  const IDB_MEM = 'hist:detector_memoria';
+  const IDB_CRI = 'hist:detector_criacoes';
+  const _dfIdbOk = (typeof indexedDB !== 'undefined');
+  function _dfIdbOpen() { return new Promise((res, rej) => { try { const r = indexedDB.open('agente-store', 1); r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv'); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }); }
+  function _dfIdbGet(k) { return _dfIdbOpen().then((db) => new Promise((res, rej) => { const tx = db.transaction('kv', 'readonly'); const rq = tx.objectStore('kv').get(k); rq.onsuccess = () => { db.close(); res(rq.result); }; rq.onerror = () => { db.close(); rej(rq.error); }; })); }
+  function _dfIdbSet(k, v) { return _dfIdbOpen().then((db) => new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => { db.close(); res(true); }; tx.onerror = () => { db.close(); rej(tx.error); }; })); }
+
+  function persistMemoria() {
+    if (_dfIdbOk) {
+      _dfIdbSet(IDB_MEM, memoria).then(() => { try { localStorage.removeItem(LS_KEY); } catch (_) { /* */ } })
+        .catch(() => showToast('Armazenamento do dispositivo cheio: a memória pode não ter sido salva.', 'error', 6000));
+      return;
+    }
+    try { persistMemoria(); } catch (_) { showToast('Armazenamento cheio.', 'error', 6000); }
+  }
+  function persistCriacoes() {
+    if (_dfIdbOk) {
+      _dfIdbSet(IDB_CRI, criacoes).then(() => { try { localStorage.removeItem(LS_CRIACOES); } catch (_) { /* */ } })
+        .catch(() => showToast('Armazenamento do dispositivo cheio: a criação pode não ter sido salva.', 'error', 6000));
+      return;
+    }
+    try { persistCriacoes(); } catch (_) { showToast('Armazenamento cheio.', 'error', 6000); }
+  }
+  async function hydrateDetectorHistory() {
+    if (!_dfIdbOk) return;
+    try {
+      const m = await _dfIdbGet(IDB_MEM);
+      if (Array.isArray(m)) { memoria = m; }
+      else if (Array.isArray(memoria) && memoria.length) { try { await _dfIdbSet(IDB_MEM, memoria); } catch (_) { /* */ } }
+      try { localStorage.removeItem(LS_KEY); } catch (_) { /* */ }
+
+      const c = await _dfIdbGet(IDB_CRI);
+      if (Array.isArray(c)) { criacoes = c; }
+      else if (Array.isArray(criacoes) && criacoes.length) { try { await _dfIdbSet(IDB_CRI, criacoes); } catch (_) { /* */ } }
+      try { localStorage.removeItem(LS_CRIACOES); } catch (_) { /* */ }
+
+      try { $('#memCount').textContent = memoria.length; } catch (_) { /* */ }
+      try { updateCriacoesCount(); } catch (_) { /* */ }
+      try { renderMemory(); } catch (_) { /* */ }
+      try { renderInsights(); } catch (_) { /* */ }
+      try { if (!$('#criacoesDrawer').classList.contains('hidden')) renderCriacoes(); } catch (_) { /* */ }
+    } catch (_) { /* mantém fallback do localStorage */ }
+  }
 
   const SENSITIVE = ['saude','médic','remédio','remedio','cura','emagrec','dieta','suicid','depress','dinheiro','rico','rica','enriquece','golpe','garant','milhão','milhao','político','politico','eleição','eleicao','vacina','crianca','criança','menor','adolescente'];
 
@@ -1201,6 +1253,8 @@
         $('#btnUnlockCancel').onclick = () => { $('#unlockModal').classList.add('hidden'); resolve(null); };
       });
     }
+    // Config injetada pelo app (memory-only quando o workspace está bloqueado).
+    if (window.__AGENTE_CONFIG__ && window.__AGENTE_CONFIG__.groqKey) { cachedKey = window.__AGENTE_CONFIG__.groqKey; return cachedKey; }
     cachedKey = localStorage.getItem(LS_API);
     return cachedKey;
   }
@@ -1223,7 +1277,7 @@
       // migrate from v9.3
       if (!memoria.length) {
         const old = JSON.parse(localStorage.getItem(LS_KEY_OLD) || '[]');
-        if (old.length) { memoria = old; localStorage.setItem(LS_KEY, JSON.stringify(memoria)); }
+        if (old.length) { memoria = old; persistMemoria(); }
       }
     } catch { memoria = []; }
     try { criacoes = JSON.parse(localStorage.getItem(LS_CRIACOES) || '[]'); } catch { criacoes = []; }
@@ -1394,8 +1448,8 @@
     try {
       const data = JSON.parse(await file.text());
       if (!Array.isArray(data)) throw new Error('Formato inválido');
-      memoria = [...data, ...memoria].slice(0, 500);
-      localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+      memoria = [...data, ...memoria];
+      persistMemoria();
       $('#memCount').textContent = memoria.length;
       renderMemory(); renderInsights();
       showToast(`${data.length} casos importados`, 'success');
@@ -1403,7 +1457,7 @@
   };
   $('#btnClearMem').onclick = () => {
     if (!confirm('Limpar toda a memória?')) return;
-    memoria = []; localStorage.removeItem(LS_KEY);
+    memoria = []; persistMemoria();   // grava [] no IndexedDB (antes só removia o localStorage)
     $('#memCount').textContent = '0'; renderMemory(); renderInsights();
     showToast('Memória limpa', 'info');
   };
@@ -1892,8 +1946,7 @@ CONTEÚDO:
       const exists = memoria.find(m => m.texto === a.texto);
       if (!exists) {
         memoria.unshift({ ...a });
-        memoria = memoria.slice(0, 300);
-        localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+        persistMemoria();
         $('#memCount').textContent = memoria.length;
         renderInsights();
       }
@@ -1909,7 +1962,7 @@ CONTEÚDO:
         memoria[idx].feedback = fb;
         memoria[idx].feedbackAt = Date.now();
         const [item] = memoria.splice(idx,1); memoria.unshift(item);
-        localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+        persistMemoria();
         $('#memCount').textContent = memoria.length;
         currentAnalysis.feedback = fb;
       }
@@ -2022,7 +2075,7 @@ CONTEÚDO:
       if (idx >= 0) {
         memoria[idx].feedback = fb;
         memoria[idx].feedbackAt = Date.now();
-        localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+        persistMemoria();
         $('#memCount').textContent = memoria.length;
       }
       const rest = reminders.filter(r => r.id !== due.id);
@@ -2734,7 +2787,8 @@ Retorne APENAS JSON com TODOS os campos:
   // ===== HISTÓRICO DE VERSÕES =====
 
   // Empilha o estado atual de uma seção (junto com metadados relacionados)
-  // antes de sobrescrever. Limita a HIST_LIMIT — versões mais antigas caem.
+  // antes de sobrescrever. Sem teto — versões só são limitadas pela RAM da sessão
+  // (pieceHistory reseta quando uma nova peça é gerada).
   function pushPieceHistory(section, piece) {
     if (!piece) return;
     const snap = { ts: Date.now() };
@@ -2751,7 +2805,6 @@ Retorne APENAS JSON com TODOS os campos:
     }
     pieceHistory[section] = pieceHistory[section] || [];
     pieceHistory[section].unshift(snap);
-    if (pieceHistory[section].length > HIST_LIMIT) pieceHistory[section] = pieceHistory[section].slice(0, HIST_LIMIT);
   }
 
   // Restaura uma versão do histórico. A versão atual vai pro topo do histórico
@@ -2773,7 +2826,7 @@ Retorne APENAS JSON com TODOS os campos:
     // Remove o snapshot escolhido e coloca o atual no topo
     hist.splice(index, 1);
     hist.unshift(currentSnap);
-    pieceHistory[section] = hist.slice(0, HIST_LIMIT);
+    pieceHistory[section] = hist;
 
     // Aplica versão restaurada no currentPiece
     if (section === 'gancho') {
@@ -3066,7 +3119,7 @@ Retorne JSON: {"gancho":"...","roteiro":"...","legenda":"...","cta":"...","tese"
       criacoes = criacoes.filter(c => c.id !== piece.id);
       criacoes.unshift(snap);
       criacoes = criacoes.slice(0, 200);
-      localStorage.setItem(LS_CRIACOES, JSON.stringify(criacoes));
+      persistCriacoes();
       updateCriacoesCount();
       if (!$('#criacoesDrawer').classList.contains('hidden')) renderCriacoes();
     } catch (e) {
@@ -3125,7 +3178,7 @@ Retorne JSON: {"gancho":"...","roteiro":"...","legenda":"...","cta":"...","tese"
       b.onclick = (e) => {
         e.stopPropagation();
         criacoes = criacoes.filter(c => c.id !== b.dataset.delc);
-        localStorage.setItem(LS_CRIACOES, JSON.stringify(criacoes));
+        persistCriacoes();
         updateCriacoesCount();
         renderCriacoes();
       };
@@ -3167,7 +3220,7 @@ Retorne JSON: {"gancho":"...","roteiro":"...","legenda":"...","cta":"...","tese"
     if (!criacoes.length) return;
     if (!confirm('Limpar todo o histórico de criações?')) return;
     criacoes = [];
-    localStorage.setItem(LS_CRIACOES, JSON.stringify(criacoes));
+    persistCriacoes();
     updateCriacoesCount();
     renderCriacoes();
     showToast('Histórico de criações limpo', 'info');
@@ -3218,7 +3271,7 @@ Retorne JSON: {"gancho":"...","roteiro":"...","legenda":"...","cta":"...","tese"
     list.querySelectorAll('[data-del]').forEach(b => {
       b.onclick = () => {
         memoria = memoria.filter(m => m.id !== b.dataset.del);
-        localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+        persistMemoria();
         $('#memCount').textContent = memoria.length;
         renderMemory(); renderInsights();
       };
@@ -3228,7 +3281,7 @@ Retorne JSON: {"gancho":"...","roteiro":"...","legenda":"...","cta":"...","tese"
         const idx = memoria.findIndex(m => m.id === b.dataset.star);
         if (idx < 0) return;
         memoria[idx].starred = !memoria[idx].starred;
-        localStorage.setItem(LS_KEY, JSON.stringify(memoria));
+        persistMemoria();
         renderMemory();
       };
     });
@@ -3341,6 +3394,7 @@ Retorne JSON: {"gancho":"...","roteiro":"...","legenda":"...","cta":"...","tese"
 
   // Init
   load();
+  hydrateDetectorHistory();  // carrega memória/criações do IndexedDB (capacidade = dispositivo)
   switchTab('analisar');
   if (!localStorage.getItem(LS_API) && !localStorage.getItem(LS_API_ENC)) {
     setTimeout(()=> showToast('Configure sua chave Groq em Configurações', 'info', 5000), 800);

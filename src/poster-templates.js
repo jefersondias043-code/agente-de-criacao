@@ -250,6 +250,50 @@ const POSTER_PALETTES = {
   'tons-corporativos':  { label:'Tons Corporativos',           light:true,  bg:'#F6F8FB', accent:'#26425E', accent2:'#5C7A99', accentDeep:'#16293C' },
 };
 
+/* ============================================================
+ * TEMAS POR FAMÍLIA DE FUNDO (r105) — o usuário mantém a cor de fundo e troca
+ * só o "vestido" (títulos, destaques, grafismos). 8 fundos × 9 variações = 72
+ * combinações completas, GERADAS (não mantidas à mão) e anexadas a
+ * POSTER_PALETTES — o motor applyPosterCustom deriva o resto (bg2, rampas,
+ * gradientes, contraste) a partir destes seeds mínimos.
+ * ============================================================ */
+const POSTER_BG_FAMILIES = {
+  'branco':        { label: 'Fundo branco',        bg: '#FDFDFC', light: true },
+  'cinza-claro':   { label: 'Fundo cinza-claro',   bg: '#EEF0F2', light: true },
+  'creme':         { label: 'Fundo creme',         bg: '#F8F3E8', light: true },
+  'grafite':       { label: 'Fundo grafite',       bg: '#1B1E24', light: false },
+  'marinho':       { label: 'Fundo azul-marinho',  bg: '#0A1A2F', light: false },
+  'preto':         { label: 'Fundo preto',         bg: '#0C0C0E', light: false },
+  'verde-escuro':  { label: 'Fundo verde-escuro',  bg: '#07231A', light: false },
+  'vinho-escuro':  { label: 'Fundo vinho',         bg: '#26060C', light: false },
+};
+const POSTER_ACCENT_SETS = {
+  'vermelho': { label: 'Vermelho',  accent: '#E30613', accent2: '#FF5A4D', accentDeep: '#A60410' },
+  'azul':     { label: 'Azul',      accent: '#1D6FB8', accent2: '#4FA3E3', accentDeep: '#0E4E86' },
+  'verde':    { label: 'Verde',     accent: '#1B8A5A', accent2: '#3FBF82', accentDeep: '#116B43' },
+  'roxo':     { label: 'Roxo',      accent: '#8B5CF6', accent2: '#C084FC', accentDeep: '#6D28D9' },
+  'laranja':  { label: 'Laranja',   accent: '#F4820B', accent2: '#FFB02E', accentDeep: '#C25E00' },
+  'dourado':  { label: 'Dourado',   accent: '#D4A437', accent2: '#EBC96E', accentDeep: '#A8761A' },
+  'magenta':  { label: 'Magenta',   accent: '#E7338C', accent2: '#FF6FB0', accentDeep: '#B01560' },
+  'ciano':    { label: 'Ciano',     accent: '#0FA3B1', accent2: '#4FD6E0', accentDeep: '#0A7681' },
+  // mono depende da família (escuro sobre claro / claro sobre escuro) — ver gerador
+  'mono':     { label: 'Monocromático' },
+};
+(function generateFamilyPalettes() {
+  Object.entries(POSTER_BG_FAMILIES).forEach(([famKey, fam]) => {
+    Object.entries(POSTER_ACCENT_SETS).forEach(([accKey, acc]) => {
+      const spec = { label: acc.label, light: fam.light, bg: fam.bg, family: famKey };
+      if (accKey === 'mono') {
+        if (fam.light) { spec.accent = '#1E1E1E'; spec.accent2 = '#5C5C5C'; spec.accentDeep = '#000000'; }
+        else { spec.accent = '#EDEDED'; spec.accent2 = '#B8B8B8'; spec.accentDeep = '#8F8F8F'; }
+      } else {
+        spec.accent = acc.accent; spec.accent2 = acc.accent2; spec.accentDeep = acc.accentDeep;
+      }
+      POSTER_PALETTES[`${famKey}-${accKey}`] = spec;
+    });
+  });
+})();
+
 /* GRADIENTES prontos (combinações harmônicas) para o construtor de gradiente. */
 const POSTER_GRADIENTS = {
   'vermelho-bordo':    { label:'Vermelho → Bordô',       from:'#E30613', to:'#6A0D14' },
@@ -514,8 +558,41 @@ function applyPosterRootBg(c, stageEl, fmt) {
  * personName/personRole/figure/logo/portalName/handle/tagline/header/footer/
  * counter/graphics. */
 let PT_HIDDEN = new Set();
-function setPosterHidden(p) { PT_HIDDEN = new Set(Array.isArray(p && p.hidden) ? p.hidden : []); }
+function setPosterHidden(p) {
+  PT_HIDDEN = new Set(Array.isArray(p && p.hidden) ? p.hidden : []);
+  ptBrandReset();
+}
 function posterShow(key) { return !PT_HIDDEN.has(key); }
+
+/* MARCA 1× POR CARTAZ, "o de BAIXO vence" (r103): cada peça do perfil (nome,
+ * handle, logo) aparece uma única vez — e quando o modelo a repete (cabeçalho +
+ * rodapé), fica a ocorrência INFERIOR (última na ordem do fonte = visual).
+ * Mecânica em DUAS PASSADAS por render (ver renderTemplateDeduped):
+ *   1ª (PT_BRAND_TOTALS = null): renderiza descartando a string, só CONTA;
+ *   2ª: cada gate só devolve true na última ocorrência (N === total). */
+let PT_BRAND_TOTALS = null;
+let PT_BRAND_N = { name: 0, handle: 0, logo: 0 };
+function ptBrandReset() { PT_BRAND_N = { name: 0, handle: 0, logo: 0 }; }
+function ptBrandGate(kind, eyeKey) {
+  if (!posterShow(eyeKey)) return false;
+  PT_BRAND_N[kind]++;
+  return !PT_BRAND_TOTALS || PT_BRAND_N[kind] === PT_BRAND_TOTALS[kind];
+}
+function posterHandleOnce() { return ptBrandGate('handle', 'handle'); }
+function posterNameOnce() { return ptBrandGate('name', 'portalName'); }
+
+/** Renderiza um modelo com o dedupe de marca ativo (2 passadas). Deve embrulhar
+ *  TODO tpl.render que vá para a tela/export (preview, export e thumbs). */
+function renderTemplateDeduped(renderFn) {
+  PT_BRAND_TOTALS = null;
+  ptBrandReset();
+  renderFn();                                   // 1ª passada: contagem
+  PT_BRAND_TOTALS = { ...PT_BRAND_N };
+  ptBrandReset();
+  const html = renderFn();                      // 2ª passada: só a última fica
+  PT_BRAND_TOTALS = null;
+  return html;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
@@ -557,9 +634,11 @@ function MB_SYMBOL(opts) {
   return `<img src="${_mbCache[key]}" width="${s}" height="${s}" style="width:${s}px;height:${s}px;display:block;flex-shrink:0;" alt="" />`;
 }
 
-/** Bloco de logo: imagem do portal → símbolo "M" (tema MB) → caixa com a SIGLA. */
+/** Bloco de logo: imagem do portal → símbolo "M" (tema MB) → caixa com a SIGLA.
+ *  Gate 1×/cartaz (o de baixo vence) — assim o masthead do cabeçalho some POR
+ *  INTEIRO quando o rodapé repete a marca. */
 function posterLogoBlock(portal, size, variant) {
-  if (!posterShow('logo')) return '';
+  if (!ptBrandGate('logo', 'logo')) return '';
   const s = size || 96;
   const r = Math.round(s * 0.2);
   if (portal && portal.logo) {
@@ -809,17 +888,20 @@ function posterKicker(text, opts) {
     </div>`;
 }
 
-/** Lockup de marca (logo + nome + handle) — cada parte respeita seu olho. */
+/** Lockup de marca (logo + nome + handle) — cada peça respeita seu olho E o
+ *  gate 1×/cartaz "o de baixo vence" (r103). Quando o modelo repete o lockup
+ *  (cabeçalho + rodapé), as três peças só passam no gate na ÚLTIMA chamada —
+ *  o masthead do cabeçalho colapsa para '' e o do rodapé fica completo. */
 function ptMasthead(portal, opts) {
   opts = opts || {};
   const onDark = opts.onDark != null ? opts.onDark : !PT.light;
   const ink = onDark ? PT.onDark : PT.cream;
   const mut = onDark ? PT.onDarkMut : PT.creamMute;
-  const logo = posterLogoBlock(portal, opts.size || 66, onDark ? 'light' : 'dark');   // '' se logo oculto
-  const nameHtml = posterShow('portalName') ? `<div style="font-family:${PT.serif};font-weight:800;font-size:${opts.nameSize || 29}px;letter-spacing:-0.01em;color:${ink};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.name || 'Nome do projeto')}</div>` : '';
-  const handleHtml = posterShow('handle') ? `<div style="font-family:${PT.sans};font-weight:600;font-size:18px;letter-spacing:0.04em;color:${mut};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</div>` : '';
+  const logo = posterLogoBlock(portal, opts.size || 66, onDark ? 'light' : 'dark');   // '' se logo oculto/repetido
+  const nameHtml = posterNameOnce() ? `<div style="font-family:${PT.serif};font-weight:800;font-size:${opts.nameSize || 29}px;letter-spacing:-0.01em;color:${ink};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.name || 'Nome do projeto')}</div>` : '';
+  const handleHtml = posterHandleOnce() ? `<div style="font-family:${PT.sans};font-weight:600;font-size:18px;letter-spacing:0.04em;color:${mut};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</div>` : '';
   const text = (nameHtml || handleHtml) ? `<div style="min-width:0;line-height:1.08;">${nameHtml}${handleHtml}</div>` : '';
-  if (!logo && !text) return '';
+  if (!logo && !text) return '<span></span>';   // span vazio preserva o justify dos cabeçalhos
   return `<div style="display:flex;align-items:center;gap:16px;min-width:0;">${logo}${text}</div>`;
 }
 
@@ -865,6 +947,9 @@ function posterMetaFooter(portal, opts) {
   const right = opts.right
     ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;letter-spacing:0.02em;color:${mut};text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:44%;">${escapeHtml(opts.right)}</span>`
     : '';
+  // r102: o perfil aparece UMA vez por cartaz — ptMasthead já se auto-deduplica
+  // (2ª chamada devolve span vazio); em modelos sem cabeçalho, o rodapé é o lar
+  // do lockup completo.
   return `<div style="border-top:1.5px solid ${line};padding-top:22px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-shrink:0;">
       ${ptMasthead(portal, { onDark, size: opts.logoSize || 52, nameSize: 25 })}
       ${right}
@@ -971,7 +1056,7 @@ function tplManchete2(p, fmt, portal) {
         ${hasImg ? posterPhotoMosaic(p, { two: 'row', three: 'row', four: 'row', gapColor: PT.ink }) : ''}
         ${hasImg ? `<div style="position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(to top, rgba(15,12,8,0.72), rgba(15,12,8,0));pointer-events:none;"></div>` : ''}
         ${p.location ? `<div style="position:absolute;top:18px;left:18px;pointer-events:none;">${posterLocationPill(p.location, hasImg)}</div>` : ''}
-        ${hasImg && posterShow('handle') ? `<div style="position:absolute;left:22px;bottom:18px;pointer-events:none;font-family:${PT.sans};font-size:22px;font-weight:600;letter-spacing:0.02em;color:#fff;">${escapeHtml(portal.handle || '@portal')}</div>` : ''}
+        ${hasImg && posterHandleOnce() ? `<div style="position:absolute;left:22px;bottom:18px;pointer-events:none;font-family:${PT.sans};font-size:22px;font-weight:600;letter-spacing:0.02em;color:#fff;">${escapeHtml(portal.handle || '@portal')}</div>` : ''}
       </div>
     </div>
   `;
@@ -999,7 +1084,7 @@ function tplCitacao(p, fmt, portal) {
       ${posterShow('footer') ? `<div style="position:relative;z-index:2;">
         ${p.category ? `<div style="margin-bottom:18px;">${posterKicker(p.category, { color: PT.redOnDark })}</div>` : ''}
         <div style="border-top:1.5px solid ${PT.creamLine};padding-top:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
-          ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+          ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
           ${posterShow('location') && p.location ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46%;">${escapeHtml(p.location)}</span>` : ''}
         </div>
       </div>` : ''}
@@ -1106,7 +1191,7 @@ function tplCorSolida(p, fmt, portal) {
       </div>
 
       ${posterShow('footer') ? `<div style="position:relative;z-index:2;border-top:1.5px solid rgba(255,255,255,0.3);padding-top:22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0;">
-        ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:24px;font-weight:700;letter-spacing:0.02em;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+        ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:24px;font-weight:700;letter-spacing:0.02em;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
         <span style="font-family:${PT.serif};font-style:italic;font-weight:600;font-size:24px;color:rgba(255,255,255,0.92);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%;">${escapeHtml(p.location || portal.name || '')}</span>
       </div>` : ''}
     </div>
@@ -1150,8 +1235,8 @@ function tplDestaqueFoto2(p, fmt, portal) {
         ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:#fff;margin:0;text-shadow:0 2px 24px rgba(0,0,0,0.55);overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.3;color:${PT.creamMute};margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('footer') ? `<div style="border-top:1.5px solid rgba(245,239,227,0.3);padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
-          ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:22px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
-          ${posterShow('portalName') ? `<span style="font-family:${PT.serif};font-weight:700;font-size:23px;color:rgba(245,239,227,0.9);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%;">${escapeHtml(portal.name || '')}</span>` : ''}
+          ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:22px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+          ${posterNameOnce() ? `<span style="font-family:${PT.serif};font-weight:700;font-size:23px;color:rgba(245,239,227,0.9);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%;">${escapeHtml(portal.name || '')}</span>` : ''}
         </div>` : ''}
       </div>
     </div>
@@ -1177,7 +1262,7 @@ function tplDestaqueFoto3(p, fmt, portal) {
           ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:25px;font-weight:500;line-height:1.32;color:${PT.creamMute};margin:24px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         </div>
         ${posterShow('footer') ? `<div style="flex-shrink:0;border-top:1.5px solid ${PT.creamLine};padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-          ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+          ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
           ${p._total ? ptCounter(p, { onDark: true, size: 22 }) : ''}
         </div>` : ''}
       </div>
@@ -1234,8 +1319,8 @@ function tplDestaqueFoto5(p, fmt, portal) {
         ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.96);margin:14px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('footer') ? `<div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
-          ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
-          ${posterShow('portalName') ? `<span style="font-family:${PT.serif};font-style:italic;font-weight:600;font-size:22px;color:rgba(255,255,255,0.92);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%;">${escapeHtml(portal.name || '')}</span>` : ''}
+          ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+          ${posterNameOnce() ? `<span style="font-family:${PT.serif};font-style:italic;font-weight:600;font-size:22px;color:rgba(255,255,255,0.92);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%;">${escapeHtml(portal.name || '')}</span>` : ''}
         </div>` : ''}
       </div>
     </div>
@@ -1302,7 +1387,7 @@ function tplBreakingAlert(p, fmt, portal) {
         <div style="position:absolute;inset:0;">${posterImageLayer(p, k0)}</div>
         ${p.location ? `<div style="position:absolute;left:24px;bottom:20px;pointer-events:none;">${posterLocationPill(p.location, true)}</div>` : ''}
       </div>` : `<div style="flex-shrink:0;border-top:1.5px solid rgba(255,255,255,0.3);margin:0 56px;padding:22px 0 40px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
-        <span style="font-family:${PT.sans};font-size:23px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>
+        ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:23px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
         ${p.location ? `<span style="font-family:${PT.serif};font-style:italic;font-size:23px;color:rgba(255,255,255,0.92);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%;">${escapeHtml(p.location)}</span>` : ''}
       </div>`}
     </div>
@@ -1543,7 +1628,7 @@ function tplEditorialSignature(p, fmt, portal) {
         <div style="position:absolute;inset:0;">${posterImageLayer(p, k0)}</div>
         ${p.location ? `<div style="position:absolute;left:22px;bottom:18px;pointer-events:none;">${posterLocationPill(p.location, true)}</div>` : ''}
       </div>` : `<div style="flex-shrink:0;border-top:1.5px solid ${PT.creamLine};padding-top:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:relative;z-index:2;">
-        <span style="font-family:${PT.sans};font-size:22px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>
+        ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:22px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
         ${p.location ? `<span style="font-family:${PT.serif};font-weight:600;font-size:22px;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%;">${escapeHtml(p.location)}</span>` : ''}
       </div>`}
     </div>
@@ -1598,7 +1683,7 @@ function tplRevistaSplit(p, fmt, portal) {
           ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.5;color:${PT.muted};margin:24px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         </div>
         ${posterShow('footer') ? `<div style="flex-shrink:0;border-top:1.5px solid ${PT.creamLine};padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-          ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+          ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
           ${p._total ? ptCounter(p, { size: 22 }) : ''}
         </div>` : ''}
       </div>
@@ -1629,7 +1714,7 @@ function tplLowerThird(p, fmt, portal) {
         <div style="background:linear-gradient(to right, rgba(11,20,33,0.86) 0%, rgba(11,20,33,0.62) 100%);border-left:8px solid ${PT.terra};padding:26px 52px;">
           ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
           ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.95);margin:12px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
-          ${posterShow('footer') && posterShow('handle') ? `<div style="margin-top:16px;font-family:${PT.sans};font-size:21px;font-weight:700;letter-spacing:0.02em;color:rgba(255,255,255,0.9);">${escapeHtml(portal.handle || '@portal')}</div>` : ''}
+          ${posterShow('footer') && posterHandleOnce() ? `<div style="margin-top:16px;font-family:${PT.sans};font-size:21px;font-weight:700;letter-spacing:0.02em;color:rgba(255,255,255,0.9);">${escapeHtml(portal.handle || '@portal')}</div>` : ''}
         </div>
       </div>
     </div>
@@ -1659,7 +1744,7 @@ function tplDiagonalSplit(p, fmt, portal) {
         ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.95);margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('footer') ? `<div style="border-top:1.5px solid rgba(255,255,255,0.32);padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
-          ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:22px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+          ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:22px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
           ${posterShow('location') && p.location ? `<span style="font-family:${PT.serif};font-style:italic;font-weight:600;font-size:22px;color:rgba(255,255,255,0.92);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%;">${escapeHtml(p.location)}</span>` : ''}
         </div>` : ''}
       </div>
@@ -1690,8 +1775,8 @@ function tplPerfilCard(p, fmt, portal) {
         ${posterShow('personRole') && role ? `<div style="font-family:${PT.sans};font-weight:600;font-size:26px;letter-spacing:0.04em;color:${PT.terra};margin-top:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">${escapeHtml(role)}</div>` : ''}
         ${posterShow('subtitle') && quote ? `<p style="font-family:${PT.serif};font-style:italic;font-size:${qSize}px;font-weight:500;line-height:1.4;color:${PT.creamMute};margin:28px 0 0 0;max-width:84%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(quote)}</p>` : ''}
       </div>
-      ${posterShow('footer') && posterShow('handle') ? `<div style="flex-shrink:0;width:100%;border-top:1.5px solid ${PT.creamLine};padding-top:20px;display:flex;align-items:center;justify-content:center;gap:14px;">
-        <span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>
+      ${posterShow('footer') && posterHandleOnce() ? `<div style="flex-shrink:0;width:100%;border-top:1.5px solid ${PT.creamLine};padding-top:20px;display:flex;align-items:center;justify-content:center;gap:14px;">
+        ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
       </div>` : ''}
     </div>
   `;
@@ -1757,7 +1842,7 @@ function tplEvento(p, fmt, portal) {
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.32;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('location') && p.location ? `<div style="align-self:flex-start;">${posterLocationPill(p.location, false)}</div>` : ''}
       </div>
-      ${posterMetaFooter(portal, { right: portal.handle || '' })}
+      ${posterMetaFooter(portal, {})}
     </div>
   `;
 }
@@ -1816,7 +1901,7 @@ function tplFato(p, fmt, portal) {
         ${posterShow('subtitle') && body ? `<p style="font-family:${PT.sans};font-size:${bSize}px;font-weight:400;line-height:1.5;color:${PT.creamMute};margin:28px 0 0 0;max-width:90%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(body)}</p>` : ''}
       </div>
       ${posterShow('footer') ? `<div style="position:relative;z-index:2;border-top:1.5px solid ${PT.creamLine};padding-top:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
-        ${posterShow('handle') ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
+        ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
         ${posterShow('location') && p.location ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%;">${escapeHtml(p.location)}</span>` : ''}
       </div>` : ''}
     </div>

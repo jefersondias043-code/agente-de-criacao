@@ -71,32 +71,6 @@ function posterDisplayCategory(p) {
 /* Auto-organização de conteúdo em slides                                      */
 /* -------------------------------------------------------------------------- */
 
-// Rótulos cuja LINHA inteira deve ser descartada do corpo (metadados).
-const BODY_DROP_RE = /^[\*#>\-•\s]*(hashtags?|tags?|legenda|cr[eé]ditos?|fonte|imagem|foto)\s*[:\-—]/i;
-// Rótulos cujo PREFIXO é removido, mantendo o valor (estrutura da matéria).
-const BODY_LABEL_RE = /^[\*#>\-•\s]*(t[íi]tulo|subt[íi]tulo|lead|corpo|descri[çc][ãa]o|se[çc][ãa]o|intert[íi]tulo)\s*[:\-—]\s*/i;
-
-/**
- * Extrai os PARÁGRAFOS do corpo COMPLETO da matéria (não só o lead):
- * remove linhas de metadados, tira prefixos de rótulo, e descarta as linhas
- * que são o próprio título/subtítulo (já exibidos na capa).
- */
-function extractBodyParagraphs(content, struct) {
-  const title = (struct.title || '').trim();
-  const subtitle = (struct.subtitle || '').trim();
-  const out = [];
-  for (const raw of (content || '').split('\n')) {
-    const trimmed = raw.trim();
-    if (!trimmed) continue;
-    if (BODY_DROP_RE.test(trimmed)) continue;
-    const line = trimmed.replace(BODY_LABEL_RE, '').replace(/^[\*#>\-•\s]+/, '').trim();
-    if (line.length < 2) continue;
-    if (line === title || line === subtitle) continue;
-    out.push(line);
-  }
-  return out;
-}
-
 /**
  * ESTRUTURA PADRÃO do carrossel automático (usuário pode editar tudo depois):
  *   • 1º slide  → "Foto em destaque" (capa, destaque visual)
@@ -104,19 +78,19 @@ function extractBodyParagraphs(content, struct) {
  *   • último slide → "Cor sólida" (encerramento / CTA)
  * Formato inicial padrão = 1:1 (quadrado) em todos os slides.
  */
-function splitIntoSlides(content, struct, parsed, portal, fmt) {
+function splitIntoSlides(art, portal, fmt) {
   fmt = fmt || '1:1';
-  const title = (struct.title || parsed.headline || '').trim();
-  const subtitle = (struct.subtitle || parsed.subtitle || '').trim();
-  const category = (parsed.category || 'RESUMO');
-  const location = (parsed.location || '');
+  const title = (art.title || '').trim();
+  const subtitle = (art.subtitle || '').trim();
+  const category = (art.category || 'RESUMO');
+  const location = (art.location || '');
   const slides = [];
 
   // 1) CAPA — Foto em destaque (o usuário adiciona a imagem; sem ela mostra placeholder)
   slides.push(makeSlide({ template: 'destaque-foto', format: fmt, headline: title || 'Título', subtitle, category, location }));
 
-  // 2) INTERMEDIÁRIOS — Texto/parágrafo: corpo COMPLETO agrupado por orçamento de chars
-  const paras = extractBodyParagraphs(content || struct.description || '', struct);
+  // 2) INTERMEDIÁRIOS — Texto/parágrafo: corpo COMPLETO (mesma regra do cartaz)
+  const paras = (art.bodyParagraphs && art.bodyParagraphs.length) ? art.bodyParagraphs.slice() : (art.body ? [art.body] : []);
   const MAX = 520;
   const groups = [];
   let cur = '';
@@ -148,27 +122,26 @@ function splitIntoSlides(content, struct, parsed, portal, fmt) {
   slides.push(makeSlide({
     template: 'cor-solida', format: fmt, category: '',
     headline: (portal && portal.name) || 'Acompanhe',
-    subtitle: 'Siga ' + ((portal && portal.handle) || '@portal') + ' para mais.',
+    subtitle: art.cta || ('Siga ' + ((portal && portal.handle) || '@portal') + ' para mais.'),
   }));
 
   return slides;
 }
 
-/** Cria um CARROSSEL a partir de uma geração/conteúdo (mesmo fluxo do cartaz). */
+/** Cria um CARROSSEL a partir de uma geração/conteúdo (mesma regra do cartaz). */
 function createCarouselFromGeneration(g) {
-  const parsed = parseFromText(g.content);
-  const struct = parseGenerationStructure(g.content);
+  const art = parseArticle(g.content);            // regra ÚNICA de autopreenchimento
   const portal = State.portals[State.activePortalIndex] || State.portals[0] || {};
-  const slides = splitIntoSlides(g.content, struct, parsed, portal, '1:1');
+  const slides = splitIntoSlides(art, portal, '1:1');
 
   const poster = Object.assign(makeSlide({
     template: 'destaque-foto', format: '1:1',
-    headline: struct.title || parsed.headline || '',
-    category: parsed.category || 'GERAL',
-    location: parsed.location || '',
-    subtitle: struct.subtitle || parsed.subtitle || '',
-    description: struct.description || '',
-    footer: parsed.footer || '',
+    headline: art.title || '',
+    category: art.category || 'GERAL',
+    location: art.location || '',
+    subtitle: art.subtitle || '',
+    description: art.body || '',                   // corpo completo também no topo
+    footer: art.cta || '',
   }), {
     id: uuid(),
     generationId: g.id,
@@ -180,8 +153,9 @@ function createCarouselFromGeneration(g) {
   });
 
   State.posters.unshift(poster);
-  saveJSON(STORAGE_KEYS.posters, State.posters);
+  savePosters();   // usa o offload de imagens (Blob) — consistente com o cartaz
   State.activePosterId = poster.id;
+  _peOpen = true;  // handoff (matéria → carrossel) abre direto o editor
   toast('Carrossel criado.', 'success');
   goTo('posters');
 }
@@ -190,7 +164,10 @@ function createCarouselFromGeneration(g) {
 /* Edição manual de slides                                                     */
 /* -------------------------------------------------------------------------- */
 
-function persistPosters() { saveJSON(STORAGE_KEYS.posters, State.posters); }
+// Persiste pelo MESMO caminho escalável dos cartazes: índice leve + imagens (Blob)
+// no IndexedDB (limite = dispositivo). Antes gravava State.posters inteiro — com
+// imagens base64 inline — direto no localStorage (~5 MB), o que enchia rápido.
+function persistPosters() { if (typeof savePosters === 'function') savePosters(); }
 
 /** Converte a peça única atual num carrossel (slide 0 = conteúdo atual). */
 function convertToCarousel(p) {
@@ -272,14 +249,14 @@ function renderCarouselBar(p) {
   const bar = $('#p-carousel-bar');
   if (!bar) return;
 
+  // O botão "Transformar em carrossel" (menu ⋯) só aparece na peça única (r112).
+  const toCar = $('#et-to-carousel');
+  if (toCar) toCar.classList.toggle('hidden', posterIsCarousel(p));
+
   if (!posterIsCarousel(p)) {
-    bar.innerHTML = `
-      <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.5rem .7rem;background:#f4f1ea;border:1px solid #e5e0d5;border-radius:.6rem;">
-        <span style="font-size:.8rem;color:#6a6356;">Peça única</span>
-        <button class="btn btn-sm" id="p-make-carousel" type="button" style="margin-left:auto;">▤ Transformar em carrossel</button>
-      </div>`;
-    const mk = $('#p-make-carousel');
-    if (mk) mk.onclick = () => convertToCarousel(p);
+    // Peça única: sem barra na área de edição (r112). A ação "Transformar em
+    // carrossel" mora no menu ⋯ (#et-to-carousel). #p-carousel-bar:empty some via CSS.
+    bar.innerHTML = '';
     return;
   }
 
@@ -296,7 +273,10 @@ function renderCarouselBar(p) {
     const tpl = reg && (reg[sl.template] || reg.manchete);
     let inner = '';
     if (typeof setPosterHidden === 'function') setPosterHidden(sl);   // elementos ocultos por SLIDE
-    try { inner = tpl ? tpl.render({ ...sl, portalSnapshot: p.portalSnapshot, _idx: idx + 1, _total: p.slides.length }, fmt, portal) : ''; } catch (e) { inner = ''; }
+    try {
+      const draw = () => tpl.render({ ...sl, portalSnapshot: p.portalSnapshot, _idx: idx + 1, _total: p.slides.length }, fmt, portal);
+      inner = tpl ? (typeof renderTemplateDeduped === 'function' ? renderTemplateDeduped(draw) : draw()) : '';
+    } catch (e) { inner = ''; }
     const th = Math.round(THUMB_W * fmt.h / fmt.w);
     const scale = THUMB_W / fmt.w;
     return `<div class="p-slide-chip" data-si="${idx}" draggable="true" title="Slide ${idx + 1} — clique p/ editar, arraste p/ reordenar" style="position:relative;width:${THUMB_W}px;height:${th}px;flex-shrink:0;border-radius:6px;overflow:hidden;cursor:grab;background:#fff;border:2px solid ${active ? '#16140f' : '#d8d2c6'};box-shadow:${active ? '0 0 0 2px rgba(22,20,15,.18)' : 'none'};">
@@ -428,22 +408,32 @@ function _canvasToBytes(canvas) {
   });
 }
 
-async function exportCarousel(p, mode) {
-  if (!posterIsCarousel(p)) return exportPoster(p);
+async function exportCarousel(p, mode, scale) {
+  if (!posterIsCarousel(p)) return exportPoster(p, scale);
   mode = mode || 'zip';
   const slides = p.slides;
-  toast(`Gerando carrossel (${slides.length} slides)…`, 'info');
+  // Progresso: um ÚNICO toast que se atualiza por slide (não spamma a pilha).
+  const progEl = document.createElement('div');
+  progEl.className = 'toast info';
+  const progMsg = document.createElement('div');
+  progMsg.className = 'flex-1';
+  progEl.appendChild(progMsg);
+  const stack = document.querySelector('#toast-stack');
+  if (stack) stack.appendChild(progEl);
+  const setProg = (i) => { progMsg.textContent = `Gerando carrossel… slide ${i}/${slides.length}`; };
+  setProg(0);
   const prevIndex = p.slideIndex || 0;
   const files = [];
   try {
     for (let idx = 0; idx < slides.length; idx++) {
       const slide = slides[idx];
+      setProg(idx + 1);
       const fmt = (typeof POSTER_FORMATS !== 'undefined' && POSTER_FORMATS[slide.format]) || posterActiveFormat();
       renderPosterTemplate({ ...slide, theme: p.theme, custom: p.custom, portalSnapshot: p.portalSnapshot, _idx: idx + 1, _total: slides.length });
       // espera layout + imagens decodificarem antes de capturar
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       await waitForStageImages();
-      const canvas = await captureStageCanvas(fmt);
+      const canvas = await captureStageCanvas(fmt, scale);
       if (canvas) files.push({ name: `carrossel-${String(idx + 1).padStart(2, '0')}.png`, data: await _canvasToBytes(canvas) });
     }
     if (!files.length) { toast('Não foi possível exportar o carrossel.', 'error'); return; }
@@ -475,6 +465,7 @@ async function exportCarousel(p, mode) {
   } catch (err) {
     toast('Não foi possível exportar o carrossel: ' + err.message, 'error');
   } finally {
+    if (progEl && progEl.parentNode) progEl.remove();
     // restaura o slide ativo no preview
     p.slideIndex = prevIndex;
     renderPosterTemplate({ ...getSlide(p), theme: p.theme, custom: p.custom, portalSnapshot: p.portalSnapshot, _idx: (p.slideIndex || 0) + 1, _total: p.slides.length });

@@ -864,9 +864,10 @@ textarea::placeholder {
 (function(){
   function applyCfg(c){
     if(!c) return;
-    window.__AGENTE_CONFIG__ = { groqKey: c.groqKey||"", groqModel: c.groqModel||"" };
+    window.__AGENTE_CONFIG__ = { groqKey: c.groqKey||"", groqModel: c.groqModel||"", locked: !!c.locked };
     try {
-      if(c.groqKey){ localStorage.setItem("replicador_groq_api_key", c.groqKey); localStorage.setItem("groq_api_key", c.groqKey); }
+      /* Workspace bloqueado: NÃO persiste a chave (fica só em memória). */
+      if(c.groqKey && !c.locked){ localStorage.setItem("replicador_groq_api_key", c.groqKey); localStorage.setItem("groq_api_key", c.groqKey); }
       if(c.groqModel){ localStorage.setItem("groq_model", c.groqModel); }
     } catch(_){}
   }
@@ -971,6 +972,16 @@ textarea::placeholder {
   setTimeout(check, 400);
 })();
 </script>
+<!-- Simplificacao da UI: a config de IA (provedor / chave / modelo) e UNIFICADA
+     na plataforma (Configuracoes) e chega ao Replicador automaticamente pela
+     ponte. Ocultamos aqui o seletor de modelo, o botao "Configurar API" (que
+     tambem servia de indicador de conexao no topo direito) e o rodape de versao
+     da ferramenta. Os elementos seguem no DOM para nao quebrar o JS. -->
+<style id="agente-ui-trim">
+  .model-row,
+  #config-btn,
+  .footer { display: none !important; }
+</style>
 </head>
 <body>
 
@@ -1340,14 +1351,17 @@ async function gerar() {
   const content = document.getElementById('output-content');
   const actions = document.getElementById('output-actions');
   const btn = document.getElementById('gerar-btn');
-  const modelo = document.getElementById('modelo').value;
+  // Modelo vem da CONFIGURACAO UNIFICADA da plataforma (ponte); o seletor local
+  // foi removido da UI. Fallback para o seletor (oculto) so por seguranca.
+  const modelo = (window.__AGENTE_CONFIG__ && window.__AGENTE_CONFIG__.groqModel)
+    || (document.getElementById('modelo') && document.getElementById('modelo').value)
+    || 'llama-3.3-70b-versatile';
 
   erro.style.display = 'none';
 
   if (!chaveAPI) {
-    erro.textContent = 'Configure sua chave da API Groq primeiro (botão no topo).';
+    erro.textContent = 'Configure a chave de API em Configuracoes (menu da plataforma) — ela vale para todas as ferramentas.';
     erro.style.display = 'block';
-    abrirModal();
     return;
   }
 
@@ -1522,9 +1536,40 @@ function baixarSaida() {
 }
 
 // ============= HISTÓRICO DE REPLICAÇÕES =============
-const HIST_KEY = 'replicador_history_v1';
+const HIST_KEY = 'replicador_history_v1';   // chave legada (localStorage) — migrada p/ IDB
+const HIST_IDB_KEY = 'hist:replicador';     // histórico no IndexedDB (limite = dispositivo)
 let historico = [];
 const NIVEL_LABEL = { proximo: 'Próximo', medio: 'Médio', livre: 'Livre' };
+
+/* HISTÓRICO NO INDEXEDDB — capacidade = DISPOSITIVO (não os ~5 MB do localStorage).
+   Mesmo store do app pai ('agente-store'/'kv') → o backup da plataforma já o inclui
+   em http. 'historico' segue em memória (fonte síncrona); persistHistorico() grava
+   no IDB; hydrateReplicadorHistory() carrega no boot e migra a chave antiga 1x. */
+const _rpIdbOk = (typeof indexedDB !== 'undefined');
+function _rpIdbOpen() { return new Promise((res, rej) => { try { const r = indexedDB.open('agente-store', 1); r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv'); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }); }
+function _rpIdbGet(k) { return _rpIdbOpen().then((db) => new Promise((res, rej) => { const tx = db.transaction('kv', 'readonly'); const rq = tx.objectStore('kv').get(k); rq.onsuccess = () => { db.close(); res(rq.result); }; rq.onerror = () => { db.close(); rej(rq.error); }; })); }
+function _rpIdbSet(k, v) { return _rpIdbOpen().then((db) => new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => { db.close(); res(true); }; tx.onerror = () => { db.close(); rej(tx.error); }; })); }
+function persistHistorico() {
+  if (_rpIdbOk) {
+    _rpIdbSet(HIST_IDB_KEY, historico).then(() => { try { localStorage.removeItem(HIST_KEY); } catch (_) { /* */ } })
+      .catch(() => toast('Armazenamento do dispositivo cheio — exporte um backup e limpe itens antigos'));
+    return true;
+  }
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(historico)); return true; }
+  catch (e) { toast('Histórico cheio — limpe itens antigos'); return false; }
+}
+async function hydrateReplicadorHistory() {
+  if (!_rpIdbOk) return;
+  try {
+    const arr = await _rpIdbGet(HIST_IDB_KEY);
+    if (Array.isArray(arr)) { historico = arr; }
+    else if (Array.isArray(historico) && historico.length) { try { await _rpIdbSet(HIST_IDB_KEY, historico); } catch (_) { /* */ } }
+    try { localStorage.removeItem(HIST_KEY); } catch (_) { /* */ }
+    atualizarHistCount();
+    const d = document.getElementById('hist-drawer');
+    if (d && d.classList.contains('open')) renderHistorico();
+  } catch (_) { /* mantém fallback do localStorage */ }
+}
 
 function carregarHistorico() {
   try { historico = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch(e) { historico = []; }
@@ -1543,8 +1588,7 @@ function salvarReplica(transcricao, nivel, modelo, saida, analise) {
       transcricao: transcricao || '', nivel: nivel || 'proximo', modelo: modelo || '',
       saida: saida || '', analise: analise || '', createdAt: Date.now()
     });
-    historico = historico.slice(0, 200);
-    localStorage.setItem(HIST_KEY, JSON.stringify(historico));
+    persistHistorico();
     atualizarHistCount();
     if (document.getElementById('hist-drawer').classList.contains('open')) renderHistorico();
   } catch(e) { console.warn('hist save', e); toast('Histórico cheio — limpe itens antigos'); }
@@ -1578,7 +1622,7 @@ function renderHistorico() {
     b.onclick = (e) => {
       e.stopPropagation();
       historico = historico.filter(h => h.id !== b.dataset.del);
-      localStorage.setItem(HIST_KEY, JSON.stringify(historico));
+      persistHistorico();
       atualizarHistCount(); renderHistorico();
     };
   });
@@ -1617,13 +1661,14 @@ document.getElementById('hist-search-input').addEventListener('input', renderHis
 document.getElementById('hist-clear-btn').addEventListener('click', () => {
   if (!historico.length) return;
   if (!confirm('Limpar todo o histórico de replicações?')) return;
-  historico = []; localStorage.setItem(HIST_KEY, JSON.stringify(historico));
+  historico = []; persistHistorico();
   atualizarHistCount(); renderHistorico(); toast('Histórico limpo');
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && document.getElementById('hist-drawer').classList.contains('open')) fecharHistorico();
 });
 carregarHistorico();
+hydrateReplicadorHistory();  // carrega o histórico do IndexedDB (capacidade = dispositivo)
 
 // ===== Config ao vivo (chave/modelo) vinda do app principal (Settings global) =====
 window.addEventListener('message', function(e){

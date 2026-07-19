@@ -813,6 +813,7 @@ body {
   <!-- ============ SNACKBARS ============ -->
   <div id="snackbar-container" aria-live="assertive"></div>
 
+  <script src="src/server-config.js"></script>
   <script>
 'use strict';
 /* Código de public/js/{snackbar,home,main}.js fundido em UM script CLÁSSICO
@@ -824,11 +825,29 @@ body {
    - Pós-download: barra "Transcrever e enviar para…" → manda o vídeo ao app
      pai (agente:ingest → Whisper) e roteia o texto (agente:content-out). */
 (function () {
-  // Onde o servidor de extração está rodando (pasta videograb-server/: npm start).
-  var VIDEOGRAB_API = 'http://localhost:3000';
+  // Onde o servidor de extração está rodando. Resolvido pelo pingServer():
+  // testa os candidatos de src/server-config.js (local → nuvem) e fixa o
+  // primeiro que responder. Null = nenhum respondeu ainda.
+  var VIDEOGRAB_API = null;
 
-  var SERVER_OFF_MESSAGE =
-    'Servidor desligado — abra a pasta videograb-server, rode "npm start" e tente de novo.';
+  function apiCandidates() {
+    return window.agenteServers
+      ? window.agenteServers.candidates('videograb')
+      : ['http://localhost:3000'];
+  }
+
+  // https = versão publicada (GitHub Pages etc.); http/file = uso local.
+  var IS_PUBLISHED = location.protocol === 'https:';
+
+  function serverOffMessage() {
+    if (!IS_PUBLISHED) {
+      return 'Servidor desligado. Ele sobe sozinho ao entrar no Windows (após rodar "Instalar inicio automatico.bat" uma vez). Para iniciar agora, use "Agente.bat". A conexão é detectada automaticamente, sem precisar recarregar.';
+    }
+    if (window.agenteServers && window.agenteServers.hasRemote('videograb')) {
+      return 'Conectando ao servidor do VideoGrab… O servidor gratuito hiberna quando fica ocioso; a primeira conexão pode levar até 1 minuto. A página reconecta sozinha.';
+    }
+    return 'O servidor do VideoGrab ainda não foi publicado para esta versão online. (Administrador: publique o videograb-server e preencha src/server-config.js — guia em DEPLOY.md.)';
+  }
 
   // ---------- Snackbar (de snackbar.js) ----------
   var snackContainer = document.getElementById('snackbar-container');
@@ -929,6 +948,12 @@ body {
       return;
     }
 
+    // Nenhum servidor respondeu ainda (o pingServer segue tentando sozinho).
+    if (!VIDEOGRAB_API) {
+      fail(serverOffMessage());
+      return;
+    }
+
     showActions(false);
     setLoading(true);
     setStatus('Extraindo URL do vídeo...');
@@ -956,7 +981,7 @@ body {
       // Conexão perdida (o fechamento normal já ocorre em result/fail antes).
       if (eventSource) {
         closeEventSource();
-        fail('Erro: sem conexão com o servidor do VideoGrab. ' + SERVER_OFF_MESSAGE);
+        fail('Erro: sem conexão com o servidor do VideoGrab. ' + serverOffMessage());
       }
     };
   }
@@ -1105,16 +1130,35 @@ body {
     }
   });
 
-  // ---------- Saúde do servidor ----------
+  // ---------- Saúde do servidor (com AUTO-RECONEXÃO) ----------
+  // Testa os candidatos NA ORDEM (local → nuvem) e fixa o primeiro que
+  // responder. Re-testa sozinho enquanto nenhum estiver de pé; assim que um
+  // sobe (Agente.bat local, ou o servidor da nuvem acorda), o card conecta
+  // automaticamente — sem recarregar. Para de re-testar quando conecta.
+  var _vgServerOnline = false;
+  var _vgPingTimer = null;
   function pingServer() {
-    fetch(VIDEOGRAB_API + '/api/health', { cache: 'no-store' })
-      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function () {
-        setStatus('Servidor conectado. Cole o link do vídeo do Instagram, TikTok ou YouTube');
-      })
-      .catch(function () {
-        setStatus(SERVER_OFF_MESSAGE, 'error');
-      });
+    var candidates = apiCandidates();
+    var index = 0;
+    function tryNext() {
+      if (index >= candidates.length) {
+        if (!_vgServerOnline) setStatus(serverOffMessage(), 'error');
+        if (_vgPingTimer) clearTimeout(_vgPingTimer);
+        _vgPingTimer = setTimeout(pingServer, 4000);   // novo ciclo em 4s
+        return;
+      }
+      var base = candidates[index++];
+      fetch(base + '/api/health', { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function () {
+          VIDEOGRAB_API = base;
+          _vgServerOnline = true;
+          if (_vgPingTimer) { clearTimeout(_vgPingTimer); _vgPingTimer = null; }
+          setStatus('Servidor conectado. Cole o link do vídeo do Instagram, TikTok ou YouTube');
+        })
+        .catch(tryNext);
+    }
+    tryNext();
   }
 
   // ---------- Wiring (de home.js + main.js) ----------

@@ -1,4 +1,4 @@
-const CACHE = 'agp-v77';
+const CACHE = 'agp-v120';
 const URLS = [
   './',
   './index.html',
@@ -7,28 +7,37 @@ const URLS = [
   './autopost-ia.html',
   './replicador.html',
   './videograb.html',
+  './removedor.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  './src/app.js',
+  // scripts:start — gerado de scripts/scripts.manifest.mjs (npm run sync:manifest)
+  './src/server-config.js',
+  './src/catalogs.js',
   './src/core.js',
+  './src/crypto.js',
   './src/storage.js',
   './src/apikey-sync.js',
-  './src/catalogs.js',
+  './src/lock.js',
   './src/llm.js',
   './src/generate.js',
   './src/extract.js',
   './src/posters.js',
   './src/poster-templates.js',
   './src/carousels.js',
+  './src/poster-elements.js',
+  './src/poster-editor-pro.js',
   './src/videograb.js',
   './src/history.js',
   './src/settings.js',
   './src/detector.js',
   './src/autopost.js',
   './src/replicador.js',
+  './src/removedor.js',
   './src/handoff.js',
   './src/ingest.js',
+  './src/app.js',
+  // scripts:end
 ];
 
 self.addEventListener('install', (e) => {

@@ -14,3 +14,27 @@ Object.defineProperty(globalThis, 'localStorage', { value: ls, configurable: tru
 if (typeof window !== 'undefined') {
   try { Object.defineProperty(window, 'localStorage', { value: ls, configurable: true, writable: true }); } catch { /* ignore */ }
 }
+
+// Stub de canvas 2D: o jsdom não implementa getContext('2d'). Alguns modelos de
+// cartaz geram texturas/padrões via canvas; sem o stub, o jsdom emite avisos e o
+// código poderia derrubar em null. O stub devolve no-ops, mantendo o render
+// determinístico no ambiente de teste (a fidelidade visual é coberta pelo smoke
+// manual no navegador real).
+if (typeof HTMLCanvasElement !== 'undefined') {
+  const ctxStub = new Proxy({}, {
+    get(_t, prop) {
+      const name = String(prop);
+      return (...args) => {
+        if (name === 'createLinearGradient' || name === 'createRadialGradient' || name === 'createPattern') {
+          return { addColorStop() {} };
+        }
+        if (name === 'getImageData') return { data: new Uint8ClampedArray(4) };
+        if (name === 'measureText') return { width: 0 };
+        return undefined;
+      };
+    },
+    set() { return true; },
+  });
+  HTMLCanvasElement.prototype.getContext = () => ctxStub;
+  HTMLCanvasElement.prototype.toDataURL = () => 'data:image/png;base64,';
+}

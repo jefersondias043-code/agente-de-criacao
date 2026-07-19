@@ -3,13 +3,20 @@
 Backend da ferramenta **VideoGrab** da plataforma Agente: baixa vídeos do
 **Instagram**, **TikTok** e **YouTube** sem marca d'água.
 
-> **Nesta plataforma:** a interface vive embutida no app principal
-> (`videograb.html`, ferramenta "VideoGrab" do menu). Esta pasta contém só o
-> servidor de extração — para usar a ferramenta, rode aqui:
+> **Uso normal (recomendado):** rode **`Instalar inicio automatico.bat`** (na raiz
+> da plataforma) UMA vez. Ele registra o servidor para subir **sozinho ao entrar no
+> Windows** (silencioso, via `servidor.vbs`) e cria um atalho "Agente" na Área de
+> Trabalho. A partir daí, é só abrir o app — o servidor já está no ar. Este servidor
+> serve o **app inteiro + a API** num único processo (mesma origem).
+>
+> - Iniciar agora, manualmente (janela visível, útil para ver erros): `Agente.bat`.
+> - Encerrar: `Parar Agente.vbs`. Desativar o auto-início: `Desinstalar inicio automatico.bat`.
+>
+> **Modo dev / manual** (a partir desta pasta):
 >
 > ```bash
 > npm install   # uma vez
-> npm start     # sobe em http://localhost:3000
+> npm start     # sobe app + API em http://localhost:3000
 > ```
 >
 > A pasta `public/` do projeto original não é usada aqui (o frontend é o
@@ -98,6 +105,14 @@ npm run dev
 - Para HTTPS, coloque o app atrás de um reverse proxy (nginx, Caddy) ou de
   uma plataforma como Railway/Render/Fly.io — basta `npm start` com a `PORT`
   fornecida pela plataforma.
+
+## Publicando na nuvem (versão online do app)
+
+Passo a passo completo em **`DEPLOY.md`** (raiz do projeto). Resumo (Render,
+grátis): New Web Service → Root Directory `videograb-server` → Build
+`npm install` → Start `npm start`. Depois preencha a URL gerada no campo
+`REMOTE.videograb` de **`src/server-config.js`** — o frontend testa o servidor
+local primeiro e cai para a nuvem sozinho quando não há servidor local.
 
 ## Observação sobre as plataformas
 

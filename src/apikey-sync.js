@@ -22,6 +22,11 @@ const GROQ_KEY_SLOTS = {
 function syncGroqKey() {
   let key = (State.apiKeys && State.apiKeys.groq) ? String(State.apiKeys.groq).trim() : '';
 
+  // Workspace bloqueado: NÃO gravamos espelhos em claro no localStorage. A chave
+  // (já em memória após o desbloqueio) vai às ferramentas só via a ponte
+  // postMessage (pushConfigToTools), que carrega o flag `locked`.
+  if (State.locked) return;
+
   // Migração suave: app principal sem chave → adota a de uma ferramenta já configurada.
   if (!key) {
     key = (localStorage.getItem(GROQ_KEY_SLOTS.autopost) ||
@@ -90,6 +95,8 @@ function currentGroqConfig() {
   return {
     groqKey: (State.apiKeys && State.apiKeys.groq) ? String(State.apiKeys.groq) : '',
     groqModel: (State.models && State.models.groq) ? String(State.models.groq) : '',
+    // Em modo bloqueado, as ferramentas mantêm a chave SÓ em memória (não persistem).
+    locked: !!State.locked,
   };
 }
 
@@ -97,7 +104,7 @@ function currentGroqConfig() {
    A config (inclui a CHAVE de API) e os demais comandos só podem trafegar
    entre o app e os IFRAMES DAS NOSSAS FERRAMENTAS — nunca com janelas
    arbitrárias que consigam nos enviar mensagens. */
-const TOOL_FRAME_SELECTORS = ['#detectorFrame', '#autopostFrame', '#replicadorFrame', '#videograbFrame'];
+const TOOL_FRAME_SELECTORS = ['#detectorFrame', '#autopostFrame', '#replicadorFrame', '#videograbFrame', '#removedorFrame'];
 
 /** A mensagem veio de um dos iframes de ferramenta da plataforma? */
 function isToolFrameSource(e) {

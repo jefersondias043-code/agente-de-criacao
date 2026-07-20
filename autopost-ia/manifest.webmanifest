@@ -1,0 +1,24 @@
+{
+  "name": "AutoPost IA",
+  "short_name": "AutoPost IA",
+  "description": "Transforme áudio, vídeo ou texto em um pacote de publicação completo: título, legenda, hashtags e palavras-chave.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#faf8f4",
+  "theme_color": "#ff5b1f",
+  "orientation": "portrait",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

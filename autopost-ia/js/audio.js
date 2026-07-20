@@ -7,14 +7,42 @@
    16 kHz mono (MP3) ANTES de enviar, usando Web Audio + lamejs
    (encoder MP3 puro-JS em js/vendor/). SEM servidor, SEM CDN,
    SEM worker, SEM wasm → funciona até abrindo por file://.
+
+   COMPATÍVEL COM CELULAR (reescrito): a 1ª versão renderizava o
+   arquivo INTEIRO num único OfflineAudioContext e mantinha todas
+   as cópias (PCM completo + mono 16k + Int16) na memória ao mesmo
+   tempo — funcionava no computador, mas estourava os limites dos
+   navegadores móveis (iOS rejeita OfflineAudioContext gigantes e
+   o pico de memória matava a aba). Agora:
+     · a renderização é por FATIAS de ~40 s (um OfflineAudioContext
+       pequeno por fatia; pico de memória da etapa: ~3 MB);
+     · cada fatia é convertida e entregue ao encoder MP3 na hora,
+       nada além da fatia atual fica vivo;
+     · qualidade tem PISO de 32 kbps — quando o áudio é longo
+       demais pra caber em um único arquivo de 23 MB, ele é
+       DIVIDIDO automaticamente em partes (cada parte é um MP3
+       independente) e a transcrição junta os textos na ordem →
+       duração ilimitada sem degradar a qualidade;
+     · referências grandes são liberadas assim que deixam de ser
+       necessárias (o navegador recolhe a memória entre etapas).
    A Groq já reamostra pra 16 kHz mono no servidor, então isto é
-   só REDUÇÃO DE TAMANHO, sem perda extra.
+   só REDUÇÃO DE TAMANHO, sem perda extra na transcrição.
    ============================================================ */
 
 const GROQ_WHISPER_ENDPOINT = "https://api.groq.com/openai/v1/audio/transcriptions";
 const GROQ_WHISPER_MODEL = "whisper-large-v3";
-const WHISPER_MAX_BYTES = 25 * 1024 * 1024; // limite do free tier da Groq
+const WHISPER_MAX_BYTES = 25 * 1024 * 1024;  // limite do free tier da Groq
 const WHISPER_SAFE_BYTES = 23 * 1024 * 1024; // alvo com margem sob o limite de 25 MB
+
+// Qualidade do MP3 de voz: entre 32 (piso — nunca degradamos além disso;
+// abaixo passa a comprometer a transcrição) e 64 kbps (teto — acima não
+// melhora o Whisper e só aumenta o upload).
+const KBPS_PISO = 32;
+const KBPS_TETO = 64;
+
+// Tamanho da fatia de renderização (segundos). 40 s @ 16 kHz mono ≈ 2,5 MB
+// de PCM por vez — folgado até para celulares antigos.
+const FATIA_SEG = 40;
 
 // Lê o arquivo como ArrayBuffer, com fallback FileReader p/ navegadores móveis antigos.
 function lerArrayBuffer(arquivo) {
@@ -54,37 +82,72 @@ async function decodificarAudio(arquivo) {
   const ctx = new AC();
   try {
     if (ctx.state === 'suspended' && ctx.resume) { try { await ctx.resume(); } catch (_) {} }
-    const ab = await lerArrayBuffer(arquivo);
+    let ab = await lerArrayBuffer(arquivo);
     return await new Promise((resolve, reject) => {
       // forma com callbacks (compat. ampla) + também resolve se vier Promise (navegadores modernos)
       let p;
       try { p = ctx.decodeAudioData(ab, resolve, reject); } catch (e) { reject(e); return; }
       if (p && typeof p.then === 'function') p.then(resolve, reject);
+      ab = null; // o decoder já recebeu os bytes; libera a referência
     });
   } finally {
     if (ctx.close) { try { ctx.close(); } catch (_) {} }
   }
 }
 
-// Reamostra um AudioBuffer pra 16 kHz MONO e devolve um Float32Array (PCM).
-async function paraMono16k(audioBuf) {
+// Plano de compressão/divisão a partir da duração REAL do áudio (função pura,
+// verificável isolada): quantas partes e a que bitrate, respeitando o piso de
+// qualidade. 1 parte sempre que couber; N partes para durações muito longas.
+function planejarPartes(durSeg) {
+  const dur = Math.max(1, Number(durSeg) || 1);
+  // Bitrate que faria caber TUDO em um único arquivo seguro (23 MB).
+  let kbps = Math.floor((WHISPER_SAFE_BYTES * 8) / (dur * 1000));
+  if (kbps >= KBPS_PISO) {
+    return { partes: 1, kbps: Math.min(KBPS_TETO, kbps), segPorParte: dur };
+  }
+  // Não cabe com qualidade digna → divide no piso de qualidade.
+  const segMax = Math.floor((WHISPER_SAFE_BYTES * 8) / (KBPS_PISO * 1000)); // ~5750 s/parte
+  const partes = Math.ceil(dur / segMax);
+  return { partes, kbps: KBPS_PISO, segPorParte: dur / partes };
+}
+
+// Renderiza UMA fatia do áudio decodificado em 16 kHz MONO (Float32).
+// Cada fatia usa um OfflineAudioContext PEQUENO e independente — compatível
+// com os limites do iOS e com memória de pico mínima.
+async function renderizarFatia16k(audioBuf, offsetSeg, durSeg) {
   const TAXA = 16000;
   const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   if (!OAC) throw new Error('Seu navegador não suporta OfflineAudioContext.');
-  const frames = Math.max(1, Math.ceil(audioBuf.duration * TAXA));
+  const frames = Math.max(1, Math.ceil(durSeg * TAXA));
   const off = new OAC(1, frames, TAXA);
   const src = off.createBufferSource();
   src.buffer = audioBuf;
-  src.connect(off.destination); // 1 canal no destino → downmix automático pra mono
-  src.start(0);
+  src.connect(off.destination);        // 1 canal no destino → downmix automático pra mono
+  src.start(0, offsetSeg, durSeg);     // offset/duração em segundos DO BUFFER (resample automático)
   const rendered = await off.startRendering();
-  return rendered.getChannelData(0); // Float32 @ 16 kHz mono
+  return rendered.getChannelData(0);   // Float32 @ 16 kHz mono (só a fatia)
 }
 
-// Otimiza o arquivo se passar do limite seguro. Retorna { arquivo, otimizado, de, para }.
+// Float32 [-1,1] → Int16 (da fatia atual apenas).
+function fatiaParaInt16(f32) {
+  const n = f32.length;
+  const i16 = new Int16Array(n);
+  for (let i = 0; i < n; i++) {
+    const s = f32[i] < -1 ? -1 : (f32[i] > 1 ? 1 : f32[i]);
+    i16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return i16;
+}
+
+// Otimiza o arquivo se passar do limite seguro.
+// Retorna { arquivos: [File, …], otimizado, de, para }. Quando o áudio é longo
+// demais pra um único MP3 de 23 MB com qualidade digna, `arquivos` traz VÁRIAS
+// partes (cada uma um MP3 independente) — transcreverPartes() junta os textos.
 async function otimizarArquivo(arquivo, onProgress) {
   if (!arquivo) throw new Error('Nenhum arquivo selecionado.');
-  if (arquivo.size <= WHISPER_SAFE_BYTES) return { arquivo, otimizado: false, de: arquivo.size, para: arquivo.size };
+  if (arquivo.size <= WHISPER_SAFE_BYTES) {
+    return { arquivos: [arquivo], otimizado: false, de: arquivo.size, para: arquivo.size };
+  }
 
   if (typeof lamejs === 'undefined' || !lamejs.Mp3Encoder) {
     throw new Error('O compactador de áudio (embutido) não carregou. Recarregue a página e tente de novo.');
@@ -96,54 +159,68 @@ async function otimizarArquivo(arquivo, onProgress) {
   try {
     audioBuf = await decodificarAudio(arquivo);
   } catch (e) {
-    throw new Error('Não foi possível abrir este arquivo. Tente um formato comum de áudio (MP3, M4A, WAV) ou de vídeo (MP4, MOV, WebM).');
+    throw new Error('Não foi possível abrir este arquivo neste aparelho. Pode ser um formato incompatível — tente MP3, M4A, WAV, MP4, MOV ou WebM — ou um vídeo longo demais para a memória do dispositivo (nesse caso, tente um trecho menor ou envie pelo computador).');
   }
-  const dur = audioBuf.duration || 0;
 
-  // 2) reamostra p/ 16 kHz mono
-  if (onProgress) onProgress('Preparando o áudio…');
-  const f32 = await paraMono16k(audioBuf);
-  audioBuf = null; // libera o PCM grande
-  const n = f32.length;
+  // Duração REAL vem do próprio buffer (sempre disponível, ao contrário dos
+  // metadados do contêiner, que às vezes faltam).
+  const durTotal = audioBuf.length / audioBuf.sampleRate;
+  const plano = planejarPartes(durTotal);
 
-  // 3) Float32 [-1,1] -> Int16
-  const i16 = new Int16Array(n);
-  for (let i = 0; i < n; i++) { const s = f32[i] < -1 ? -1 : (f32[i] > 1 ? 1 : f32[i]); i16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF; }
-
-  // 4) bitrate alvo pra caber em WHISPER_SAFE_BYTES (16..64 kbps; sem duração → 48)
-  const segundos = dur || (n / 16000);
-  let kbps = segundos ? Math.floor((WHISPER_SAFE_BYTES * 8) / (segundos * 1000)) : 48;
-  kbps = Math.max(16, Math.min(64, kbps));
-
-  // 5) encoda MP3 em blocos, cedendo o controle pra UI não travar + progresso
-  if (onProgress) onProgress('Preparando o arquivo…');
-  const enc = new lamejs.Mp3Encoder(1, 16000, kbps);
-  const BLOCO = 1152 * 100; // ~115k amostras por passo
-  const partes = [];
-  let passo = 0;
-  for (let i = 0; i < n; i += BLOCO) {
-    const buf = enc.encodeBuffer(i16.subarray(i, Math.min(n, i + BLOCO)));
-    if (buf.length) partes.push(new Uint8Array(buf));
-    if (onProgress) onProgress('Preparando o arquivo… ' + Math.min(100, Math.round(((i + BLOCO) / n) * 100)) + '%');
-    if ((++passo % 4) === 0) await new Promise(r => setTimeout(r, 0)); // cede o controle pra UI respirar
-  }
-  const fim = enc.flush();
-  if (fim && fim.length) partes.push(new Uint8Array(fim));
-
+  // 2) renderiza em FATIAS e entrega direto ao encoder MP3 (nada acumula além
+  //    da fatia atual). Cada PARTE tem seu próprio encoder + flush → cada
+  //    arquivo de saída é um MP3 completo e válido.
   const baseNome = ((arquivo.name || 'audio').replace(/\.[^.]+$/, '')) || 'audio';
-  const saida = new File(partes, baseNome + '.mp3', { type: 'audio/mpeg' });
+  const arquivos = [];
+  let segProcessados = 0;
 
-  if (saida.size > WHISPER_MAX_BYTES) {
-    throw new Error('Este conteúdo é muito longo para transcrever de uma vez. Tente dividi-lo em partes menores.');
+  for (let p = 0; p < plano.partes; p++) {
+    const inicio = p * plano.segPorParte;
+    const fim = Math.min(durTotal, (p + 1) * plano.segPorParte);
+    const enc = new lamejs.Mp3Encoder(1, 16000, plano.kbps);
+    const pedacos = [];
+
+    for (let off = inicio; off < fim; off += FATIA_SEG) {
+      const durFatia = Math.min(FATIA_SEG, fim - off);
+      const f32 = await renderizarFatia16k(audioBuf, off, durFatia);
+      const i16 = fatiaParaInt16(f32);
+      // alimenta o encoder em blocos (múltiplos do frame do MP3)
+      const BLOCO = 1152 * 100;
+      for (let i = 0; i < i16.length; i += BLOCO) {
+        const buf = enc.encodeBuffer(i16.subarray(i, Math.min(i16.length, i + BLOCO)));
+        if (buf.length) pedacos.push(new Uint8Array(buf));
+      }
+      segProcessados += durFatia;
+      if (onProgress) {
+        const pct = Math.min(100, Math.round((segProcessados / durTotal) * 100));
+        onProgress('Preparando o arquivo… ' + pct + '%' +
+          (plano.partes > 1 ? ' · será enviado em ' + plano.partes + ' partes' : ''));
+      }
+      await new Promise(r => setTimeout(r, 0)); // cede o controle pra UI respirar
+    }
+
+    const fimEnc = enc.flush();
+    if (fimEnc && fimEnc.length) pedacos.push(new Uint8Array(fimEnc));
+    const nome = plano.partes > 1 ? `${baseNome}.parte${p + 1}.mp3` : `${baseNome}.mp3`;
+    const saida = new File(pedacos, nome, { type: 'audio/mpeg' });
+    if (saida.size > WHISPER_MAX_BYTES) {
+      // Salvaguarda (não deve ocorrer com a margem de 23 MB): melhor um erro
+      // claro do que um 413 da API.
+      throw new Error('Não foi possível compactar este conteúdo o suficiente. Tente dividi-lo em partes menores.');
+    }
+    arquivos.push(saida);
   }
-  return { arquivo: saida, otimizado: true, de: arquivo.size, para: saida.size };
+
+  audioBuf = null; // libera o PCM decodificado (a maior alocação do processo)
+
+  const totalSaida = arquivos.reduce((acc, f) => acc + f.size, 0);
+  return { arquivos, otimizado: true, de: arquivo.size, para: totalSaida };
 }
 
-// Transcreve um arquivo de áudio/vídeo enviando-o à API de transcrição da Groq
-// (Whisper large v3, OpenAI-compatível). Lê o arquivo DIRETO — sem microfone e
-// sem tocar o áudio. Precisa de internet e consome cota da Groq.
+// Transcreve UM arquivo de áudio/vídeo (≤ 25 MB) enviando-o à API de
+// transcrição da Groq (Whisper large v3, OpenAI-compatível). Lê o arquivo
+// DIRETO — sem microfone e sem tocar o áudio. Precisa de internet.
 //   • acurácia alta (~98%), pt-BR nativo;
-//   • limite de ~25 MB por arquivo (free tier da Groq);
 //   • aceita áudio (MP3, WAV, M4A, FLAC, OGG…) e vídeo com trilha (MP4, WebM…).
 // onProgress(msg) é um callback opcional pra atualizar o status na tela.
 async function transcreverMedia(arquivo, onProgress) {
@@ -202,4 +279,20 @@ async function transcreverMedia(arquivo, onProgress) {
     if (!texto) throw new Error('Não encontramos fala neste arquivo. Verifique se há áudio audível e tente outro.');
     return texto;
   }
+}
+
+// Transcreve a LISTA de arquivos preparada por otimizarArquivo (1..N partes),
+// em sequência, e devolve o texto completo na ordem. Com várias partes, o
+// progresso indica "parte i de N".
+async function transcreverPartes(arquivos, onProgress) {
+  const lista = Array.isArray(arquivos) ? arquivos : [arquivos];
+  const textos = [];
+  for (let i = 0; i < lista.length; i++) {
+    const prefixo = lista.length > 1 ? `Parte ${i + 1} de ${lista.length} · ` : '';
+    const texto = await transcreverMedia(lista[i], (msg) => {
+      if (onProgress) onProgress(prefixo + msg);
+    });
+    textos.push(texto);
+  }
+  return textos.join('\n\n');
 }

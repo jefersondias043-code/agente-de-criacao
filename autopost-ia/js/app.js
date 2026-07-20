@@ -122,6 +122,12 @@ async function run() {
   btn.textContent = '⚙ Processando…';
   const out = $('output');
 
+  // Mantém a tela ACESA durante o processamento (no celular, a tela apagando
+  // no meio suspende a aba e mata a preparação/transcrição de arquivos longos).
+  // Sem suporte (file://, navegadores antigos) é ignorado sem efeito.
+  let wakeLock = null;
+  try { if (navigator.wakeLock && window.isSecureContext) wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
+
   // Avança o assistente para a etapa 2 (Processar).
   setWizardStep(2);
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -165,10 +171,16 @@ async function run() {
       stepsT[0].desc = `${arquivo.name} · texto carregado`;
       mostraT();
     } else {
-      // Áudio/vídeo → otimiza se passar de 25 MB e transcreve (progresso atualiza o passo 0).
+      // Áudio/vídeo → otimiza se passar de 25 MB (renderização em fatias +
+      // divisão automática em partes quando muito longo — compatível com
+      // celular) e transcreve tudo em sequência (progresso no passo 0).
       const prep = await otimizarArquivo(arquivo, (msg) => { stepsT[0].desc = msg; mostraT(); });
-      if (prep.otimizado) { stepsT[0].desc = `${arquivo.name} · arquivo preparado · transcrevendo…`; mostraT(); }
-      transcricao = await transcreverMedia(prep.arquivo, (msg) => { stepsT[0].desc = msg; mostraT(); });
+      if (prep.otimizado) {
+        const nPartes = prep.arquivos.length;
+        stepsT[0].desc = `${arquivo.name} · arquivo preparado${nPartes > 1 ? ` em ${nPartes} partes` : ''} · transcrevendo…`;
+        mostraT();
+      }
+      transcricao = await transcreverPartes(prep.arquivos, (msg) => { stepsT[0].desc = msg; mostraT(); });
       stepsT[0].state = 'done';
       stepsT[0].desc = `${arquivo.name} · transcrição concluída`;
       mostraT();
@@ -294,6 +306,7 @@ ${transcricao}
       </div>` +
       `<button type="button" class="btn-reset" data-wizard-reset>← Voltar e tentar outro arquivo</button>`;
   } finally {
+    try { if (wakeLock) wakeLock.release(); } catch (_) {}
     btn.textContent = '⚡ Gerar pacote';
     // O botão fica oculto nas etapas 2/3; é reabilitado pelo resetWizard ao voltar à etapa 1.
   }

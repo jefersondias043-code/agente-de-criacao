@@ -2,7 +2,7 @@
    Estratégia: cache-first para os arquivos do app (carrega instantâneo e
    funciona offline na interface); as chamadas de API (Groq) NUNCA são
    interceptadas — vão sempre à rede. Suba a versão ao publicar mudanças. */
-const CACHE = 'autopost-v2';
+const CACHE = 'autopost-v3';
 const URLS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const URLS = [
   './js/bridge.js',
   './js/config.js',
   './js/api.js',
+  './js/demux.js',
   './js/audio.js',
   './js/package.js',
   './js/analysis.js',

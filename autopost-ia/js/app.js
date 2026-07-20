@@ -454,8 +454,18 @@ updateHistBadge();
 histHydrate();  // carrega o histórico do IndexedDB (capacidade = dispositivo)
 
 // PWA: registra o service worker (só em http/https — file:// não suporta).
+// Auto-atualização: quando uma versão nova assume o controle (skipWaiting no
+// SW), recarrega UMA vez pra aplicar na hora — sem isso, o celular podia rodar
+// código antigo do cache até dois fechamentos do app.
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  const jaControlado = !!navigator.serviceWorker.controller;
+  let recarregou = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!jaControlado || recarregou) return; // 1ª instalação não recarrega
+    recarregou = true;
+    location.reload();
+  });
   addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }).catch(() => {});
   });
 }

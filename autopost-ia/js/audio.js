@@ -143,6 +143,14 @@ function fatiaParaInt16(f32) {
 // Retorna { arquivos: [File, …], otimizado, de, para }. Quando o áudio é longo
 // demais pra um único MP3 de 23 MB com qualidade digna, `arquivos` traz VÁRIAS
 // partes (cada uma um MP3 independente) — transcreverPartes() junta os textos.
+//
+// STREAMING de ponta a ponta: a fonte (demux.js) entrega o áudio em segmentos
+// de ~48 s já em 16 kHz mono — MP4/MOV/M4A via extração AAC→ADTS por faixa de
+// bytes (ESSENCIAL no iPhone: o Safari não decodifica áudio de contêiner de
+// vídeo, e o arquivo nunca é carregado inteiro na memória), MP3 via fatias de
+// bytes, e demais formatos via decodificação completa (fallback). Cada
+// segmento vai direto ao encoder; as PARTES são cortadas pelo TAMANHO SEGURO
+// real (não pela estimativa), então nunca estouram o limite da API.
 async function otimizarArquivo(arquivo, onProgress) {
   if (!arquivo) throw new Error('Nenhum arquivo selecionado.');
   if (arquivo.size <= WHISPER_SAFE_BYTES) {
@@ -153,68 +161,73 @@ async function otimizarArquivo(arquivo, onProgress) {
     throw new Error('O compactador de áudio (embutido) não carregou. Recarregue a página e tente de novo.');
   }
 
-  // 1) decodifica (áudio, ou a faixa de áudio de um vídeo suportado pelo navegador)
   if (onProgress) onProgress('Lendo o áudio…');
-  let audioBuf;
+  let fonte;
   try {
-    audioBuf = await decodificarAudio(arquivo);
+    fonte = await abrirFonteAudio(arquivo);
   } catch (e) {
-    throw new Error('Não foi possível abrir este arquivo neste aparelho. Pode ser um formato incompatível — tente MP3, M4A, WAV, MP4, MOV ou WebM — ou um vídeo longo demais para a memória do dispositivo (nesse caso, tente um trecho menor ou envie pelo computador).');
+    throw new Error('Não foi possível abrir este arquivo neste aparelho. Pode ser um formato incompatível — tente MP3, M4A, WAV, MP4 ou MOV — ou um arquivo longo demais para a memória do dispositivo (nesse caso, tente um trecho menor ou envie pelo computador).');
   }
 
-  // Duração REAL vem do próprio buffer (sempre disponível, ao contrário dos
-  // metadados do contêiner, que às vezes faltam).
-  const durTotal = audioBuf.length / audioBuf.sampleRate;
-  const plano = planejarPartes(durTotal);
+  try {
+    const plano = planejarPartes(fonte.dur);
+    // Corte REAL das partes: pela duração que cabe em 23 MB no bitrate escolhido
+    // (independe da estimativa de duração — MP3 sem Xing, por exemplo).
+    const segPorParteSeguro = Math.floor((WHISPER_SAFE_BYTES * 8) / (plano.kbps * 1000));
+    const baseNome = ((arquivo.name || 'audio').replace(/\.[^.]+$/, '')) || 'audio';
 
-  // 2) renderiza em FATIAS e entrega direto ao encoder MP3 (nada acumula além
-  //    da fatia atual). Cada PARTE tem seu próprio encoder + flush → cada
-  //    arquivo de saída é um MP3 completo e válido.
-  const baseNome = ((arquivo.name || 'audio').replace(/\.[^.]+$/, '')) || 'audio';
-  const arquivos = [];
-  let segProcessados = 0;
+    const arquivos = [];
+    let enc = null, pedacos = [], durParte = 0, durProcessada = 0;
 
-  for (let p = 0; p < plano.partes; p++) {
-    const inicio = p * plano.segPorParte;
-    const fim = Math.min(durTotal, (p + 1) * plano.segPorParte);
-    const enc = new lamejs.Mp3Encoder(1, 16000, plano.kbps);
-    const pedacos = [];
+    const fecharParte = () => {
+      if (!enc) return;
+      const fim = enc.flush();
+      if (fim && fim.length) pedacos.push(new Uint8Array(fim));
+      const saida = new File(pedacos, `${baseNome}.mp3`, { type: 'audio/mpeg' });
+      if (saida.size > WHISPER_MAX_BYTES) {
+        throw new Error('Não foi possível compactar este conteúdo o suficiente. Tente dividi-lo em partes menores.');
+      }
+      arquivos.push(saida);
+      enc = null; pedacos = []; durParte = 0;
+    };
 
-    for (let off = inicio; off < fim; off += FATIA_SEG) {
-      const durFatia = Math.min(FATIA_SEG, fim - off);
-      const f32 = await renderizarFatia16k(audioBuf, off, durFatia);
+    for (let i = 0; i < fonte.nSegs; i++) {
+      const f32 = await fonte.segmento(i);
+      const durSeg = f32.length / 16000;
+      if (enc && durParte + durSeg > segPorParteSeguro) fecharParte();
+      if (!enc) enc = new lamejs.Mp3Encoder(1, 16000, plano.kbps);
+
       const i16 = fatiaParaInt16(f32);
-      // alimenta o encoder em blocos (múltiplos do frame do MP3)
       const BLOCO = 1152 * 100;
-      for (let i = 0; i < i16.length; i += BLOCO) {
-        const buf = enc.encodeBuffer(i16.subarray(i, Math.min(i16.length, i + BLOCO)));
+      for (let k = 0; k < i16.length; k += BLOCO) {
+        const buf = enc.encodeBuffer(i16.subarray(k, Math.min(i16.length, k + BLOCO)));
         if (buf.length) pedacos.push(new Uint8Array(buf));
       }
-      segProcessados += durFatia;
+      durParte += durSeg; durProcessada += durSeg;
       if (onProgress) {
-        const pct = Math.min(100, Math.round((segProcessados / durTotal) * 100));
+        const pct = Math.min(100, Math.round(((i + 1) / fonte.nSegs) * 100));
         onProgress('Preparando o arquivo… ' + pct + '%' +
-          (plano.partes > 1 ? ' · será enviado em ' + plano.partes + ' partes' : ''));
+          (plano.partes > 1 ? ' · será enviado em ~' + plano.partes + ' partes' : ''));
       }
       await new Promise(r => setTimeout(r, 0)); // cede o controle pra UI respirar
     }
+    fecharParte();
 
-    const fimEnc = enc.flush();
-    if (fimEnc && fimEnc.length) pedacos.push(new Uint8Array(fimEnc));
-    const nome = plano.partes > 1 ? `${baseNome}.parte${p + 1}.mp3` : `${baseNome}.mp3`;
-    const saida = new File(pedacos, nome, { type: 'audio/mpeg' });
-    if (saida.size > WHISPER_MAX_BYTES) {
-      // Salvaguarda (não deve ocorrer com a margem de 23 MB): melhor um erro
-      // claro do que um 413 da API.
-      throw new Error('Não foi possível compactar este conteúdo o suficiente. Tente dividi-lo em partes menores.');
+    if (!arquivos.length || !durProcessada) {
+      throw new Error('Não encontramos áudio aproveitável neste arquivo.');
     }
-    arquivos.push(saida);
+    // Nomeia as partes quando houver mais de uma (a transcrição mostra "parte i de N").
+    if (arquivos.length > 1) {
+      arquivos.forEach((f, i2) => {
+        arquivos[i2] = new File([f], `${baseNome}.parte${i2 + 1}.mp3`, { type: 'audio/mpeg' });
+      });
+    }
+
+    const totalSaida = arquivos.reduce((acc, f) => acc + f.size, 0);
+    return { arquivos, otimizado: true, de: arquivo.size, para: totalSaida };
+  } finally {
+    try { fonte.fechar(); } catch (_) {}
   }
-
-  audioBuf = null; // libera o PCM decodificado (a maior alocação do processo)
-
-  const totalSaida = arquivos.reduce((acc, f) => acc + f.size, 0);
-  return { arquivos, otimizado: true, de: arquivo.size, para: totalSaida };
 }
 
 // Transcreve UM arquivo de áudio/vídeo (≤ 25 MB) enviando-o à API de

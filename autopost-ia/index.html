@@ -4,8 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="AutoPost IA — transforme áudio, vídeo ou texto em um pacote de publicação completo: título, legenda, hashtags e palavras-chave.">
-<meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0a0a0a">
+<!-- Aplica o tema ANTES da 1ª pintura (sem flash): padrão ESCURO; respeita a
+     escolha salva do usuário (Escuro/Claro/Sistema). Roda inline de propósito. -->
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('autopost:tema') || 'dark';
+      if (t !== 'dark' && t !== 'light' && t !== 'system') t = 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
 <title>AutoPost IA · Áudio/Vídeo → Pacote de Publicação</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
@@ -114,6 +126,14 @@
   <div class="modal-card">
     <div class="modal-title" id="settingsTitle">Configurações</div>
     <p class="modal-sub" id="settingsMotivo"></p>
+    <div class="field">
+      <label>Tema</label>
+      <div class="seg" id="themeSeg" role="group" aria-label="Escolha do tema">
+        <button type="button" class="seg-btn" data-tema="dark" aria-pressed="true">🌙 Escuro</button>
+        <button type="button" class="seg-btn" data-tema="light" aria-pressed="false">☀️ Claro</button>
+        <button type="button" class="seg-btn" data-tema="system" aria-pressed="false">⚙️ Sistema</button>
+      </div>
+    </div>
     <p class="modal-sub">O AutoPost IA usa a API gratuita da <strong>Groq</strong> para transcrever e gerar os pacotes.
       Crie sua chave (começa com <code>gsk_</code>) em
       <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">console.groq.com/keys</a>.

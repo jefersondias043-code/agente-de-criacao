@@ -77,8 +77,70 @@ async function getGroqKey() {
   return await _abrirModalChave('Para gerar o pacote, cole sua chave da API Groq (gratuita).');
 }
 
+/* ============================================================
+   TEMA — Escuro (padrão) · Claro · Sistema.
+   Aplicado via atributo [data-theme] no <html>. Um script inline no
+   <head> já define o data-theme antes da 1ª pintura (sem flash); aqui
+   sincronizamos o seletor, o theme-color do navegador e a resposta ao
+   modo "Sistema" quando o dispositivo troca de tema.
+   ============================================================ */
+const TEMA_KEY = 'autopost:tema';
+const TEMA_CORES = { dark: '#0a0a0a', light: '#faf8f4' };
+
+function temaAtual() {
+  try {
+    const t = localStorage.getItem(TEMA_KEY);
+    return (t === 'dark' || t === 'light' || t === 'system') ? t : 'dark';
+  } catch (_) { return 'dark'; }
+}
+
+// Cor da barra do navegador (theme-color) para o tema efetivo.
+function _corTema(t) {
+  if (t === 'system') {
+    const escuro = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return escuro ? TEMA_CORES.dark : TEMA_CORES.light;
+  }
+  return TEMA_CORES[t] || TEMA_CORES.dark;
+}
+
+function aplicarTema(t, persistir) {
+  if (t !== 'dark' && t !== 'light' && t !== 'system') t = 'dark';
+  const root = document.documentElement;
+  // Desliga transições por 1 frame (troca instantânea + evita o artefato do
+  // Chromium com cores var() transicionadas).
+  root.classList.add('theme-switching');
+  root.setAttribute('data-theme', t);
+  void root.offsetWidth; // força reflow com as transições desligadas (troca instantânea)
+  // setTimeout (não rAF): dispara mesmo com a aba em segundo plano, então a
+  // classe nunca fica presa desligando as transições normais (hover etc.).
+  setTimeout(() => root.classList.remove('theme-switching'), 50);
+  if (persistir) { try { localStorage.setItem(TEMA_KEY, t); } catch (_) {} }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', _corTema(t));
+  const seg = document.getElementById('themeSeg');
+  if (seg) seg.querySelectorAll('.seg-btn').forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset.tema === t));
+  });
+}
+
+function initThemeUI() {
+  aplicarTema(temaAtual(), false); // alinha meta + seletor (o data-theme já veio do inline)
+  const seg = document.getElementById('themeSeg');
+  if (seg) seg.querySelectorAll('.seg-btn').forEach(b => {
+    b.addEventListener('click', () => aplicarTema(b.dataset.tema, true));
+  });
+  // Modo "Sistema": acompanha a troca de tema do dispositivo em tempo real.
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => { if (temaAtual() === 'system') aplicarTema('system', false); };
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  }
+}
+
 // Liga os controles do modal (chamado no boot pelo app.js).
 function initConfigUI() {
+  initThemeUI(); // tema sempre inicializa (independe do resto do modal)
   const modal = $('settingsModal');
   if (!modal) return;
   const btnOpen = $('settingsBtn');

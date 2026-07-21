@@ -7,8 +7,47 @@
    Todas as superfícies usam variáveis — nada de cor fixa por tema.
    ============================================================ */
 
-:root {
-  /* Tema CLARO (padrão) */
+/* ===== TEMAS =====
+   Padrão do app = ESCURO (design original). O usuário escolhe em
+   Configurações: Escuro · Claro · Sistema (segue o dispositivo). O tema é
+   aplicado via atributo [data-theme] no <html> (js/config.js). O ESCURO é
+   também a base do :root — assim a PRIMEIRA pintura já é escura (sem flash),
+   mesmo antes do JS rodar. Os blocos de tokens escuros aparecem 2× de
+   propósito (base + "Sistema no escuro"). */
+
+/* ESCURO — padrão do app e escolha explícita */
+:root,
+:root[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --bg-elev: #141414;
+  --bg-card: #181818;
+  --ink: #f5f1e8;
+  --ink-dim: #a8a39a;
+  --ink-faded: #6b6760;
+  --accent: #ff5b1f;
+  --accent-hover: #ff6f3a;
+  --accent-glow: #ff5b1f33;
+  --on-accent: #0a0a0a;
+  --line: #2a2824;
+  --line-soft: #1f1d1a;
+  --pass: #7fb069;
+  --pass-bg: #1a2a1a;
+  --fail: #d64545;
+  --fail-bg: #2a1414;
+  --warn: #ffb800;
+  --warn-bg: #2a2008;
+  --surface-deep: #0d0d0d;
+  --bg-image:
+    radial-gradient(at 10% 0%, #1f140d 0%, transparent 40%),
+    radial-gradient(at 90% 100%, #0d1418 0%, transparent 45%);
+  --grad-package: linear-gradient(90deg, #1a1208, var(--bg-card));
+  --grad-final: linear-gradient(90deg, #0f1a0c, var(--bg-card));
+  --grad-final-warn: linear-gradient(90deg, #1a1408, var(--bg-card));
+}
+
+/* CLARO — escolha explícita, ou "Sistema" quando o dispositivo está claro */
+:root[data-theme="light"],
+:root[data-theme="system"] {
   --bg: #faf8f4;
   --bg-elev: #f3efe7;
   --bg-card: #ffffff;
@@ -27,7 +66,6 @@
   --fail-bg: #f7e9e6;
   --warn: #c98a2b;
   --warn-bg: #fbf2dc;
-  /* Superfície "profunda" dos conteúdos gerados (era #0d0d0d no escuro) */
   --surface-deep: #ffffff;
   --bg-image:
     radial-gradient(at 25% 10%, rgba(184, 52, 28, 0.04) 0%, transparent 45%),
@@ -37,9 +75,9 @@
   --grad-final-warn: var(--warn-bg);
 }
 
+/* SISTEMA — quando o dispositivo está no modo escuro, volta ao escuro */
 @media (prefers-color-scheme: dark) {
-  :root {
-    /* Tema ESCURO (design original do AutoPost IA) */
+  :root[data-theme="system"] {
     --bg: #0a0a0a;
     --bg-elev: #141414;
     --bg-card: #181818;
@@ -70,6 +108,14 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
+
+/* Troca de tema INSTANTÂNEA: durante o swap desligamos as transições. Além de
+   evitar um fade estranho, contorna um artefato do Chromium em que uma cor
+   baseada em var() com `transition` fica "presa" no valor antigo quando a
+   variável muda. Ativado por 1 frame pelo js/config.js (aplicarTema). */
+:root.theme-switching * {
+  transition: none !important;
+}
 body {
   background: var(--bg);
   color: var(--ink);
@@ -867,6 +913,40 @@ input:focus, select:focus, textarea:focus {
   cursor: pointer; text-transform: uppercase;
 }
 .key-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Seletor segmentado (tema: Escuro · Claro · Sistema) */
+.seg {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.seg-btn {
+  flex: 1;
+  width: auto;
+  margin: 0;
+  background: transparent;
+  border: none;
+  color: var(--ink-dim);
+  padding: 9px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.seg-btn:hover { color: var(--ink); }
+.seg-btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
 
 /* ===== RESPONSIVO ===== */
 @media (max-width: 880px) {

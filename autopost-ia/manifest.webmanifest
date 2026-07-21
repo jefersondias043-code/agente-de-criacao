@@ -4,8 +4,8 @@
   "description": "Transforme áudio, vídeo ou texto em um pacote de publicação completo: título, legenda, hashtags e palavras-chave.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#faf8f4",
-  "theme_color": "#ff5b1f",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
   "orientation": "portrait",
   "lang": "pt-BR",
   "icons": [

@@ -175,3 +175,65 @@ Avalie cada critério da rubrica agora. Seja honesto e rigoroso. Devolva APENAS 
   }
   return resultado;
 }
+
+// =================== VARIAÇÃO DE UM ÚNICO ITEM (regeneração por card) ===================
+// Gera uma NOVA versão de UM campo do pacote (título/legenda/hashtags/palavras-
+// chave), mantendo coerência com o resto e respeitando as mesmas regras/opções.
+// Devolve o valor novo desse campo (string, ou array para hashtags/palavras).
+async function gerarVariacaoCampo(campo, roteiro, pacoteAtual, briefing) {
+  const p = pacoteAtual || {};
+  const hashtagsAtual = Array.isArray(p.hashtags)
+    ? p.hashtags.map(h => '#' + (typeof h === 'string' ? h : (h && h.tag) || '')).join(' ')
+    : '';
+  const kwAtual = Array.isArray(p.palavras_chave) ? p.palavras_chave.join(', ') : '';
+  const ctxChecklist = checklistParaTexto(briefing && briefing.checklist);
+  const prefs = [
+    ctxChecklist,
+    (briefing && briefing.tone) ? `Tom desejado: ${briefing.tone}` : ''
+  ].filter(Boolean).join('\n');
+
+  const contexto = `==== CONTEÚDO (ÚNICA FONTE — não invente fatos fora dele) ====
+${roteiro}
+
+==== PACOTE ATUAL (mantenha coerência; gere algo DIFERENTE só do item pedido) ====
+Título: ${p.titulo || '(vazio)'}
+Legenda: ${p.legenda || '(vazio)'}
+Hashtags: ${hashtagsAtual || '(vazias)'}
+Palavras-chave: ${kwAtual || '(vazias)'}${prefs ? `\n\n==== PREFERÊNCIAS DO USUÁRIO ====\n${prefs}` : ''}`;
+
+  if (campo === 'titulo') {
+    const sys = `Você é especialista em copywriting para vídeo curto (TikTok/Reels/Shorts) no mercado brasileiro. Gere UMA NOVA versão do TÍTULO, claramente DIFERENTE da atual, coerente com a legenda e o conteúdo.
+==== REGRAS DO TÍTULO ====
+- Entre 50 e 80 caracteres; abre loop/curiosidade sem entregar o desfecho; sem clickbait barato; linguagem de fala natural; pode usar até 1 emoji.
+RESPONDA APENAS COM JSON: {"titulo": "..."}`;
+    const r = await callLLM(sys, contexto + '\n\nGere só um novo título. Devolva APENAS o JSON.', true, 300);
+    return String((r && r.titulo) || '').trim();
+  }
+
+  if (campo === 'legenda') {
+    const sys = `Você é especialista em copywriting para vídeo curto (TikTok/Reels/Shorts) no mercado brasileiro. Gere UMA NOVA versão da LEGENDA, claramente DIFERENTE da atual, coerente com o título e o conteúdo.
+==== REGRAS DA LEGENDA ====
+- Entre 150 e 300 caracteres; os primeiros 80–100 prendem; termina com UMA pergunta ao espectador; até 2 emojis; NÃO inclua hashtags.
+RESPONDA APENAS COM JSON: {"legenda": "..."}`;
+    const r = await callLLM(sys, contexto + '\n\nGere só uma nova legenda. Devolva APENAS o JSON.', true, 400);
+    return String((r && r.legenda) || '').trim();
+  }
+
+  if (campo === 'hashtags') {
+    const sys = `Você é especialista em SEO para vídeo curto no mercado brasileiro. Gere um NOVO conjunto de 5 HASHTAGS, DIFERENTE do atual, coerente com o conteúdo.
+${REGRAS_HASHTAGS}
+RESPONDA APENAS COM JSON: {"hashtags":[{"tag":"...","tipo":"ampla|assunto|nicho|intencao"}, ...5 itens]}`;
+    const r = await callLLM(sys, contexto + '\n\nGere 5 novas hashtags estratificadas. Devolva APENAS o JSON.', true, 400);
+    return Array.isArray(r && r.hashtags) ? r.hashtags : [];
+  }
+
+  if (campo === 'palavras_chave') {
+    const sys = `Você é especialista em SEO para vídeo curto no mercado brasileiro. Gere um NOVO conjunto de ~10 PALAVRAS-CHAVE, DIFERENTE do atual, coerente com o conteúdo.
+${REGRAS_PALAVRAS_CHAVE}
+RESPONDA APENAS COM JSON: {"palavras_chave":["...", ...]}`;
+    const r = await callLLM(sys, contexto + '\n\nGere ~10 novas palavras-chave. Devolva APENAS o JSON.', true, 400);
+    return Array.isArray(r && r.palavras_chave) ? r.palavras_chave : [];
+  }
+
+  throw new Error('Campo desconhecido: ' + campo);
+}

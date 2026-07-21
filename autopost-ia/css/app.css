@@ -988,6 +988,91 @@ input:focus, select:focus, textarea:focus {
   .script-box { padding: 16px; }
 }
 
+/* ===== ETAPA REVISAR (texto editável + opções de geração) ===== */
+.review-field { margin-bottom: 14px; }
+.review-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+#reviewText { min-height: 180px; line-height: 1.6; }
+#review-loading:empty { display: none; }
+
+.opts {
+  margin: 4px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-elev);
+  overflow: hidden;
+}
+.opts > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.opts > summary::-webkit-details-marker { display: none; }
+.opts > summary::after { content: '▾'; color: var(--ink-faded); }
+.opts[open] > summary::after { content: '▴'; }
+.opts-grid { padding: 2px 14px 14px; display: grid; gap: 12px; }
+.opts-grid .review-field { margin: 0; }
+@media (min-width: 560px) { .opts-grid { grid-template-columns: 1fr 1fr 1fr; } }
+
+/* Botão "gerar outra versão" (🔄) por item do pacote */
+.regen-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  padding: 5px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s;
+}
+.regen-btn:hover { color: var(--accent); border-color: var(--accent); }
+.regen-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* ===== TOAST (feedback transitório) ===== */
+#toastHost {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+  z-index: 60;
+}
+.toast {
+  background: var(--ink);
+  color: var(--bg);
+  padding: 11px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.5);
+  max-width: 90%;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.25s, transform 0.25s;
+}
+.toast.show { opacity: 1; transform: none; }
+.toast.error { background: var(--fail); color: #ffffff; }
+
 /* Redução de movimento (acessibilidade) */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

@@ -62,11 +62,11 @@
 
   <div class="wizard">
 
-    <!-- Assistente em 3 etapas: 1 Enviar · 2 Processar · 3 Pacote -->
+    <!-- Assistente em 3 etapas: 1 Enviar · 2 Revisar · 3 Pacote -->
     <ol class="stepper" id="stepper">
       <li class="step-node active" data-step="1"><span class="step-dot">1</span><span class="step-label">Enviar</span></li>
       <li class="step-bar" aria-hidden="true"></li>
-      <li class="step-node" data-step="2"><span class="step-dot">2</span><span class="step-label">Processar</span></li>
+      <li class="step-node" data-step="2"><span class="step-dot">2</span><span class="step-label">Revisar</span></li>
       <li class="step-bar" aria-hidden="true"></li>
       <li class="step-node" data-step="3"><span class="step-dot">3</span><span class="step-label">Pacote</span></li>
     </ol>
@@ -102,10 +102,64 @@
         </div>
       </div>
 
-      <button id="generate" class="btn" disabled>⚡ Gerar pacote</button>
+      <button id="generate" class="btn" disabled>Continuar →</button>
     </div>
 
-    <!-- ETAPA 2/3 — PROCESSAR + PACOTE -->
+    <!-- ETAPA 2 — REVISAR (texto editável + opções de geração) -->
+    <div class="panel screen" id="screen-review" style="display:none;">
+      <div class="panel-title">Revisar e gerar</div>
+      <!-- Estado de carregamento (transcrição/extração em andamento) -->
+      <div id="review-loading"></div>
+      <!-- Corpo da revisão (aparece quando o texto está pronto) -->
+      <div id="review-body" style="display:none;">
+        <div class="review-field">
+          <label id="reviewLabel" for="reviewText">Revise o texto antes de gerar</label>
+          <textarea id="reviewText" aria-label="Texto para gerar o pacote"></textarea>
+        </div>
+
+        <details class="opts" id="review-options">
+          <summary>Opções de geração (opcional)</summary>
+          <div class="opts-grid">
+            <div class="review-field">
+              <label for="optPlataforma">Plataforma</label>
+              <select id="optPlataforma">
+                <option value="auto">Qualquer</option>
+                <option value="tiktok">TikTok</option>
+                <option value="reels">Instagram Reels</option>
+                <option value="shorts">YouTube Shorts</option>
+              </select>
+            </div>
+            <div class="review-field">
+              <label for="optTom">Tom</label>
+              <select id="optTom">
+                <option value="auto">Automático</option>
+                <option value="espontaneo">Espontâneo</option>
+                <option value="profissional">Profissional</option>
+                <option value="divertido">Divertido</option>
+                <option value="emocionante">Emocionante</option>
+                <option value="educativo">Educativo</option>
+                <option value="inspirador">Inspirador</option>
+              </select>
+            </div>
+            <div class="review-field">
+              <label for="optObjetivo">Objetivo</label>
+              <select id="optObjetivo">
+                <option value="auto">Automático</option>
+                <option value="alcance">Alcance (viralizar)</option>
+                <option value="engajamento">Engajamento (comentários)</option>
+                <option value="vendas">Vendas / conversão</option>
+                <option value="informar">Informar</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
+        <button id="reviewGenerate" class="btn">⚡ Gerar pacote</button>
+        <button type="button" class="btn-reset" data-wizard-reset>← Recomeçar</button>
+      </div>
+    </div>
+
+    <!-- ETAPA 3 — PACOTE (progresso da geração + resultado) -->
     <div class="panel screen output-panel" id="screen-result" style="display:none;">
       <div class="panel-title">Resultado</div>
       <div id="output" aria-live="polite"></div>

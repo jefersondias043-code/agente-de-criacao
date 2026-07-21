@@ -99,3 +99,19 @@ function fallbackCopy(text, showFeedback) {
   }
   document.body.removeChild(ta);
 }
+
+// Mensagem transitória no rodapé (feedback de ações: compartilhar, regenerar…).
+function toast(msg, tipo) {
+  let host = document.getElementById('toastHost');
+  if (!host) { host = document.createElement('div'); host.id = 'toastHost'; document.body.appendChild(host); }
+  const el = document.createElement('div');
+  el.className = 'toast' + (tipo === 'error' ? ' error' : '');
+  el.textContent = msg;
+  host.appendChild(el);
+  // setTimeout (não rAF): dispara mesmo com a aba em segundo plano.
+  setTimeout(() => el.classList.add('show'), 10);
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => { try { el.remove(); } catch (_) {} }, 300);
+  }, tipo === 'error' ? 4200 : 2600);
+}

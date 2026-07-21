@@ -99,6 +99,12 @@ function renderPacote(pacote, opts) {
   const tituloColor = tituloDentro ? 'var(--pass)' : 'var(--warn)';
   const legendaColor = legendaDentro ? 'var(--pass)' : 'var(--warn)';
 
+  // Botão "gerar outra versão" por item (só nos cards do resultado/histórico,
+  // que têm editId). 🔄 discreto ao lado do "Copiar" de cada seção.
+  const regen = (campo) => opts.editId
+    ? `<button class="regen-btn" data-regen="${campo}" data-regen-id="${opts.editId}" title="Gerar outra versão" aria-label="Gerar outra versão">🔄</button>`
+    : '';
+
   // Seção de palavras-chave (só aparece quando existem)
   const keywordChipsHtml = palavrasChave
     .map(k => `<span class="keyword-chip">${escapeHtml(k)}</span>`)
@@ -107,7 +113,10 @@ function renderPacote(pacote, opts) {
     <div class="pkg-section">
       <div class="pkg-label">
         <span class="pkg-label-text">Palavras-chave</span>
-        <button class="copy-btn" data-copy-id="${pkgId}-keywords">Copiar</button>
+        <span style="display:flex; gap:8px; align-items:center;">
+          ${regen('palavras_chave')}
+          <button class="copy-btn" data-copy-id="${pkgId}-keywords">Copiar</button>
+        </span>
       </div>
       <div class="keywords-grid">${keywordChipsHtml}</div>
       <div class="keywords-string">${escapeHtml(keywordsString)}</div>
@@ -118,11 +127,17 @@ function renderPacote(pacote, opts) {
     ? renderSendBar(pkgId + '-envio', [titulo, legenda].filter(Boolean).join('\n\n'))
     : '';
 
+  // Compartilhar nativo (Share Sheet) — só onde o navegador suporta (celular).
+  const shareBtn = (typeof navigator !== 'undefined' && navigator.share)
+    ? `<button class="copy-btn" data-share-id="${pkgId}-all">↗ Compartilhar</button>`
+    : '';
+
   return `<div class="package">
     <div class="package-header">
       <div class="package-title">⚡ Pacote de Publicação</div>
-      <div style="display:flex; gap:8px; align-items:center;">
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         ${opts.editId ? `<button class="copy-btn" data-edit-id="${opts.editId}">✏️ Editar</button>` : ''}
+        ${shareBtn}
         <button class="copy-all-btn" data-copy-id="${pkgId}-all">Copiar tudo</button>
       </div>
     </div>
@@ -130,8 +145,9 @@ function renderPacote(pacote, opts) {
     <div class="pkg-section">
       <div class="pkg-label">
         <span class="pkg-label-text">Título</span>
-        <span style="display:flex; gap:10px; align-items:center;">
+        <span style="display:flex; gap:8px; align-items:center;">
           <span class="pkg-meta" style="color:${tituloColor};">${tituloLen}/80 caracteres</span>
+          ${regen('titulo')}
           <button class="copy-btn" data-copy-id="${pkgId}-titulo">Copiar</button>
         </span>
       </div>
@@ -141,8 +157,9 @@ function renderPacote(pacote, opts) {
     <div class="pkg-section">
       <div class="pkg-label">
         <span class="pkg-label-text">Legenda</span>
-        <span style="display:flex; gap:10px; align-items:center;">
+        <span style="display:flex; gap:8px; align-items:center;">
           <span class="pkg-meta" style="color:${legendaColor};">${legendaLen} caracteres (ideal 150–300)</span>
+          ${regen('legenda')}
           <button class="copy-btn" data-copy-id="${pkgId}-legenda">Copiar</button>
         </span>
       </div>
@@ -152,8 +169,9 @@ function renderPacote(pacote, opts) {
     <div class="pkg-section">
       <div class="pkg-label">
         <span class="pkg-label-text">Hashtags</span>
-        <span style="display:flex; gap:10px; align-items:center;">
+        <span style="display:flex; gap:8px; align-items:center;">
           <span class="pkg-meta">${distLabel}</span>
+          ${regen('hashtags')}
           <button class="copy-btn" data-copy-id="${pkgId}-hashtags">Copiar</button>
         </span>
       </div>

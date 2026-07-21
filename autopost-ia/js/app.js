@@ -1,9 +1,35 @@
 'use strict';
 /* ============================================================
-   APP — orquestração: assistente em 3 etapas, pipeline principal
-   (obter texto → gerar → avaliar → refinar → salvar), delegação
-   de eventos, caixa única de entrada e boot.
+   APP — orquestração: assistente em 3 etapas (Enviar · Revisar ·
+   Pacote), delegação de eventos, caixa única de entrada e boot.
+
+   Fluxo: o usuário envia áudio/vídeo/imagem/PDF/texto → o app
+   transcreve/extrai → mostra o texto EDITÁVEL para revisão + as
+   opções de geração → o usuário confere/ajusta e gera o pacote.
+   Cada item do pacote (título, legenda, hashtags, palavras-chave)
+   pode ser regenerado sozinho, e o pacote pronto tem compartilhar
+   nativo (Share Sheet) além de copiar.
    ============================================================ */
+
+// Estado passado da etapa de revisão para a de geração.
+let _revisao = null;
+
+// Rótulos das opções de saída (viram texto de prompt para a IA).
+const LABEL_PLATAFORMA = { tiktok: 'TikTok', reels: 'Instagram Reels', shorts: 'YouTube Shorts' };
+const LABEL_TOM = {
+  espontaneo: 'Espontâneo, como uma conversa real',
+  profissional: 'Profissional e polido',
+  divertido: 'Divertido e bem-humorado',
+  emocionante: 'Emocionante e dramático',
+  educativo: 'Educativo e didático',
+  inspirador: 'Inspirador e motivacional'
+};
+const LABEL_OBJETIVO = {
+  alcance: 'Maximizar alcance / viralização',
+  engajamento: 'Gerar comentários e engajamento',
+  vendas: 'Levar à conversão / venda',
+  informar: 'Informar com clareza'
+};
 
 // =================== DELEGAÇÃO DE EVENTOS ===================
 document.addEventListener('click', (e) => {
@@ -13,6 +39,9 @@ document.addEventListener('click', (e) => {
     resetWizard();
     return;
   }
+
+  // Voltar da tela de resultado para a revisão (ex.: após erro na geração).
+  if (e.target.closest('[data-review-back]')) { setWizardStep(2); return; }
 
   // Navegação entre abas (Novo pacote / Meus pacotes)
   const viewBtn = e.target.closest('[data-view]');
@@ -28,6 +57,18 @@ document.addEventListener('click', (e) => {
 
   // Voltar à lista do histórico
   if (e.target.closest('[data-hist-back]')) { voltarHistorico(); return; }
+
+  // Compartilhar o pacote (Share Sheet nativo; sem suporte → copia).
+  const shareBtn = e.target.closest('[data-share-id]');
+  if (shareBtn) {
+    const text = (window._roteiroRegistry || {})[shareBtn.dataset.shareId] || '';
+    compartilharTexto(text);
+    return;
+  }
+
+  // Regenerar UM item do pacote (título/legenda/hashtags/palavras-chave).
+  const regenBtn = e.target.closest('[data-regen]');
+  if (regenBtn) { regenerarCampoUI(regenBtn.dataset.regenId, regenBtn.dataset.regen, regenBtn); return; }
 
   // Editar o pacote (campos viram caixas)
   const editBtn = e.target.closest('[data-edit-id]');
@@ -102,206 +143,220 @@ function setView(view) {
   if (view === 'history') voltarHistorico();
 }
 
-// =================== PIPELINE PRINCIPAL ===================
-async function run() {
+// =================== ETAPA 1→2: OBTER O TEXTO (transcrever/extrair) ===================
+// Devolve o TEXTO do arquivo pelo caminho certo: .txt → leitura direta;
+// imagem/PDF/DOCX → extração/OCR; áudio/vídeo → transcrição (com preparo de
+// arquivos grandes). onProgress(msg) atualiza o status na tela.
+async function obterTextoDoArquivo(arquivo, onProgress) {
+  if (ehArquivoDeTexto(arquivo)) {
+    if (onProgress) onProgress(`${arquivo.name} · lendo o texto…`);
+    return await lerTextoArquivo(arquivo);
+  }
+  if (arquivoEhExtraivel(arquivo)) {
+    const info = tipoArquivoInfo(arquivo);
+    if (onProgress) onProgress(`${arquivo.name} · lendo ${info.rotulo}…`);
+    const t = await extrairTextoArquivo(arquivo, (msg) => { if (onProgress) onProgress(`${arquivo.name} · ${msg}`); });
+    if (!(t || '').trim()) {
+      throw new Error(ehArquivoImagem(arquivo)
+        ? 'Não encontramos texto legível nesta imagem. Tente uma foto mais nítida, bem iluminada e com o texto maior.'
+        : 'Não encontramos texto neste arquivo. Ele pode ser um PDF digitalizado (imagem) — nesse caso, envie a página como foto para o reconhecimento de texto.');
+    }
+    return t;
+  }
+  // Áudio/vídeo → prepara (compressão/divisão) e transcreve em sequência.
+  const prep = await otimizarArquivo(arquivo, (msg) => { if (onProgress) onProgress(msg); });
+  if (prep.otimizado) {
+    const n = prep.arquivos.length;
+    if (onProgress) onProgress(`${arquivo.name} · preparado${n > 1 ? ` em ${n} partes` : ''} · transcrevendo…`);
+  }
+  return await transcreverPartes(prep.arquivos, (msg) => { if (onProgress) onProgress(msg); });
+}
+
+// "Continuar": prepara o texto e leva à etapa de REVISÃO (texto editável + opções).
+async function iniciarRevisao() {
   const arquivo = ($('transcricaoFile').files || [])[0];
   const textoColado = ((($('transcricaoTexto') || {}).value) || '').trim();
   if (!arquivo && !textoColado) {
-    alert('Envie um arquivo de áudio, vídeo ou texto — ou cole um texto.');
+    alert('Envie um arquivo (áudio, vídeo, imagem, PDF) ou cole um texto.');
     return;
   }
 
-  // Decide a fonte. Prioridade: se há arquivo, ele manda; senão, o texto colado.
-  const usarTexto = !arquivo && !!textoColado;            // texto colado na caixa
-  const arquivoEhTexto = !!arquivo && ehArquivoDeTexto(arquivo); // arquivo .txt
-  const arquivoExtraivel = !!arquivo && !arquivoEhTexto && arquivoEhExtraivel(arquivo); // imagem/PDF/DOCX
-  // "fonte de texto" = tudo que já vira TEXTO sem transcrição de áudio (colado,
-  // .txt, ou o texto extraído de imagem/PDF/DOCX).
+  const usarTexto = !arquivo && !!textoColado;
+  const arquivoEhTexto = !!arquivo && ehArquivoDeTexto(arquivo);
+  const arquivoExtraivel = !!arquivo && !arquivoEhTexto && arquivoEhExtraivel(arquivo);
   const fonteTexto = usarTexto || arquivoEhTexto || arquivoExtraivel;
   const nomeEntrada = arquivo ? arquivo.name : 'Texto colado';
 
   const btn = $('generate');
   btn.disabled = true;
   btn.textContent = '⚙ Processando…';
-  const out = $('output');
 
-  // Mantém a tela ACESA durante o processamento (no celular, a tela apagando
-  // no meio suspende a aba e mata a preparação/transcrição de arquivos longos).
-  // Sem suporte (file://, navegadores antigos) é ignorado sem efeito.
+  // Mantém a tela acesa durante a preparação (celular: a tela apagando suspende a aba).
   let wakeLock = null;
   try { if (navigator.wakeLock && window.isSecureContext) wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
 
-  // Avança o assistente para a etapa 2 (Processar).
   setWizardStep(2);
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  const loading = $('review-loading'), body = $('review-body');
+  loading.style.display = ''; body.style.display = 'none';
+
+  const step = { label: fonteTexto ? 'Lendo o conteúdo' : 'Transcrevendo', desc: nomeEntrada, state: 'active' };
+  const mostra = () => { loading.innerHTML = renderPipeline([step]); };
+  mostra();
+
+  try {
+    let texto;
+    if (!arquivo) {
+      texto = textoColado; // texto colado → vai direto pra revisão
+    } else {
+      texto = await obterTextoDoArquivo(arquivo, (msg) => { step.desc = msg; mostra(); });
+    }
+    texto = (texto || '').trim();
+    if (texto.length < 10) {
+      throw new Error('O conteúdo ficou muito curto. Envie um áudio/vídeo com fala, uma imagem/PDF com texto, ou digite um texto maior.');
+    }
+
+    _revisao = { fonteTexto, nomeEntrada };
+    $('reviewText').value = texto;
+    const lbl = $('reviewLabel');
+    if (lbl) lbl.textContent = fonteTexto
+      ? 'Revise o texto — ajuste o que quiser antes de gerar'
+      : 'Revise a transcrição — corrija o que o áudio não pegou antes de gerar';
+    loading.style.display = 'none'; body.style.display = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    loading.innerHTML =
+      `<div class="error-box"><strong>Não foi possível concluir</strong>${escapeHtml(err && err.message)}</div>` +
+      `<button type="button" class="btn-reset" data-wizard-reset>← Voltar e tentar de novo</button>`;
+  } finally {
+    try { if (wakeLock) wakeLock.release(); } catch (_) {}
+    btn.disabled = false;
+    btn.textContent = 'Continuar →';
+  }
+}
+
+// Lê as opções de saída (plataforma, tom, objetivo) da tela de revisão.
+function lerOpcoesSaida() {
+  const val = (id, def) => { const el = $(id); return el ? el.value : def; };
+  return { plataforma: val('optPlataforma', 'auto'), tom: val('optTom', 'auto'), objetivo: val('optObjetivo', 'auto') };
+}
+
+// Monta o briefing (para o gerador) a partir do texto + opções.
+function montarBriefing(opcoes, fonteTexto) {
+  const checklist = {};
+  if (opcoes.plataforma !== 'auto' && LABEL_PLATAFORMA[opcoes.plataforma]) checklist['Plataforma'] = [LABEL_PLATAFORMA[opcoes.plataforma]];
+  if (opcoes.objetivo !== 'auto' && LABEL_OBJETIVO[opcoes.objetivo]) checklist['Objetivo'] = [LABEL_OBJETIVO[opcoes.objetivo]];
+  return {
+    theme: fonteTexto ? '(o texto abaixo é a única fonte)' : '(a transcrição do áudio/vídeo abaixo é a única fonte)',
+    duration: null,
+    tone: (opcoes.tom !== 'auto' && LABEL_TOM[opcoes.tom]) ? LABEL_TOM[opcoes.tom] : null,
+    niche: '', extra: '(nenhum)',
+    checklist: Object.keys(checklist).length ? checklist : null
+  };
+}
+
+// Contexto para o juiz: origem + preferências + o conteúdo como ÚNICA fonte.
+function contextoJuizTexto(texto, opcoes, fonteTexto) {
+  const prefs = [];
+  if (opcoes.plataforma !== 'auto' && LABEL_PLATAFORMA[opcoes.plataforma]) prefs.push('Plataforma-alvo: ' + LABEL_PLATAFORMA[opcoes.plataforma]);
+  if (opcoes.tom !== 'auto' && LABEL_TOM[opcoes.tom]) prefs.push('Tom: ' + LABEL_TOM[opcoes.tom]);
+  if (opcoes.objetivo !== 'auto' && LABEL_OBJETIVO[opcoes.objetivo]) prefs.push('Objetivo: ' + LABEL_OBJETIVO[opcoes.objetivo]);
+  const linha = prefs.length ? `\nPreferências do usuário (avalie a aderência): ${prefs.join(' · ')}` : '';
+  return `Origem do conteúdo: ${fonteTexto ? 'texto/roteiro/transcrição enviado pelo usuário' : 'transcrição automática de áudio/vídeo'}.${linha}
+O conteúdo abaixo é a ÚNICA fonte — o pacote não deve inventar fatos fora dele:
+"""
+${texto}
+"""`;
+}
+
+// =================== ETAPA 2→3: GERAR O PACOTE (a partir do texto revisado) ===================
+async function gerarPacoteFinal() {
+  const texto = (($('reviewText') || {}).value || '').trim();
+  if (texto.length < 20) {
+    alert('O texto está muito curto para gerar um pacote. Escreva um pouco mais.');
+    return;
+  }
+  const opcoes = lerOpcoesSaida();
+  const fonteTexto = _revisao ? _revisao.fonteTexto : true;
+  const nomeEntrada = _revisao ? _revisao.nomeEntrada : 'Texto';
+
+  const btn = $('reviewGenerate');
+  btn.disabled = true;
+  btn.textContent = '⚙ Gerando…';
+  let wakeLock = null;
+  try { if (navigator.wakeLock && window.isSecureContext) wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
+
+  setWizardStep(3);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const out = $('output');
 
   const stepsT = [
-    { label: fonteTexto ? 'Lendo o conteúdo' : 'Transcrevendo', desc: `${nomeEntrada}${fonteTexto ? ' · texto' : ' · preparando o texto…'}`, state: 'active' },
-    { label: 'Montando o pacote', desc: 'Título, legenda, hashtags e palavras-chave', state: '' },
+    { label: 'Montando o pacote', desc: 'Título, legenda, hashtags e palavras-chave', state: 'active' },
     { label: 'Revisão de qualidade', desc: 'Conferindo cada parte do pacote', state: '' },
     { label: 'Ajuste final', desc: 'Refinamos quando dá para melhorar', state: '' }
   ];
-
-  const aguardeBoxT = `<div class="package" style="opacity:0.6;">
-      <div class="package-header">
-        <div class="package-title">⚙️ Processando seu conteúdo…</div>
-      </div>
+  const aguarde = `<div class="package" style="opacity:0.6;">
+      <div class="package-header"><div class="package-title">⚙️ Montando seu pacote…</div></div>
       <div class="pkg-section" style="text-align:center; color: var(--ink-faded); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em;">
-        Montando seu pacote de publicação · isso pode levar alguns segundos
+        Isso pode levar alguns segundos
       </div>
     </div>`;
-  const mostraT = (extra = aguardeBoxT) => { out.innerHTML = renderPipeline(stepsT) + extra; };
-  mostraT();
+  const mostra = (extra = aguarde) => { out.innerHTML = renderPipeline(stepsT) + extra; };
+  mostra();
 
-  const MAX_ITER = 2; // 1 geração + no máximo 1 refino (juiz reavalia)
-  const NOTA_ALVO = 80;
+  const MAX_ITER = 2, NOTA_ALVO = 80;
 
   try {
-    // ETAPA 1: OBTER O TEXTO — transcreve mídia OU usa o texto direto (pulando a transcrição).
-    let transcricao;
-    if (usarTexto) {
-      // Texto colado na caixa → vai direto.
-      transcricao = textoColado;
-      stepsT[0].state = 'done';
-      stepsT[0].desc = 'Texto recebido · pulando a transcrição';
-      mostraT();
-    } else if (arquivoEhTexto) {
-      // Arquivo de texto (.txt) → lê o conteúdo, sem transcrição.
-      stepsT[0].desc = `${arquivo.name} · lendo o texto…`;
-      mostraT();
-      transcricao = await lerTextoArquivo(arquivo);
-      stepsT[0].state = 'done';
-      stepsT[0].desc = `${arquivo.name} · texto carregado`;
-      mostraT();
-    } else if (arquivoExtraivel) {
-      // Imagem (OCR) / PDF / DOCX → extrai o texto com o motor próprio (libs
-      // carregadas sob demanda). Na 1ª imagem, o reconhecedor baixa o idioma.
-      const info = tipoArquivoInfo(arquivo);
-      stepsT[0].label = 'Extraindo o texto';
-      stepsT[0].desc = `${arquivo.name} · lendo ${info.rotulo}…`;
-      mostraT();
-      transcricao = await extrairTextoArquivo(arquivo, (msg) => { stepsT[0].desc = `${arquivo.name} · ${msg}`; mostraT(); });
-      if (!(transcricao || '').trim()) {
-        throw new Error(ehArquivoImagem(arquivo)
-          ? 'Não encontramos texto legível nesta imagem. Tente uma foto mais nítida, bem iluminada e com o texto maior.'
-          : 'Não encontramos texto neste arquivo. Ele pode ser um PDF digitalizado (imagem) — nesse caso, envie a página como foto para o reconhecimento de texto.');
-      }
-      stepsT[0].state = 'done';
-      stepsT[0].desc = `${arquivo.name} · texto extraído`;
-      mostraT();
-    } else {
-      // Áudio/vídeo → otimiza se passar de 25 MB (renderização em fatias +
-      // divisão automática em partes quando muito longo — compatível com
-      // celular) e transcreve tudo em sequência (progresso no passo 0).
-      const prep = await otimizarArquivo(arquivo, (msg) => { stepsT[0].desc = msg; mostraT(); });
-      if (prep.otimizado) {
-        const nPartes = prep.arquivos.length;
-        stepsT[0].desc = `${arquivo.name} · arquivo preparado${nPartes > 1 ? ` em ${nPartes} partes` : ''} · transcrevendo…`;
-        mostraT();
-      }
-      transcricao = await transcreverPartes(prep.arquivos, (msg) => { stepsT[0].desc = msg; mostraT(); });
-      stepsT[0].state = 'done';
-      stepsT[0].desc = `${arquivo.name} · transcrição concluída`;
-      mostraT();
-    }
-
-    // Garante conteúdo mínimo pra valer a geração.
-    transcricao = (transcricao || '').trim();
-    if (transcricao.length < 20) {
-      throw new Error('O conteúdo está muito curto para gerar um pacote. Envie um áudio/vídeo com fala, uma imagem/PDF com texto, ou cole um texto um pouco maior.');
-    }
-
-    // Registra o conteúdo no registry pro botão "Copiar"
-    const trId = 'tr-' + Date.now();
-    window._roteiroRegistry = window._roteiroRegistry || {};
-    window._roteiroRegistry[trId] = transcricao;
-
-    const buildTranscBox = () => `<div class="iteration current">
-        <div class="iter-header">
-          <div>
-            <span class="iter-num">${fonteTexto ? 'Texto enviado' : 'Transcrição'}</span>
-            ${fonteTexto ? '' : `<span style="color: var(--accent); font-size:10px; margin-left: 10px; font-family: 'JetBrains Mono', monospace; letter-spacing:0.15em;">PORTUGUÊS</span>`}
-          </div>
-          <div style="display:flex; gap:12px; align-items:center;">
-            <button class="copy-btn" data-copy-id="${trId}">Copiar</button>
-          </div>
-        </div>
-        <div class="script-box">${formatRoteiro(transcricao)}</div>
-      </div>`;
-
-    // Briefing pra LLM-C: o conteúdo abaixo é a ÚNICA fonte.
-    const briefingTransc = {
-      theme: fonteTexto
-        ? '(o texto enviado abaixo é a única fonte)'
-        : '(a transcrição automática do áudio/vídeo abaixo é a única fonte)',
-      duration: null, tone: null, niche: '', extra: '(nenhum)', checklist: null
-    };
-    const contextoJuizT = `Origem do conteúdo: ${fonteTexto ? 'texto enviado diretamente pelo usuário (transcrição, roteiro ou legenda já prontos)' : 'transcrição automática de um áudio/vídeo enviado pelo usuário'}.
-O conteúdo abaixo é a ÚNICA fonte — o pacote não deve inventar fatos fora dele:
-"""
-${transcricao}
-"""`;
-
-    // ETAPAS 2-4: GERAR → AVALIAR → REFINAR (entrega sempre a melhor versão)
-    let feedback = null;
-    let melhor = null;
+    const briefing = montarBriefing(opcoes, fonteTexto);
+    const ctxJuiz = contextoJuizTexto(texto, opcoes, fonteTexto);
+    let feedback = null, melhor = null;
 
     for (let i = 1; i <= MAX_ITER; i++) {
-      // GERAR (ou refinar)
+      stepsT[0].state = 'active';
+      stepsT[0].desc = i === 1 ? 'Título, legenda, hashtags e palavras-chave' : 'Refinando o pacote com base na revisão…';
+      stepsT[1].state = '';
+      mostra();
+
+      const pacote = await gerarPacotePublicacao(texto, briefing, feedback);
+
+      stepsT[0].state = 'done';
       stepsT[1].state = 'active';
-      stepsT[1].desc = i === 1
-        ? 'Título, legenda, hashtags e palavras-chave'
-        : 'Refinando o pacote com base na revisão…';
-      stepsT[2].state = '';
-      mostraT(buildTranscBox());
+      stepsT[1].desc = 'Conferindo título, legenda, hashtags e palavras-chave…';
+      mostra();
 
-      const pacote = await gerarPacotePublicacao(transcricao, briefingTransc, feedback);
-
-      // AVALIAR (juiz)
+      const avaliacao = await avaliarPacote(pacote, ctxJuiz);
       stepsT[1].state = 'done';
-      stepsT[2].state = 'active';
-      stepsT[2].desc = 'Conferindo título, legenda, hashtags e palavras-chave…';
-      mostraT(buildTranscBox());
 
-      const avaliacao = await avaliarPacote(pacote, contextoJuizT);
-      stepsT[2].state = 'done';
-
-      if (!melhor || avaliacao.nota_total > melhor.avaliacao.nota_total) {
-        melhor = { pacote, avaliacao };
-      }
+      if (!melhor || avaliacao.nota_total > melhor.avaliacao.nota_total) melhor = { pacote, avaliacao };
 
       if (avaliacao.nota_total >= NOTA_ALVO) {
-        stepsT[3].state = 'done';
-        stepsT[3].desc = 'Pacote pronto e aprovado na revisão';
+        stepsT[2].state = 'done';
+        stepsT[2].desc = 'Pacote pronto e aprovado na revisão';
         break;
       }
-
       if (i < MAX_ITER) {
-        // Reprovou: monta o feedback dos critérios fracos e refina.
-        stepsT[3].state = 'active';
-        stepsT[3].desc = 'Dá para melhorar — refinando…';
+        stepsT[2].state = 'active';
+        stepsT[2].desc = 'Dá para melhorar — refinando…';
         const falhas = (avaliacao.avaliacoes || [])
           .filter(a => a.score < 7)
           .map(a => ({ ...a, nome: (RUBRICA_PACOTE.find(r => r.id === a.id) || {}).nome || a.id }));
         feedback = { nota_total: avaliacao.nota_total, falhas, pacoteAnterior: pacote };
-        mostraT(buildTranscBox());
+        mostra();
       } else {
-        // Esgotou as iterações sem atingir a nota: entrega a melhor versão obtida.
-        stepsT[3].state = 'done';
-        stepsT[3].desc = 'Entregando a melhor versão do pacote';
+        stepsT[2].state = 'done';
+        stepsT[2].desc = 'Entregando a melhor versão do pacote';
       }
     }
 
     const aprovado = melhor.avaliacao.nota_total >= NOTA_ALVO;
-
-    // Auto-save no histórico (biblioteca pessoal) — guarda a versão recém-gerada.
     const agora = new Date().toISOString();
     const histItem = {
       id: 'h-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
       criadoEm: agora, atualizadoEm: agora,
       fileName: nomeEntrada,
       fonte: fonteTexto ? 'texto' : 'midia',
-      transcricao: transcricao,
+      transcricao: texto,
+      opcoes: opcoes,
       nota: melhor.avaliacao.nota_total,
       aprovado: aprovado,
       veredito: melhor.avaliacao.veredito,
@@ -312,48 +367,104 @@ ${transcricao}
     const histId = histAdd(histItem);
     updateHistBadge();
 
-    // ETAPA 3 do assistente: pacote pronto (MESMA view do detalhe do histórico).
-    setWizardStep(3);
     out.innerHTML = renderPipeline(stepsT) + renderItemDetail(histGet(histId), { context: 'result' });
   } catch (err) {
-    stepsT[0].state = '';
-    stepsT[0].desc = 'Falha na transcrição ou na geração do pacote.';
     out.innerHTML = renderPipeline(stepsT) +
       `<div class="error-box" style="margin-top:24px;">
         <strong>Não foi possível concluir</strong>
         ${escapeHtml(err && err.message)}
       </div>` +
-      `<button type="button" class="btn-reset" data-wizard-reset>← Voltar e tentar outro arquivo</button>`;
+      `<button type="button" class="btn-reset" data-review-back>← Voltar à revisão</button>`;
   } finally {
     try { if (wakeLock) wakeLock.release(); } catch (_) {}
+    btn.disabled = false;
     btn.textContent = '⚡ Gerar pacote';
-    // O botão fica oculto nas etapas 2/3; é reabilitado pelo resetWizard ao voltar à etapa 1.
   }
 }
 
-// Controla o assistente em 3 etapas (1 Enviar · 2 Processar · 3 Pacote).
+// =================== REGENERAR UM ITEM DO PACOTE ===================
+async function regenerarCampoUI(id, campo, btnEl) {
+  const item = histGet(id);
+  if (!item || !btnEl) return;
+  if (btnEl.dataset.loading === '1') return; // evita reentrância
+  btnEl.dataset.loading = '1';
+  const orig = btnEl.textContent;
+  btnEl.textContent = '⏳';
+  btnEl.disabled = true;
+  try {
+    const opcoes = item.opcoes || { plataforma: 'auto', tom: 'auto', objetivo: 'auto' };
+    const briefing = montarBriefing(opcoes, item.fonte === 'texto');
+    const novo = await gerarVariacaoCampo(campo, item.transcricao || '', item.pacote || {}, briefing);
+
+    // Valida o retorno antes de gravar (não substitui por vazio).
+    const vazio = (campo === 'hashtags' || campo === 'palavras_chave')
+      ? !(Array.isArray(novo) && novo.length)
+      : !(typeof novo === 'string' && novo.trim());
+    if (vazio) throw new Error('resposta vazia');
+
+    const pacote = Object.assign({}, item.pacote);
+    pacote[campo] = novo;
+    histUpdate(id, { pacote, editado: true, atualizadoEm: new Date().toISOString() });
+
+    const card = document.getElementById('pkgcard-' + id);
+    if (card) card.innerHTML = renderPacoteCardInner(histGet(id), false); // botões recriados
+    toast('Nova versão gerada.');
+  } catch (err) {
+    btnEl.textContent = orig;
+    btnEl.disabled = false;
+    btnEl.dataset.loading = '';
+    toast('Não foi possível gerar outra versão. Tente de novo.', 'error');
+  }
+}
+
+// =================== COMPARTILHAR (Share Sheet nativo) ===================
+async function compartilharTexto(text) {
+  if (!text) return;
+  if (navigator.share) {
+    try { await navigator.share({ text }); }
+    catch (_) { /* usuário cancelou — silencioso */ }
+    return;
+  }
+  // Sem Share nativo (desktop): copia como fallback.
+  const ok = () => toast('Copiado — cole onde quiser.');
+  if (navigator.clipboard && window.isSecureContext) {
+    try { await navigator.clipboard.writeText(text); ok(); }
+    catch (_) { fallbackCopy(text, ok); }
+  } else {
+    fallbackCopy(text, ok);
+  }
+}
+
+// Controla o assistente em 3 etapas (1 Enviar · 2 Revisar · 3 Pacote).
 function setWizardStep(n) {
   document.querySelectorAll('#stepper .step-node').forEach(node => {
     const s = parseInt(node.dataset.step, 10);
     node.classList.toggle('active', s === n);
     node.classList.toggle('done', s < n);
   });
-  const upload = $('screen-upload');
-  const result = $('screen-result');
-  if (upload) upload.style.display = (n === 1) ? '' : 'none';
-  if (result) result.style.display = (n === 1) ? 'none' : '';
+  const up = $('screen-upload'), rev = $('screen-review'), res = $('screen-result');
+  if (up) up.style.display = (n === 1) ? '' : 'none';
+  if (rev) rev.style.display = (n === 2) ? '' : 'none';
+  if (res) res.style.display = (n === 3) ? '' : 'none';
 }
 
-// Volta ao início: limpa o arquivo/preview e mostra a etapa 1 (Enviar).
+// Volta ao início: limpa entrada/revisão e mostra a etapa 1 (Enviar).
 function resetWizard() {
   const fileInput = $('transcricaoFile');
   if (fileInput) fileInput.value = '';
   const textArea = $('transcricaoTexto');
   if (textArea) textArea.value = '';
+  const rev = $('reviewText');
+  if (rev) rev.value = '';
+  const rl = $('review-loading');
+  if (rl) rl.innerHTML = '';
   const out = $('output');
   if (out) out.innerHTML = '';
   const btn = $('generate');
-  if (btn) { btn.disabled = true; btn.textContent = '⚡ Gerar pacote'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Continuar →'; }
+  const gb = $('reviewGenerate');
+  if (gb) { gb.disabled = false; gb.textContent = '⚡ Gerar pacote'; }
+  _revisao = null;
   // Restaura os estados visuais da caixa única (digitação visível, chip oculto, ✕ escondido).
   if (window._refletirEntrada) window._refletirEntrada();
   setWizardStep(1);
@@ -471,7 +582,9 @@ function resetWizard() {
 })();
 
 // =================== BOOT ===================
-$('generate').addEventListener('click', run);
+$('generate').addEventListener('click', iniciarRevisao);
+const _reviewGenBtn = $('reviewGenerate');
+if (_reviewGenBtn) _reviewGenBtn.addEventListener('click', gerarPacoteFinal);
 initConfigUI();
 setWizardStep(1);
 updateHistBadge();

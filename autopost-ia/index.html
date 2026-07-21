@@ -63,11 +63,13 @@
     <div class="panel screen" id="screen-upload">
       <div class="panel-title">Enviar conteúdo</div>
 
-      <!-- CAIXA ÚNICA: digitar/colar texto OU arrastar/anexar arquivo (áudio, vídeo, .txt) -->
+      <!-- CAIXA ÚNICA: digitar/colar texto OU arrastar/anexar arquivo.
+           O accept amplo (áudio, vídeo, imagem, PDF, DOCX, texto) faz o iPhone
+           oferecer a Galeria/Câmera além dos Arquivos. -->
       <div class="smartbox" id="smartbox">
-        <input type="file" id="transcricaoFile" accept="audio/*,video/*,text/plain,.txt,.md" hidden />
+        <input type="file" id="transcricaoFile" accept="image/*,audio/*,video/*,application/pdf,.pdf,.docx,text/plain,.txt,.md,.png,.jpg,.jpeg,.webp,.heic,.heif" hidden />
 
-        <textarea id="transcricaoTexto" placeholder="Digite ou cole seu texto aqui — ou arraste/anexe um arquivo de áudio, vídeo ou .txt." aria-label="Texto do conteúdo"></textarea>
+        <textarea id="transcricaoTexto" placeholder="Digite ou cole seu texto aqui — ou anexe áudio, vídeo, imagem, PDF ou texto." aria-label="Texto do conteúdo"></textarea>
 
         <button type="button" id="textClearBtn" class="sb-clear" title="Limpar texto" aria-label="Limpar texto" style="display:none;">✕</button>
 
@@ -84,7 +86,7 @@
         <!-- rodapé: anexar arquivo + dica de arrastar -->
         <div class="sb-toolbar" id="sbToolbar">
           <label class="sb-attach" for="transcricaoFile">📎 Anexar arquivo</label>
-          <span class="sb-hint">ou arraste aqui · áudio, vídeo ou .txt</span>
+          <span class="sb-hint">áudio, vídeo, imagem, PDF ou texto</span>
         </div>
       </div>
 
@@ -144,6 +146,7 @@
 <script src="js/api.js"></script>
 <script src="js/demux.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/extract.js"></script>
 <script src="js/package.js"></script>
 <script src="js/analysis.js"></script>
 <script src="js/history.js"></script>

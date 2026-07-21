@@ -114,7 +114,10 @@ async function run() {
   // Decide a fonte. Prioridade: se há arquivo, ele manda; senão, o texto colado.
   const usarTexto = !arquivo && !!textoColado;            // texto colado na caixa
   const arquivoEhTexto = !!arquivo && ehArquivoDeTexto(arquivo); // arquivo .txt
-  const fonteTexto = usarTexto || arquivoEhTexto;          // entrada já é texto (pula transcrição)
+  const arquivoExtraivel = !!arquivo && !arquivoEhTexto && arquivoEhExtraivel(arquivo); // imagem/PDF/DOCX
+  // "fonte de texto" = tudo que já vira TEXTO sem transcrição de áudio (colado,
+  // .txt, ou o texto extraído de imagem/PDF/DOCX).
+  const fonteTexto = usarTexto || arquivoEhTexto || arquivoExtraivel;
   const nomeEntrada = arquivo ? arquivo.name : 'Texto colado';
 
   const btn = $('generate');
@@ -170,6 +173,22 @@ async function run() {
       stepsT[0].state = 'done';
       stepsT[0].desc = `${arquivo.name} · texto carregado`;
       mostraT();
+    } else if (arquivoExtraivel) {
+      // Imagem (OCR) / PDF / DOCX → extrai o texto com o motor próprio (libs
+      // carregadas sob demanda). Na 1ª imagem, o reconhecedor baixa o idioma.
+      const info = tipoArquivoInfo(arquivo);
+      stepsT[0].label = 'Extraindo o texto';
+      stepsT[0].desc = `${arquivo.name} · lendo ${info.rotulo}…`;
+      mostraT();
+      transcricao = await extrairTextoArquivo(arquivo, (msg) => { stepsT[0].desc = `${arquivo.name} · ${msg}`; mostraT(); });
+      if (!(transcricao || '').trim()) {
+        throw new Error(ehArquivoImagem(arquivo)
+          ? 'Não encontramos texto legível nesta imagem. Tente uma foto mais nítida, bem iluminada e com o texto maior.'
+          : 'Não encontramos texto neste arquivo. Ele pode ser um PDF digitalizado (imagem) — nesse caso, envie a página como foto para o reconhecimento de texto.');
+      }
+      stepsT[0].state = 'done';
+      stepsT[0].desc = `${arquivo.name} · texto extraído`;
+      mostraT();
     } else {
       // Áudio/vídeo → otimiza se passar de 25 MB (renderização em fatias +
       // divisão automática em partes quando muito longo — compatível com
@@ -189,7 +208,7 @@ async function run() {
     // Garante conteúdo mínimo pra valer a geração.
     transcricao = (transcricao || '').trim();
     if (transcricao.length < 20) {
-      throw new Error('O conteúdo está muito curto para gerar um pacote. Envie um áudio/vídeo com fala, ou cole um texto um pouco maior.');
+      throw new Error('O conteúdo está muito curto para gerar um pacote. Envie um áudio/vídeo com fala, uma imagem/PDF com texto, ou cole um texto um pouco maior.');
     }
 
     // Registra o conteúdo no registry pro botão "Copiar"
@@ -347,6 +366,7 @@ function resetWizard() {
   const preview   = $('transcricaoPreview');
   const nameEl    = $('transcricaoFileName');
   const sizeEl    = $('transcricaoFileSize');
+  const iconEl    = preview ? preview.querySelector('.sb-file-icon') : null;
   const clearBtn  = $('transcricaoClearBtn');
   const smartbox  = $('smartbox');
   const toolbar   = $('sbToolbar');
@@ -367,10 +387,14 @@ function resetWizard() {
     if (f) {
       // ARQUIVO anexado → mostra o chip dentro da caixa, esconde a digitação.
       nameEl.textContent = f.name;
-      const ehTxt = ehArquivoDeTexto(f);
-      const tipo = ehTxt ? 'texto' : (f.type || 'arquivo');
-      const grande = !ehTxt && f.size > WHISPER_MAX_BYTES;
-      sizeEl.innerHTML = escapeHtml(tipo) + ' · ' + fmtBytes(f.size) +
+      const info = tipoArquivoInfo(f);
+      if (iconEl) iconEl.textContent = info.icone;
+      // A nota "será preparado" vale só p/ áudio/vídeo grande (compressão);
+      // imagem/PDF grandes seguem outro caminho (extração), sem esse aviso.
+      const ehMidia = /^(audio|video)\//i.test(f.type || '') ||
+        (!ehArquivoDeTexto(f) && !arquivoEhExtraivel(f));
+      const grande = ehMidia && f.size > WHISPER_MAX_BYTES;
+      sizeEl.innerHTML = escapeHtml(info.rotulo) + ' · ' + fmtBytes(f.size) +
         (grande ? ' · <span style="color:var(--accent);">será preparado automaticamente</span>' : '');
       preview.style.display = 'flex';
       if (textArea) textArea.style.display = 'none';

@@ -2374,3 +2374,39 @@ body.pe-full #view-posters { animation: none; }
   color: var(--accent-ink);
   border: 1px solid var(--line);
 }
+
+/* Toggle "Modo de geração" — Agentes vs Rápido (segmented, visível em qualquer largura). */
+.genmode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.genmode-toggle button {
+  flex: 1;
+  min-width: 160px;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.genmode-toggle button:hover { border-color: var(--ink-mute); }
+.genmode-toggle button.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.genmode-title {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.genmode-toggle button.active .genmode-title { color: var(--accent-ink); }
+.genmode-hint {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--ink-mute);
+  margin-top: 0.1rem;
+}

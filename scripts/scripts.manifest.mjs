@@ -28,6 +28,7 @@ export const SCRIPTS = [
   'replicador.js',
   'removedor.js',
   'handoff.js',
+  'media-transcode.js',
   'ingest.js',
   'app.js',
 ];

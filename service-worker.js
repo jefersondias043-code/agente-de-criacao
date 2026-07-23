@@ -1,4 +1,4 @@
-const CACHE = 'agp-v124';
+const CACHE = 'agp-v126';
 const URLS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const URLS = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './vendor/lamejs.js',
   // scripts:start — gerado de scripts/scripts.manifest.mjs (npm run sync:manifest)
   './src/server-config.js',
   './src/catalogs.js',
@@ -36,6 +37,7 @@ const URLS = [
   './src/replicador.js',
   './src/removedor.js',
   './src/handoff.js',
+  './src/media-transcode.js',
   './src/ingest.js',
   './src/app.js',
   // scripts:end

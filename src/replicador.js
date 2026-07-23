@@ -18,7 +18,7 @@ function renderReplicador() {
       if (typeof deliverPendingContent === 'function') deliverPendingContent();
       requestAnimationFrame(() => f.classList.add('themed'));
     });
-    f.src = 'replicador.html';
+    f.src = (typeof toolFrameSrc === 'function') ? toolFrameSrc('replicador.html') : 'replicador.html';
     f.dataset.loaded = '1';
   }
 }

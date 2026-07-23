@@ -16,7 +16,7 @@ function renderRemovedor() {
       f.dataset.ready = '1';
       requestAnimationFrame(() => f.classList.add('themed'));
     });
-    f.src = 'removedor.html';
+    f.src = (typeof toolFrameSrc === 'function') ? toolFrameSrc('removedor.html') : 'removedor.html';
     f.dataset.loaded = '1';
   }
 }

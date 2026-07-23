@@ -1,4 +1,4 @@
-const CACHE = 'agp-v131';
+const CACHE = 'agp-v132';
 const URLS = [
   './',
   './index.html',
@@ -47,8 +47,16 @@ const URLS = [
 ];
 
 self.addEventListener('install', (e) => {
+  // RESILIENTE: cacheia cada URL individualmente (allSettled). Antes usávamos
+  // addAll(), que rejeita se UM único arquivo falhar (ex.: um asset novo que o
+  // Pages ainda não publicou, ou uma rede instável) — e aí a instalação inteira
+  // falhava, o SW novo NÃO ativava e o usuário ficava preso na versão antiga.
+  // Agora um asset ausente não impede a atualização: o essencial é cacheado e o
+  // resto o network-first busca sob demanda.
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(URLS)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then((c) => Promise.allSettled(URLS.map((u) => c.add(u))))
+      .then(() => self.skipWaiting())
   );
 });
 

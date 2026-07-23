@@ -16,7 +16,7 @@ function renderVideograb() {
       f.dataset.ready = '1';
       requestAnimationFrame(() => f.classList.add('themed'));
     });
-    f.src = 'videograb.html';
+    f.src = (typeof toolFrameSrc === 'function') ? toolFrameSrc('videograb.html') : 'videograb.html';
     f.dataset.loaded = '1';
   }
 }

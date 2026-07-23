@@ -1,4 +1,4 @@
-const CACHE = 'agp-v151';
+const CACHE = 'agp-v152';
 const URLS = [
   './',
   './index.html',
@@ -13,6 +13,8 @@ const URLS = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './icon-maskable-192.png',
+  './icon-maskable-512.png',
   './vendor/lamejs.js',
   // scripts:start — gerado de scripts/scripts.manifest.mjs (npm run sync:manifest)
   './src/server-config.js',

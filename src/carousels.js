@@ -153,10 +153,11 @@ function createCarouselFromGeneration(g) {
     updatedAt: new Date().toISOString(),
   });
 
-  // O agente de design escolhe a PALETA (o carrossel mantém o formato 1:1, que é
-  // sua natureza multi-slide). A identidade visual vale para todos os slides.
-  if (g.design && g.design.palette && (typeof POSTER_PALETTES === 'undefined' || POSTER_PALETTES[g.design.palette])) {
-    poster.custom = { palette: g.design.palette, autoContrast: true };
+  // O agente de design escolhe PALETA + TIPOGRAFIA (o carrossel mantém o formato
+  // 1:1, que é sua natureza multi-slide). A identidade visual vale para todos os
+  // slides. Passa só a parte VISUAL (sem template/formato) ao applyDesignToPoster.
+  if (g.design && typeof applyDesignToPoster === 'function') {
+    applyDesignToPoster(poster, { palette: g.design.palette, font: g.design.font });
   }
 
   State.posters.unshift(poster);

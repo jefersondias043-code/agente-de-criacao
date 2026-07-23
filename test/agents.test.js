@@ -16,7 +16,7 @@ beforeAll(() => {
       'normalizeArticle', 'articleFromPlainText',
       'normalizeDesign', 'fallbackDesign', 'DESIGN_DEFAULT',
       'articleToPlainText', 'artFromPipeline', 'interpretationToBlock',
-      'POSTER_TEMPLATES', 'POSTER_PALETTES',
+      'POSTER_TEMPLATES', 'POSTER_PALETTES', 'POSTER_FONTS',
     ]
   );
 });
@@ -102,19 +102,23 @@ describe('articleFromPlainText (fallback do redator)', () => {
 
 describe('normalizeDesign (validação contra catálogos reais)', () => {
   it('aceita ids válidos e anexa rótulos', () => {
-    const d = A.normalizeDesign({ template: 'quote-impact', format: '1:1', palette: 'azul-institucional', justificativa: 'porque sim' });
+    const d = A.normalizeDesign({ template: 'quote-impact', format: '1:1', palette: 'azul-institucional', font: 'fraunces', justificativa: 'porque sim' });
     expect(d.template).toBe('quote-impact');
     expect(d.format).toBe('1:1');
     expect(d.palette).toBe('azul-institucional');
+    expect(d.font).toBe('fraunces');
     expect(d.templateLabel).toBe(A.POSTER_TEMPLATES['quote-impact'].label);
     expect(d.paletteLabel).toBe(A.POSTER_PALETTES['azul-institucional'].label);
+    expect(d.fontLabel).toBe(A.POSTER_FONTS['fraunces'].label);
     expect(d.justificativa).toBe('porque sim');
   });
-  it('corrige ids inválidos para o default seguro', () => {
-    const d = A.normalizeDesign({ template: 'modelo-inexistente', format: '99:1', palette: 'paleta-fake' });
+  it('corrige ids inválidos para o default seguro (inclui fonte)', () => {
+    const d = A.normalizeDesign({ template: 'modelo-inexistente', format: '99:1', palette: 'paleta-fake', font: 'fonte-fake' });
     expect(d.template).toBe(A.DESIGN_DEFAULT.template);
     expect(d.format).toBe(A.DESIGN_DEFAULT.format);
     expect(d.palette).toBe(A.DESIGN_DEFAULT.palette);
+    expect(d.font).toBe(A.DESIGN_DEFAULT.font);
+    expect(A.POSTER_FONTS[d.font]).toBeTruthy();
   });
   it('data ausente → totalmente default', () => {
     const d = A.normalizeDesign(null);
@@ -139,6 +143,12 @@ describe('fallbackDesign (heurística sem rede)', () => {
     expect(d.palette).toBe('verde-editorial');
     // resultado sempre válido no catálogo
     expect(A.POSTER_PALETTES[d.palette]).toBeTruthy();
+  });
+  it('mapeia tipografia por categoria e sempre entrega fonte válida', () => {
+    expect(A.fallbackDesign({ categoria: 'CULTURA', citacoes: [], numeros: [] }, { titulo: 'T' }).font).toBe('fraunces');
+    expect(A.fallbackDesign({ categoria: 'TECNOLOGIA', citacoes: [], numeros: [] }, { titulo: 'T' }).font).toBe('jakarta');
+    const d = A.fallbackDesign({ categoria: 'GERAL', citacoes: [], numeros: [] }, { titulo: 'T' });
+    expect(A.POSTER_FONTS[d.font]).toBeTruthy();
   });
 });
 

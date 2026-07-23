@@ -308,7 +308,14 @@ const DESIGN_FORMATS = [
   ['9:16', 'stories / reels'],
 ];
 
-const DESIGN_DEFAULT = { template: 'manchete', format: '4:5', palette: 'vermelho-noticia' };
+const DESIGN_FONT_MENU = [
+  ['poppins', 'moderno e versátil — uso geral, institucional'],
+  ['fraunces', 'editorial serifado — cultura, análise, matéria sofisticada'],
+  ['oswald', 'impacto condensado — urgência, esporte, plantão'],
+  ['jakarta', 'geométrico limpo — tecnologia, negócios, corporativo'],
+];
+
+const DESIGN_DEFAULT = { template: 'manchete', format: '4:5', palette: 'vermelho-noticia', font: 'poppins' };
 
 function buildDesignPrompt(interp, article) {
   const menu = (rows) => rows.map(([id, hint]) => `  - ${id}: ${hint}`).join('\n');
@@ -334,10 +341,13 @@ function buildDesignPrompt(interp, article) {
     'FORMATOS disponíveis (escolha um id):',
     menu(DESIGN_FORMATS),
     '',
-    'Responda APENAS com um objeto JSON válido, sem cercas de código:',
-    '{ "template": "id", "format": "id", "palette": "id", "justificativa": "1 frase curta" }',
+    'TIPOGRAFIA disponível (escolha um id, combine com o assunto/tom):',
+    menu(DESIGN_FONT_MENU),
     '',
-    'Coerência: use "quote-impact"/"citacao" só quando há citação forte; "numbers-data"/"kpis" só quando o número é o centro; "breaking-alert" só em urgência real. Na dúvida, prefira "manchete".',
+    'Responda APENAS com um objeto JSON válido, sem cercas de código:',
+    '{ "template": "id", "format": "id", "palette": "id", "font": "id", "justificativa": "1 frase curta" }',
+    '',
+    'Coerência: use "quote-impact"/"citacao" só quando há citação forte; "numbers-data"/"kpis" só quando o número é o centro; "breaking-alert" só em urgência real. Na dúvida, prefira "manchete" com fonte "poppins".',
   ].join('\n');
 }
 
@@ -350,12 +360,15 @@ function normalizeDesign(data) {
     const t = asText(data.template);
     const f = asText(data.format);
     const p = asText(data.palette);
+    const fo = asText(data.font);
     const templates = (typeof POSTER_TEMPLATES !== 'undefined') ? POSTER_TEMPLATES : null;
     const palettes = (typeof POSTER_PALETTES !== 'undefined') ? POSTER_PALETTES : null;
+    const fonts = (typeof POSTER_FONTS !== 'undefined') ? POSTER_FONTS : null;
     const formats = DESIGN_FORMATS.map((x) => x[0]);
     if (t && (!templates || templates[t])) out.template = t;
     if (formats.includes(f)) out.format = f;
     if (p && (!palettes || palettes[p])) out.palette = p;
+    if (fo && (!fonts || fonts[fo])) out.font = fo;
     out.justificativa = asText(data.justificativa);
   }
   // Rótulo amigável da paleta (para exibir no resultado)
@@ -368,6 +381,11 @@ function normalizeDesign(data) {
     out.templateLabel = POSTER_TEMPLATES[out.template].label || out.template;
   } else {
     out.templateLabel = out.template;
+  }
+  if (typeof POSTER_FONTS !== 'undefined' && POSTER_FONTS[out.font]) {
+    out.fontLabel = POSTER_FONTS[out.font].label || out.font;
+  } else {
+    out.fontLabel = out.font;
   }
   return out;
 }
@@ -387,6 +405,14 @@ function fallbackDesign(interp, article) {
     'EDUCAÇÃO': 'azul-editorial', 'SEGURANÇA': 'preto-elegante',
   };
   if (byCat[cat]) d.palette = byCat[cat];
+  // Tipografia por categoria: serifada em cultura/análise, condensada em urgência,
+  // geométrica em tecnologia/negócios; padrão Poppins nas demais.
+  const fontByCat = {
+    'CULTURA': 'fraunces', 'EDUCAÇÃO': 'fraunces',
+    'ESPORTE': 'oswald', 'SEGURANÇA': 'oswald',
+    'TECNOLOGIA': 'jakarta', 'ECONOMIA': 'jakarta', 'NEGÓCIOS': 'jakarta',
+  };
+  if (fontByCat[cat]) d.font = fontByCat[cat];
   return normalizeDesign(d);
 }
 

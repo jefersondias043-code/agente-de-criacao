@@ -247,10 +247,12 @@ function pipelineExtrasHtml(g) {
   let html = '';
   if (design && design.templateLabel) {
     const paletteLabel = design.paletteLabel || design.palette || '';
+    const fontLabel = design.fontLabel || design.font || '';
+    const fontBit = fontLabel ? ` · ${escapeHtml(String(fontLabel).split(' — ')[0])}` : '';
     html += `
       <div class="design-suggest mt-2" title="${escapeHtml(design.justificativa || 'Sugestão do agente de design')}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
-        <span class="text-xs">Design sugerido: <strong>${escapeHtml(design.templateLabel)}</strong> · ${escapeHtml(paletteLabel)} · ${escapeHtml(design.format || '')}</span>
+        <span class="text-xs">Design sugerido: <strong>${escapeHtml(design.templateLabel)}</strong> · ${escapeHtml(paletteLabel)} · ${escapeHtml(design.format || '')}${fontBit}</span>
       </div>`;
   }
   if (tags.length) {

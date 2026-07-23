@@ -432,9 +432,11 @@ function applyDesignToPoster(target, design) {
   if (design.template && (!templates || templates[design.template])) target.template = design.template;
   if (design.format) target.format = design.format;
   const palettes = (typeof POSTER_PALETTES !== 'undefined') ? POSTER_PALETTES : null;
-  if (design.palette && (!palettes || palettes[design.palette])) {
-    target.custom = Object.assign({}, target.custom, { palette: design.palette, autoContrast: true });
-  }
+  const fonts = (typeof POSTER_FONTS !== 'undefined') ? POSTER_FONTS : null;
+  const custom = {};
+  if (design.palette && (!palettes || palettes[design.palette])) { custom.palette = design.palette; custom.autoContrast = true; }
+  if (design.font && (!fonts || fonts[design.font])) custom.font = design.font;
+  if (Object.keys(custom).length) target.custom = Object.assign({}, target.custom, custom);
 }
 
 function createPosterFromGeneration(g) {
@@ -1555,6 +1557,7 @@ function readPosterCustom() {
   const num = (sel, d) => { const n = parseInt(val(sel), 10); return Number.isFinite(n) ? n : d; };
   const custom = {
     palette: val('#p-palette') || '',
+    font: val('#p-font') || '',
     colors,
     autoContrast: on('#pc-auto'),
     gradient: { from: val('#pg-from'), to: val('#pg-to'), angle: parseInt(val('#pg-angle'), 10) || 150 },
@@ -1572,7 +1575,7 @@ function readPosterCustom() {
       posY: num('#pat-py', 0),
     } : undefined,
   };
-  const active = custom.palette || Object.keys(colors).length || custom.useGradientAccent || (bg && bg !== 'theme');
+  const active = custom.palette || custom.font || Object.keys(colors).length || custom.useGradientAccent || (bg && bg !== 'theme');
   return active ? custom : undefined;
 }
 
@@ -1582,6 +1585,7 @@ function writeControlsFromCustom(c) {
   const set = (sel, v) => { const el = $(sel); if (el && v != null) el.value = v; };
   const chk = (sel, b) => { const el = $(sel); if (el) el.checked = !!b; };
   set('#p-palette', c.palette || '');
+  set('#p-font', c.font || '');
   const cols = c.colors || {};
   Object.keys(PC_COLOR_MAP).forEach(k => { chk(PC_COLOR_MAP[k] + '-on', cols[k] != null); if (cols[k]) set(PC_COLOR_MAP[k], cols[k]); });
   chk('#pc-auto', c.autoContrast !== false);
@@ -1630,6 +1634,11 @@ function setupPosterStyleControls(p, onChange) {
     pal.innerHTML = '<option value="">Sem paleta (usar tema)</option>' +
       Object.entries(POSTER_PALETTES).map(([k, v]) => `<option value="${k}">${escapeHtml(v.label)}</option>`).join('');
   }
+  const fontSel = $('#p-font');
+  if (fontSel && typeof POSTER_FONTS !== 'undefined') {
+    fontSel.innerHTML = '<option value="">Do tema</option>' +
+      Object.entries(POSTER_FONTS).map(([k, v]) => `<option value="${k}">${escapeHtml(v.label)}</option>`).join('');
+  }
   const gp = $('#pg-preset');
   if (gp && typeof POSTER_GRADIENTS !== 'undefined') {
     gp.innerHTML = '<option value="">Personalizado</option>' +
@@ -1651,7 +1660,7 @@ function setupPosterStyleControls(p, onChange) {
 
   const fire = () => onChange();
   // Todos os controles de cor/gradiente/padrão/checagem disparam o mesmo onChange.
-  ['#p-palette', '#pc-auto', '#pg-from', '#pg-to', '#pg-angle', '#pg-accent',
+  ['#p-palette', '#p-font', '#pc-auto', '#pg-from', '#pg-to', '#pg-angle', '#pg-accent',
    '#pat-c1', '#pat-c2', '#pat-c1-on', '#pat-c2-on', '#pat-alpha', '#pat-scale', '#pat-angle', '#pat-px', '#pat-py']
     .concat(Object.values(PC_COLOR_MAP))
     .concat(Object.values(PC_COLOR_MAP).map(s => s + '-on'))

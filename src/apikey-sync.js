@@ -104,7 +104,7 @@ function currentGroqConfig() {
    A config (inclui a CHAVE de API) e os demais comandos só podem trafegar
    entre o app e os IFRAMES DAS NOSSAS FERRAMENTAS — nunca com janelas
    arbitrárias que consigam nos enviar mensagens. */
-const TOOL_FRAME_SELECTORS = ['#detectorFrame', '#autopostFrame', '#replicadorFrame', '#videograbFrame', '#removedorFrame'];
+const TOOL_FRAME_SELECTORS = ['#detectorFrame', '#autopostFrame', '#replicadorFrame', '#removedorFrame'];
 
 /** A mensagem veio de um dos iframes de ferramenta da plataforma? */
 function isToolFrameSource(e) {

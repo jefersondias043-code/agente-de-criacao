@@ -4,9 +4,6 @@
    Uma ferramenta depende de um servidor próprio:
      · Removedor de Fundo → removedor-server/  (Python, porta 7000)
 
-   (O VideoGrab NÃO usa mais servidor: virou uma ferramenta de handoff que
-    abre um baixador web — funciona no celular e no GitHub Pages sem backend.)
-
    USO LOCAL (duplo-clique / Agente.bat): nada a fazer — o endereço
    local já funciona como sempre.
 

@@ -432,6 +432,9 @@ async function exportCarousel(p, mode, scale) {
   setProg(0);
   const prevIndex = p.slideIndex || 0;
   const files = [];
+  // Cobre a prévia durante TODO o loop — sem isso o palco pisca a cada slide
+  // (troca de slide + zoom da captura). (ref-count: as capturas internas somam.)
+  if (typeof showStageCaptureCover === 'function') showStageCaptureCover();
   try {
     for (let idx = 0; idx < slides.length; idx++) {
       const slide = slides[idx];
@@ -479,5 +482,6 @@ async function exportCarousel(p, mode, scale) {
     p.slideIndex = prevIndex;
     renderPosterTemplate({ ...getSlide(p), theme: p.theme, custom: p.custom, portalSnapshot: p.portalSnapshot, _idx: (p.slideIndex || 0) + 1, _total: p.slides.length });
     fitPosterPreview();
+    if (typeof hideStageCaptureCover === 'function') hideStageCaptureCover(true); // solta a cobertura só depois de restaurar o preview
   }
 }

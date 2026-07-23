@@ -2717,12 +2717,46 @@ function posterCoverRect(W, H, iw, ih, scale, posX, posY) {
   return { renderW, renderH, dx: (W - renderW) / 2 + tx, dy: (H - renderH) / 2 + ty };
 }
 
+/* Cobertura durante a captura. Pra exportar em alta resolução o html2canvas
+   precisa renderizar o cartaz no tamanho real (scale 1) e trocar as imagens/logo
+   por canvas — isso faz o cartaz "dar zoom" e piscar na tela. Cobrimos a área da
+   prévia com um card de "gerando…" enquanto acontece, então o usuário não vê a
+   bagunça. Contador de referências: no carrossel a cobertura fica de pé durante
+   o loop inteiro (não pisca a cada slide). */
+let _stageCoverEl = null;
+let _stageCoverRefs = 0;
+function showStageCaptureCover() {
+  _stageCoverRefs++;
+  if (_stageCoverEl) return;
+  const outer = document.getElementById('p-stage-outer');
+  if (!outer) return;
+  const r = outer.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const c = document.createElement('div');
+  c.className = 'p-export-cover';
+  c.style.left = r.left + 'px';
+  c.style.top = r.top + 'px';
+  c.style.width = r.width + 'px';
+  c.style.height = r.height + 'px';
+  c.innerHTML = '<div class="p-export-cover-in"><div class="spin"></div><div class="cap">Gerando em alta resolução…</div></div>';
+  document.body.appendChild(c);
+  _stageCoverEl = c;
+}
+function hideStageCaptureCover(force) {
+  _stageCoverRefs = force ? 0 : Math.max(0, _stageCoverRefs - 1);
+  if (_stageCoverRefs === 0 && _stageCoverEl) {
+    if (_stageCoverEl.remove) _stageCoverEl.remove();
+    _stageCoverEl = null;
+  }
+}
+
 async function captureStageCanvas(fmt, scale) {
   const s = Math.max(1, scale || 1);   // 1× (padrão) ou 2× (alta resolução)
   const stage = $('#p-stage');
   const wrap = $('#p-stage-wrap');
   const target = stage && stage.querySelector('.poster-1440');
   if (!stage || !wrap || !target) return null;
+  showStageCaptureCover();   // esconde o zoom/piscada da captura
   if (typeof stage.__exitReframe === 'function') stage.__exitReframe();   // sai do reframe se ativo
   // Garante as fontes carregadas antes de exportar — com a fonte ainda baixando o
   // layout fica instável e o html2canvas pode lançar "addColorStop non-finite" ao
@@ -2847,11 +2881,11 @@ async function captureStageCanvas(fmt, scale) {
     stage.style.transform = originalTransform;
     wrap.style.width = originalWrapW;
     wrap.style.height = originalWrapH;
+    hideStageCaptureCover();   // libera a cobertura (o preview já foi restaurado)
   }
 }
 
 async function exportPoster(p, scale) {
-  toast('Gerando o cartaz em alta resolução…', 'info');
   try {
     const canvas = await captureStageCanvas(posterActiveFormat(), scale);
     if (!canvas) { toast('Não foi possível exportar.', 'error'); return; }

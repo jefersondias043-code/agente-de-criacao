@@ -16,7 +16,7 @@ function renderAutopost() {
       if (typeof deliverPendingContent === 'function') deliverPendingContent();
       requestAnimationFrame(() => f.classList.add('themed'));
     });
-    f.src = 'autopost-ia.html';
+    f.src = (typeof toolFrameSrc === 'function') ? toolFrameSrc('autopost-ia.html') : 'autopost-ia.html';
     f.dataset.loaded = '1';
   }
 }

@@ -16,7 +16,7 @@ function renderDetector() {
       if (typeof deliverPendingContent === 'function') deliverPendingContent();
       requestAnimationFrame(() => f.classList.add('themed'));
     });
-    f.src = 'detector-flop.html';
+    f.src = (typeof toolFrameSrc === 'function') ? toolFrameSrc('detector-flop.html') : 'detector-flop.html';
     f.dataset.loaded = '1';
   }
 }

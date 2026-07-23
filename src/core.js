@@ -179,6 +179,16 @@ async function withWakeLock(fn) {
   }
 }
 
+/** URL do HTML de uma ferramenta embutida (iframe) com CACHE-BUSTER de versão.
+ *  Anexa ?v=<build> para o navegador buscar o HTML NOVO a cada release — sem
+ *  isso, após uma atualização o iframe podia continuar servindo a versão antiga
+ *  do cache (foi o que fez o Detector Flop aparecer "bugado" mesmo já corrigido). */
+function toolFrameSrc(file) {
+  let v = '';
+  try { const el = document.querySelector('[data-build]'); v = (el && el.dataset && el.dataset.build) || ''; } catch (_) { /* */ }
+  return v ? (file + '?v=' + encodeURIComponent(v)) : file;
+}
+
 function formatBytes(b) {
   if (b == null) return '—';
   if (b < 1024) return `${b} B`;

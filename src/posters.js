@@ -651,8 +651,9 @@ function setupEditorChrome() {
   const acts = $('#et-actions');
   const menuItems = $('#et-menu-items');
   const put = (id, host) => { const el = $(`#${id}`); if (el && host && el.parentElement !== host) host.appendChild(el); };
-  // Exportação agora é UM ícone (#p-export) que abre a tela de configurações.
-  ['p-undo', 'p-redo', 'p-save', 'p-export'].forEach(id => put(id, acts));
+  // Barra de ações enxuta: desfazer/refazer + UM ícone que abre a tela
+  // "Finalizar" (salvar projeto ou exportar). Sem botão de salvar solto.
+  ['p-undo', 'p-redo', 'p-export'].forEach(id => put(id, acts));
   ['p-improve', 'p-delete'].forEach(id => put(id, menuItems));
   // No menu, o botão de excluir (ícone-só na barra antiga) ganha rótulo
   const del = $('#p-delete');
@@ -1131,15 +1132,9 @@ function renderPosterEditor() {
   };
   const isCarousel = () => (typeof posterIsCarousel === 'function' && posterIsCarousel(p));
 
-  $('#p-save').onclick = () => {
-    applyEditorTo(s);
-    if ($('#p-theme')) p.theme = $('#p-theme').value;   // tema é do cartaz (nível p)
-    if (typeof readPosterCustom === 'function') p.custom = readPosterCustom();   // identidade visual (nível p)
-    p.updatedAt = new Date().toISOString();
-    savePosters();
-    renderPostersList();
-    toast(isCarousel() ? 'Carrossel salvo.' : 'Cartaz salvo.', 'success');
-  };
+  // "Salvar" agora vive DENTRO da tela de exportação (openPosterExportSettings),
+  // via _savePosterProject() — a barra de ferramentas fica só com desfazer/
+  // refazer + o ícone de exportar. (As edições já são auto-salvas ao longo do uso.)
 
   $('#p-delete').onclick = () => {
     if (!confirm('Remover este cartaz?')) return;
@@ -2956,11 +2951,24 @@ async function exportPoster(p, scale, fileType) {
   }
 }
 
-/* Tela de EXPORTAÇÃO: um ícone abre estas configurações, JÁ pré-preenchidas
-   com as escolhas da edição. O usuário confere/ajusta e exporta.
+/** Salva o PROJETO do cartaz (mantém editável). Vive na tela de exportação. */
+function _savePosterProject(p) {
+  if (!p) return;
+  const s = (typeof getSlide === 'function') ? getSlide(p) : p;
+  if (typeof applyEditorTo === 'function') applyEditorTo(s);
+  if ($('#p-theme')) p.theme = $('#p-theme').value;
+  if (typeof readPosterCustom === 'function') p.custom = readPosterCustom();
+  p.updatedAt = new Date().toISOString();
+  if (typeof savePosters === 'function') savePosters();
+  if (typeof renderPostersList === 'function') renderPostersList();
+  toast((typeof posterIsCarousel === 'function' && posterIsCarousel(p)) ? 'Carrossel salvo.' : 'Cartaz salvo.', 'success');
+}
+
+/* Tela de FINALIZAR: um ícone abre esta tela única com as duas ações —
+   SALVAR o projeto (mantém editável) e EXPORTAR (arquivo final). Já vem
+   pré-preenchida com as escolhas da edição; o usuário ajusta e conclui.
    - Proporção (formato) com sugestão de plataforma;
-   - Resolução (1×/2×);
-   - Formato do arquivo (PNG/JPG);
+   - Resolução (1×/2×); Formato do arquivo (PNG/JPG);
    - Carrossel: imagens separadas ou .zip. */
 function openPosterExportSettings(p) {
   if (!p || typeof document === 'undefined') return;
@@ -2968,10 +2976,10 @@ function openPosterExportSettings(p) {
   const s = (typeof getSlide === 'function') ? getSlide(p) : p;
   const FORMATS = (typeof POSTER_FORMATS !== 'undefined') ? POSTER_FORMATS : {};
   const PLAT = {
-    '4:5': 'Instagram · Facebook (feed)',
-    '1:1': 'Feed quadrado (todas as redes)',
-    '9:16': 'Stories e Reels (Instagram · TikTok · Shorts)',
-    '3:4': 'Feed (padrão)',
+    '4:5': 'Instagram, Facebook',
+    '1:1': 'Feed quadrado',
+    '9:16': 'Stories, Reels',
+    '3:4': 'Feed padrão',
   };
   let selFmt = (s && s.format) || (p && p.format) || '3:4';
   if (!FORMATS[selFmt]) selFmt = Object.keys(FORMATS)[0] || '3:4';
@@ -2979,11 +2987,13 @@ function openPosterExportSettings(p) {
 
   const fmtCards = Object.keys(FORMATS).map((k) => {
     const parts = k.split(':').map(Number);
-    const boxH = 30, boxW = Math.max(14, Math.round(boxH * (parts[0] / parts[1])));
+    const boxH = 26, boxW = Math.max(12, Math.round(boxH * (parts[0] / parts[1])));
     return `<button type="button" class="exps-fmt${k === selFmt ? ' sel' : ''}" data-fmt="${k}">
       <span class="exps-fmt-box" style="width:${boxW}px;height:${boxH}px;"></span>
-      <span class="exps-fmt-ratio">${k}</span>
-      <span class="exps-fmt-hint">${escapeHtml(PLAT[k] || (FORMATS[k] && FORMATS[k].hint) || '')}</span>
+      <span class="exps-fmt-txt">
+        <span class="exps-fmt-ratio">${k}</span>
+        <span class="exps-fmt-hint">${escapeHtml(PLAT[k] || (FORMATS[k] && FORMATS[k].hint) || '')}</span>
+      </span>
     </button>`;
   }).join('');
 
@@ -2991,8 +3001,8 @@ function openPosterExportSettings(p) {
   backdrop.className = 'xport-backdrop';
   backdrop.innerHTML = `<div class="xport-card exps-card" role="dialog" aria-modal="true">
     <div class="xport-head">
-      <div><div class="xport-title">Exportar ${isCar ? 'carrossel' : 'cartaz'}</div>
-      <div class="xport-sub">Confira as opções e exporte.</div></div>
+      <div><div class="xport-title">Finalizar ${isCar ? 'carrossel' : 'cartaz'}</div>
+      <div class="xport-sub">Salve o projeto ou exporte o arquivo final.</div></div>
       <button class="xport-close" type="button" aria-label="Fechar">&times;</button>
     </div>
     <div class="exps-body">
@@ -3003,12 +3013,12 @@ function openPosterExportSettings(p) {
       <div class="exps-group">
         <div class="exps-label">Resolução</div>
         <div class="exps-seg" data-seg="scale">
-          <button type="button" data-v="1" class="sel">1× · 1080px</button>
-          <button type="button" data-v="2">2× · 2160px</button>
+          <button type="button" data-v="1" class="sel">1080px</button>
+          <button type="button" data-v="2">2160px</button>
         </div>
       </div>
       <div class="exps-group">
-        <div class="exps-label">Formato do arquivo</div>
+        <div class="exps-label">Formato</div>
         <div class="exps-seg" data-seg="file">
           <button type="button" data-v="png" class="sel">PNG</button>
           <button type="button" data-v="jpg">JPG</button>
@@ -3022,7 +3032,10 @@ function openPosterExportSettings(p) {
         </div>
       </div>` : ''}
     </div>
-    <div class="xport-actions"><button class="xport-save" type="button" id="exps-go">Exportar</button></div>
+    <div class="exps-actions">
+      <button class="exps-btn exps-btn-save" type="button" id="exps-save">Salvar projeto</button>
+      <button class="exps-btn exps-btn-go" type="button" id="exps-go">Exportar</button>
+    </div>
   </div>`;
 
   let closed = false;
@@ -3046,6 +3059,9 @@ function openPosterExportSettings(p) {
       else if (k === 'mode') selMode = v;
     }; });
   });
+
+  const saveBtn = backdrop.querySelector('#exps-save');
+  if (saveBtn) saveBtn.onclick = () => { _savePosterProject(p); cleanup(); };
 
   const goBtn = backdrop.querySelector('#exps-go');
   if (goBtn) goBtn.onclick = async () => {

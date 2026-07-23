@@ -407,18 +407,21 @@ function _zipStore(files) {
   return out;
 }
 
-function _canvasToBytes(canvas) {
+function _canvasToBytes(canvas, mime, quality) {
   return new Promise((resolve, reject) => {
     canvas.toBlob(async (blob) => {
       if (!blob) { reject(new Error('toBlob falhou')); return; }
       try { resolve(new Uint8Array(await blob.arrayBuffer())); } catch (e) { reject(e); }
-    }, 'image/png');
+    }, mime || 'image/png', quality);
   });
 }
 
-async function exportCarousel(p, mode, scale) {
-  if (!posterIsCarousel(p)) return exportPoster(p, scale);
+async function exportCarousel(p, mode, scale, fileType) {
+  if (!posterIsCarousel(p)) return exportPoster(p, scale, fileType);
   mode = mode || 'zip';
+  const jpg = fileType === 'jpg' || fileType === 'jpeg';
+  const mime = jpg ? 'image/jpeg' : 'image/png';
+  const ext = jpg ? 'jpg' : 'png';
   const slides = p.slides;
   // Progresso: um ÚNICO toast que se atualiza por slide (não spamma a pilha).
   const progEl = document.createElement('div');
@@ -445,7 +448,7 @@ async function exportCarousel(p, mode, scale) {
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       await waitForStageImages();
       const canvas = await captureStageCanvas(fmt, scale);
-      if (canvas) files.push({ name: `carrossel-${String(idx + 1).padStart(2, '0')}.png`, data: await _canvasToBytes(canvas) });
+      if (canvas) files.push({ name: `carrossel-${String(idx + 1).padStart(2, '0')}.${ext}`, data: await _canvasToBytes(canvas, mime, jpg ? 0.92 : undefined) });
     }
     if (!files.length) { toast('Não foi possível exportar o carrossel.', 'error'); return; }
     const base = (slides[0].headline || 'carrossel').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'export';
@@ -456,7 +459,7 @@ async function exportCarousel(p, mode, scale) {
       // (galeria, todos de uma vez); no desktop baixa cada um. O salvamento
       // precisa ser uma ação nova do usuário (o iOS bloqueia share automático
       // logo após gerar os slides).
-      const imgs = files.map((f) => ({ name: f.name, blob: new Blob([f.data], { type: 'image/png' }) }));
+      const imgs = files.map((f) => ({ name: f.name, blob: new Blob([f.data], { type: mime }) }));
       if (progEl && progEl.parentNode) progEl.remove(); // fecha o progresso antes da prévia
       if (typeof presentExport === 'function') {
         presentExport(imgs, { title: 'Carrossel pronto', subtitle: `${files.length} imagens — confira e salve na galeria.` });

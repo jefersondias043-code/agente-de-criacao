@@ -1,0 +1,226 @@
+// saveImagesToDevice / canvasToBlob — exportação de imagens que funciona no
+// iPhone. O bug corrigido: no iOS o <a download> é ignorado e nada chega à
+// galeria de Fotos. O caminho certo é a Web Share API com arquivos.
+// Usa injeção de dependências (deps) para não depender das APIs do jsdom
+// (navigator.share/canShare e URL.createObjectURL não existem lá).
+import { describe, it, expect, beforeEach } from 'vitest';
+import { loadModules } from './helpers/load.mjs';
+
+let C;
+beforeEach(() => {
+  C = loadModules(['catalogs.js', 'core.js'], ['saveImagesToDevice', 'canvasToBlob', 'presentExport']);
+  if (typeof document !== 'undefined') document.body.innerHTML = '';
+});
+
+function fakeBlob(type = 'image/png') { return { type, size: 4 }; }
+function FakeFile(parts, name, opts) { this.parts = parts; this.name = name; this.type = opts && opts.type; }
+
+function makeDownloadDeps() {
+  const created = [];
+  const urls = [];
+  const doc = {
+    body: { appendChild() {} },
+    createElement(tag) {
+      const el = { tag, href: '', download: '', clicked: false, click() { this.clicked = true; }, remove() {} };
+      created.push(el);
+      return el;
+    },
+  };
+  const urlApi = {
+    createObjectURL(b) { urls.push(b); return 'blob:' + (urls.length - 1); },
+    revoked: [],
+    revokeObjectURL(u) { this.revoked.push(u); },
+  };
+  return { doc, urlApi, created, urls, File: FakeFile };
+}
+
+describe('saveImagesToDevice', () => {
+  it('usa Web Share com ARQUIVOS quando o navegador suporta (caminho iPhone)', async () => {
+    let shareArg = null;
+    const nav = {
+      canShare: (a) => Array.isArray(a && a.files),
+      share: async (a) => { shareArg = a; },
+    };
+    const dl = makeDownloadDeps();
+    const how = await C.saveImagesToDevice(
+      [{ name: 'a.png', blob: fakeBlob() }, { name: 'b.png', blob: fakeBlob() }],
+      'Carrossel',
+      { nav, doc: dl.doc, urlApi: dl.urlApi, File: FakeFile },
+    );
+    expect(how).toBe('shared');
+    expect(shareArg.files).toHaveLength(2);
+    expect(shareArg.files[0]).toBeInstanceOf(FakeFile);
+    expect(shareArg.title).toBe('Carrossel');
+    // NÃO deve baixar duplicado quando compartilhou
+    expect(dl.created).toHaveLength(0);
+  });
+
+  it('cai no download quando o navegador NÃO sabe compartilhar arquivos (desktop)', async () => {
+    const nav = { canShare: () => false, share: async () => {} };
+    const dl = makeDownloadDeps();
+    const how = await C.saveImagesToDevice(
+      [{ name: 'cartaz.png', blob: fakeBlob() }],
+      'Cartaz',
+      { nav, doc: dl.doc, urlApi: dl.urlApi, File: FakeFile },
+    );
+    expect(how).toBe('downloaded');
+    expect(dl.created).toHaveLength(1);
+    expect(dl.created[0].download).toBe('cartaz.png');
+    expect(dl.created[0].clicked).toBe(true);
+    expect(dl.urls).toHaveLength(1);
+  });
+
+  it('sem navigator (ambiente sem share) também baixa', async () => {
+    const dl = makeDownloadDeps();
+    const how = await C.saveImagesToDevice(
+      [{ name: 'x.png', blob: fakeBlob() }],
+      null,
+      { nav: null, doc: dl.doc, urlApi: dl.urlApi, File: FakeFile },
+    );
+    expect(how).toBe('downloaded');
+    expect(dl.created[0].clicked).toBe(true);
+  });
+
+  it('quando o usuário FECHA a folha de compartilhamento (AbortError) não baixa duplicado', async () => {
+    const nav = {
+      canShare: () => true,
+      share: async () => { const e = new Error('cancelado'); e.name = 'AbortError'; throw e; },
+    };
+    const dl = makeDownloadDeps();
+    const how = await C.saveImagesToDevice(
+      [{ name: 'a.png', blob: fakeBlob() }],
+      'Cartaz',
+      { nav, doc: dl.doc, urlApi: dl.urlApi, File: FakeFile },
+    );
+    expect(how).toBe('canceled');
+    expect(dl.created).toHaveLength(0);
+  });
+
+  it('se o share falhar por OUTRO motivo (ex.: gesto perdido), cai no download', async () => {
+    const nav = {
+      canShare: () => true,
+      share: async () => { const e = new Error('NotAllowed'); e.name = 'NotAllowedError'; throw e; },
+    };
+    const dl = makeDownloadDeps();
+    const how = await C.saveImagesToDevice(
+      [{ name: 'a.png', blob: fakeBlob() }],
+      'Cartaz',
+      { nav, doc: dl.doc, urlApi: dl.urlApi, File: FakeFile },
+    );
+    expect(how).toBe('downloaded');
+    expect(dl.created[0].clicked).toBe(true);
+  });
+
+  it('reconstrói o Blob a partir do ArrayBuffer antes de compartilhar (workaround iPhone)', async () => {
+    // No iPhone um Blob vindo direto de canvas.toBlob costuma ser recusado pela
+    // folha de compartilhamento; refazê-lo a partir dos bytes resolve. Este é o
+    // motivo de o carrossel salvar e o cartaz não — agora ambos passam pelos bytes.
+    let shareArg = null;
+    const nav = { canShare: (a) => Array.isArray(a && a.files), share: async (a) => { shareArg = a; } };
+    const dl = makeDownloadDeps();
+    const buf = new Uint8Array([1, 2, 3]).buffer;
+    const canvasBlob = { type: 'image/png', arrayBuffer: async () => buf };
+    const madeBlobs = [];
+    function SpyBlob(parts, opts) { this.parts = parts; this.type = opts && opts.type; madeBlobs.push(this); }
+    const how = await C.saveImagesToDevice(
+      [{ name: 'cartaz.png', blob: canvasBlob }],
+      'Cartaz',
+      { nav, doc: dl.doc, urlApi: dl.urlApi, File: FakeFile, Blob: SpyBlob },
+    );
+    expect(how).toBe('shared');
+    expect(madeBlobs).toHaveLength(1);                    // refez 1 blob
+    expect(madeBlobs[0].parts[0]).toBe(buf);              // a partir dos bytes lidos do canvas
+    expect(shareArg.files[0].parts[0]).toBe(madeBlobs[0]); // o File embrulha o blob reconstruído
+  });
+
+  it('lista vazia é erro (nada para salvar)', async () => {
+    await expect(C.saveImagesToDevice([], 'x', {})).rejects.toThrow(/nada para salvar/);
+  });
+});
+
+describe('canvasToBlob', () => {
+  it('resolve com o Blob produzido pelo canvas', async () => {
+    const blob = fakeBlob();
+    const canvas = { toBlob(cb, type) { this._type = type; cb(blob); } };
+    const out = await C.canvasToBlob(canvas, 'image/png');
+    expect(out).toBe(blob);
+    expect(canvas._type).toBe('image/png');
+  });
+
+  it('cai no toDataURL quando toBlob devolve null (limite de memória do iPhone)', async () => {
+    const canvas = {
+      toBlob(cb) { cb(null); },
+      toDataURL() { return 'data:image/png;base64,AAAA'; },
+    };
+    const out = await C.canvasToBlob(canvas, 'image/png');
+    expect(out).toBeInstanceOf(Blob);
+    expect(out.type).toBe('image/png');
+  });
+
+  it('rejeita quando toBlob devolve null e não há toDataURL', async () => {
+    const canvas = { toBlob(cb) { cb(null); } };
+    await expect(C.canvasToBlob(canvas)).rejects.toThrow(/toBlob/);
+  });
+
+  it('rejeita canvas inválido', async () => {
+    await expect(C.canvasToBlob(null)).rejects.toThrow(/canvas inválido/);
+  });
+});
+
+describe('presentExport (painel de prévia + salvar/compartilhar)', () => {
+  const items = (n) => Array.from({ length: n }, (_, i) => ({ name: `s${i}.png`, blob: fakeBlob() }));
+  const makeUrlApi = () => {
+    const revoked = [];
+    return { createObjectURL: () => 'blob:' + Math.random(), revokeObjectURL: (u) => revoked.push(u), revoked };
+  };
+  const baseDeps = (over) => Object.assign({
+    nav: { canShare: () => true }, urlApi: makeUrlApi(), doc: document, File: FakeFile,
+    save: async () => 'shared', toast: () => {},
+  }, over);
+
+  it('mostra a prévia e o botão "Salvar na galeria" (1 cartaz, share disponível)', () => {
+    const el = C.presentExport(items(1), { title: 'Cartaz pronto' }, baseDeps());
+    expect(document.querySelector('.xport-backdrop')).toBe(el);
+    expect(el.querySelector('.xport-title').textContent).toBe('Cartaz pronto');
+    expect(el.querySelectorAll('.xport-preview img')).toHaveLength(1);
+    expect(el.querySelector('.xport-save').textContent).toBe('Salvar na galeria');
+  });
+
+  it('rótulo "Baixar" e uma prévia por slide quando NÃO dá pra compartilhar (desktop)', () => {
+    const el = C.presentExport(items(3), { title: 'Carrossel pronto' }, baseDeps({ nav: { canShare: () => false } }));
+    expect(el.querySelector('.xport-save').textContent).toBe('Baixar');
+    expect(el.querySelectorAll('.xport-preview img')).toHaveLength(3);
+  });
+
+  it('o botão salvar chama save() com a lista e o título, e fecha o painel', async () => {
+    let got = null;
+    const el = C.presentExport(items(2), { title: 'Carrossel pronto' },
+      baseDeps({ save: async (list, title) => { got = { list, title }; return 'shared'; } }));
+    await el.querySelector('.xport-save').onclick();
+    expect(got.list).toHaveLength(2);
+    expect(got.title).toBe('Carrossel pronto');
+    expect(document.querySelector('.xport-backdrop')).toBe(null); // fechou após salvar
+  });
+
+  it('cancelar (canceled) mantém o painel aberto pra tentar de novo', async () => {
+    const el = C.presentExport(items(1), { title: 'Cartaz' }, baseDeps({ save: async () => 'canceled' }));
+    await el.querySelector('.xport-save').onclick();
+    expect(document.querySelector('.xport-backdrop')).toBe(el);
+    expect(el.querySelector('.xport-save').disabled).toBe(false);
+  });
+
+  it('o botão fechar remove o painel e revoga as URLs de prévia', () => {
+    const urlApi = makeUrlApi();
+    const el = C.presentExport(items(2), { title: 'x' }, baseDeps({ urlApi }));
+    el.querySelector('.xport-close').onclick();
+    expect(document.querySelector('.xport-backdrop')).toBe(null);
+    expect(urlApi.revoked).toHaveLength(2);
+  });
+
+  it('lista vazia não cria painel e avisa por toast', () => {
+    let msg = null;
+    const el = C.presentExport([], {}, baseDeps({ toast: (m, k) => { msg = { m, k }; } }));
+    expect(el).toBe(null);
+    expect(msg.k).toBe('error');
+  });
+});

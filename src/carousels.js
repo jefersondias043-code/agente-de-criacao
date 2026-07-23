@@ -448,17 +448,18 @@ async function exportCarousel(p, mode, scale) {
     const base = (slides[0].headline || 'carrossel').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'export';
 
     if (mode === 'images') {
-      // Opção 1 — baixar cada slide como imagem separada
-      for (const f of files) {
-        const url = URL.createObjectURL(new Blob([f.data], { type: 'image/png' }));
-        const link = document.createElement('a');
-        link.download = f.name;
-        link.href = url;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-        await new Promise(r => setTimeout(r, 300)); // espaça os downloads
+      // Opção 1 — imagens separadas. Mostra a PRÉVIA de todos os slides + botão
+      // salvar/compartilhar. No iPhone o botão dispara a folha "Salvar Imagem"
+      // (galeria, todos de uma vez); no desktop baixa cada um. O salvamento
+      // precisa ser uma ação nova do usuário (o iOS bloqueia share automático
+      // logo após gerar os slides).
+      const imgs = files.map((f) => ({ name: f.name, blob: new Blob([f.data], { type: 'image/png' }) }));
+      if (progEl && progEl.parentNode) progEl.remove(); // fecha o progresso antes da prévia
+      if (typeof presentExport === 'function') {
+        presentExport(imgs, { title: 'Carrossel pronto', subtitle: `${files.length} imagens — confira e salve na galeria.` });
+      } else if (typeof saveImagesToDevice === 'function') {
+        await saveImagesToDevice(imgs, 'Carrossel');
       }
-      toast(`Carrossel exportado (${files.length} imagens).`, 'success');
     } else {
       // Opção 2 — empacotar todos os PNGs num único .zip
       const zip = _zipStore(files);
@@ -468,7 +469,7 @@ async function exportCarousel(p, mode, scale) {
       link.href = url;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-      toast(`Carrossel exportado (${files.length} imagens no .zip).`, 'success');
+      toast(`Carrossel baixado (${files.length} imagens no .zip).`, 'success');
     }
   } catch (err) {
     toast('Não foi possível exportar o carrossel: ' + err.message, 'error');

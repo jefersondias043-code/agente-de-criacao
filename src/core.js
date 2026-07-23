@@ -189,6 +189,222 @@ function toolFrameSrc(file) {
   return v ? (file + '?v=' + encodeURIComponent(v)) : file;
 }
 
+/** Converte uma data URL (base64) em Blob. O Blob resultante é lastreado por um
+ *  ArrayBuffer "solto" (não preso a um canvas) — importante no iPhone, onde a
+ *  folha de compartilhamento às vezes recusa um Blob vindo direto do canvas. */
+function _dataUrlToBlob(durl) {
+  const s = String(durl);
+  const comma = s.indexOf(',');
+  const head = s.slice(0, comma);
+  const mime = (head.match(/data:([^;]+)/) || [])[1] || 'image/png';
+  const bin = atob(s.slice(comma + 1));
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+/** Converte um <canvas> em Blob (Promise). Prefere toBlob (não materializa um
+ *  base64 gigante que no iPhone estoura memória). Se o toBlob devolver null
+ *  (ex.: limite de memória do iOS em canvas grandes) ou não existir (iOS antigo),
+ *  cai no toDataURL. */
+function canvasToBlob(canvas, type, quality) {
+  type = type || 'image/png';
+  return new Promise((resolve, reject) => {
+    const viaDataUrl = () => {
+      try {
+        if (canvas && typeof canvas.toDataURL === 'function') { resolve(_dataUrlToBlob(canvas.toDataURL(type, quality))); return true; }
+      } catch (_) { /* */ }
+      return false;
+    };
+    if (!canvas || typeof canvas.toBlob !== 'function') {
+      if (!viaDataUrl()) reject(new Error('canvas inválido'));
+      return;
+    }
+    canvas.toBlob((b) => {
+      if (b) { resolve(b); return; }
+      if (!viaDataUrl()) reject(new Error('toBlob falhou')); // último recurso
+    }, type, quality);
+  });
+}
+
+/** Salva/entrega imagens no dispositivo de um jeito que FUNCIONE no iPhone.
+ *
+ *  O bug que isto corrige: no iOS Safari o atributo `<a download>` é IGNORADO —
+ *  o clique não gera arquivo nenhum e NADA chega à galeria de Fotos, mas o app
+ *  ainda mostrava "exportado com sucesso". O caminho correto no iOS é a Web
+ *  Share API com ARQUIVOS: abre a folha de compartilhamento onde o usuário toca
+ *  "Salvar Imagem" (vai direto pra galeria) ou envia pro Instagram/WhatsApp.
+ *
+ *  Estratégia: 1) se o navegador sabe compartilhar arquivos (canShare) → share;
+ *  2) senão (desktop) → download clássico. Importante: precisa ser chamado
+ *  DENTRO do gesto do usuário (clique) — o iOS exige ativação recente pro share.
+ *
+ *  @param {Array<{name:string, blob:Blob}>} items imagens a salvar
+ *  @param {string} [shareTitle] título da folha de compartilhamento
+ *  @param {object} [deps] injeção p/ testes: { nav, doc, urlApi, File }
+ *  @returns {Promise<'shared'|'downloaded'|'canceled'>}
+ */
+async function saveImagesToDevice(items, shareTitle, deps) {
+  deps = deps || {};
+  const nav = deps.nav || (typeof navigator !== 'undefined' ? navigator : null);
+  const doc = deps.doc || (typeof document !== 'undefined' ? document : null);
+  const urlApi = deps.urlApi || (typeof URL !== 'undefined' ? URL : null);
+  const FileCtor = deps.File || (typeof File !== 'undefined' ? File : null);
+
+  const BlobCtor = deps.Blob || (typeof Blob !== 'undefined' ? Blob : null);
+
+  const raw = (items || []).filter((it) => it && it.blob);
+  if (!raw.length) throw new Error('nada para salvar');
+
+  // Normaliza cada Blob reconstruindo-o a partir de um ArrayBuffer "solto".
+  // No iPhone, um Blob vindo DIRETO de canvas.toBlob costuma ser recusado pela
+  // folha de compartilhamento (o cartaz não salvava, embora o carrossel — que
+  // já passava pelos bytes — salvasse). Refazer o Blob desprende-o do canvas e
+  // o torna compartilhável. Degrada sem quebrar se não der pra ler os bytes.
+  const list = [];
+  for (const it of raw) {
+    let blob = it.blob;
+    if (BlobCtor && typeof blob.arrayBuffer === 'function') {
+      try { blob = new BlobCtor([await blob.arrayBuffer()], { type: blob.type || 'image/png' }); } catch (_) { blob = it.blob; }
+    }
+    list.push({ name: it.name, blob });
+  }
+
+  // 1) Web Share API com arquivos (iOS/Android modernos) — o único jeito de
+  //    mandar imagem pra galeria de Fotos no iPhone a partir do navegador.
+  if (nav && typeof nav.canShare === 'function' && typeof nav.share === 'function' && FileCtor) {
+    try {
+      const files = list.map((it) => new FileCtor([it.blob], it.name, { type: it.blob.type || 'image/png' }));
+      if (nav.canShare({ files })) {
+        await nav.share({ files, title: shareTitle || undefined });
+        return 'shared';
+      }
+    } catch (err) {
+      // Usuário fechou a folha de compartilhamento → não é erro, e NÃO baixa
+      // uma cópia duplicada por baixo. Qualquer outro erro (ex.: ativação de
+      // gesto perdida) cai no download abaixo como melhor esforço.
+      if (err && err.name === 'AbortError') return 'canceled';
+    }
+  }
+
+  // 2) Fallback: download clássico (desktop; no iOS vai pra Arquivos/Downloads).
+  if (!doc || !urlApi || typeof urlApi.createObjectURL !== 'function') {
+    throw new Error('sem suporte a exportação neste navegador');
+  }
+  for (const it of list) {
+    const url = urlApi.createObjectURL(it.blob);
+    const link = doc.createElement('a');
+    link.download = it.name;
+    link.href = url;
+    if (doc.body && doc.body.appendChild) doc.body.appendChild(link);
+    link.click();
+    if (link.remove) link.remove();
+    setTimeout(() => { try { urlApi.revokeObjectURL(url); } catch (_) { /* */ } }, 8000);
+    if (list.length > 1) await new Promise((r) => setTimeout(r, 300)); // espaça downloads múltiplos
+  }
+  return 'downloaded';
+}
+
+/** Painel de exportação: mostra a PRÉ-VISUALIZAÇÃO do que foi gerado e um botão
+ *  de salvar/compartilhar.
+ *
+ *  Por que existe (e não um share automático): no iPhone a Web Share API só
+ *  funciona se o share() for disparado por um gesto RECENTE do usuário. Como
+ *  gerar a imagem (html2canvas) leva alguns segundos, ao chamar share() logo
+ *  depois o iOS já revogou a ativação do toque e o compartilhamento falha em
+ *  silêncio — foi por isso que "parou de exportar" cartaz e carrossel. Aqui o
+ *  usuário vê o resultado e toca em "Salvar" numa AÇÃO NOVA → o share sempre
+ *  vale. Também é mais profissional: confere antes de publicar.
+ *
+ *  @param {Array<{name:string, blob:Blob}>} items imagens geradas
+ *  @param {{title?:string, subtitle?:string}} [opts]
+ *  @param {object} [deps] injeção p/ testes: { nav, urlApi, doc, File, save, toast }
+ *  @returns {HTMLElement|null} o backdrop criado (ou null se nada a exportar)
+ */
+function presentExport(items, opts, deps) {
+  opts = opts || {}; deps = deps || {};
+  const nav = deps.nav || (typeof navigator !== 'undefined' ? navigator : null);
+  const urlApi = deps.urlApi || (typeof URL !== 'undefined' ? URL : null);
+  const doc = deps.doc || (typeof document !== 'undefined' ? document : null);
+  const FileCtor = deps.File || (typeof File !== 'undefined' ? File : null);
+  const save = deps.save || (typeof saveImagesToDevice === 'function' ? saveImagesToDevice : null);
+  const notify = deps.toast || (typeof toast === 'function' ? toast : function () {});
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s) => String(s == null ? '' : s);
+
+  const list = (items || []).filter((it) => it && it.blob);
+  if (!list.length) { notify('Nada para exportar.', 'error'); return null; }
+  if (!doc || !urlApi) { if (save) save(list, opts.title); return null; }
+
+  const multi = list.length > 1;
+  // Compartilhamento de arquivos disponível? (iPhone/Android modernos)
+  let canShareFiles = false;
+  try {
+    if (nav && typeof nav.canShare === 'function' && FileCtor) {
+      canShareFiles = nav.canShare({ files: list.map((it) => new FileCtor([it.blob], it.name, { type: it.blob.type || 'image/png' })) });
+    }
+  } catch (_) { canShareFiles = false; }
+
+  const urls = list.map((it) => { try { return urlApi.createObjectURL(it.blob); } catch (_) { return ''; } });
+  const primaryLabel = canShareFiles ? (multi ? 'Salvar / compartilhar' : 'Salvar na galeria') : 'Baixar';
+  const hint = canShareFiles
+    ? 'Na janela do sistema, toque em “Salvar Imagem” (vai pra galeria) ou escolha um app pra postar.'
+    : 'A imagem vai para a pasta de downloads.';
+
+  const backdrop = doc.createElement('div');
+  backdrop.className = 'xport-backdrop';
+  backdrop.innerHTML =
+    `<div class="xport-card" role="dialog" aria-modal="true">
+      <div class="xport-head">
+        <div>
+          <div class="xport-title">${esc(opts.title || (multi ? 'Carrossel pronto' : 'Cartaz pronto'))}</div>
+          ${opts.subtitle ? `<div class="xport-sub">${esc(opts.subtitle)}</div>` : ''}
+        </div>
+        <button class="xport-close" aria-label="Fechar" type="button">&times;</button>
+      </div>
+      <div class="xport-preview${multi ? ' multi' : ''}">
+        ${urls.map((u, i) => `<img src="${u}" alt="Prévia ${i + 1}" draggable="false" />`).join('')}
+      </div>
+      <div class="xport-actions"><button class="xport-save" type="button">${esc(primaryLabel)}</button></div>
+      <div class="xport-hint">${esc(hint)}</div>
+    </div>`;
+
+  let closed = false;
+  const cleanup = () => {
+    if (closed) return; closed = true;
+    urls.forEach((u) => { try { if (u) urlApi.revokeObjectURL(u); } catch (_) { /* */ } });
+    if (doc.removeEventListener) doc.removeEventListener('keydown', onKey);
+    if (backdrop.remove) backdrop.remove();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') cleanup(); };
+
+  const closeBtn = backdrop.querySelector('.xport-close');
+  if (closeBtn) closeBtn.onclick = cleanup;
+  backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(); };
+  if (doc.addEventListener) doc.addEventListener('keydown', onKey);
+
+  const saveBtn = backdrop.querySelector('.xport-save');
+  if (saveBtn) saveBtn.onclick = async () => {
+    if (!save) { cleanup(); return; }
+    saveBtn.disabled = true;
+    const prev = saveBtn.textContent;
+    saveBtn.textContent = 'Preparando…';
+    try {
+      const how = await save(list, opts.title || 'Exportação');
+      if (how === 'canceled') { saveBtn.disabled = false; saveBtn.textContent = prev; return; } // deixa tentar de novo
+      notify(how === 'downloaded' ? 'Baixado.' : 'Pronto!', 'success');
+      cleanup();
+    } catch (err) {
+      saveBtn.disabled = false; saveBtn.textContent = prev;
+      notify('Não foi possível salvar: ' + ((err && err.message) || err), 'error');
+    }
+  };
+
+  if (doc.body && doc.body.appendChild) doc.body.appendChild(backdrop);
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => backdrop.classList.add('open'));
+  else backdrop.classList.add('open');
+  return backdrop;
+}
+
 function formatBytes(b) {
   if (b == null) return '—';
   if (b < 1024) return `${b} B`;

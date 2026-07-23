@@ -2410,3 +2410,24 @@ body.pe-full #view-posters { animation: none; }
   color: var(--ink-mute);
   margin-top: 0.1rem;
 }
+
+/* Cartão de mídia grande pendente na Gerar (aguarda toque em "Transcrever"). */
+.attach-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+}
+.attach-card-info { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
+.attach-card-info svg { color: var(--accent); flex-shrink: 0; }
+.attach-card-name {
+  font-size: 0.85rem; font-weight: 600; color: var(--ink-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.attach-card-meta { font-size: 0.72rem; color: var(--ink-mute); }

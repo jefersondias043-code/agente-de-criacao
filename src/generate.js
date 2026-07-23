@@ -69,11 +69,63 @@ function wireGenMode() {
   setGenMode(State.genMode || 'agents');
 }
 
+/** Entrega o texto extraído para a pauta (append). */
+function _genDeliverText(ta, text) {
+  const cur = (ta.value || '').trim();
+  ta.value = cur ? (cur + '\n\n' + text) : text;
+  ta.dispatchEvent(new Event('input'));
+}
+
+/** É mídia (áudio/vídeo) GRANDE — acima do limite de upload direto? Nesse caso
+ *  a transcrição precisa comprimir/dividir via Web Audio, que no iPhone só roda a
+ *  partir de um GESTO do usuário (toque). Por isso não processamos no evento do
+ *  seletor de arquivo: mostramos um botão "Transcrever" para o usuário tocar. */
+function _genEhMidiaGrande(f) {
+  if (!f || typeof ingestKind !== 'function' || ingestKind(f) !== 'media') return false;
+  const safe = (typeof WHISPER_SAFE_BYTES === 'number') ? WHISPER_SAFE_BYTES : 23 * 1024 * 1024;
+  return f.size > safe;
+}
+
+/** Roteia o arquivo anexado na Gerar. Mídia grande → cartão com botão (gesto);
+ *  o resto (texto/PDF/imagem/mídia pequena) → conversão automática, como antes. */
+function handleGenAttach(f, ta) {
+  const pending = $('#g-attach-pending');
+  if (_genEhMidiaGrande(f) && pending) {
+    // Cartão pendente: o TOQUE no botão "Transcrever" é o gesto que destrava o
+    // áudio no iOS (mesma lógica do botão "Gerar" do AutoPost).
+    pending.innerHTML = `
+      <div class="attach-card">
+        <div class="attach-card-info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+          <div style="min-width:0;">
+            <div class="attach-card-name">${escapeHtml(f.name)}</div>
+            <div class="attach-card-meta">${formatBytes(f.size)} · vídeo/áudio grande — será comprimido e transcrito</div>
+          </div>
+        </div>
+        <div class="flex gap-1">
+          <button type="button" class="btn btn-accent btn-sm" data-attach-go>Transcrever</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-attach-cancel title="Remover">✕</button>
+        </div>
+      </div>`;
+    const go = pending.querySelector('[data-attach-go]');
+    const cancel = pending.querySelector('[data-attach-cancel]');
+    if (go) go.onclick = () => {
+      pending.innerHTML = '';
+      if (typeof ingestFileNative === 'function') ingestFileNative(f, (text) => _genDeliverText(ta, text));
+    };
+    if (cancel) cancel.onclick = () => { pending.innerHTML = ''; };
+    return;
+  }
+  // Caminho automático (comportamento anterior) para tudo que não é mídia grande.
+  if (typeof ingestFileNative === 'function') ingestFileNative(f, (text) => _genDeliverText(ta, text));
+}
+
 // ---------- Render Generate ----------
 function renderGenerate() {
   // Abas mobile Pauta↔Resultado (em telas largas não têm efeito visual)
   wireMtabs('#view-generate');
   wireGenMode();
+  { const p = $('#g-attach-pending'); if (p) p.innerHTML = ''; }  // limpa cartão pendente ao (re)entrar
 
   // Catálogos
   const styleSel = $('#g-style');
@@ -151,13 +203,7 @@ function renderGenerate() {
     gAttachBtn.onclick = () => gAttachInput.click();
     gAttachInput.onchange = () => {
       const f = gAttachInput.files && gAttachInput.files[0];
-      if (f && typeof ingestFileNative === 'function') {
-        ingestFileNative(f, (text) => {
-          const cur = (ta.value || '').trim();
-          ta.value = cur ? (cur + '\n\n' + text) : text;
-          ta.dispatchEvent(new Event('input'));
-        });
-      }
+      if (f) handleGenAttach(f, ta);
       gAttachInput.value = '';
     };
   }

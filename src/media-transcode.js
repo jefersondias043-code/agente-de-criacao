@@ -29,50 +29,6 @@ const KBPS_TETO = 64;
 // Tamanho da fatia de renderização (s). 40 s @ 16 kHz mono ≈ 2,5 MB de PCM.
 const FATIA_SEG = 40;
 
-/* --- DESBLOQUEIO DE ÁUDIO NO iOS (essencial) --------------------------------
-   O iOS Safari só permite Web Audio (decodeAudioData/OfflineAudioContext) depois
-   de um AudioContext ter sido criado E retomado DENTRO de um gesto do usuário
-   (toque/clique). No AutoPost a transcrição parte de um clique em "Gerar" — gesto
-   válido. Aqui a mídia pode entrar por "Anexar arquivo", cujo evento de seleção
-   o iOS NÃO trata como gesto de áudio: o contexto nasce "suspended" e o
-   `await ctx.resume()` fica PENDENTE para sempre (trava em "Lendo o áudio…").
-   Solução: destravar um contexto compartilhado no PRIMEIRO gesto real do usuário
-   e reaproveitá-lo nas decodificações. */
-let _sharedAudioCtx = null;
-function unlockAudioContext() {
-  try {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return null;
-    if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') _sharedAudioCtx = new AC();
-    if (_sharedAudioCtx.state === 'suspended' && _sharedAudioCtx.resume) { try { _sharedAudioCtx.resume(); } catch (_) {} }
-    // Buffer silencioso curtíssimo — "acorda" o áudio no iOS ainda dentro do gesto.
-    try {
-      const b = _sharedAudioCtx.createBuffer(1, 1, 22050);
-      const s = _sharedAudioCtx.createBufferSource();
-      s.buffer = b; s.connect(_sharedAudioCtx.destination); s.start(0);
-    } catch (_) {}
-    return _sharedAudioCtx;
-  } catch (_) { return null; }
-}
-// Arma o desbloqueio nos gestos do usuário. capture:true garante rodar antes dos
-// handlers da UI (ex.: o clique em "Anexar arquivo" que abre o seletor). Tenta a
-// cada gesto até o contexto ficar "running" e só então remove os listeners — não
-// para no 1º toque se ele ainda não destravou (resume é assíncrono no iOS).
-const _UNLOCK_EVENTS = ['touchend', 'pointerdown', 'mousedown', 'click', 'keydown'];
-function _tryUnlockAudio() {
-  unlockAudioContext();
-  if (_sharedAudioCtx && _sharedAudioCtx.state === 'running') {
-    _UNLOCK_EVENTS.forEach((ev) => { try { document.removeEventListener(ev, _tryUnlockAudio, true); } catch (_) {} });
-  }
-}
-if (typeof document !== 'undefined' && document.addEventListener) {
-  const _armarUnlock = () => {
-    _UNLOCK_EVENTS.forEach((ev) => document.addEventListener(ev, _tryUnlockAudio, { passive: true, capture: true }));
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _armarUnlock);
-  else _armarUnlock();
-}
-
 // Corre uma promessa com TETO DE TEMPO — converte qualquer travamento (ex.: áudio
 // suspenso no iOS que nunca resolve) num erro claro, em vez de spinner infinito.
 function _comTimeout(promise, ms, msg) {
@@ -97,13 +53,11 @@ function lerArrayBuffer(arquivo) {
 async function decodificarAudio(arquivo) {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) throw new Error('Seu navegador não suporta Web Audio (AudioContext).');
-  // Reaproveita o contexto JÁ destravado por um gesto do usuário (iOS); só cria
-  // um próprio se não houver. NUNCA dá await em resume() — no iOS pode ficar
-  // pendente para sempre; disparar sem esperar é suficiente.
-  const ctx = (_sharedAudioCtx && _sharedAudioCtx.state !== 'closed') ? _sharedAudioCtx : new AC();
-  const ctxProprio = ctx !== _sharedAudioCtx;
+  // IMPORTANTE p/ mobile (iOS Safari / Chrome Android): criar e retomar o AudioContext ainda
+  // dentro do gesto do usuário — ANTES de qualquer await — senão ele fica "suspended" e falha.
+  const ctx = new AC();
   try {
-    if (ctx.state === 'suspended' && ctx.resume) { try { ctx.resume(); } catch (_) {} }
+    if (ctx.state === 'suspended' && ctx.resume) { try { await ctx.resume(); } catch (_) {} }
     let ab = await lerArrayBuffer(arquivo);
     return await new Promise((resolve, reject) => {
       // forma com callbacks (compat. ampla) + também resolve se vier Promise (navegadores modernos)
@@ -113,7 +67,7 @@ async function decodificarAudio(arquivo) {
       ab = null; // o decoder já recebeu os bytes; libera a referência
     });
   } finally {
-    if (ctxProprio && ctx.close) { try { ctx.close(); } catch (_) {} }  // não fecha o compartilhado
+    if (ctx.close) { try { ctx.close(); } catch (_) {} }
   }
 }
 
@@ -617,16 +571,13 @@ async function _fonteCompleta(arquivo) {
 async function abrirFonteAudio(arquivo) {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) throw new Error('Seu navegador não suporta Web Audio (AudioContext).');
-  // Reaproveita o contexto JÁ destravado por um gesto do usuário (iOS); só cria
-  // um próprio se não houver. NUNCA dá await em resume() (no iOS pode ficar
-  // pendente para sempre — era a causa do travamento em "Lendo o áudio…").
-  const ctx = (_sharedAudioCtx && _sharedAudioCtx.state !== 'closed') ? _sharedAudioCtx : new AC();
-  const ctxProprio = ctx !== _sharedAudioCtx;
-  if (ctx.state === 'suspended' && ctx.resume) { try { ctx.resume(); } catch (_) {} }
-  const fecharCtx = () => { if (ctxProprio) { try { if (ctx.close) ctx.close(); } catch (_) {} } };
+  // Contexto compartilhado dos decodes por segmento — criado AINDA no gesto do
+  // usuário (importante no iOS) e fechado junto com a fonte.
+  const ctx = new AC();
+  if (ctx.state === 'suspended' && ctx.resume) { try { await ctx.resume(); } catch (_) {} }
   const embrulhar = (fonte) => {
     const fecharOrig = fonte.fechar;
-    fonte.fechar = () => { try { fecharOrig(); } catch (_) {} fecharCtx(); };
+    fonte.fechar = () => { try { fecharOrig(); } catch (_) {} try { if (ctx.close) ctx.close(); } catch (_) {} };
     return fonte;
   };
 
@@ -641,7 +592,7 @@ async function abrirFonteAudio(arquivo) {
     try { return embrulhar(await _fonteMp3(arquivo, ctx)); }
     catch (_) { /* MP3 problemático → fallback */ }
   }
-  fecharCtx(); // fallback usa contexto próprio (decodificarAudio)
+  try { if (ctx.close) ctx.close(); } catch (_) {} // fallback usa contexto próprio
   const fonte = await _fonteCompleta(arquivo);
   return fonte;
 }

@@ -256,47 +256,58 @@ function renderExtract() {
     renderExtractionsList();
     renderExtractionDetail();
 
-    for (let i = 0; i < filesToProcess.length; i++) {
-      const file = filesToProcess[i];
-      const fileMeta = extraction.files[i];
-      fileMeta.status = 'processing';
-      fileMeta.progress = 0;
-      renderExtractionsList();
-      renderExtractionDetail();
-      try {
-        let text = '';
-        if (fileMeta.type === 'pdf') {
-          text = await extractPdf(file);
-        } else if (fileMeta.type === 'docx') {
-          text = await extractDocx(file);
-        } else if (fileMeta.type === 'image') {
-          text = await extractImage(file, (pct) => {
-            fileMeta.progress = pct;
-            const bar = document.querySelector(`[data-progress="${fileMeta.id}"]`);
-            if (bar) {
-              bar.style.width = pct + '%';
-              const lbl = bar.parentElement?.nextElementSibling;
-              if (lbl) lbl.textContent = pct + '%';
-            }
-          });
-        } else if (fileMeta.type === 'text') {
-          text = await readTextFile(file);
-        } else if (fileMeta.type === 'media') {
-          text = await transcribeMedia(file, () => {});
-        } else {
-          throw new Error('Tipo não suportado');
+    // Wake Lock durante TODO o lote: no celular a tela apagando suspende a aba e
+    // trava a transcrição/OCR (mesma abordagem do AutoPost). O clique em "Extrair
+    // texto" já é um gesto válido — o áudio do iOS destrava normalmente aqui.
+    const processarLote = async () => {
+      for (let i = 0; i < filesToProcess.length; i++) {
+        const file = filesToProcess[i];
+        const fileMeta = extraction.files[i];
+        fileMeta.status = 'processing';
+        fileMeta.progress = 0;
+        renderExtractionsList();
+        renderExtractionDetail();
+        try {
+          let text = '';
+          if (fileMeta.type === 'pdf') {
+            text = await extractPdf(file);
+          } else if (fileMeta.type === 'docx') {
+            text = await extractDocx(file);
+          } else if (fileMeta.type === 'image') {
+            text = await extractImage(file, (pct) => {
+              fileMeta.progress = pct;
+              const bar = document.querySelector(`[data-progress="${fileMeta.id}"]`);
+              if (bar) {
+                bar.style.width = pct + '%';
+                const lbl = bar.parentElement?.nextElementSibling;
+                if (lbl) lbl.textContent = pct + '%';
+              }
+            });
+          } else if (fileMeta.type === 'text') {
+            text = await readTextFile(file);
+          } else if (fileMeta.type === 'media') {
+            text = await transcribeMedia(file, (msg) => {
+              const bar = document.querySelector(`[data-progress="${fileMeta.id}"]`);
+              const lbl = bar && bar.parentElement && bar.parentElement.nextElementSibling;
+              if (lbl && typeof msg === 'string') lbl.textContent = msg;
+            });
+          } else {
+            throw new Error('Tipo não suportado');
+          }
+          fileMeta.text = text;
+          fileMeta.status = 'completed';
+          fileMeta.progress = 100;
+        } catch (err) {
+          fileMeta.status = 'failed';
+          fileMeta.error = err.message;
+          toast(`Falha ao extrair ${file.name}: ${err.message}`, 'error');
         }
-        fileMeta.text = text;
-        fileMeta.status = 'completed';
-        fileMeta.progress = 100;
-      } catch (err) {
-        fileMeta.status = 'failed';
-        fileMeta.error = err.message;
-        toast(`Falha ao extrair ${file.name}: ${err.message}`, 'error');
+        saveExtractions();
+        renderExtractionsList();
       }
-      saveExtractions();
-      renderExtractionsList();
-    }
+    };
+    if (typeof withWakeLock === 'function') await withWakeLock(processarLote);
+    else await processarLote();
 
     // Recompute aggregate
     extraction.text = extraction.files

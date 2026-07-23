@@ -153,6 +153,32 @@ function toast(message, kind = 'info', timeout = 3500) {
   if (timeout) setTimeout(() => t.remove(), timeout);
 }
 
+/** Executa fn() mantendo a TELA LIGADA (Screen Wake Lock) enquanto durar. No
+ *  celular, a tela apagando suspende a aba e TRAVA processamentos longos
+ *  (transcrição de vídeo/áudio, OCR) — é o que o AutoPost faz ao transcrever.
+ *  Degrada sem efeito onde a API não existe; reobtém o lock ao voltar o foco. */
+async function withWakeLock(fn) {
+  let lock = null;
+  const pedir = async () => {
+    try {
+      if (navigator.wakeLock && typeof navigator.wakeLock.request === 'function' &&
+          window.isSecureContext && document.visibilityState === 'visible' && !lock) {
+        lock = await navigator.wakeLock.request('screen');
+      }
+    } catch (_) { lock = null; }
+  };
+  const reobter = () => { if (document.visibilityState === 'visible' && !lock) pedir(); };
+  await pedir();
+  document.addEventListener('visibilitychange', reobter);
+  try {
+    return await fn();
+  } finally {
+    document.removeEventListener('visibilitychange', reobter);
+    try { if (lock && lock.release) await lock.release(); } catch (_) {}
+    lock = null;
+  }
+}
+
 function formatBytes(b) {
   if (b == null) return '—';
   if (b < 1024) return `${b} B`;

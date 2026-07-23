@@ -3337,7 +3337,7 @@ function initPortalForm() {
     $('#s-portal-handle').value = p.handle || '';
     $('#s-portal-location').value = p.location || '';
     $('#s-portal-tagline').value = p.tagline || '';
-    if ($('#s-portal-theme')) $('#s-portal-theme').value = p.theme || (editIdx === 0 ? 'municipios-bahia' : 'neutral');
+    if ($('#s-portal-theme')) $('#s-portal-theme').value = p.theme || 'neutral';
     refreshLogoPreview();
     updateTabs();
     if (typeof _syncPickerRow === 'function') _syncPickerRow('s-portal-theme');   // linha do picker acompanha o slot

@@ -72,17 +72,28 @@ function loadPortals() {
     try { localStorage.removeItem(STORAGE_KEYS.portal); } catch {}
   }
   if (!portals) {
+    // Todos os perfis começam LIMPOS, prontos pro usuário preencher.
     portals = [
-      { name: 'Municípios Bahia', acronym: 'MB', logo: null, handle: '@municipiosbahia', tagline: 'Notícias que conectam.', location: 'Salvador, BA', theme: 'municipios-bahia' },
+      { name: '', acronym: '', logo: null, handle: '', tagline: '', location: '', theme: 'neutral' },
       { name: '', acronym: '', logo: null, handle: '', tagline: '', location: '', theme: 'neutral' },
       { name: '', acronym: '', logo: null, handle: '', tagline: '', location: '', theme: 'neutral' },
       { name: '', acronym: '', logo: null, handle: '', tagline: '', location: '', theme: 'neutral' },
     ];
   }
-  // Migração de TEMA: Portal 1 = Municípios Bahia; demais = neutro (só se ainda não
-  // definido — não sobrescreve nome/handle/logo já salvos pelo usuário).
   let changed = false;
-  portals.forEach((p, i) => { if (p && !p.theme) { p.theme = (i === 0) ? 'municipios-bahia' : 'neutral'; changed = true; } });
+  // Migração: limpa o perfil-semente de desenvolvimento "Municípios Bahia" do
+  // Perfil 1 — SÓ se estiver intocado (todos os campos iguais à semente antiga).
+  // Se o usuário mexeu em qualquer campo, respeita e não apaga nada.
+  if (portals[0] && !portals[0].logo &&
+      portals[0].name === 'Municípios Bahia' && portals[0].acronym === 'MB' &&
+      portals[0].handle === '@municipiosbahia' && portals[0].tagline === 'Notícias que conectam.' &&
+      portals[0].location === 'Salvador, BA') {
+    portals[0] = { name: '', acronym: '', logo: null, handle: '', tagline: '', location: '', theme: 'neutral' };
+    changed = true;
+  }
+  // Migração de TEMA: perfis sem tema definido → neutro (não sobrescreve a
+  // escolha já salva pelo usuário).
+  portals.forEach((p) => { if (p && !p.theme) { p.theme = 'neutral'; changed = true; } });
   if (changed || (oldPortal && portals)) saveJSON(STORAGE_KEYS.portals, portals);
   return portals;
 }

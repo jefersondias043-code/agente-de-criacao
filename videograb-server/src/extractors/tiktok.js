@@ -12,14 +12,16 @@
  * para a URL canônica antes da extração.
  */
 
-import { delay, fetchWithTimeout } from '../http.js';
+import { delay, fetchWithTimeout, parsePlatformUrl } from '../http.js';
 
 export const id = 'tiktok';
 export const label = 'TikTok';
 export const filePrefix = 'tiktok';
 
+export const TIKTOK_DOMAINS = ['tiktok.com'];
+
 export function matches(link) {
-  return link.includes('tiktok.com');
+  return !!parsePlatformUrl(link, TIKTOK_DOMAINS);
 }
 
 const DESKTOP_UA =

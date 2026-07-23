@@ -2855,11 +2855,13 @@ async function exportPoster(p, scale) {
   try {
     const canvas = await captureStageCanvas(posterActiveFormat(), scale);
     if (!canvas) { toast('Não foi possível exportar.', 'error'); return; }
-    const link = document.createElement('a');
-    link.download = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-    toast('Cartaz exportado.', 'success');
+    const name = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`;
+    const blob = await canvasToBlob(canvas, 'image/png');
+    // Web Share no iPhone (folha "Salvar Imagem" → galeria) / download no desktop.
+    const how = await saveImagesToDevice([{ name, blob }], 'Cartaz');
+    if (how === 'downloaded') toast('Cartaz baixado.', 'success');
+    else if (how === 'shared') toast('Cartaz exportado.', 'success');
+    // 'canceled' → usuário fechou a folha de compartilhamento; sem toast.
   } catch (err) {
     toast('Não foi possível exportar: ' + err.message, 'error');
   } finally {

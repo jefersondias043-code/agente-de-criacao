@@ -448,17 +448,17 @@ async function exportCarousel(p, mode, scale) {
     const base = (slides[0].headline || 'carrossel').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'export';
 
     if (mode === 'images') {
-      // Opção 1 — baixar cada slide como imagem separada
-      for (const f of files) {
-        const url = URL.createObjectURL(new Blob([f.data], { type: 'image/png' }));
-        const link = document.createElement('a');
-        link.download = f.name;
-        link.href = url;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-        await new Promise(r => setTimeout(r, 300)); // espaça os downloads
-      }
-      toast(`Carrossel exportado (${files.length} imagens).`, 'success');
+      // Opção 1 — imagens separadas. No iPhone via Web Share (folha "Salvar
+      // Imagem" → galeria, todos os slides de uma vez); no desktop cai em
+      // downloads individuais. Antes usava só <a download>, que o iOS ignora
+      // (nada chegava à galeria, apesar do "exportado com sucesso").
+      const imgs = files.map((f) => ({ name: f.name, blob: new Blob([f.data], { type: 'image/png' }) }));
+      const how = (typeof saveImagesToDevice === 'function')
+        ? await saveImagesToDevice(imgs, 'Carrossel')
+        : 'downloaded';
+      if (how === 'downloaded') toast(`Carrossel baixado (${files.length} imagens).`, 'success');
+      else if (how === 'shared') toast(`Carrossel exportado (${files.length} imagens).`, 'success');
+      // 'canceled' → usuário fechou a folha de compartilhamento; sem toast.
     } else {
       // Opção 2 — empacotar todos os PNGs num único .zip
       const zip = _zipStore(files);
@@ -468,7 +468,7 @@ async function exportCarousel(p, mode, scale) {
       link.href = url;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-      toast(`Carrossel exportado (${files.length} imagens no .zip).`, 'success');
+      toast(`Carrossel baixado (${files.length} imagens no .zip).`, 'success');
     }
   } catch (err) {
     toast('Não foi possível exportar o carrossel: ' + err.message, 'error');

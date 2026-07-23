@@ -189,6 +189,78 @@ function toolFrameSrc(file) {
   return v ? (file + '?v=' + encodeURIComponent(v)) : file;
 }
 
+/** Converte um <canvas> em Blob (Promise). Melhor que toDataURL para imagens
+ *  grandes: não materializa uma string base64 gigante (que no iPhone pode
+ *  estourar memória e travar a exportação). */
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    if (!canvas || typeof canvas.toBlob !== 'function') { reject(new Error('canvas inválido')); return; }
+    canvas.toBlob((b) => { if (b) resolve(b); else reject(new Error('toBlob falhou')); }, type || 'image/png', quality);
+  });
+}
+
+/** Salva/entrega imagens no dispositivo de um jeito que FUNCIONE no iPhone.
+ *
+ *  O bug que isto corrige: no iOS Safari o atributo `<a download>` é IGNORADO —
+ *  o clique não gera arquivo nenhum e NADA chega à galeria de Fotos, mas o app
+ *  ainda mostrava "exportado com sucesso". O caminho correto no iOS é a Web
+ *  Share API com ARQUIVOS: abre a folha de compartilhamento onde o usuário toca
+ *  "Salvar Imagem" (vai direto pra galeria) ou envia pro Instagram/WhatsApp.
+ *
+ *  Estratégia: 1) se o navegador sabe compartilhar arquivos (canShare) → share;
+ *  2) senão (desktop) → download clássico. Importante: precisa ser chamado
+ *  DENTRO do gesto do usuário (clique) — o iOS exige ativação recente pro share.
+ *
+ *  @param {Array<{name:string, blob:Blob}>} items imagens a salvar
+ *  @param {string} [shareTitle] título da folha de compartilhamento
+ *  @param {object} [deps] injeção p/ testes: { nav, doc, urlApi, File }
+ *  @returns {Promise<'shared'|'downloaded'|'canceled'>}
+ */
+async function saveImagesToDevice(items, shareTitle, deps) {
+  deps = deps || {};
+  const nav = deps.nav || (typeof navigator !== 'undefined' ? navigator : null);
+  const doc = deps.doc || (typeof document !== 'undefined' ? document : null);
+  const urlApi = deps.urlApi || (typeof URL !== 'undefined' ? URL : null);
+  const FileCtor = deps.File || (typeof File !== 'undefined' ? File : null);
+
+  const list = (items || []).filter((it) => it && it.blob);
+  if (!list.length) throw new Error('nada para salvar');
+
+  // 1) Web Share API com arquivos (iOS/Android modernos) — o único jeito de
+  //    mandar imagem pra galeria de Fotos no iPhone a partir do navegador.
+  if (nav && typeof nav.canShare === 'function' && typeof nav.share === 'function' && FileCtor) {
+    try {
+      const files = list.map((it) => new FileCtor([it.blob], it.name, { type: it.blob.type || 'image/png' }));
+      if (nav.canShare({ files })) {
+        await nav.share({ files, title: shareTitle || undefined });
+        return 'shared';
+      }
+    } catch (err) {
+      // Usuário fechou a folha de compartilhamento → não é erro, e NÃO baixa
+      // uma cópia duplicada por baixo. Qualquer outro erro (ex.: ativação de
+      // gesto perdida) cai no download abaixo como melhor esforço.
+      if (err && err.name === 'AbortError') return 'canceled';
+    }
+  }
+
+  // 2) Fallback: download clássico (desktop; no iOS vai pra Arquivos/Downloads).
+  if (!doc || !urlApi || typeof urlApi.createObjectURL !== 'function') {
+    throw new Error('sem suporte a exportação neste navegador');
+  }
+  for (const it of list) {
+    const url = urlApi.createObjectURL(it.blob);
+    const link = doc.createElement('a');
+    link.download = it.name;
+    link.href = url;
+    if (doc.body && doc.body.appendChild) doc.body.appendChild(link);
+    link.click();
+    if (link.remove) link.remove();
+    setTimeout(() => { try { urlApi.revokeObjectURL(url); } catch (_) { /* */ } }, 8000);
+    if (list.length > 1) await new Promise((r) => setTimeout(r, 300)); // espaça downloads múltiplos
+  }
+  return 'downloaded';
+}
+
 function formatBytes(b) {
   if (b == null) return '—';
   if (b < 1024) return `${b} B`;

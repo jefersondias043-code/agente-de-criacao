@@ -11,7 +11,8 @@
     "sync:manifest": "node scripts/sync-manifest.mjs",
     "bump:version": "node scripts/bump-version.mjs",
     "build:detector-css": "node scripts/build-detector-css.mjs",
-    "verify": "npm run lint && npm run test && npm run check:manifest && node scripts/sync-manifest.mjs --check"
+    "bake:autopost": "node scripts/bake-autopost.mjs",
+    "verify": "npm run lint && npm run test && npm run check:manifest && node scripts/sync-manifest.mjs --check && node scripts/bake-autopost.mjs --check"
   },
   "devDependencies": {
     "eslint": "^9.18.0",

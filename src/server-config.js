@@ -1,35 +1,32 @@
 'use strict';
 /* ============================================================
    SERVIDORES DE APOIO — endereços em UM lugar (config editável).
-   Duas ferramentas dependem de um servidor próprio:
-     · VideoGrab          → videograb-server/  (Node,   porta 3000)
+   Uma ferramenta depende de um servidor próprio:
      · Removedor de Fundo → removedor-server/  (Python, porta 7000)
 
-   USO LOCAL (duplo-clique / Agente.bat): nada a fazer — os endereços
-   locais já funcionam como sempre.
+   (O VideoGrab NÃO usa mais servidor: virou uma ferramenta de handoff que
+    abre um baixador web — funciona no celular e no GitHub Pages sem backend.)
 
-   VERSÃO PUBLICADA (GitHub Pages etc.): publique os servidores na
-   nuvem (guia: DEPLOY.md) e preencha os campos REMOTE abaixo. As
-   ferramentas testam os candidatos NA ORDEM e usam o primeiro que
-   responder ao ping de saúde:
+   USO LOCAL (duplo-clique / Agente.bat): nada a fazer — o endereço
+   local já funciona como sempre.
+
+   VERSÃO PUBLICADA (GitHub Pages etc.): publique o servidor na nuvem
+   (guia: DEPLOY.md) e preencha o campo REMOTE abaixo. A ferramenta testa
+   os candidatos NA ORDEM e usa o primeiro que responder ao ping de saúde:
      1. endereço salvo no navegador (localStorage 'agente:server:<id>')
-     2. a própria origem do app (o videograb-server serve a plataforma)
-     3. servidor local (PC do usuário)
-     4. servidor remoto (REMOTE)
+     2. servidor local (PC do usuário)
+     3. servidor remoto (REMOTE)
    O servidor local mantém a prioridade: quem roda tudo no PC não muda
    nada; quem abre o app publicado cai na nuvem automaticamente.
    ============================================================ */
 (function () {
-  // Preencha após publicar os servidores (passo a passo em DEPLOY.md). Ex.:
-  //   videograb: 'https://agente-videograb.onrender.com'
+  // Preencha após publicar o servidor (passo a passo em DEPLOY.md). Ex.:
   //   removedor: 'https://seu-usuario-agente-removedor.hf.space'
   const REMOTE = {
-    videograb: '',
     removedor: '',
   };
 
   const LOCAL = {
-    videograb: 'http://localhost:3000',
     removedor: 'http://127.0.0.1:7000',
   };
 
@@ -43,13 +40,7 @@
         const saved = localStorage.getItem('agente:server:' + tool);
         if (saved) list.push(norm(saved));
       } catch (e) { /* sem storage */ }
-      // Mesma origem: o videograb-server serve a plataforma inteira; se o app
-      // veio dele, a API mora na própria origem. (Em host estático o ping
-      // falha rápido — 404 — e cai para o próximo candidato.)
-      if (tool === 'videograb' && /^https?:$/.test(location.protocol)) {
-        list.push(location.origin);
-      }
-      list.push(LOCAL[tool]);
+      if (LOCAL[tool]) list.push(LOCAL[tool]);
       if (REMOTE[tool]) list.push(norm(REMOTE[tool]));
       return list.filter((u, i) => u && list.indexOf(u) === i);
     },

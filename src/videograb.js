@@ -1,11 +1,11 @@
 'use strict';
 /* ============================================================
    VIDEOGRAB — embed via iframe (lazy load)
-   Baixa vídeos do Instagram/TikTok/YouTube sem marca d'água. O frontend
-   (videograb.html, tema claro baked) conversa com o servidor de extração em
-   videograb-server/ (npm start → http://localhost:3000). A ponte de
-   transcrição (vídeo → Whisper do app pai → texto p/ outra ferramenta) vive
-   baked no próprio HTML, para funcionar também em file://.
+   Ferramenta de HANDOFF, sem servidor: funciona 100% no navegador (GitHub
+   Pages) e no celular. O usuário cola o link do vídeo e o app abre um baixador
+   web independente (cobalt.tools) já com o link copiado, onde o download é
+   concluído. Baixar de Instagram/TikTok/YouTube direto do navegador é
+   impossível (CORS + as plataformas bloqueiam) — por isso o handoff.
    Aqui só carregamos e revelamos o iframe. (Molde: src/replicador.js)
    ============================================================ */
 function renderVideograb() {

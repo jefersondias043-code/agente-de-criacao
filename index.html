@@ -78,7 +78,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-23-r146" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-23-r147" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -432,9 +432,9 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <div id="p-gallery" class="pgallery hidden"></div>
 
       <div id="p-content" class="hidden">
-        <!-- Topbar do editor: voltar · título · desfazer/refazer/salvar/exportar · menu.
-             Os botões de ação EXISTENTES (#p-save, #p-export…) são MOVIDOS para cá por
-             setupEditorChrome() — os handlers viajam junto com os nós. -->
+        <!-- Topbar do editor: voltar · título · desfazer/refazer · ícone Finalizar · menu.
+             Os botões de ação EXISTENTES (#p-undo/#p-redo/#p-export) são MOVIDOS para cá
+             por setupEditorChrome() — os handlers viajam junto com os nós. -->
         <div class="et-top" id="et-top">
           <button class="btn btn-icon et-back" id="et-back" type="button" title="Voltar para meus cartazes" aria-label="Voltar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -952,11 +952,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                 </div><!-- /pedit-panels -->
 
                 <div class="flex gap-1 mt-1 flex-wrap poster-actions">
-                  <button class="btn btn-primary btn-sm" id="p-save">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                    Salvar
-                  </button>
-                  <button class="btn btn-accent btn-sm btn-icon" id="p-export" title="Exportar cartaz" aria-label="Exportar cartaz">
+                  <button class="btn btn-accent btn-sm btn-icon" id="p-export" title="Finalizar — salvar ou exportar" aria-label="Finalizar — salvar ou exportar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   </button>
                   <button class="btn btn-danger btn-sm" id="p-delete" title="Excluir cartaz">

@@ -594,7 +594,10 @@ histHydrate();  // carrega o histórico do IndexedDB (capacidade = dispositivo)
 // Auto-atualização: quando uma versão nova assume o controle (skipWaiting no
 // SW), recarrega UMA vez pra aplicar na hora — sem isso, o celular podia rodar
 // código antigo do cache até dois fechamentos do app.
-if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+// Embutido na plataforma Agente (iframe)? Então NÃO registra service worker
+// próprio — quem cuida do cache é o app pai (evita um 2º SW cache-first dentro
+// do iframe, fonte de conteúdo obsoleto). Standalone segue registrando normal.
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.IS_EMBEDDED) {
   const jaControlado = !!navigator.serviceWorker.controller;
   let recarregou = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {

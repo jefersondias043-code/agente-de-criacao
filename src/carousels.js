@@ -130,7 +130,8 @@ function splitIntoSlides(art, portal, fmt) {
 
 /** Cria um CARROSSEL a partir de uma geração/conteúdo (mesma regra do cartaz). */
 function createCarouselFromGeneration(g) {
-  const art = parseArticle(g.content);            // regra ÚNICA de autopreenchimento
+  // Pipeline traz campos estruturados; gerações antigas reparseiam o texto plano.
+  const art = (g.article && typeof artFromPipeline === 'function' && artFromPipeline(g)) || parseArticle(g.content);
   const portal = State.portals[State.activePortalIndex] || State.portals[0] || {};
   const slides = splitIntoSlides(art, portal, '1:1');
 
@@ -152,11 +153,18 @@ function createCarouselFromGeneration(g) {
     updatedAt: new Date().toISOString(),
   });
 
+  // O agente de design escolhe PALETA + TIPOGRAFIA (o carrossel mantém o formato
+  // 1:1, que é sua natureza multi-slide). A identidade visual vale para todos os
+  // slides. Passa só a parte VISUAL (sem template/formato) ao applyDesignToPoster.
+  if (g.design && typeof applyDesignToPoster === 'function') {
+    applyDesignToPoster(poster, { palette: g.design.palette, font: g.design.font });
+  }
+
   State.posters.unshift(poster);
   savePosters();   // usa o offload de imagens (Blob) — consistente com o cartaz
   State.activePosterId = poster.id;
   _peOpen = true;  // handoff (matéria → carrossel) abre direto o editor
-  toast('Carrossel criado.', 'success');
+  toast(g.design ? 'Carrossel criado com a paleta sugerida.' : 'Carrossel criado.', 'success');
   goTo('posters');
 }
 

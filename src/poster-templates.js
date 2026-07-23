@@ -250,6 +250,18 @@ const POSTER_PALETTES = {
   'tons-corporativos':  { label:'Tons Corporativos',           light:true,  bg:'#F6F8FB', accent:'#26425E', accent2:'#5C7A99', accentDeep:'#16293C' },
 };
 
+/* VOZES TIPOGRÁFICAS — famílias já carregadas no index.html (Fraunces, Oswald,
+ * Poppins, Plus Jakarta Sans). Cada preset define as fontes de DISPLAY (títulos),
+ * SERIF (destaques serifados) e COND (rótulos condensados) que os modelos leem
+ * via PT.display / PT.serif / PT.cond. O corpo (PT.sans) permanece IBM Plex por
+ * legibilidade. '' ou ausente = mantém a tipografia do tema. */
+const POSTER_FONTS = {
+  'poppins':  { label: 'Poppins — Moderno versátil',    display: "'Poppins', system-ui, sans-serif",          serif: "'Poppins', system-ui, sans-serif",          cond: "'Oswald', system-ui, sans-serif" },
+  'fraunces': { label: 'Fraunces — Editorial serifado', display: "'Fraunces', Georgia, serif",                 serif: "'Fraunces', Georgia, serif",                 cond: "'Oswald', system-ui, sans-serif" },
+  'oswald':   { label: 'Oswald — Impacto condensado',   display: "'Oswald', system-ui, sans-serif",            serif: "'Fraunces', Georgia, serif",                 cond: "'Oswald', system-ui, sans-serif" },
+  'jakarta':  { label: 'Jakarta — Geométrico limpo',    display: "'Plus Jakarta Sans', system-ui, sans-serif", serif: "'Plus Jakarta Sans', system-ui, sans-serif", cond: "'Oswald', system-ui, sans-serif" },
+};
+
 /* ============================================================
  * TEMAS POR FAMÍLIA DE FUNDO (r105) — o usuário mantém a cor de fundo e troca
  * só o "vestido" (títulos, destaques, grafismos). 8 fundos × 9 variações = 72
@@ -471,13 +483,24 @@ function _specFromPT() {
   };
 }
 
+/** Aplica a VOZ TIPOGRÁFICA escolhida sobre o tema (muta PT.display/serif/cond).
+ *  No-op se não houver fonte custom — mantém a tipografia do tema. */
+function _applyPosterFont(c) {
+  const f = c && c.font && POSTER_FONTS[c.font];
+  if (f) { PT.display = f.display; PT.serif = f.serif; PT.cond = f.cond; }
+}
+
 /** Aplica `p.custom` SOBRE o tema já aplicado (muta PT). No-op se vazio. */
 function applyPosterCustom(c) {
   if (!c) return;
   const seeds = c.colors || {};
   const anyColor = Object.keys(seeds).some(k => seeds[k]);
   const active = c.palette || anyColor || (c.useGradientAccent && c.gradient);
-  if (!active) return;   // nada de cor para mudar (bg-only é tratado no root, fora daqui)
+  if (!active) {
+    // Só a tipografia mudou (sem cor): aplica a fonte sobre o tema atual e sai.
+    _applyPosterFont(c);
+    return;   // demais casos "bg-only" são tratados no root, fora daqui
+  }
 
   // 1) base: paleta escolhida OU o tema ativo
   const spec = c.palette && POSTER_PALETTES[c.palette]
@@ -521,6 +544,7 @@ function applyPosterCustom(c) {
   PT.name = keep.name; PT.symbol = keep.symbol;
   if (keep.symbolBg) PT.symbolBg = keep.symbolBg;
   PT.display = keep.display; PT.serif = keep.display; PT.cond = keep.display;
+  _applyPosterFont(c);   // voz tipográfica escolhida sobrescreve a fonte do tema
 
   // 7) overrides granulares (avançado) por cima da derivação
   if (seeds.card) { PT.navy2 = PT.paper2 = PT.sand = PT.inkPanel = PT.navySoft = seeds.card; }

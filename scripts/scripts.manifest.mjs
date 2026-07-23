@@ -12,6 +12,7 @@ export const SCRIPTS = [
   'apikey-sync.js',
   'lock.js',
   'llm.js',
+  'agents.js',
   'generate.js',
   'extract.js',
   'posters.js',

@@ -2299,3 +2299,78 @@ body.pe-full #view-posters { animation: none; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   PIPELINE DE AGENTES — progresso de geração + extras do resultado.
+   Usa só tokens do design system (adapta a qualquer tema).
+   ============================================================ */
+.pipeline-steps {
+  display: inline-flex;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.pipeline-step {
+  padding: 0.22rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: var(--paper-2);
+  color: var(--ink-mute);
+  border: 1px solid var(--line);
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.pipeline-step.active {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-color: #f0c4b6;
+  animation: pipelinePulse 1.1s var(--ease) infinite;
+}
+.pipeline-step.done {
+  background: #e7f3ec;
+  color: var(--green);
+  border-color: #c4e0cf;
+}
+@keyframes pipelinePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Chip do design sugerido pelo agente */
+.design-suggest {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+.design-suggest svg { color: var(--accent); flex-shrink: 0; }
+.design-suggest strong { color: var(--ink-2); }
+
+/* Bloco de hashtags */
+.hashtags-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  align-items: flex-start;
+}
+.hashtags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.hashtag-chip {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--accent-ink);
+  border: 1px solid var(--line);
+}

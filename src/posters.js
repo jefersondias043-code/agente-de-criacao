@@ -164,6 +164,11 @@ async function hydratePosters() {
     }
   }
   if (any && State.currentView === 'posters' && typeof renderPosters === 'function') renderPosters();
+  // Reidratação é assíncrona e roda em paralelo ao boot (goTo('welcome') já
+  // pintou a home ANTES de State.posters chegar do IDB) — sem isto, a home
+  // fica presa mostrando "nada por aqui" mesmo com histórico real chegando
+  // um instante depois.
+  if (State.currentView === 'welcome' && typeof renderHome === 'function') renderHome();
   offloadPosterImagesToIDB(); // descarrega quaisquer imagens ainda inline
 }
 

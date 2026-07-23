@@ -488,6 +488,10 @@ async function hydrateHistories() {
   await load('extractions', HIST_KEYS.extractions, STORAGE_KEYS.extractions, 'text');
   if (State.currentView === 'generate' && typeof renderGenerate === 'function') renderGenerate();
   else if (State.currentView === 'extract' && typeof renderExtract === 'function') renderExtract();
+  // Assíncrono, roda em paralelo ao boot — goTo('welcome') já pintou a home
+  // ANTES dos arrays chegarem do IDB. Sem isto, a home mostraria "nada por
+  // aqui" até a próxima navegação, mesmo com matérias/extrações reais.
+  else if (State.currentView === 'welcome' && typeof renderHome === 'function') renderHome();
 }
 
 /** Uso por categoria (ferramenta), somando localStorage + imagens no IDB. */

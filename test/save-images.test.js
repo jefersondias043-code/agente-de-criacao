@@ -110,6 +110,28 @@ describe('saveImagesToDevice', () => {
     expect(dl.created[0].clicked).toBe(true);
   });
 
+  it('reconstrói o Blob a partir do ArrayBuffer antes de compartilhar (workaround iPhone)', async () => {
+    // No iPhone um Blob vindo direto de canvas.toBlob costuma ser recusado pela
+    // folha de compartilhamento; refazê-lo a partir dos bytes resolve. Este é o
+    // motivo de o carrossel salvar e o cartaz não — agora ambos passam pelos bytes.
+    let shareArg = null;
+    const nav = { canShare: (a) => Array.isArray(a && a.files), share: async (a) => { shareArg = a; } };
+    const dl = makeDownloadDeps();
+    const buf = new Uint8Array([1, 2, 3]).buffer;
+    const canvasBlob = { type: 'image/png', arrayBuffer: async () => buf };
+    const madeBlobs = [];
+    function SpyBlob(parts, opts) { this.parts = parts; this.type = opts && opts.type; madeBlobs.push(this); }
+    const how = await C.saveImagesToDevice(
+      [{ name: 'cartaz.png', blob: canvasBlob }],
+      'Cartaz',
+      { nav, doc: dl.doc, urlApi: dl.urlApi, File: FakeFile, Blob: SpyBlob },
+    );
+    expect(how).toBe('shared');
+    expect(madeBlobs).toHaveLength(1);                    // refez 1 blob
+    expect(madeBlobs[0].parts[0]).toBe(buf);              // a partir dos bytes lidos do canvas
+    expect(shareArg.files[0].parts[0]).toBe(madeBlobs[0]); // o File embrulha o blob reconstruído
+  });
+
   it('lista vazia é erro (nada para salvar)', async () => {
     await expect(C.saveImagesToDevice([], 'x', {})).rejects.toThrow(/nada para salvar/);
   });
@@ -124,7 +146,17 @@ describe('canvasToBlob', () => {
     expect(canvas._type).toBe('image/png');
   });
 
-  it('rejeita quando toBlob devolve null', async () => {
+  it('cai no toDataURL quando toBlob devolve null (limite de memória do iPhone)', async () => {
+    const canvas = {
+      toBlob(cb) { cb(null); },
+      toDataURL() { return 'data:image/png;base64,AAAA'; },
+    };
+    const out = await C.canvasToBlob(canvas, 'image/png');
+    expect(out).toBeInstanceOf(Blob);
+    expect(out.type).toBe('image/png');
+  });
+
+  it('rejeita quando toBlob devolve null e não há toDataURL', async () => {
     const canvas = { toBlob(cb) { cb(null); } };
     await expect(C.canvasToBlob(canvas)).rejects.toThrow(/toBlob/);
   });

@@ -189,13 +189,41 @@ function toolFrameSrc(file) {
   return v ? (file + '?v=' + encodeURIComponent(v)) : file;
 }
 
-/** Converte um <canvas> em Blob (Promise). Melhor que toDataURL para imagens
- *  grandes: não materializa uma string base64 gigante (que no iPhone pode
- *  estourar memória e travar a exportação). */
+/** Converte uma data URL (base64) em Blob. O Blob resultante é lastreado por um
+ *  ArrayBuffer "solto" (não preso a um canvas) — importante no iPhone, onde a
+ *  folha de compartilhamento às vezes recusa um Blob vindo direto do canvas. */
+function _dataUrlToBlob(durl) {
+  const s = String(durl);
+  const comma = s.indexOf(',');
+  const head = s.slice(0, comma);
+  const mime = (head.match(/data:([^;]+)/) || [])[1] || 'image/png';
+  const bin = atob(s.slice(comma + 1));
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+/** Converte um <canvas> em Blob (Promise). Prefere toBlob (não materializa um
+ *  base64 gigante que no iPhone estoura memória). Se o toBlob devolver null
+ *  (ex.: limite de memória do iOS em canvas grandes) ou não existir (iOS antigo),
+ *  cai no toDataURL. */
 function canvasToBlob(canvas, type, quality) {
+  type = type || 'image/png';
   return new Promise((resolve, reject) => {
-    if (!canvas || typeof canvas.toBlob !== 'function') { reject(new Error('canvas inválido')); return; }
-    canvas.toBlob((b) => { if (b) resolve(b); else reject(new Error('toBlob falhou')); }, type || 'image/png', quality);
+    const viaDataUrl = () => {
+      try {
+        if (canvas && typeof canvas.toDataURL === 'function') { resolve(_dataUrlToBlob(canvas.toDataURL(type, quality))); return true; }
+      } catch (_) { /* */ }
+      return false;
+    };
+    if (!canvas || typeof canvas.toBlob !== 'function') {
+      if (!viaDataUrl()) reject(new Error('canvas inválido'));
+      return;
+    }
+    canvas.toBlob((b) => {
+      if (b) { resolve(b); return; }
+      if (!viaDataUrl()) reject(new Error('toBlob falhou')); // último recurso
+    }, type, quality);
   });
 }
 
@@ -223,8 +251,24 @@ async function saveImagesToDevice(items, shareTitle, deps) {
   const urlApi = deps.urlApi || (typeof URL !== 'undefined' ? URL : null);
   const FileCtor = deps.File || (typeof File !== 'undefined' ? File : null);
 
-  const list = (items || []).filter((it) => it && it.blob);
-  if (!list.length) throw new Error('nada para salvar');
+  const BlobCtor = deps.Blob || (typeof Blob !== 'undefined' ? Blob : null);
+
+  const raw = (items || []).filter((it) => it && it.blob);
+  if (!raw.length) throw new Error('nada para salvar');
+
+  // Normaliza cada Blob reconstruindo-o a partir de um ArrayBuffer "solto".
+  // No iPhone, um Blob vindo DIRETO de canvas.toBlob costuma ser recusado pela
+  // folha de compartilhamento (o cartaz não salvava, embora o carrossel — que
+  // já passava pelos bytes — salvasse). Refazer o Blob desprende-o do canvas e
+  // o torna compartilhável. Degrada sem quebrar se não der pra ler os bytes.
+  const list = [];
+  for (const it of raw) {
+    let blob = it.blob;
+    if (BlobCtor && typeof blob.arrayBuffer === 'function') {
+      try { blob = new BlobCtor([await blob.arrayBuffer()], { type: blob.type || 'image/png' }); } catch (_) { blob = it.blob; }
+    }
+    list.push({ name: it.name, blob });
+  }
 
   // 1) Web Share API com arquivos (iOS/Android modernos) — o único jeito de
   //    mandar imagem pra galeria de Fotos no iPhone a partir do navegador.

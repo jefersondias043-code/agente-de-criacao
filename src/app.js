@@ -268,7 +268,7 @@ document.addEventListener('keydown', (e) => {
   var missing = [];
   if (typeof State === 'undefined') missing.push('State');
   ['goTo', 'renderNav', 'renderGenerate', 'renderExtract', 'renderPosters',
-   'renderSettings', 'callLLM', 'syncGroqKey', 'hydratePosters'].forEach(function (n) {
+   'renderSettings', 'callLLM', 'runContentPipeline', 'syncGroqKey', 'hydratePosters'].forEach(function (n) {
     if (typeof window[n] !== 'function') missing.push(n);
   });
   if (missing.length) {

@@ -134,41 +134,48 @@ function renderGenerate() {
     $('#g-result-area').innerHTML = `
       <div class="empty">
         <div class="spinner spinner-lg" style="color: var(--accent); border-right-color: transparent; margin: 0 auto 1rem;"></div>
-        <div class="empty-title" id="g-loading-title">Lendo sua pauta…</div>
-        <div class="empty-desc" id="g-loading-desc">A IA está analisando o conteúdo.</div>
+        <div class="empty-title" id="g-loading-title">Iniciando pipeline…</div>
+        <div class="empty-desc" id="g-loading-desc">A matéria passa por agentes especializados.</div>
+        <div class="pipeline-steps" id="g-pipeline-steps">
+          <span class="pipeline-step" data-step="interpret">Interpretação</span>
+          <span class="pipeline-step" data-step="write">Redação</span>
+          <span class="pipeline-step" data-step="design">Design</span>
+        </div>
       </div>`;
 
-    const loadingMessages = [
-      ['Lendo sua pauta…', 'A IA está analisando o conteúdo.'],
-      ['Aplicando estilo…', `Adaptando ao tom "${tone}".`],
-      ['Estruturando a matéria…', 'Título, lead e desenvolvimento.'],
-      ['Refinando a linguagem…', 'Ajustando o tom palavra a palavra.'],
-      ['Quase lá…', 'Revisão final de coerência.'],
-    ];
-    let msgIdx = 0;
-    const msgTimer = setInterval(() => {
-      msgIdx = (msgIdx + 1) % loadingMessages.length;
+    // Progresso por AGENTE: cada etapa acende seu selo e atualiza o título/desc.
+    const onStage = (key, title, desc) => {
       const t = $('#g-loading-title'), d = $('#g-loading-desc');
-      if (t) t.textContent = loadingMessages[msgIdx][0];
-      if (d) d.textContent = loadingMessages[msgIdx][1];
-    }, 2800);
+      if (t) t.textContent = title;
+      if (d) d.textContent = desc;
+      $$('#g-pipeline-steps .pipeline-step').forEach((el) => {
+        if (el.dataset.step === key) el.classList.add('active');
+        else if (el.classList.contains('active')) el.classList.replace('active', 'done');
+      });
+    };
+
+    const truncNote = combinedText.length > MAX_CONTENT_CHARS
+      ? [`Conteúdo truncado de ${combinedText.length.toLocaleString('pt-BR')} para ${MAX_CONTENT_CHARS.toLocaleString('pt-BR')} caracteres.`]
+      : [];
 
     try {
-      const built = buildPrompt(style, tone, combinedText);
-      const result = await callLLM(built.prompt);
-      clearInterval(msgTimer);
+      const result = await runContentPipeline({ content: combinedText, style, tone, onStage });
       const generation = {
         id: uuid(),
         content: cleanText(result.content),
         style, tone,
         manualText: manualText || null,
         extractionId: extractionId || null,
-        sourceCharCount: built.originalCharCount,
-        finalCharCount: built.finalCharCount,
-        wasTruncated: built.wasTruncated,
-        warnings: built.wasTruncated
-          ? [`Conteúdo truncado de ${built.originalCharCount.toLocaleString('pt-BR')} para ${built.finalCharCount.toLocaleString('pt-BR')} caracteres.`]
-          : [],
+        sourceCharCount: combinedText.length,
+        finalCharCount: Math.min(combinedText.length, MAX_CONTENT_CHARS),
+        wasTruncated: combinedText.length > MAX_CONTENT_CHARS,
+        warnings: truncNote,
+        // Saída estruturada do pipeline de agentes:
+        interpretation: result.interpretation,
+        article: result.article,
+        design: result.design,
+        agents: result.agents,
+        pipeline: true,
         model: result.model,
         promptTokens: result.promptTokens || null,
         completionTokens: result.completionTokens || null,
@@ -176,7 +183,7 @@ function renderGenerate() {
       };
       State.generations.unshift(generation);
       saveGenerations();
-      toast('Matéria gerada.', 'success');
+      toast('Matéria gerada pelos agentes.', 'success');
       renderGenerationResult(generation);
     } catch (err) {
       toast(err.message || 'Não foi possível gerar a matéria.', 'error', 6000);
@@ -186,7 +193,6 @@ function renderGenerate() {
           <div class="empty-desc">${escapeHtml(err.message || 'Tente novamente.')}</div>
         </div>`;
     } finally {
-      clearInterval(msgTimer);
       btn.disabled = false;
       btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg> Gerar matéria`;
     }
@@ -222,7 +228,42 @@ function wireGenerationActions(rootEl, g) {
   if (p) p.onclick = () => createPosterFromGeneration(g);
   const car = rootEl.querySelector('[data-gen-carousel]');
   if (car && typeof createCarouselFromGeneration === 'function') car.onclick = () => createCarouselFromGeneration(g);
+  const tagsBtn = rootEl.querySelector('[data-gen-hashtags]');
+  if (tagsBtn) tagsBtn.onclick = () => {
+    const tags = (g.article && g.article.hashtags) || [];
+    navigator.clipboard.writeText(tags.join(' '));
+    toast('Hashtags copiadas.', 'success');
+  };
   if (typeof wireSendTo === 'function') wireSendTo(rootEl, () => g.content || '');
+}
+
+// Bloco do PIPELINE: hashtags copiáveis + o design sugerido pelo agente.
+// Só aparece para gerações do pipeline (retrocompatível: gerações antigas não
+// têm `article`/`design`, então o bloco é vazio).
+function pipelineExtrasHtml(g) {
+  if (!g || !g.pipeline) return '';
+  const tags = (g.article && g.article.hashtags) || [];
+  const design = g.design;
+  let html = '';
+  if (design && design.templateLabel) {
+    const paletteLabel = design.paletteLabel || design.palette || '';
+    html += `
+      <div class="design-suggest mt-2" title="${escapeHtml(design.justificativa || 'Sugestão do agente de design')}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+        <span class="text-xs">Design sugerido: <strong>${escapeHtml(design.templateLabel)}</strong> · ${escapeHtml(paletteLabel)} · ${escapeHtml(design.format || '')}</span>
+      </div>`;
+  }
+  if (tags.length) {
+    html += `
+      <div class="hashtags-block mt-2">
+        <div class="hashtags-list">${tags.map((t) => `<span class="hashtag-chip">${escapeHtml(t)}</span>`).join('')}</div>
+        <button class="btn btn-ghost btn-sm" data-gen-hashtags>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copiar hashtags
+        </button>
+      </div>`;
+  }
+  return html;
 }
 
 function renderGenerationResult(g) {
@@ -235,6 +276,7 @@ function renderGenerationResult(g) {
   $('#g-result-area').innerHTML = `
     ${warnHtml}
     <div class="article-preview" id="g-result-content">${escapeHtml(g.content)}</div>
+    ${pipelineExtrasHtml(g)}
     ${generationActionsHtml()}
     <div class="flex gap-1 flex-wrap mt-2">
       <button class="btn btn-ghost btn-sm" id="g-result-edit">
@@ -264,6 +306,10 @@ function renderGenerationResult(g) {
     $('#g-result-edit').outerHTML = `<button class="btn btn-primary btn-sm" id="g-result-save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/></svg> Salvar</button>`;
     $('#g-result-save').onclick = () => {
       g.content = taEl.value;
+      // O usuário reescreveu a matéria como texto livre: o `article` estruturado
+      // do pipeline ficou obsoleto. Invalida-o para que cartaz/carrossel voltem a
+      // ler o texto EDITADO (via parseArticle). O design sugerido segue válido.
+      if (g.article) g.article = null;
       saveGenerations();
       renderGenerationResult(g);
       const drawer = $('#g-history-drawer');

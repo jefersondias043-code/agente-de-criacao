@@ -1,4 +1,4 @@
-const CACHE = 'agp-v122';
+const CACHE = 'agp-v123';
 const URLS = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ const URLS = [
   './src/apikey-sync.js',
   './src/lock.js',
   './src/llm.js',
+  './src/agents.js',
   './src/generate.js',
   './src/extract.js',
   './src/posters.js',

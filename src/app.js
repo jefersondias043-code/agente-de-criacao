@@ -14,31 +14,11 @@ const NAV_ITEMS = [
   { id: 'settings',  label: 'Configurações', icon: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>' },
 ];
 
-// Shell mobile (≤880px): barra inferior com os 4 destinos mais frequentes +
-// "Mais" (bottom sheet com o restante). No desktop, o trilho lateral mostra tudo.
-const MOBILE_PRIMARY = ['welcome', 'generate', 'posters', 'extract'];
-const MOBILE_MORE = [
-  { id: 'detector',   desc: 'Componha, teste e analise' },
-  { id: 'autopost',   desc: 'Vídeo vira pacote de post' },
-  { id: 'replicador', desc: 'Nova versão do que funcionou' },
-  { id: 'removedor',  desc: 'Recorte com IA, fundo transparente' },
-  { id: 'settings',   desc: 'IA, dados e backup' },
-];
-const MOBILE_MORE_IDS = MOBILE_MORE.map(m => m.id);
-
-function openToolSheet() {
-  const s = $('#tool-sheet'), b = $('#tool-sheet-backdrop');
-  if (s) s.classList.add('open');
-  if (b) b.classList.add('open');
-}
-function closeToolSheet() {
-  const s = $('#tool-sheet'), b = $('#tool-sheet-backdrop');
-  if (s) s.classList.remove('open');
-  if (b) b.classList.remove('open');
-}
-
-// Cria (uma vez) a tab bar e o bottom sheet mobile. Elementos com [data-view]
-// recebem .nav-item — assim o goTo() sincroniza o estado ativo em todos os shells.
+// Shell mobile (≤880px): barra inferior com TODOS os apps, acessíveis direto.
+// Se não couberem, a barra ROLA na horizontal (sem botão "Mais"/sheet). No
+// desktop, o trilho lateral mostra tudo.
+// Cria (uma vez) a tab bar mobile. Elementos com [data-view] recebem .nav-item —
+// assim o goTo() sincroniza o estado ativo em todos os shells.
 function renderMobileNav() {
   if ($('#m-tabbar')) return;
   const item = (i) => `
@@ -50,73 +30,18 @@ function renderMobileNav() {
   bar.id = 'm-tabbar';
   bar.className = 'm-tabbar';
   bar.setAttribute('aria-label', 'Navegação principal');
-  bar.innerHTML =
-    MOBILE_PRIMARY.map(id => item(NAV_ITEMS.find(i => i.id === id))).join('') + `
-    <button class="nav-item" id="mnav-more" type="button" aria-haspopup="dialog" aria-label="Mais ferramentas">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="5" r="1.6"/><circle cx="12" cy="5" r="1.6"/><circle cx="19" cy="5" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/><circle cx="5" cy="19" r="1.6"/><circle cx="12" cy="19" r="1.6"/><circle cx="19" cy="19" r="1.6"/></svg>
-      Mais
-    </button>`;
+  bar.innerHTML = NAV_ITEMS.map(item).join('');
   document.body.appendChild(bar);
+}
 
-  const backdrop = document.createElement('div');
-  backdrop.id = 'tool-sheet-backdrop';
-  backdrop.className = 'sheet-backdrop';
-  document.body.appendChild(backdrop);
-
-  const sheet = document.createElement('div');
-  sheet.id = 'tool-sheet';
-  sheet.className = 'sheet';
-  sheet.setAttribute('role', 'dialog');
-  sheet.setAttribute('aria-label', 'Mais ferramentas');
-  sheet.innerHTML = `
-    <div class="sheet-head" id="tool-sheet-head">
-      <div class="sheet-grab"></div>
-      <div class="sheet-title">Mais ferramentas</div>
-    </div>
-    <div class="sheet-body">
-      <div class="sheet-grid">
-        ${MOBILE_MORE.map(m => {
-          const i = NAV_ITEMS.find(n => n.id === m.id);
-          return `
-          <div class="sheet-tool nav-item" data-view="${i.id}" role="button" tabindex="0" aria-label="${i.label}">
-            <div class="sheet-tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${i.icon}</svg></div>
-            <div style="min-width:0;">
-              <div class="sheet-tool-name">${i.label}</div>
-              <div class="sheet-tool-desc">${m.desc}</div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  document.body.appendChild(sheet);
-
-  $('#mnav-more').onclick = openToolSheet;
-  backdrop.onclick = closeToolSheet;
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeToolSheet(); });
-
-  // Gesto: arrastar o cabeçalho do sheet para baixo fecha (padrão de app nativo)
-  const head = sheet.querySelector('#tool-sheet-head');
-  let dragY = null;
-  head.addEventListener('pointerdown', (e) => {
-    dragY = e.clientY;
-    sheet.style.transition = 'none';
-    try { head.setPointerCapture(e.pointerId); } catch (_) {}
-  });
-  head.addEventListener('pointermove', (e) => {
-    if (dragY == null) return;
-    const dy = Math.max(0, e.clientY - dragY);
-    sheet.style.transform = `translateY(${dy}px)`;
-  });
-  const endDrag = (e) => {
-    if (dragY == null) return;
-    const dy = e.clientY - dragY;
-    dragY = null;
-    sheet.style.transition = '';
-    sheet.style.transform = '';
-    if (dy > 80) closeToolSheet();
-  };
-  head.addEventListener('pointerup', endDrag);
-  head.addEventListener('pointercancel', endDrag);
+// Rola a barra inferior pra deixar o app ATIVO visível (quando ela transborda).
+function scrollMobileNavToActive() {
+  const bar = $('#m-tabbar');
+  if (!bar) return;
+  const act = bar.querySelector('.nav-item.active');
+  if (act && act.scrollIntoView) {
+    try { act.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } catch (_) { /* */ }
+  }
 }
 
 function renderNav() {
@@ -205,7 +130,6 @@ function goTo(viewId) {
   // ficar flutuando ao trocar de ferramenta — ex.: "Criar cartaz" leva aos Cartazes).
   ['g-history-drawer', 'p-history-drawer'].forEach(id => { const d = $(`#${id}`); if (d) d.classList.remove('open'); });
   ['g-history-backdrop', 'p-history-backdrop'].forEach(id => { const b = $(`#${id}`); if (b) b.classList.add('hidden'); });
-  closeToolSheet();
   // Sai do modo focado do editor de cartazes ao navegar; renderPosters()
   // reativa quando a view de destino é 'posters' com editor aberto.
   document.body.classList.remove('pe-full');
@@ -216,9 +140,7 @@ function goTo(viewId) {
   $$('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.view === viewId);
   });
-  // "Mais" (tab bar mobile) fica ativo quando a view atual mora no sheet
-  const more = $('#mnav-more');
-  if (more) more.classList.toggle('active', MOBILE_MORE_IDS.includes(viewId));
+  scrollMobileNavToActive();   // mantém o app ativo à vista na barra que rola
   // Re-render conforme a página
   if (viewId === 'welcome' && typeof renderHome === 'function') renderHome();
   if (viewId === 'generate') renderGenerate();

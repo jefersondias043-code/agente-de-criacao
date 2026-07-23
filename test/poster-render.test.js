@@ -8,7 +8,7 @@ import { loadModules, clearStorage } from './helpers/load.mjs';
 
 let P;
 const portal = {
-  name: 'Municípios Bahia', acronym: 'MB', handle: '@municipiosbahia',
+  name: 'Portal Exemplo', acronym: 'PE', handle: '@portalexemplo',
   tagline: 'Notícias que conectam.', location: 'Salvador, BA', theme: 'municipios-bahia',
 };
 

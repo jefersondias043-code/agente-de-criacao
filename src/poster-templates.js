@@ -37,7 +37,7 @@ const POSTER_FORMATS = {
  * o preset do tema do portal antes de cada render, então TODOS os modelos (que leem
  * `PT.*`) se adaptam sem mudar. Os nomes antigos (ink/paper/cream/terra/serif/cond)
  * são ALIAS — modelos escuros e tipografia seguem o tema automaticamente.
- * Temas: 'municipios-bahia' (marca: navy + vermelho/laranja + símbolo M + Poppins)
+ * Temas: 'municipios-bahia' (família "Portal": navy + vermelho/laranja + símbolo M + Poppins)
  * e 'neutral' (grafite sóbrio + cinza-aço + sigla — para portais sem identidade). */
 const POPPINS = "'Poppins', system-ui, sans-serif";
 function makeTheme(s) {
@@ -72,7 +72,7 @@ function makeTheme(s) {
 }
 const PT_THEMES = {
   'municipios-bahia': makeTheme({
-    name: 'Municípios Bahia — Institucional', bg: '#0B1421', bg2: '#152133', bgDeep: '#080F18',
+    name: 'Portal — Institucional', bg: '#0B1421', bg2: '#152133', bgDeep: '#080F18',
     accent: '#E30613', accent2: '#FF7A00', accentDeep: '#A60410', accentSoft: 'rgba(227,6,19,0.18)',
     gradSolid: 'linear-gradient(150deg,#FF7A00 0%,#E30613 52%,#A60410 100%)',
     gradDark: 'linear-gradient(155deg,#152133 0%,#0B1421 58%,#080F18 100%)',
@@ -80,7 +80,7 @@ const PT_THEMES = {
   }),
   // Versão EDITORIAL/BLOG: vermelho protagonista, fundos CLAROS (branco/cinza), grafite no texto.
   'municipios-bahia-blog': makeTheme({
-    name: 'Municípios Bahia — Editorial', light: true, bg: '#FFFFFF', bg2: '#F4F5F7', bgDeep: '#ECEEF2',
+    name: 'Portal — Editorial', light: true, bg: '#FFFFFF', bg2: '#F4F5F7', bgDeep: '#ECEEF2',
     accent: '#E30613', accent2: '#FF3B30', accentDeep: '#B80010', accentSoft: 'rgba(227,6,19,0.14)',
     gradSolid: 'linear-gradient(150deg,#FF3B30 0%,#E30613 50%,#B80010 100%)',
     gradDark: 'linear-gradient(155deg,#FFFFFF 0%,#F4F5F7 60%,#ECEEF2 100%)',
@@ -89,7 +89,7 @@ const PT_THEMES = {
   // Versão RUBI: VERMELHO protagonista (fundo ~60%), NAVY de apoio (painéis ~20%),
   // LARANJA acento (~10%). Mesma marca/tipografia; só muda o peso das cores.
   'municipios-bahia-rubi': makeTheme({
-    name: 'Municípios Bahia — Rubi', bg: '#E30613', bg2: '#0B1421', bgDeep: '#B80010',
+    name: 'Portal — Rubi', bg: '#E30613', bg2: '#0B1421', bgDeep: '#B80010',
     accent: '#FF7A00', accent2: '#FF7A00', accentDeep: '#B80010', accentSoft: 'rgba(255,122,0,0.20)',
     gradSolid: 'linear-gradient(150deg,#FF7A00 0%,#E30613 50%,#B80010 100%)',
     gradDark: 'linear-gradient(155deg,#152133 0%,#0B1421 58%,#080F18 100%)',
@@ -98,7 +98,7 @@ const PT_THEMES = {
   // Versão AURORA: LARANJA protagonista sobre fundos CLAROS (branco), navy de apoio,
   // vermelho terciário (breaking). Leve, moderna, "produto digital premium".
   'municipios-bahia-aurora': makeTheme({
-    name: 'Municípios Bahia — Aurora', light: true, bg: '#FFFFFF', bg2: '#F4F5F7', bgDeep: '#ECEEF2',
+    name: 'Portal — Aurora', light: true, bg: '#FFFFFF', bg2: '#F4F5F7', bgDeep: '#ECEEF2',
     accent: '#FF7A00', accent2: '#E30613', accentDeep: '#B85800', accentSoft: 'rgba(255,122,0,0.16)',
     gradSolid: 'linear-gradient(150deg,#FF7A00 0%,#E30613 100%)',
     gradDark: 'linear-gradient(155deg,#FFFFFF 0%,#FFF4EC 55%,#F4F5F7 100%)',
@@ -108,7 +108,7 @@ const PT_THEMES = {
   // LARANJA energia (15%), NAVY refinamento (10% — TIPOGRAFIA premium em navy).
   // Mínima, premium, sem grandes blocos de cor.
   'municipios-bahia-signature': makeTheme({
-    name: 'Municípios Bahia — Signature', light: true, bg: '#FFFFFF', bg2: '#F4F5F7', bgDeep: '#ECEEF2',
+    name: 'Portal — Signature', light: true, bg: '#FFFFFF', bg2: '#F4F5F7', bgDeep: '#ECEEF2',
     text: '#0B1421', textRgb: '11,20,33',
     accent: '#E30613', accent2: '#FF7A00', accentDeep: '#B80010', accentSoft: 'rgba(227,6,19,0.12)',
     gradSolid: 'linear-gradient(150deg,#E30613 0%,#FF7A00 100%)',
@@ -624,7 +624,7 @@ function renderTemplateDeduped(renderFn) {
 
 function num2(n) { return String(n || 0).padStart(2, '0'); }
 
-/** Símbolo "M" da marca Municípios Bahia: duas fitas formando o M — traço esquerdo
+/** Símbolo "M" (monograma do tema Portal): duas fitas formando o M — traço esquerdo
  * com gradiente vermelho→laranja, traço direito branco. Gerado como PNG em CANVAS
  * (NÃO svg inline — o html2canvas TRAVA ao serializar SVG com gradiente) e embutido
  * como <img> data-url (cacheado por variante). opts: size, onSquare, squareFill. */
@@ -671,7 +671,7 @@ function posterLogoBlock(portal, size, variant) {
     // e ESTICARIA a logo (não-quadrada) no PNG. No preview, object-fit:cover já vale.
     return `<img src="${portal.logo}" data-logo-cover="1" data-radius="${r}" style="width:${s}px;height:${s}px;border-radius:${r}px;object-fit:cover;display:block;flex-shrink:0;" alt="" crossorigin="anonymous" />`;
   }
-  // Símbolo M só no tema Municípios Bahia; outros temas usam a sigla.
+  // Símbolo M só nos temas "Portal" (symbol 'mb'); outros temas usam a sigla.
   if (PT.symbol === 'mb') {
     return MB_SYMBOL({ size: s, onSquare: variant !== 'plain', squareFill: variant === 'terra' ? PT.red : PT.symbolBg, radius: Math.round(s * 0.22) });
   }

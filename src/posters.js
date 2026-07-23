@@ -595,11 +595,24 @@ function setupPreviewSplitter() {
   if (typeof saved === 'number' && saved > 0) {
     const maxH = Math.round((window.innerHeight || 700) * 0.84);
     editor.style.setProperty('--pe-panel-h', Math.max(132, Math.min(maxH, saved)) + 'px');
+    // re-encaixa o cartaz no espaço resultante (a altura salva muda o preview)
+    if (typeof fitPosterPreview === 'function') requestAnimationFrame(() => fitPosterPreview());
   }
 }
 function _wirePreviewSplitter(handle, editor) {
   const panelOf = () => editor.querySelector(':scope > .pedit-panels');
   let drag = null;
+  let rafId = 0;
+  // Re-escala o cartaz pra caber no novo espaço — em tempo real. Sem isso, o
+  // painel muda de tamanho mas o cartaz só re-encaixava quando algo chamava
+  // fitPosterPreview() (ex.: mexer numa opção do editor). rAF junta as mudanças
+  // num frame só (arraste fluido, sem re-layout a cada pixel).
+  const refit = () => {
+    rafId = 0;
+    if (typeof fitPosterPreview === 'function') fitPosterPreview();
+  };
+  const scheduleRefit = () => { if (!rafId) rafId = requestAnimationFrame(refit); };
+
   handle.addEventListener('pointerdown', (e) => {
     const panel = panelOf();
     if (!panel) return;
@@ -615,11 +628,13 @@ function _wirePreviewSplitter(handle, editor) {
     const maxH = Math.round((window.innerHeight || 700) * 0.84);
     const h = Math.max(132, Math.min(maxH, drag.startH + (drag.startY - e.clientY)));
     editor.style.setProperty('--pe-panel-h', h + 'px');
+    scheduleRefit();   // cartaz acompanha o arraste na hora
   });
   const end = () => {
     if (!drag) return;
     drag = null;
     handle.classList.remove('dragging');
+    if (typeof fitPosterPreview === 'function') fitPosterPreview();   // encaixe final exato
     const panel = panelOf();
     if (panel && typeof saveJSON === 'function') {
       saveJSON(STORAGE_KEYS.posterPanelH, Math.round(panel.getBoundingClientRect().height));

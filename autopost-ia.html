@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AutoPost IA · Áudio/Vídeo → Pacote de Publicação</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,6 +34,7 @@
     font-size: 15px;
     line-height: 1.55;
     min-height: 100vh;
+    padding-top: env(safe-area-inset-top, 0px); /* Ilha Dinâmica/notch do iPhone */
     background-image:
       radial-gradient(at 10% 0%, #1f140d 0%, transparent 40%),
       radial-gradient(at 90% 100%, #0d1418 0%, transparent 45%);

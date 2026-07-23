@@ -53,6 +53,7 @@ body {
   background: var(--surface-2);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  padding-top: env(safe-area-inset-top, 0px); /* Ilha Dinâmica/notch do iPhone */
 }
 .hidden { display: none !important; }
 .material-symbols-rounded {

@@ -2035,32 +2035,19 @@ h3 { font-size: 1.1rem; line-height: 1.3; }
 .home-section-title {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.14em; font-weight: 800;
-  color: var(--ink-mute); margin: 1.5rem 0 0.65rem;
+  color: var(--ink-mute); margin: 0 0 0.65rem;
 }
 .home-section-title .link {
   text-transform: none; letter-spacing: 0; font-weight: 700; font-size: 0.78rem;
   color: var(--accent); cursor: pointer;
 }
+.home-section-lbl { display: flex; align-items: center; gap: 0.4rem; }
+.home-section-lbl svg { width: 14px; height: 14px; flex-shrink: 0; opacity: 0.85; }
 
-/* Trio de ações de criação */
-.create-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; }
-.create-btn {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem;
-  padding: 0.9rem 0.85rem; border-radius: var(--radius-lg);
-  background: var(--surface); border: 1px solid var(--line-soft);
-  box-shadow: var(--shadow-sm); cursor: pointer; text-align: left;
-  transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
-}
-.create-btn:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--accent); }
-.create-btn:active { transform: scale(0.97); }
-.create-btn .ic {
-  width: 42px; height: 42px; border-radius: 13px;
-  display: grid; place-items: center; background: var(--accent); color: #fff;
-  box-shadow: 0 4px 12px rgba(207, 52, 24, 0.28);
-}
-.create-btn.alt .ic { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
-.create-btn .ic svg { width: 21px; height: 21px; }
-.create-btn-label { font-weight: 700; font-size: 0.85rem; letter-spacing: -0.01em; }
+/* Categorias de "Continuar de onde parou" (Matérias/Cartazes/Carrosséis/
+   Resultados gerados) — uma seção por tipo, só aparece se tiver itens. */
+.home-cat { margin-top: 1.7rem; }
+.home-cat:first-child { margin-top: 0.6rem; }
 
 /* Rail de recentes (scroll horizontal, snap) */
 .recent-rail {
@@ -2083,7 +2070,6 @@ h3 { font-size: 1.1rem; line-height: 1.3; }
 }
 .recent-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .recent-thumb svg { width: 24px; height: 24px; opacity: 0.55; }
-.recent-kind { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 800; color: var(--accent); }
 .recent-title {
   font-size: 0.8rem; font-weight: 600; line-height: 1.3; margin-top: 0.15rem; color: var(--ink);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;

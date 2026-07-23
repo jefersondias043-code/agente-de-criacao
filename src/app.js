@@ -60,53 +60,108 @@ function renderNav() {
   });
 }
 
-// ---------- Home (Início) — rail de "Continuar de onde parou" ----------
-// Read-only sobre o State; some se não houver trabalho recente. Preserva os
-// [data-go] estáticos (handler global). Aditivo — não altera nenhuma lógica.
+// ---------- Home (Início) — "Continuar de onde parou" por categoria ----------
+// Read-only sobre o State; cada categoria (Matérias/Cartazes/Carrosséis/
+// Resultados gerados) só aparece se tiver itens. Ferramentas sem histórico
+// próprio no State (AutoPost, Detector, Replicador, Removedor — vivem em
+// iframe isolado, sem canal de volta pro app pai) não entram aqui: elas já
+// são um toque na barra de navegação, que lista todo o app. Se nenhuma
+// categoria tiver itens (usuário novo), mostra uma dica mínima em vez de
+// seções vazias.
+const HOME_CAT_ICON = {
+  gen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>',
+  pos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+  car: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+  ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+};
+const HOME_CATS = [
+  { key: 'gen', title: 'Matérias' },
+  { key: 'pos', title: 'Cartazes' },
+  { key: 'car', title: 'Carrosséis' },
+  { key: 'ext', title: 'Resultados gerados' },
+];
+
 function renderHome() {
-  const rail = $('#home-recent'); const wrap = $('#home-recent-wrap');
-  if (!rail || !wrap) return;
-  const items = [];
+  const host = $('#home-categories');
+  if (!host) return;
+  const buckets = { gen: [], pos: [], car: [], ext: [] };
   try {
-    (State.generations || []).forEach(g => items.push({
-      kind: 'gen', label: 'Matéria', id: g.id, ts: +new Date(g.createdAt || 0),
+    (State.generations || []).forEach(g => buckets.gen.push({
+      id: g.id, ts: +new Date(g.createdAt || 0),
       title: String(g.content || 'Matéria').replace(/\s+/g, ' ').trim().slice(0, 80), img: null,
     }));
   } catch (_) {}
   try {
-    (State.extractions || []).forEach(e => items.push({
-      kind: 'ext', label: 'Extração', id: e.id, ts: +new Date(e.createdAt || 0),
+    (State.extractions || []).forEach(e => buckets.ext.push({
+      id: e.id, ts: +new Date(e.createdAt || 0),
       title: e.title || (e.files && e.files[0] && e.files[0].name) || 'Extração', img: null,
     }));
   } catch (_) {}
   try {
-    (State.posters || []).forEach(p => items.push({
-      kind: 'pos', label: (p.slides && p.slides.length) ? 'Carrossel' : 'Cartaz', id: p.id,
-      ts: +new Date(p.updatedAt || p.createdAt || 0), title: p.headline || 'Cartaz',
-      img: (typeof p.image1 === 'string' && p.image1.slice(0, 5) === 'data:') ? p.image1 : null,
-    }));
+    (State.posters || []).forEach(p => {
+      const isCarousel = !!(p.slides && p.slides.length);
+      (isCarousel ? buckets.car : buckets.pos).push({
+        id: p.id, ts: +new Date(p.updatedAt || p.createdAt || 0),
+        title: p.headline || (isCarousel ? 'Carrossel' : 'Cartaz'),
+        img: (typeof p.image1 === 'string' && p.image1.slice(0, 5) === 'data:') ? p.image1 : null,
+      });
+    });
   } catch (_) {}
-  items.sort((a, b) => b.ts - a.ts);
-  const top = items.slice(0, 10);
-  if (!top.length) { wrap.classList.add('hidden'); return; }
-  wrap.classList.remove('hidden');
-  const icon = {
-    gen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.9 15.5A2 2 0 0 0 8.5 14L2.4 12.5a.5.5 0 0 1 0-1L8.5 10A2 2 0 0 0 9.9 8.5L11.5 2.4a.5.5 0 0 1 1 0L14 8.5A2 2 0 0 0 15.5 10l6.1 1.5a.5.5 0 0 1 0 1L15.5 14a2 2 0 0 0-1.4 1.4l-1.6 6.1a.5.5 0 0 1-1 0z"/></svg>',
-    ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
-    pos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
-  };
-  rail.innerHTML = top.map(it => `
-    <div class="recent-card" data-kind="${it.kind}" data-id="${escapeHtml(it.id)}" role="button" tabindex="0">
-      <div class="recent-thumb">${it.img ? `<img src="${escapeHtml(it.img)}" alt="">` : (icon[it.kind] || '')}</div>
-      <div class="recent-kind">${it.label}</div>
-      <div class="recent-title">${escapeHtml(it.title)}</div>
-      <div class="recent-time">${it.ts ? formatDate(new Date(it.ts).toISOString()) : ''}</div>
-    </div>`).join('');
-  rail.querySelectorAll('.recent-card').forEach(el => {
-    const open = () => openRecent(el.dataset.kind, el.dataset.id);
+
+  const sections = HOME_CATS.map(cat => {
+    const items = buckets[cat.key].sort((a, b) => b.ts - a.ts).slice(0, 10);
+    if (!items.length) return '';
+    const cards = items.map(it => `
+      <div class="recent-card" data-cat="${cat.key}" data-id="${escapeHtml(it.id)}" role="button" tabindex="0">
+        <div class="recent-thumb">${it.img ? `<img src="${escapeHtml(it.img)}" alt="">` : (HOME_CAT_ICON[cat.key] || '')}</div>
+        <div class="recent-title">${escapeHtml(it.title)}</div>
+        <div class="recent-time">${it.ts ? formatDate(new Date(it.ts).toISOString()) : ''}</div>
+      </div>`).join('');
+    return `
+      <div class="home-cat">
+        <div class="home-section-title">
+          <span class="home-section-lbl">${HOME_CAT_ICON[cat.key] || ''}${cat.title}</span>
+          <span class="link" data-cat-open="${cat.key}" role="button" tabindex="0">Ver tudo</span>
+        </div>
+        <div class="recent-rail">${cards}</div>
+      </div>`;
+  }).join('');
+
+  if (!sections) {
+    host.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></div>
+        <div class="empty-title">Nada por aqui ainda</div>
+        <div class="empty-desc">Seus trabalhos recentes vão aparecer aqui. Use a barra abaixo para começar a criar.</div>
+      </div>`;
+    return;
+  }
+  host.innerHTML = sections;
+
+  host.querySelectorAll('.recent-card').forEach(el => {
+    const open = () => openRecent(el.dataset.cat, el.dataset.id);
     el.onclick = open;
     el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
   });
+  host.querySelectorAll('[data-cat-open]').forEach(el => {
+    const open = () => openHomeCategory(el.dataset.catOpen);
+    el.onclick = open;
+    el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+  });
+}
+
+// "Ver tudo" de cada categoria leva à ferramenta correspondente. Matérias
+// abre também o drawer de histórico (única forma de ver a lista completa lá);
+// as demais já mostram a lista completa na própria view.
+function openHomeCategory(key) {
+  if (key === 'gen') {
+    goTo('generate');
+    if (typeof openGenHistory === 'function') openGenHistory();
+  } else if (key === 'ext') {
+    goTo('extract');
+  } else if (key === 'pos' || key === 'car') {
+    goTo('posters');
+  }
 }
 
 function openRecent(kind, id) {
@@ -119,7 +174,7 @@ function openRecent(kind, id) {
     goTo('extract');
     if (typeof renderExtractionDetail === 'function') renderExtractionDetail();
     if (typeof setMtab === 'function') setMtab('#view-extract', 'b');
-  } else if (kind === 'pos') {
+  } else if (kind === 'pos' || kind === 'car') {
     if (typeof openPosterEditor === 'function') openPosterEditor(id);
     else { State.activePosterId = id; goTo('posters'); }
   }

@@ -448,17 +448,18 @@ async function exportCarousel(p, mode, scale) {
     const base = (slides[0].headline || 'carrossel').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'export';
 
     if (mode === 'images') {
-      // Opção 1 — imagens separadas. No iPhone via Web Share (folha "Salvar
-      // Imagem" → galeria, todos os slides de uma vez); no desktop cai em
-      // downloads individuais. Antes usava só <a download>, que o iOS ignora
-      // (nada chegava à galeria, apesar do "exportado com sucesso").
+      // Opção 1 — imagens separadas. Mostra a PRÉVIA de todos os slides + botão
+      // salvar/compartilhar. No iPhone o botão dispara a folha "Salvar Imagem"
+      // (galeria, todos de uma vez); no desktop baixa cada um. O salvamento
+      // precisa ser uma ação nova do usuário (o iOS bloqueia share automático
+      // logo após gerar os slides).
       const imgs = files.map((f) => ({ name: f.name, blob: new Blob([f.data], { type: 'image/png' }) }));
-      const how = (typeof saveImagesToDevice === 'function')
-        ? await saveImagesToDevice(imgs, 'Carrossel')
-        : 'downloaded';
-      if (how === 'downloaded') toast(`Carrossel baixado (${files.length} imagens).`, 'success');
-      else if (how === 'shared') toast(`Carrossel exportado (${files.length} imagens).`, 'success');
-      // 'canceled' → usuário fechou a folha de compartilhamento; sem toast.
+      if (progEl && progEl.parentNode) progEl.remove(); // fecha o progresso antes da prévia
+      if (typeof presentExport === 'function') {
+        presentExport(imgs, { title: 'Carrossel pronto', subtitle: `${files.length} imagens — confira e salve na galeria.` });
+      } else if (typeof saveImagesToDevice === 'function') {
+        await saveImagesToDevice(imgs, 'Carrossel');
+      }
     } else {
       // Opção 2 — empacotar todos os PNGs num único .zip
       const zip = _zipStore(files);

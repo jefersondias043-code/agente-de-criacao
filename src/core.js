@@ -305,6 +305,106 @@ async function saveImagesToDevice(items, shareTitle, deps) {
   return 'downloaded';
 }
 
+/** Painel de exportação: mostra a PRÉ-VISUALIZAÇÃO do que foi gerado e um botão
+ *  de salvar/compartilhar.
+ *
+ *  Por que existe (e não um share automático): no iPhone a Web Share API só
+ *  funciona se o share() for disparado por um gesto RECENTE do usuário. Como
+ *  gerar a imagem (html2canvas) leva alguns segundos, ao chamar share() logo
+ *  depois o iOS já revogou a ativação do toque e o compartilhamento falha em
+ *  silêncio — foi por isso que "parou de exportar" cartaz e carrossel. Aqui o
+ *  usuário vê o resultado e toca em "Salvar" numa AÇÃO NOVA → o share sempre
+ *  vale. Também é mais profissional: confere antes de publicar.
+ *
+ *  @param {Array<{name:string, blob:Blob}>} items imagens geradas
+ *  @param {{title?:string, subtitle?:string}} [opts]
+ *  @param {object} [deps] injeção p/ testes: { nav, urlApi, doc, File, save, toast }
+ *  @returns {HTMLElement|null} o backdrop criado (ou null se nada a exportar)
+ */
+function presentExport(items, opts, deps) {
+  opts = opts || {}; deps = deps || {};
+  const nav = deps.nav || (typeof navigator !== 'undefined' ? navigator : null);
+  const urlApi = deps.urlApi || (typeof URL !== 'undefined' ? URL : null);
+  const doc = deps.doc || (typeof document !== 'undefined' ? document : null);
+  const FileCtor = deps.File || (typeof File !== 'undefined' ? File : null);
+  const save = deps.save || (typeof saveImagesToDevice === 'function' ? saveImagesToDevice : null);
+  const notify = deps.toast || (typeof toast === 'function' ? toast : function () {});
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : (s) => String(s == null ? '' : s);
+
+  const list = (items || []).filter((it) => it && it.blob);
+  if (!list.length) { notify('Nada para exportar.', 'error'); return null; }
+  if (!doc || !urlApi) { if (save) save(list, opts.title); return null; }
+
+  const multi = list.length > 1;
+  // Compartilhamento de arquivos disponível? (iPhone/Android modernos)
+  let canShareFiles = false;
+  try {
+    if (nav && typeof nav.canShare === 'function' && FileCtor) {
+      canShareFiles = nav.canShare({ files: list.map((it) => new FileCtor([it.blob], it.name, { type: it.blob.type || 'image/png' })) });
+    }
+  } catch (_) { canShareFiles = false; }
+
+  const urls = list.map((it) => { try { return urlApi.createObjectURL(it.blob); } catch (_) { return ''; } });
+  const primaryLabel = canShareFiles ? (multi ? 'Salvar / compartilhar' : 'Salvar na galeria') : 'Baixar';
+  const hint = canShareFiles
+    ? 'Na janela do sistema, toque em “Salvar Imagem” (vai pra galeria) ou escolha um app pra postar.'
+    : 'A imagem vai para a pasta de downloads.';
+
+  const backdrop = doc.createElement('div');
+  backdrop.className = 'xport-backdrop';
+  backdrop.innerHTML =
+    `<div class="xport-card" role="dialog" aria-modal="true">
+      <div class="xport-head">
+        <div>
+          <div class="xport-title">${esc(opts.title || (multi ? 'Carrossel pronto' : 'Cartaz pronto'))}</div>
+          ${opts.subtitle ? `<div class="xport-sub">${esc(opts.subtitle)}</div>` : ''}
+        </div>
+        <button class="xport-close" aria-label="Fechar" type="button">&times;</button>
+      </div>
+      <div class="xport-preview${multi ? ' multi' : ''}">
+        ${urls.map((u, i) => `<img src="${u}" alt="Prévia ${i + 1}" draggable="false" />`).join('')}
+      </div>
+      <div class="xport-actions"><button class="xport-save" type="button">${esc(primaryLabel)}</button></div>
+      <div class="xport-hint">${esc(hint)}</div>
+    </div>`;
+
+  let closed = false;
+  const cleanup = () => {
+    if (closed) return; closed = true;
+    urls.forEach((u) => { try { if (u) urlApi.revokeObjectURL(u); } catch (_) { /* */ } });
+    if (doc.removeEventListener) doc.removeEventListener('keydown', onKey);
+    if (backdrop.remove) backdrop.remove();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') cleanup(); };
+
+  const closeBtn = backdrop.querySelector('.xport-close');
+  if (closeBtn) closeBtn.onclick = cleanup;
+  backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(); };
+  if (doc.addEventListener) doc.addEventListener('keydown', onKey);
+
+  const saveBtn = backdrop.querySelector('.xport-save');
+  if (saveBtn) saveBtn.onclick = async () => {
+    if (!save) { cleanup(); return; }
+    saveBtn.disabled = true;
+    const prev = saveBtn.textContent;
+    saveBtn.textContent = 'Preparando…';
+    try {
+      const how = await save(list, opts.title || 'Exportação');
+      if (how === 'canceled') { saveBtn.disabled = false; saveBtn.textContent = prev; return; } // deixa tentar de novo
+      notify(how === 'downloaded' ? 'Baixado.' : 'Pronto!', 'success');
+      cleanup();
+    } catch (err) {
+      saveBtn.disabled = false; saveBtn.textContent = prev;
+      notify('Não foi possível salvar: ' + ((err && err.message) || err), 'error');
+    }
+  };
+
+  if (doc.body && doc.body.appendChild) doc.body.appendChild(backdrop);
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => backdrop.classList.add('open'));
+  else backdrop.classList.add('open');
+  return backdrop;
+}
+
 function formatBytes(b) {
   if (b == null) return '—';
   if (b < 1024) return `${b} B`;

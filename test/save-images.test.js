@@ -8,7 +8,8 @@ import { loadModules } from './helpers/load.mjs';
 
 let C;
 beforeEach(() => {
-  C = loadModules(['catalogs.js', 'core.js'], ['saveImagesToDevice', 'canvasToBlob']);
+  C = loadModules(['catalogs.js', 'core.js'], ['saveImagesToDevice', 'canvasToBlob', 'presentExport']);
+  if (typeof document !== 'undefined') document.body.innerHTML = '';
 });
 
 function fakeBlob(type = 'image/png') { return { type, size: 4 }; }
@@ -163,5 +164,63 @@ describe('canvasToBlob', () => {
 
   it('rejeita canvas inválido', async () => {
     await expect(C.canvasToBlob(null)).rejects.toThrow(/canvas inválido/);
+  });
+});
+
+describe('presentExport (painel de prévia + salvar/compartilhar)', () => {
+  const items = (n) => Array.from({ length: n }, (_, i) => ({ name: `s${i}.png`, blob: fakeBlob() }));
+  const makeUrlApi = () => {
+    const revoked = [];
+    return { createObjectURL: () => 'blob:' + Math.random(), revokeObjectURL: (u) => revoked.push(u), revoked };
+  };
+  const baseDeps = (over) => Object.assign({
+    nav: { canShare: () => true }, urlApi: makeUrlApi(), doc: document, File: FakeFile,
+    save: async () => 'shared', toast: () => {},
+  }, over);
+
+  it('mostra a prévia e o botão "Salvar na galeria" (1 cartaz, share disponível)', () => {
+    const el = C.presentExport(items(1), { title: 'Cartaz pronto' }, baseDeps());
+    expect(document.querySelector('.xport-backdrop')).toBe(el);
+    expect(el.querySelector('.xport-title').textContent).toBe('Cartaz pronto');
+    expect(el.querySelectorAll('.xport-preview img')).toHaveLength(1);
+    expect(el.querySelector('.xport-save').textContent).toBe('Salvar na galeria');
+  });
+
+  it('rótulo "Baixar" e uma prévia por slide quando NÃO dá pra compartilhar (desktop)', () => {
+    const el = C.presentExport(items(3), { title: 'Carrossel pronto' }, baseDeps({ nav: { canShare: () => false } }));
+    expect(el.querySelector('.xport-save').textContent).toBe('Baixar');
+    expect(el.querySelectorAll('.xport-preview img')).toHaveLength(3);
+  });
+
+  it('o botão salvar chama save() com a lista e o título, e fecha o painel', async () => {
+    let got = null;
+    const el = C.presentExport(items(2), { title: 'Carrossel pronto' },
+      baseDeps({ save: async (list, title) => { got = { list, title }; return 'shared'; } }));
+    await el.querySelector('.xport-save').onclick();
+    expect(got.list).toHaveLength(2);
+    expect(got.title).toBe('Carrossel pronto');
+    expect(document.querySelector('.xport-backdrop')).toBe(null); // fechou após salvar
+  });
+
+  it('cancelar (canceled) mantém o painel aberto pra tentar de novo', async () => {
+    const el = C.presentExport(items(1), { title: 'Cartaz' }, baseDeps({ save: async () => 'canceled' }));
+    await el.querySelector('.xport-save').onclick();
+    expect(document.querySelector('.xport-backdrop')).toBe(el);
+    expect(el.querySelector('.xport-save').disabled).toBe(false);
+  });
+
+  it('o botão fechar remove o painel e revoga as URLs de prévia', () => {
+    const urlApi = makeUrlApi();
+    const el = C.presentExport(items(2), { title: 'x' }, baseDeps({ urlApi }));
+    el.querySelector('.xport-close').onclick();
+    expect(document.querySelector('.xport-backdrop')).toBe(null);
+    expect(urlApi.revoked).toHaveLength(2);
+  });
+
+  it('lista vazia não cria painel e avisa por toast', () => {
+    let msg = null;
+    const el = C.presentExport([], {}, baseDeps({ toast: (m, k) => { msg = { m, k }; } }));
+    expect(el).toBe(null);
+    expect(msg.k).toBe('error');
   });
 });

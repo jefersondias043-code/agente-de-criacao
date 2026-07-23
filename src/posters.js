@@ -2857,11 +2857,10 @@ async function exportPoster(p, scale) {
     if (!canvas) { toast('Não foi possível exportar.', 'error'); return; }
     const name = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`;
     const blob = await canvasToBlob(canvas, 'image/png');
-    // Web Share no iPhone (folha "Salvar Imagem" → galeria) / download no desktop.
-    const how = await saveImagesToDevice([{ name, blob }], 'Cartaz');
-    if (how === 'downloaded') toast('Cartaz baixado.', 'success');
-    else if (how === 'shared') toast('Cartaz exportado.', 'success');
-    // 'canceled' → usuário fechou a folha de compartilhamento; sem toast.
+    // Mostra a PRÉVIA + botão salvar/compartilhar. O salvamento vira uma ação
+    // nova do usuário → o share nativo do iPhone funciona (não pode ser
+    // disparado automático logo após o html2canvas, o iOS bloqueia).
+    presentExport([{ name, blob }], { title: 'Cartaz pronto', subtitle: 'Confira e salve na galeria ou compartilhe.' });
   } catch (err) {
     toast('Não foi possível exportar: ' + err.message, 'error');
   } finally {

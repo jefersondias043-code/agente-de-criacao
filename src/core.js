@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
   extractions: 'agp.extractions',
   posters: 'agp.posters',
   posterPresets: 'agp.posterPresets',
+  posterPanelH: 'agp.posterPanelH',   // altura (px) do painel de edição no mobile — divisor arrastável preview↔edição
 };
 
 function loadJSON(key, fallback) {

@@ -573,9 +573,66 @@ function renderPosterGallery() {
  *  — com seus handlers — para a topbar (#et-actions) e para o menu ⋯ (#et-menu).
  *  Frequente fica a 1 toque (desfazer/refazer/salvar/exportar); secundário
  *  (qualidade, IA, modo, zip, excluir) mora no menu. Nada é perdido. */
+/* Divisor arrastável (mobile) entre o PREVIEW e o painel de edição. O usuário
+   arrasta a barrinha: pra cima aumenta a edição (preview menor), pra baixo
+   aumenta o preview (edição menor). A altura escolhida fica salva. Desktop não
+   usa (lá o layout é lado a lado). */
+function setupPreviewSplitter() {
+  const editor = document.getElementById('p-editor');
+  if (!editor) return;
+  let handle = editor.querySelector(':scope > .pe-split-handle');
+  if (!handle) {
+    handle = document.createElement('div');
+    handle.className = 'pe-split-handle';
+    handle.setAttribute('role', 'separator');
+    handle.setAttribute('aria-label', 'Arraste para ajustar o tamanho do preview');
+    handle.innerHTML = '<span class="grab"></span>';
+    editor.insertBefore(handle, editor.firstChild);
+    _wirePreviewSplitter(handle, editor);
+  }
+  // aplica a altura salva (px). clamp defensivo contra telas menores.
+  const saved = (typeof loadJSON === 'function') ? loadJSON(STORAGE_KEYS.posterPanelH, null) : null;
+  if (typeof saved === 'number' && saved > 0) {
+    const maxH = Math.round((window.innerHeight || 700) * 0.84);
+    editor.style.setProperty('--pe-panel-h', Math.max(132, Math.min(maxH, saved)) + 'px');
+  }
+}
+function _wirePreviewSplitter(handle, editor) {
+  const panelOf = () => editor.querySelector(':scope > .pedit-panels');
+  let drag = null;
+  handle.addEventListener('pointerdown', (e) => {
+    const panel = panelOf();
+    if (!panel) return;
+    e.preventDefault();
+    if (handle.setPointerCapture) { try { handle.setPointerCapture(e.pointerId); } catch (_) { /* */ } }
+    drag = { startY: e.clientY, startH: panel.getBoundingClientRect().height };
+    handle.classList.add('dragging');
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    e.preventDefault();
+    // arrastar pra CIMA (clientY diminui) → painel MAIOR → preview menor
+    const maxH = Math.round((window.innerHeight || 700) * 0.84);
+    const h = Math.max(132, Math.min(maxH, drag.startH + (drag.startY - e.clientY)));
+    editor.style.setProperty('--pe-panel-h', h + 'px');
+  });
+  const end = () => {
+    if (!drag) return;
+    drag = null;
+    handle.classList.remove('dragging');
+    const panel = panelOf();
+    if (panel && typeof saveJSON === 'function') {
+      saveJSON(STORAGE_KEYS.posterPanelH, Math.round(panel.getBoundingClientRect().height));
+    }
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
+
 function setupEditorChrome() {
   const top = $('#et-top');
   if (!top) return;
+  if (typeof setupPreviewSplitter === 'function') setupPreviewSplitter();
   const acts = $('#et-actions');
   const menuItems = $('#et-menu-items');
   const scaleSlot = $('#et-scale-slot');
@@ -3002,6 +3059,14 @@ function setupImagePanning(stageEl) {
   stageEl.__panningReady = true;
 
   let dragging = null;
+  // Pinça (2 dedos) = zoom no toque — o mobile não tinha zoom (só o scroll do
+  // mouse no desktop). Rastreamos os ponteiros ativos sobre a MESMA imagem.
+  let pinch = null;
+  const activePointers = new Map();   // pointerId -> { x, y, field }
+  const _pinchDist = () => {
+    const p = [...activePointers.values()];
+    return (p.length >= 2) ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0;
+  };
 
   // --- "Revelar a sangria" durante a edição ---------------------------------
   // Ao arrastar / dar zoom, o preview RECUA (escala no #p-stage-wrap) e uma cópia
@@ -3121,6 +3186,22 @@ function setupImagePanning(stageEl) {
     const rect = g.cell.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     e.preventDefault();
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, field: img.dataset.draggable });
+
+    // 2º dedo na MESMA imagem → vira PINÇA (zoom). Cancela o pan de 1 dedo.
+    if (activePointers.size === 2) {
+      const fs = [...activePointers.values()].map(pt => pt.field);
+      if (fs[0] === fs[1]) {
+        if (dragging) { dragging.img.style.cursor = 'grab'; dragging = null; }
+        const minS = g ? g.minScale : 0.5;
+        pinch = { img, field: img.dataset.draggable, startDist: _pinchDist() || 1,
+                  startScale: clamp(parseFloat(img.dataset.scale) || 1, minS, 3), minS };
+        enterReframe(img);
+        return;
+      }
+    }
+    if (activePointers.size >= 2) return;   // >2 dedos ou dedos em imagens diferentes: ignora
+
     // Curso de pan (px de célula) idêntico ao usado no preview/export.
     const sc = clamp(parseFloat(img.dataset.scale) || 1, g.minScale, 3);
     const txMax = Math.max(0, (g.iw * g.scaleCover * sc - g.Wc) / 2);
@@ -3140,6 +3221,20 @@ function setupImagePanning(stageEl) {
   }
 
   function onPointerMove(e) {
+    // mantém a posição dos ponteiros ativos (pan e pinça leem daqui)
+    const rec = activePointers.get(e.pointerId);
+    if (rec) { rec.x = e.clientX; rec.y = e.clientY; }
+
+    // PINÇA: escala pela razão entre a distância atual e a inicial dos 2 dedos.
+    if (pinch && activePointers.size >= 2) {
+      e.preventDefault();
+      const factor = _pinchDist() / (pinch.startDist || 1);
+      pinch.img.dataset.scale = clamp(pinch.startScale * factor, pinch.minS, 3);
+      applyImageTransform(pinch.img);
+      syncReframe();
+      return;
+    }
+
     if (!dragging) return;
     e.preventDefault();
     const d = dragging;
@@ -3157,6 +3252,17 @@ function setupImagePanning(stageEl) {
   }
 
   function onPointerUp(e) {
+    activePointers.delete(e.pointerId);
+    // Fim da pinça quando sobra menos de 2 dedos. Não reinicia pan com o dedo
+    // restante (evita salto) — o usuário faz um novo toque pra arrastar.
+    if (pinch) {
+      if (activePointers.size < 2) {
+        saveField(pinch.img, pinch.field);
+        pinch = null;
+        exitReframe();
+      }
+      return;
+    }
     if (!dragging) return;
     dragging.img.style.cursor = 'grab';
     saveField(dragging.img, dragging.field);

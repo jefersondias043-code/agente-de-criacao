@@ -2363,7 +2363,9 @@ body.pe-full #view-posters { animation: none; }
   #p-editor > .pedit-panels { order: 2; display: none; }
   #p-editor.sheet-open > .pedit-panels {
     display: block;
-    max-height: 44vh; max-height: 44dvh;
+    /* altura controlada pelo divisor arrastável (--pe-panel-h); 44dvh padrão */
+    height: var(--pe-panel-h, 44dvh);
+    min-height: 132px; max-height: 84dvh;
     overflow-y: auto; overscroll-behavior: contain;
     background: var(--surface);
     border-top: 1px solid var(--line-soft);
@@ -2371,6 +2373,22 @@ body.pe-full #view-posters { animation: none; }
     box-shadow: var(--shadow-float);
     padding: 0.85rem 0.9rem 1rem;
   }
+  /* Barra divisória arrastável (só aparece com o painel de edição aberto). */
+  #p-editor > .pe-split-handle { display: none; }
+  #p-editor.sheet-open > .pe-split-handle {
+    order: 0;                     /* topo do bloco de edição, na divisa com o preview */
+    display: flex; align-items: center; justify-content: center;
+    flex: 0 0 auto; height: 26px; margin-bottom: -13px;
+    position: relative; z-index: 3;
+    cursor: row-resize; touch-action: none;
+  }
+  #p-editor.sheet-open > .pe-split-handle .grab {
+    width: 46px; height: 5px; border-radius: 999px;
+    background: var(--line, #d9d3c7);
+    transition: background var(--dur-1, 0.12s) var(--ease, ease), width var(--dur-1, 0.12s) var(--ease, ease);
+  }
+  #p-editor.sheet-open > .pe-split-handle.dragging .grab,
+  #p-editor.sheet-open > .pe-split-handle:active .grab { background: var(--accent, #d81f2a); width: 60px; }
   #p-editor > .pedit-tabs {
     order: 3; position: static; margin: 0; border-radius: 0;
     background: var(--surface);

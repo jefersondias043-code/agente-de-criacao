@@ -63,14 +63,14 @@
 
     .btn {
       width: 100%; border: none; cursor: pointer; margin-top: 0.85rem;
-      padding: 0.95rem 1rem; border-radius: 13px;
+      padding: 0.95rem 1rem; border-radius: 13px; text-decoration: none;
       background: var(--accent); color: #fff; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em;
       display: flex; align-items: center; justify-content: center; gap: 0.5rem;
       transition: transform 0.1s ease, background 0.15s ease, opacity 0.15s ease;
-      font-family: inherit;
+      font-family: inherit; -webkit-tap-highlight-color: transparent;
     }
     .btn:active { transform: scale(0.985); }
-    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn.is-disabled { opacity: 0.5; cursor: default; pointer-events: none; }
     .btn svg { width: 19px; height: 19px; }
 
     .status { margin-top: 0.7rem; font-size: 0.86rem; line-height: 1.45; min-height: 1.2em; }
@@ -112,12 +112,14 @@
       </div>
       <div class="chip" id="chip"><span class="dot"></span><span id="chipName"></span></div>
 
-      <button class="btn" id="go" type="button" disabled>
+      <!-- Link REAL (não window.open): o iOS bloqueia popup de iframe pra página
+           com COOP; um clique de <a target="_blank"> é navegação legítima. -->
+      <a class="btn is-disabled" id="go" role="button" target="_blank" rel="noopener noreferrer" aria-disabled="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7"/><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/>
         </svg>
         <span id="goLabel">Abrir baixador com este link</span>
-      </button>
+      </a>
       <div class="status" id="status" role="status" aria-live="polite"></div>
     </div>
 
@@ -167,7 +169,17 @@
       function refresh() {
         var v = input.value.trim();
         var valid = isHttpUrl(v);
-        go.disabled = !valid;
+        // O <a> é a ação: quando o link é válido, ele aponta pro baixador (com o
+        // link no ?u= como tentativa de pré-preenchimento).
+        if (valid) {
+          go.href = DOWNLOADER + '?u=' + encodeURIComponent(v);
+          go.classList.remove('is-disabled');
+          go.setAttribute('aria-disabled', 'false');
+        } else {
+          go.removeAttribute('href');
+          go.classList.add('is-disabled');
+          go.setAttribute('aria-disabled', 'true');
+        }
         var plat = valid ? detectPlatform(v) : null;
         if (plat) { chipName.textContent = plat; chip.classList.add('show'); }
         else { chip.classList.remove('show'); }
@@ -178,34 +190,18 @@
 
       input.addEventListener('input', refresh);
 
-      go.addEventListener('click', async function () {
+      // No toque: copia o link (plano B caso o baixador não preencha sozinho) e
+      // DEIXA o link <a target="_blank"> navegar — sem preventDefault, sem
+      // window.open (que o iOS bloqueia por COOP dentro de iframe).
+      go.addEventListener('click', function (e) {
         var link = input.value.trim();
-        if (!isHttpUrl(link)) { setStatus('Cole um link válido do vídeo.', 'err'); input.focus(); return; }
-
-        // 1) Copia o link (dentro do gesto do toque → funciona no iPhone).
-        var copied = false;
+        if (!isHttpUrl(link)) { e.preventDefault(); setStatus('Cole um link válido do vídeo.', 'err'); input.focus(); return; }
         try {
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(link);
-            copied = true;
+            navigator.clipboard.writeText(link).catch(function () {});
           }
-        } catch (e) { copied = false; }
-
-        // 2) Abre o baixador numa nova aba. Tenta pré-preencher via ?u= (se o
-        //    serviço ignorar, o link já está no clipboard como plano B).
-        var target = DOWNLOADER + '?u=' + encodeURIComponent(link);
-        var win = window.open(target, '_blank', 'noopener');
-
-        if (!win) {
-          // Pop-up bloqueado: oferece o link copiado + instrução.
-          setStatus(copied
-            ? 'Link copiado! Abra o baixador e cole o link (a aba pode ter sido bloqueada — toque de novo).'
-            : 'Não foi possível abrir a aba. Copie o link manualmente e acesse cobalt.tools.', 'err');
-          return;
-        }
-        setStatus(copied
-          ? 'Baixador aberto e link copiado. Se ele não preencher sozinho, cole (toque e segure → Colar) e baixe.'
-          : 'Baixador aberto — cole o link do vídeo e baixe.', 'ok');
+        } catch (e2) { /* segue mesmo sem clipboard */ }
+        setStatus('Abrindo o baixador… o link foi copiado. Se ele não preencher sozinho, cole (toque e segure → Colar) e baixe.', 'ok');
       });
 
       // Conveniência: se o usuário já tem um link na área de transferência ao

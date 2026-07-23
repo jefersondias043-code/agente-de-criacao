@@ -43,35 +43,76 @@ function readTextFile(file) {
   });
 }
 
-/** Transcreve áudio/vídeo via Groq Whisper (mesma API do AutoPost), usando a
- *  chave Groq unificada da plataforma. */
-async function transcribeMedia(file, onProgress) {
-  const apiKey = (State.apiKeys && State.apiKeys.groq) ? String(State.apiKeys.groq).trim() : '';
+/** Chave Groq unificada da plataforma. */
+function ingestGroqKey() {
+  return (State.apiKeys && State.apiKeys.groq) ? String(State.apiKeys.groq).trim() : '';
+}
+
+/** Transcreve UMA parte (≤ 25 MB) via Groq Whisper. Com retry/backoff em
+ *  429/503 (respeita Retry-After) — resiliência trazida do AutoPost IA.
+ *  É o "upload direto" que o orquestrador (transcribeMedia) e o pipeline de
+ *  mídia grande (media-transcode.js) reaproveitam para cada parte. */
+async function transcribeMediaDirect(file, onProgress) {
+  const apiKey = ingestGroqKey();
   if (!apiKey) throw new Error('Configure a chave de API da Groq nas Configurações para transcrever áudio e vídeo.');
   if (file.size > WHISPER_MAX_BYTES) {
-    throw new Error('Arquivo muito grande para transcrever aqui (máximo 25 MB). Use o AutoPost IA, que divide arquivos grandes.');
+    throw new Error('Não foi possível preparar este arquivo automaticamente. Ele parece muito longo — tente um trecho menor.');
   }
-  if (onProgress) onProgress('Transcrevendo a mídia…');
+  if (onProgress) onProgress('Enviando o arquivo para transcrição…');
   const form = new FormData();
   form.append('file', file, file.name || 'media');
   form.append('model', WHISPER_MODEL);
   form.append('language', 'pt');
   form.append('response_format', 'json');
   form.append('temperature', '0');
-  let res;
-  try {
-    res = await fetch(WHISPER_ENDPOINT, { method: 'POST', headers: { Authorization: 'Bearer ' + apiKey }, body: form });
-  } catch (e) {
-    throw new Error('Falha de conexão ao enviar a mídia. Verifique sua internet.');
+  const MAX_RETRIES = 4;
+  for (let attempt = 0; ; attempt++) {
+    let res;
+    try {
+      res = await fetch(WHISPER_ENDPOINT, { method: 'POST', headers: { Authorization: 'Bearer ' + apiKey }, body: form });
+    } catch (e) {
+      throw new Error('Falha de conexão ao enviar a mídia. Verifique sua internet.');
+    }
+    // 429/503 → respeita Retry-After e tenta de novo com backoff exponencial.
+    if ((res.status === 429 || res.status === 503) && attempt < MAX_RETRIES) {
+      const retryAfter = parseFloat(res.headers.get('retry-after'));
+      const wait = Number.isFinite(retryAfter) && retryAfter > 0
+        ? retryAfter * 1000
+        : Math.min(1500 * Math.pow(2, attempt), 20000);
+      if (onProgress) onProgress('Muitas solicitações no momento — aguardando ' + Math.round(wait / 1000) + 's…');
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+    if (res.status === 401) throw new Error('A chave de API da Groq é inválida ou expirou.');
+    if (res.status === 413) throw new Error('O arquivo ficou grande demais para transcrever.');
+    if (!res.ok) throw new Error('Não foi possível concluir a transcrição. Tente novamente em instantes.');
+    if (onProgress) onProgress('Processando a transcrição…');
+    const data = await res.json();
+    const texto = ((data && data.text) || '').trim();
+    if (!texto) throw new Error('Não encontramos fala neste arquivo.');
+    return texto;
   }
-  if (res.status === 401) throw new Error('A chave de API da Groq é inválida ou expirou.');
-  if (res.status === 413) throw new Error('O arquivo ficou grande demais para transcrever.');
-  if (res.status === 429) throw new Error('Limite de requisições da Groq excedido. Tente novamente em alguns instantes.');
-  if (!res.ok) throw new Error('Não foi possível concluir a transcrição. Tente novamente em instantes.');
-  const data = await res.json();
-  const texto = ((data && data.text) || '').trim();
-  if (!texto) throw new Error('Não encontramos fala neste arquivo.');
-  return texto;
+}
+
+/** Transcreve áudio/vídeo. Arquivos GRANDES (acima do limite seguro) são
+ *  comprimidos e divididos em partes ≤ 23 MB pelo pipeline de mídia
+ *  (media-transcode.js: demux em streaming + encoder MP3 embutido) e transcritos
+ *  em ordem — a MESMA capacidade do AutoPost IA, agora em toda a plataforma
+ *  (Extrair, Gerar → anexar, ferramentas embutidas). Arquivos pequenos vão
+ *  direto, sem custo de compressão. */
+async function transcribeMedia(file, onProgress) {
+  if (!ingestGroqKey()) throw new Error('Configure a chave de API da Groq nas Configurações para transcrever áudio e vídeo.');
+  const safe = (typeof WHISPER_SAFE_BYTES === 'number') ? WHISPER_SAFE_BYTES : WHISPER_MAX_BYTES;
+  const podeOtimizar = typeof otimizarArquivo === 'function' && typeof transcreverPartes === 'function';
+  if (file.size <= safe || !podeOtimizar) {
+    if (file.size > WHISPER_MAX_BYTES) {
+      throw new Error('Arquivo muito grande para transcrever aqui (máximo 25 MB).');
+    }
+    return transcribeMediaDirect(file, onProgress);
+  }
+  if (onProgress) onProgress('Preparando o áudio para transcrição…');
+  const { arquivos } = await otimizarArquivo(file, onProgress);
+  return transcreverPartes(arquivos, onProgress);
 }
 
 // Limites de tamanho por tipo: arquivos além disso travam o navegador (OCR/

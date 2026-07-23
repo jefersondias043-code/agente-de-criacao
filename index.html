@@ -62,7 +62,7 @@ if ('serviceWorker' in navigator) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-23-r125" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-23-r126" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1204,6 +1204,10 @@ if ('serviceWorker' in navigator) {
 
 <div class="toast-stack" id="toast-stack"></div>
 
+<!-- Encoder MP3 embutido (lamejs) — usado por src/media-transcode.js para
+     comprimir/dividir áudio de vídeos grandes antes de transcrever. Self-hosted
+     (sem CDN), carregado ANTES dos módulos. Fora do bloco gerado abaixo. -->
+<script src="vendor/lamejs.js"></script>
 <!-- Scripts clássicos em ordem de dependência (escopo global compartilhado).
      Funciona via file:// (duplo-clique) e via servidor. app.js por último (faz o boot).
      FONTE ÚNICA: a lista entre os marcadores é gerada de scripts/scripts.manifest.mjs
@@ -1233,6 +1237,7 @@ if ('serviceWorker' in navigator) {
 <script src="src/replicador.js"></script>
 <script src="src/removedor.js"></script>
 <script src="src/handoff.js"></script>
+<script src="src/media-transcode.js"></script>
 <script src="src/ingest.js"></script>
 <script src="src/app.js"></script>
 <!-- scripts:end -->

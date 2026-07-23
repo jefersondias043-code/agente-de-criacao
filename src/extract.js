@@ -24,16 +24,132 @@ async function extractDocx(file) {
   return (result.value || '').trim();
 }
 
-async function extractImage(file, onProgress) {
-  // Tesseract.js v5 API
-  const { data } = await Tesseract.recognize(file, 'por', {
-    logger: m => {
-      if (m.status === 'recognizing text' && onProgress) {
-        onProgress(Math.round(m.progress * 100));
-      }
+/* ---------- OCR com PRÉ-PROCESSAMENTO (paridade com o AutoPost IA) ----------
+   Antes: Tesseract cru sobre o arquivo — sofre com fundo complexo, iluminação
+   irregular e fotos de 12 MP (estouro de memória no celular). Agora: reduz a
+   imagem, converte pra cinza, realça o contraste e aplica LIMIAR ADAPTATIVO
+   (Bradley), com fallback pra imagem original quando o tratamento não ajuda —
+   nunca piora. `onProgress` recebe a PORCENTAGEM (número), como os chamadores
+   da plataforma esperam. */
+const OCR_MAX_DIM = 2600; // maior lado do canvas de trabalho
+
+// Desenha a imagem num canvas, reduzida a no máx. maxDim no maior lado (só se maior).
+function _ocrCanvasEscalado(img, maxDim) {
+  const w0 = img.naturalWidth || img.width, h0 = img.naturalHeight || img.height;
+  const maxLado = Math.max(w0, h0) || 1;
+  const escala = maxLado > maxDim ? maxDim / maxLado : 1;
+  const w = Math.max(1, Math.round(w0 * escala));
+  const h = Math.max(1, Math.round(h0 * escala));
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0, w, h);
+  return c;
+}
+
+// Cinza (luminância) + contraste (percentis 2/98) + limiar adaptativo (imagem
+// integral → média local em O(1) por pixel). Devolve um canvas binário P/B.
+function _ocrPreprocessar(base) {
+  const w = base.width, h = base.height, n = w * h;
+  const d = base.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+  const g = new Float32Array(n);
+  const hist = new Uint32Array(256);
+  for (let i = 0, p = 0; i < n; i++, p += 4) {
+    const y = (d[p] * 0.299 + d[p + 1] * 0.587 + d[p + 2] * 0.114) | 0;
+    g[i] = y; hist[y]++;
+  }
+  let lo = 0, hi = 255, acc = 0; const clip = n * 0.02;
+  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= clip) { lo = v; break; } }
+  acc = 0;
+  for (let v = 255; v >= 0; v--) { acc += hist[v]; if (acc >= clip) { hi = v; break; } }
+  const range = Math.max(1, hi - lo);
+  for (let i = 0; i < n; i++) {
+    const v = (g[i] - lo) * 255 / range;
+    g[i] = v < 0 ? 0 : (v > 255 ? 255 : v);
+  }
+  const W1 = w + 1;
+  const integ = new Float64Array(W1 * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let soma = 0;
+    for (let x = 0; x < w; x++) {
+      soma += g[y * w + x];
+      integ[(y + 1) * W1 + (x + 1)] = integ[y * W1 + (x + 1)] + soma;
+    }
+  }
+  const S = Math.max(8, (Math.min(w, h) / 16) | 0);
+  const T = 0.15;
+  const oc = document.createElement('canvas');
+  oc.width = w; oc.height = h;
+  const octx = oc.getContext('2d');
+  const outImg = octx.createImageData(w, h);
+  const od = outImg.data;
+  for (let y = 0; y < h; y++) {
+    const y1 = y - S < 0 ? 0 : y - S, y2 = y + S >= h ? h - 1 : y + S;
+    for (let x = 0; x < w; x++) {
+      const x1 = x - S < 0 ? 0 : x - S, x2 = x + S >= w ? w - 1 : x + S;
+      const conta = (x2 - x1 + 1) * (y2 - y1 + 1);
+      const soma = integ[(y2 + 1) * W1 + (x2 + 1)] - integ[y1 * W1 + (x2 + 1)] - integ[(y2 + 1) * W1 + x1] + integ[y1 * W1 + x1];
+      const preto = g[y * w + x] * conta <= soma * (1 - T);
+      const p = (y * w + x) * 4;
+      const val = preto ? 0 : 255;
+      od[p] = od[p + 1] = od[p + 2] = val; od[p + 3] = 255;
+    }
+  }
+  octx.putImageData(outImg, 0, 0);
+  return oc;
+}
+
+// OCR de UM canvas → { text, conf }. Reporta o progresso como PORCENTAGEM.
+async function _ocrReconhecer(canvas, onProgress) {
+  const { data } = await Tesseract.recognize(canvas, 'por', {
+    logger: (m) => {
+      if (m.status === 'recognizing text' && onProgress) onProgress(Math.round((m.progress || 0) * 100));
     },
   });
-  return (data.text || '').trim();
+  return { text: (data && data.text || '').trim(), conf: (data && data.confidence) || 0 };
+}
+
+// Resultado fraco? (pouco texto OU baixa confiança → vale tentar o outro caminho)
+function _ocrFraco(r) {
+  return !r.text || r.text.replace(/\s+/g, '').length < 12 || r.conf < 55;
+}
+// Melhor entre dois resultados: mais texto; empate → maior confiança.
+function _ocrMelhor(a, b) {
+  const la = a.text.replace(/\s+/g, '').length, lb = b.text.replace(/\s+/g, '').length;
+  if (Math.abs(la - lb) > 8) return la >= lb ? a : b;
+  return a.conf >= b.conf ? a : b;
+}
+
+async function extractImage(file, onProgress) {
+  if (onProgress) onProgress(0);
+  let img, url;
+  try {
+    url = URL.createObjectURL(file);
+    img = await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = () => rej(new Error('decode'));
+      im.src = url;
+    });
+    if (!(img.naturalWidth || img.width)) throw new Error('decode');
+  } catch (e) {
+    if (url) URL.revokeObjectURL(url);
+    throw new Error('Não foi possível abrir esta imagem neste aparelho. No iPhone, escolha a foto pela galeria (que a converte automaticamente) ou use um arquivo PNG/JPG.');
+  }
+  try {
+    const base = _ocrCanvasEscalado(img, OCR_MAX_DIM);   // colorido (fallback)
+    await new Promise(r => setTimeout(r, 0));             // deixa a UI pintar o status
+    const proc = _ocrPreprocessar(base);                 // cinza + contraste + limiar
+    const r1 = await _ocrReconhecer(proc, onProgress);   // 1ª tentativa: tratada
+    let melhor = r1;
+    if (_ocrFraco(r1)) {                                  // fallback só quando fraco
+      const r2 = await _ocrReconhecer(base, onProgress);
+      melhor = _ocrMelhor(r1, r2);
+    }
+    if (onProgress) onProgress(100);
+    return (melhor.text || '').trim();
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+  }
 }
 
 function getFileType(file) {

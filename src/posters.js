@@ -30,6 +30,30 @@ function posterImagePositions(p) {
   return out;
 }
 
+/** Exclui um cartaz DEFINITIVAMENTE (some da galeria e do histórico) com uma
+ *  janela de "Desfazer". O objeto removido fica em memória com as imagens
+ *  inline; se o usuário desfizer, savePosters() as regrava no IDB. Sem confirm
+ *  chato: um clique remove, com toast de desfazer por alguns segundos. */
+function deletePosterById(id) {
+  const idx = State.posters.findIndex((x) => x.id === id);
+  if (idx < 0) return;
+  const removed = State.posters[idx];
+  const wasActive = State.activePosterId === id;
+  State.posters.splice(idx, 1);
+  if (wasActive) State.activePosterId = State.posters[0] ? State.posters[0].id : null;
+  if (typeof freePosterImages === 'function') freePosterImages(removed);  // recupera espaço já
+  savePosters();
+  renderPosters();
+  let undone = false;
+  toast('Cartaz removido.', 'success', 6000, { label: 'Desfazer', onClick: () => {
+    if (undone) return; undone = true;
+    State.posters.splice(Math.min(idx, State.posters.length), 0, removed);
+    if (wasActive) State.activePosterId = id;
+    savePosters();   // regrava as imagens do cartaz restaurado no IDB
+    renderPosters();
+  } });
+}
+
 // Libera as imagens de UM cartaz no IndexedDB (recupera espaço do dispositivo).
 // Usado ao excluir um cartaz individual ou ao limpar todo o histórico.
 function freePosterImages(p) {
@@ -552,6 +576,9 @@ function renderPosterGallery() {
     const img = (typeof p.image1 === 'string' && p.image1.slice(0, 5) === 'data:') ? p.image1 : null;
     return `
     <div class="pg-card" data-pid="${p.id}" role="button" tabindex="0" aria-label="${escapeHtml(truncate(title, 60))}">
+      <button class="pg-del" data-del="${p.id}" type="button" title="Excluir cartaz" aria-label="Excluir cartaz">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
       <div class="pg-thumb">
         ${img ? `<img src="${img}" alt="" loading="lazy">` : `<span class="pg-thumb-ph">${escapeHtml(title.trim().charAt(0).toUpperCase() || '?')}</span>`}
         ${isCar ? `<span class="pg-badge">▤ ${p.slides.length}</span>` : ''}
@@ -562,10 +589,13 @@ function renderPosterGallery() {
   }).join('');
   const nb = $('#pg-new');
   if (nb) nb.onclick = () => createBlankPoster();
-  host.querySelectorAll('[data-pid]').forEach(el => {
+  host.querySelectorAll('.pg-card[data-pid]').forEach(el => {
     const open = () => openPosterEditor(el.dataset.pid);
-    el.onclick = open;
-    el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+    el.onclick = (e) => { if (e.target.closest('[data-del]')) return; open(); };  // o × não abre o editor
+    el.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('[data-del]')) { e.preventDefault(); open(); } };
+  });
+  host.querySelectorAll('.pg-del[data-del]').forEach(btn => {
+    btn.onclick = (e) => { e.stopPropagation(); deletePosterById(btn.dataset.del); };
   });
 }
 
@@ -833,17 +863,7 @@ function renderPostersList() {
     };
   });
   $('#p-list').querySelectorAll('[data-del]').forEach(btn => {
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      if (!confirm('Remover este cartaz?')) return;
-      const p = State.posters.find(x => x.id === btn.dataset.del);
-      if (p) freePosterImages(p);                            // libera as imagens no IDB
-      State.posters = State.posters.filter(x => x.id !== btn.dataset.del);
-      if (State.activePosterId === btn.dataset.del) State.activePosterId = State.posters[0]?.id || null;
-      savePosters();
-      renderPosters();
-      toast('Cartaz removido.', 'success');
-    };
+    btn.onclick = (e) => { e.stopPropagation(); deletePosterById(btn.dataset.del); };  // 1 clique + desfazer
   });
 }
 

@@ -146,7 +146,7 @@ function uuid() {
 function $(sel) { return document.querySelector(sel); }
 function $$(sel) { return document.querySelectorAll(sel); }
 
-function toast(message, kind = 'info', timeout = 3500) {
+function toast(message, kind = 'info', timeout = 3500, action) {
   const stack = $('#toast-stack');
   const t = document.createElement('div');
   t.className = `toast ${kind}`;
@@ -155,11 +155,19 @@ function toast(message, kind = 'info', timeout = 3500) {
   const msgEl = document.createElement('div');
   msgEl.className = 'flex-1';
   msgEl.textContent = String(message ?? '');
+  t.appendChild(msgEl);
+  // Ação opcional (ex.: "Desfazer") — botão de texto discreto antes do ×.
+  if (action && action.label && typeof action.onClick === 'function') {
+    const act = document.createElement('button');
+    act.className = 'toast-action';
+    act.textContent = action.label;
+    act.onclick = () => { t.remove(); try { action.onClick(); } catch (_) { /* */ } };
+    t.appendChild(act);
+  }
   const closeBtn = document.createElement('button');
   closeBtn.setAttribute('style', 'background: none; border: none; color: inherit; cursor: pointer; opacity: 0.7;');
   closeBtn.textContent = '×';
   closeBtn.onclick = () => t.remove();
-  t.appendChild(msgEl);
   t.appendChild(closeBtn);
   stack.appendChild(t);
   if (timeout) setTimeout(() => t.remove(), timeout);

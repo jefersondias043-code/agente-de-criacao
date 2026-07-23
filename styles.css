@@ -910,6 +910,13 @@ h3 { font-size: 1.1rem; line-height: 1.3; }
 .toast.success { border-left-color: #6fbf8e; }
 .toast.error { border-left-color: #ff7a5c; }
 .toast.info { border-left-color: var(--gold); }
+.toast-action {
+  flex-shrink: 0; align-self: center;
+  background: none; border: none; cursor: pointer; font: inherit;
+  font-weight: 700; font-size: 0.85rem; letter-spacing: -0.01em;
+  color: var(--gold, #e6b866); padding: 0 0.15rem;
+}
+.toast-action:hover { text-decoration: underline; }
 @keyframes toast-in {
   from { opacity: 0; transform: translateX(16px); }
   to { opacity: 1; transform: translateX(0); }
@@ -2115,6 +2122,7 @@ h3 { font-size: 1.1rem; line-height: 1.3; }
 .pgallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.65rem; }
 @media (min-width: 881px) { .pgallery { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.85rem; } }
 .pg-card {
+  position: relative;
   background: var(--surface); border: 1px solid var(--line-soft); border-radius: 15px;
   padding: 0.5rem; cursor: pointer; box-shadow: var(--shadow-sm);
   text-align: left; font: inherit; color: inherit;
@@ -2123,6 +2131,28 @@ h3 { font-size: 1.1rem; line-height: 1.3; }
 .pg-card:hover { border-color: var(--ink-mute); box-shadow: var(--shadow-md); }
 .pg-card:active { transform: scale(0.975); }
 .pg-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Excluir cartaz (×) — discreto: aparece no hover (desktop) e fica sutil no
+   toque (mobile, sem hover). Não adiciona ruído; some quando não é preciso. */
+.pg-del {
+  position: absolute; top: 9px; right: 9px; z-index: 3;
+  width: 26px; height: 26px; padding: 0; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; color: #fff;
+  background: rgba(20, 18, 14, 0.55);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  opacity: 0; transform: scale(0.82); pointer-events: none;
+  transition: opacity var(--dur-1) var(--ease), transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.pg-del svg { width: 14px; height: 14px; }
+.pg-del:hover { background: var(--accent); transform: scale(1.06); }
+@media (hover: hover) {
+  .pg-card:hover .pg-del, .pg-card:focus-within .pg-del { opacity: 1; transform: scale(1); pointer-events: auto; }
+}
+@media (hover: none) {
+  .pg-del { opacity: 0.5; transform: scale(1); pointer-events: auto; }
+  .pg-card:active .pg-del { opacity: 1; }
+}
 .pg-thumb {
   position: relative; aspect-ratio: 3 / 4; border-radius: 11px; overflow: hidden;
   background: var(--paper-2); display: grid; place-items: center;

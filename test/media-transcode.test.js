@@ -10,7 +10,7 @@ beforeAll(() => {
   clearStorage();
   // media-transcode.js referencia WHISPER_MAX_BYTES (de ingest.js) só em runtime;
   // planejarPartes usa apenas constantes locais, então carrega isolado.
-  M = loadModules(['media-transcode.js'], ['planejarPartes', 'WHISPER_SAFE_BYTES', 'unlockAudioContext', '_comTimeout']);
+  M = loadModules(['media-transcode.js'], ['planejarPartes', 'WHISPER_SAFE_BYTES', '_comTimeout']);
 });
 
 const PISO = 32, TETO = 64;
@@ -70,13 +70,5 @@ describe('_comTimeout (salvaguarda contra travamento)', () => {
   });
   it('propaga a rejeição original da promessa', async () => {
     await expect(M._comTimeout(Promise.reject(new Error('erro real')), 1000, 'x')).rejects.toThrow('erro real');
-  });
-});
-
-describe('unlockAudioContext (desbloqueio de áudio iOS)', () => {
-  it('degrada sem lançar quando não há AudioContext (ex.: jsdom)', () => {
-    // jsdom não implementa Web Audio → deve devolver null, nunca quebrar o boot.
-    expect(() => M.unlockAudioContext()).not.toThrow();
-    expect(M.unlockAudioContext()).toBeNull();
   });
 });

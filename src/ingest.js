@@ -159,7 +159,10 @@ async function ingestFileNative(file, deliver) {
   if (!file) return;
   const prog = ingestProgressToast();
   try {
-    const text = await ingestToText(file, prog.set);
+    // Wake Lock: mantém a tela ligada durante a conversão (celular: a tela
+    // apagando suspende a aba e trava a transcrição/OCR). Mesma abordagem do AutoPost.
+    const run = () => ingestToText(file, prog.set);
+    const text = (typeof withWakeLock === 'function') ? await withWakeLock(run) : await run();
     prog.done();
     if (!text) { toast('Não encontramos texto neste arquivo.', 'error'); return; }
     deliver(text);

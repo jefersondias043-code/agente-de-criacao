@@ -6,7 +6,7 @@
    edição fina no navegador; o servidor só devolve a máscara de segmentação.
    O recorte pronto volta ao app pai via postMessage 'agente:image-out'
    (canal de IMAGEM, tratado em src/handoff.js → addImageAsLayer).
-   Aqui só carregamos e revelamos o iframe. (Molde: src/videograb.js)
+   Aqui só carregamos e revelamos o iframe. (Molde: src/replicador.js)
    ============================================================ */
 function renderRemovedor() {
   const f = $('#removedorFrame');

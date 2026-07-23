@@ -20,7 +20,6 @@ export const SCRIPTS = [
   'carousels.js',
   'poster-elements.js',
   'poster-editor-pro.js',
-  'videograb.js',
   'history.js',
   'settings.js',
   'detector.js',

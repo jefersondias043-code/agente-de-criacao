@@ -7,7 +7,6 @@ const NAV_ITEMS = [
   { id: 'generate',  label: 'Gerar',       icon: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>' },
   { id: 'extract',   label: 'Extrair',     icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' },
   { id: 'posters',   label: 'Cartazes',    icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>' },
-  { id: 'videograb', label: 'VideoGrab',   icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>' },
   { id: 'detector',  label: 'Detector Flop', icon: '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' },
   { id: 'autopost',  label: 'AutoPost IA', icon: '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>' },
   { id: 'replicador', label: 'Replicador', icon: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>' },
@@ -19,7 +18,6 @@ const NAV_ITEMS = [
 // "Mais" (bottom sheet com o restante). No desktop, o trilho lateral mostra tudo.
 const MOBILE_PRIMARY = ['welcome', 'generate', 'posters', 'extract'];
 const MOBILE_MORE = [
-  { id: 'videograb',  desc: 'Baixe vídeos sem marca d’água' },
   { id: 'detector',   desc: 'Componha, teste e analise' },
   { id: 'autopost',   desc: 'Vídeo vira pacote de post' },
   { id: 'replicador', desc: 'Nova versão do que funcionou' },
@@ -226,7 +224,6 @@ function goTo(viewId) {
   if (viewId === 'generate') renderGenerate();
   if (viewId === 'extract') renderExtract();
   if (viewId === 'posters') renderPosters();
-  if (viewId === 'videograb') renderVideograb();
   if (viewId === 'detector') renderDetector();
   if (viewId === 'autopost') renderAutopost();
   if (viewId === 'replicador') renderReplicador();

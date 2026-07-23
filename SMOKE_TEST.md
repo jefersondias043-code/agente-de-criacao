@@ -39,14 +39,6 @@ No navegador (http://localhost:8080):
       "Área segura" desenha a margem; Desfazer/Refazer (Ctrl+Z/Y) revertem; modo Simples esconde
       abas avançadas; preset de composição (aba Layout) troca modelo+tema; o PNG exportado NÃO
       mostra a moldura de seleção/guias/área segura.
-- [ ] **VideoGrab**: o servidor (unificado: app + API) sobe **sozinho no login** após
-      rodar **`Instalar inicio automatico.bat`** UMA vez (registra `servidor.vbs` no
-      `HKCU\...\Run` com caminho curto + cria o atalho "Agente" na Área de Trabalho).
-      Depois, abrir o app (ícone "Agente" / `http://localhost:3000`) já mostra
-      "Servidor conectado". Iniciar manualmente agora: **`Agente.bat`** (janela visível,
-      mostra erros do Node). Encerrar: `Parar Agente.vbs`. Desativar auto-início:
-      `Desinstalar inicio automatico.bat`. Se o servidor cair, o card **reconecta
-      sozinho** (re-ping 4s). (Dev: `npm start` em `videograb-server/`.)
 - [ ] **Detector Flop**: iframe carrega `detector-flop.html` (3 abas) com tema claro aplicado.
 - [ ] **AutoPost IA** e **Replicador**: iframes carregam com tema claro.
 - [ ] **Configurações**: trocar provedor (Groq/OpenAI/Anthropic) atualiza a lista de modelos.

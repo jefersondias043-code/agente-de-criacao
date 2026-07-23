@@ -24,7 +24,7 @@ if (location.protocol !== 'file:') {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' data: https://fonts.gstatic.com; " +
     "img-src 'self' data: blob: https:; " +
-    "connect-src 'self' https: http://localhost:3000 http://127.0.0.1:3000 http://localhost:7000 http://127.0.0.1:7000 blob: data:; " +
+    "connect-src 'self' https: http://localhost:7000 http://127.0.0.1:7000 blob: data:; " +
     "worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; " +
     "object-src 'none'; base-uri 'self'" +
     '">');
@@ -78,7 +78,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-23-r143" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-23-r144" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -172,16 +172,6 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
             <div class="quick-card-body">
               <h3 class="quick-card-title">Replicador</h3>
               <p class="text-xs text-soft">Nova versão do que funcionou.</p>
-            </div>
-            <span class="quick-card-arrow">→</span>
-          </div>
-          <div class="card quick-card" data-go="videograb" role="button" tabindex="0">
-            <div class="quick-card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            </div>
-            <div class="quick-card-body">
-              <h3 class="quick-card-title">VideoGrab</h3>
-              <p class="text-xs text-soft">Baixe vídeos sem marca d'água.</p>
             </div>
             <span class="quick-card-arrow">→</span>
           </div>
@@ -1045,21 +1035,6 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       </aside>
     </section>
 
-    <!-- VideoGrab (embed) -->
-    <section class="page view view-fullbleed" id="view-videograb">
-      <div class="detector-frame-wrap">
-        <iframe
-          id="videograbFrame"
-          title="VideoGrab"
-          loading="lazy"
-          src=""
-          referrerpolicy="no-referrer"
-          allow="clipboard-read; clipboard-write"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups allow-popups-to-escape-sandbox"
-        ></iframe>
-      </div>
-    </section>
-
     <!-- Removedor de Fundo (embed) -->
     <section class="page view view-fullbleed" id="view-removedor">
       <div class="detector-frame-wrap">
@@ -1248,7 +1223,6 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <script src="src/carousels.js"></script>
 <script src="src/poster-elements.js"></script>
 <script src="src/poster-editor-pro.js"></script>
-<script src="src/videograb.js"></script>
 <script src="src/history.js"></script>
 <script src="src/settings.js"></script>
 <script src="src/detector.js"></script>

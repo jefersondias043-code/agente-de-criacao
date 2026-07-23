@@ -1,4 +1,4 @@
-const CACHE = 'agp-v143';
+const CACHE = 'agp-v144';
 const URLS = [
   './',
   './index.html',
@@ -9,7 +9,6 @@ const URLS = [
   './detector-remixicon.woff2',
   './autopost-ia.html',
   './replicador.html',
-  './videograb.html',
   './removedor.html',
   './manifest.json',
   './icon-192.png',
@@ -32,7 +31,6 @@ const URLS = [
   './src/carousels.js',
   './src/poster-elements.js',
   './src/poster-editor-pro.js',
-  './src/videograb.js',
   './src/history.js',
   './src/settings.js',
   './src/detector.js',

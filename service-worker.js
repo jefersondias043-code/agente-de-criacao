@@ -1,10 +1,12 @@
-const CACHE = 'agp-v130';
+const CACHE = 'agp-v131';
 const URLS = [
   './',
   './index.html',
   './styles.css',
   './detector-flop.html',
   './detector-flop.tailwind.css',
+  './detector-remixicon.css',
+  './detector-remixicon.woff2',
   './autopost-ia.html',
   './replicador.html',
   './videograb.html',

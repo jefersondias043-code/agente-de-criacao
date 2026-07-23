@@ -1,0 +1,32 @@
+/*! detector-remixicon.css — subconjunto AUTO-HOSPEDADO do Remixicon 4.2.0.
+   Só os ~21 ícones usados no Detector (fonte subset detector-remixicon.woff2,
+   ~2 KB). NÃO depende de CDN. GERADO — não edite à mão.
+   Regenerar (após adicionar ícones ri-* novos ao detector-flop.html):
+     1) npm i remixicon@4.2.0 ; pip install fonttools brotli
+     2) pyftsubset node_modules/remixicon/fonts/remixicon.woff2 \
+          --unicodes="<codepoints dos ícones usados>" --flavor=woff2 \
+          --output-file=detector-remixicon.woff2
+     3) recriar as regras .ri-*:before{content} a partir de remixicon.css */
+@font-face{font-family:remixicon;font-display:swap;src:url("detector-remixicon.woff2") format("woff2")}
+[class^="ri-"],[class*=" ri-"]{font-family:remixicon!important;font-style:normal;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.ri-archive-line:before{content:"\ea48"}
+.ri-close-line:before{content:"\eb99"}
+.ri-delete-bin-6-line:before{content:"\ec26"}
+.ri-delete-bin-line:before{content:"\ec2a"}
+.ri-download-2-line:before{content:"\ec54"}
+.ri-edit-2-line:before{content:"\ec80"}
+.ri-equalizer-line:before{content:"\ec9d"}
+.ri-eye-line:before{content:"\ecb5"}
+.ri-eye-off-line:before{content:"\ecb7"}
+.ri-file-copy-line:before{content:"\ecd5"}
+.ri-flag-line:before{content:"\ed3b"}
+.ri-image-line:before{content:"\ee4b"}
+.ri-loader-4-line:before{content:"\eec6"}
+.ri-radar-line:before{content:"\f04c"}
+.ri-refresh-line:before{content:"\f064"}
+.ri-search-line:before{content:"\f0d1"}
+.ri-settings-3-line:before{content:"\f0e6"}
+.ri-star-line:before{content:"\f18b"}
+.ri-star-fill:before{content:"\f186"}
+.ri-time-line:before{content:"\f20f"}
+.ri-upload-2-line:before{content:"\f24a"}

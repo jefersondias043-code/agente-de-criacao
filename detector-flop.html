@@ -4,7 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Detector Flop — Estúdio</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<!-- Tailwind AUTO-HOSPEDADO (build estático). Antes usava o Play CDN
+     cdn.tailwindcss.com — próprio para desenvolvimento e frágil: bloqueadores/
+     redes que barram o script deixavam a página SEM ESTILO ("bugada"). Este CSS
+     é gerado escaneando as classes deste HTML (npm run build:detector-css) e não
+     depende de nenhum serviço externo — funciona inclusive via file://. -->
+<link rel="stylesheet" href="detector-flop.tailwind.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">

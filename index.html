@@ -62,7 +62,7 @@ if ('serviceWorker' in navigator) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-23-r124" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-23-r125" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -230,6 +230,19 @@ if ('serviceWorker' in navigator) {
             <div class="card-title">Pauta</div>
           </div>
           <div class="flex flex-col gap-2">
+            <div class="field">
+              <label class="label">Modo de geração</label>
+              <div class="genmode-toggle" id="g-genmode">
+                <button type="button" data-mode="agents" class="active">
+                  <span class="genmode-title">Agentes</span>
+                  <span class="genmode-hint">Interpretação · Redação · Design — mais lento, com design sugerido</span>
+                </button>
+                <button type="button" data-mode="fast">
+                  <span class="genmode-title">Rápido</span>
+                  <span class="genmode-hint">1 chamada de IA, sem design automático</span>
+                </button>
+              </div>
+            </div>
             <div class="grid-2 keep-2" style="gap: 1rem;">
               <div class="field">
                 <label class="label" for="g-style">Estilo</label>

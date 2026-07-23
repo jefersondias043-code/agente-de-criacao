@@ -1,10 +1,79 @@
 'use strict';
 // Gerado pela refatoração (split do index.html monolítico). Código movido verbatim.
 
+/** Monta o objeto de geração do MODO AGENTES (pipeline de 3 agentes) — função
+ *  pura, sem tocar no DOM, para poder ser testada isoladamente. */
+function assembleAgentsGeneration({ style, tone, manualText, extractionId, combinedText, result, createdAt }) {
+  const truncNote = combinedText.length > MAX_CONTENT_CHARS
+    ? [`Conteúdo truncado de ${combinedText.length.toLocaleString('pt-BR')} para ${MAX_CONTENT_CHARS.toLocaleString('pt-BR')} caracteres.`]
+    : [];
+  return {
+    id: uuid(),
+    content: cleanText(result.content),
+    style, tone,
+    manualText: manualText || null,
+    extractionId: extractionId || null,
+    sourceCharCount: combinedText.length,
+    finalCharCount: Math.min(combinedText.length, MAX_CONTENT_CHARS),
+    wasTruncated: combinedText.length > MAX_CONTENT_CHARS,
+    warnings: truncNote,
+    // Saída estruturada do pipeline de agentes:
+    interpretation: result.interpretation,
+    article: result.article,
+    design: result.design,
+    agents: result.agents,
+    pipeline: true,
+    model: result.model,
+    promptTokens: result.promptTokens || null,
+    completionTokens: result.completionTokens || null,
+    createdAt,
+  };
+}
+
+/** Monta o objeto de geração do MODO RÁPIDO (1 chamada de IA, comportamento
+ *  anterior ao pipeline) — função pura, sem tocar no DOM. */
+function assembleFastGeneration({ style, tone, manualText, extractionId, built, result, createdAt }) {
+  return {
+    id: uuid(),
+    content: cleanText(result.content),
+    style, tone,
+    manualText: manualText || null,
+    extractionId: extractionId || null,
+    sourceCharCount: built.originalCharCount,
+    finalCharCount: built.finalCharCount,
+    wasTruncated: built.wasTruncated,
+    warnings: built.wasTruncated
+      ? [`Conteúdo truncado de ${built.originalCharCount.toLocaleString('pt-BR')} para ${built.finalCharCount.toLocaleString('pt-BR')} caracteres.`]
+      : [],
+    pipeline: false,
+    model: result.model,
+    promptTokens: result.promptTokens || null,
+    completionTokens: result.completionTokens || null,
+    createdAt,
+  };
+}
+
+/** Liga o toggle "Modo de geração" (Agentes vs Rápido) e restaura a preferência
+ *  salva. 'agents' = pipeline de 3 agentes (padrão); 'fast' = 1 chamada de IA,
+ *  igual ao comportamento anterior ao pipeline — sem design automático. */
+function setGenMode(mode) {
+  State.genMode = (mode === 'fast') ? 'fast' : 'agents';
+  try { localStorage.setItem(STORAGE_KEYS.genMode, State.genMode); } catch {}
+  const host = $('#g-genmode');
+  if (host) host.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.mode === State.genMode));
+}
+function wireGenMode() {
+  const host = $('#g-genmode');
+  if (!host) return;
+  host.querySelectorAll('button').forEach((b) => { b.onclick = () => setGenMode(b.dataset.mode); });
+  setGenMode(State.genMode || 'agents');
+}
+
 // ---------- Render Generate ----------
 function renderGenerate() {
   // Abas mobile Pauta↔Resultado (em telas largas não têm efeito visual)
   wireMtabs('#view-generate');
+  wireGenMode();
 
   // Catálogos
   const styleSel = $('#g-style');
@@ -131,19 +200,26 @@ function renderGenerate() {
     const btn = $('#g-submit');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Gerando…';
-    $('#g-result-area').innerHTML = `
-      <div class="empty">
-        <div class="spinner spinner-lg" style="color: var(--accent); border-right-color: transparent; margin: 0 auto 1rem;"></div>
-        <div class="empty-title" id="g-loading-title">Iniciando pipeline…</div>
-        <div class="empty-desc" id="g-loading-desc">A matéria passa por agentes especializados.</div>
-        <div class="pipeline-steps" id="g-pipeline-steps">
-          <span class="pipeline-step" data-step="interpret">Interpretação</span>
-          <span class="pipeline-step" data-step="write">Redação</span>
-          <span class="pipeline-step" data-step="design">Design</span>
-        </div>
-      </div>`;
 
-    // Progresso por AGENTE: cada etapa acende seu selo e atualiza o título/desc.
+    const isFast = State.genMode === 'fast';
+    $('#g-result-area').innerHTML = isFast
+      ? `<div class="empty">
+          <div class="spinner spinner-lg" style="color: var(--accent); border-right-color: transparent; margin: 0 auto 1rem;"></div>
+          <div class="empty-title" id="g-loading-title">Gerando…</div>
+          <div class="empty-desc" id="g-loading-desc">Modo rápido — 1 chamada de IA.</div>
+        </div>`
+      : `<div class="empty">
+          <div class="spinner spinner-lg" style="color: var(--accent); border-right-color: transparent; margin: 0 auto 1rem;"></div>
+          <div class="empty-title" id="g-loading-title">Iniciando pipeline…</div>
+          <div class="empty-desc" id="g-loading-desc">A matéria passa por agentes especializados.</div>
+          <div class="pipeline-steps" id="g-pipeline-steps">
+            <span class="pipeline-step" data-step="interpret">Interpretação</span>
+            <span class="pipeline-step" data-step="write">Redação</span>
+            <span class="pipeline-step" data-step="design">Design</span>
+          </div>
+        </div>`;
+
+    // Progresso por AGENTE (só no modo Agentes): cada etapa acende seu selo.
     const onStage = (key, title, desc) => {
       const t = $('#g-loading-title'), d = $('#g-loading-desc');
       if (t) t.textContent = title;
@@ -154,36 +230,20 @@ function renderGenerate() {
       });
     };
 
-    const truncNote = combinedText.length > MAX_CONTENT_CHARS
-      ? [`Conteúdo truncado de ${combinedText.length.toLocaleString('pt-BR')} para ${MAX_CONTENT_CHARS.toLocaleString('pt-BR')} caracteres.`]
-      : [];
-
     try {
-      const result = await runContentPipeline({ content: combinedText, style, tone, onStage });
-      const generation = {
-        id: uuid(),
-        content: cleanText(result.content),
-        style, tone,
-        manualText: manualText || null,
-        extractionId: extractionId || null,
-        sourceCharCount: combinedText.length,
-        finalCharCount: Math.min(combinedText.length, MAX_CONTENT_CHARS),
-        wasTruncated: combinedText.length > MAX_CONTENT_CHARS,
-        warnings: truncNote,
-        // Saída estruturada do pipeline de agentes:
-        interpretation: result.interpretation,
-        article: result.article,
-        design: result.design,
-        agents: result.agents,
-        pipeline: true,
-        model: result.model,
-        promptTokens: result.promptTokens || null,
-        completionTokens: result.completionTokens || null,
-        createdAt: new Date().toISOString(),
-      };
+      const createdAt = new Date().toISOString();
+      let generation;
+      if (isFast) {
+        const built = buildPrompt(style, tone, combinedText);
+        const result = await callLLM(built.prompt);
+        generation = assembleFastGeneration({ style, tone, manualText, extractionId, built, result, createdAt });
+      } else {
+        const result = await runContentPipeline({ content: combinedText, style, tone, onStage });
+        generation = assembleAgentsGeneration({ style, tone, manualText, extractionId, combinedText, result, createdAt });
+      }
       State.generations.unshift(generation);
       saveGenerations();
-      toast('Matéria gerada pelos agentes.', 'success');
+      toast(isFast ? 'Matéria gerada.' : 'Matéria gerada pelos agentes.', 'success');
       renderGenerationResult(generation);
     } catch (err) {
       toast(err.message || 'Não foi possível gerar a matéria.', 'error', 6000);

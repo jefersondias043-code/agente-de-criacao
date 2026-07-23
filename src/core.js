@@ -14,6 +14,7 @@ const STORAGE_KEYS = {
   apiKey: 'agp.apiKey',
   model: 'agp.model',
   provider: 'agp.provider',
+  genMode: 'agp.genMode',   // 'agents' (pipeline de 3 agentes) | 'fast' (1 chamada, como antes)
   apiKeys: 'agp.apiKeys',
   apiKeysEnc: 'agp.apiKeys.enc',   // bloqueio do workspace: chaves cifradas (AES-GCM) — opcional
   models: 'agp.models',
@@ -99,6 +100,7 @@ const State = (() => {
   if (!savedModels) saveJSON(STORAGE_KEYS.models, models);
   return {
     provider: localStorage.getItem(STORAGE_KEYS.provider) || 'groq',
+    genMode: (localStorage.getItem(STORAGE_KEYS.genMode) === 'fast') ? 'fast' : 'agents',
     apiKeys, models,
     locked,        // chaves estão cifradas em repouso?
     unlocked: !locked,  // já há chave utilizável em memória nesta sessão?

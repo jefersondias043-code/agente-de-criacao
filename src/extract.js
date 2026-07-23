@@ -287,9 +287,8 @@ function renderExtract() {
             text = await readTextFile(file);
           } else if (fileMeta.type === 'media') {
             text = await transcribeMedia(file, (msg) => {
-              const bar = document.querySelector(`[data-progress="${fileMeta.id}"]`);
-              const lbl = bar && bar.parentElement && bar.parentElement.nextElementSibling;
-              if (lbl && typeof msg === 'string') lbl.textContent = msg;
+              const el = document.querySelector(`[data-mediastatus="${fileMeta.id}"]`);
+              if (el && typeof msg === 'string') el.textContent = msg;
             });
           } else {
             throw new Error('Tipo não suportado');
@@ -408,9 +407,12 @@ function renderExtractionDetail() {
           pending: '<span class="badge">Aguardando</span>',
         }[f.status] || '';
         const showProgress = f.status === 'processing' && f.type === 'image';
+        // Mídia (áudio/vídeo) mostra uma linha de STATUS em texto (a transcrição
+        // reporta mensagens — "Preparando… %", "Parte i de N" —, não porcentagem).
+        const showMediaStatus = f.status === 'processing' && f.type === 'media';
         const pct = typeof f.progress === 'number' ? f.progress : 0;
         return `
-          <div class="file-row" style="${showProgress ? 'flex-wrap: wrap;' : ''}">
+          <div class="file-row" style="${(showProgress || showMediaStatus) ? 'flex-wrap: wrap;' : ''}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <div class="flex-1 file-name">${escapeHtml(f.name)}</div>
             <span class="file-size">${(f.text || '').length.toLocaleString('pt-BR')} chars</span>
@@ -422,6 +424,7 @@ function renderExtractionDetail() {
                 </div>
                 <span class="mono text-xs text-mute" style="min-width: 36px; text-align: right;">${pct}%</span>
               </div>` : ''}
+            ${showMediaStatus ? `<div class="text-xs text-mute" data-mediastatus="${f.id}" style="flex: 1 0 100%; margin-top: 0.4rem;">Preparando…</div>` : ''}
           </div>`;
       }).join('')}
     </div>

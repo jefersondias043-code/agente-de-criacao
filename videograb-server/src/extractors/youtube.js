@@ -17,14 +17,16 @@
  */
 
 import { Innertube, Log } from 'youtubei.js';
-import { delay } from '../http.js';
+import { delay, parsePlatformUrl } from '../http.js';
 
 export const id = 'youtube';
 export const label = 'YouTube';
 export const filePrefix = 'youtube';
 
+export const YOUTUBE_DOMAINS = ['youtube.com', 'youtu.be', 'youtube-nocookie.com'];
+
 export function matches(link) {
-  return link.includes('youtube.com') || link.includes('youtu.be');
+  return !!parsePlatformUrl(link, YOUTUBE_DOMAINS);
 }
 
 // Silencia avisos do parser interno (mudanças cosméticas da API do YouTube).

@@ -13,14 +13,16 @@
  *   5. Página de embed
  */
 
-import { delay, fetchWithTimeout } from '../http.js';
+import { delay, fetchWithTimeout, parsePlatformUrl } from '../http.js';
 
 export const id = 'instagram';
 export const label = 'Instagram';
 export const filePrefix = 'insta';
 
+export const INSTAGRAM_DOMAINS = ['instagram.com', 'instagr.am'];
+
 export function matches(link) {
-  return link.includes('instagram.com');
+  return !!parsePlatformUrl(link, INSTAGRAM_DOMAINS);
 }
 
 const USER_AGENT =

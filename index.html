@@ -45,8 +45,24 @@ if (location.protocol !== 'file:') {
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js" integrity="sha384-Ptw8HCYAWF6vIop6WuGxfSCiDCIzUWqjrHYfx8Vd0S4CMBaicAdBh2y+Ufle664A" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js');
+// PWA: registra o service worker (só em http/https — file:// não suporta).
+// Auto-atualização: quando uma versão nova assume o controle (skipWaiting no
+// SW), recarrega UMA vez pra aplicar na hora — sem isso, o iPhone podia rodar
+// código antigo do cache indefinidamente (o SW instalado não era re-buscado).
+// updateViaCache:'none' força o navegador a SEMPRE baixar o service-worker.js
+// da rede (ignorando o cache HTTP), garantindo que uma versão nova seja detectada.
+// É o MESMO esquema do AutoPost IA, que atualiza de forma confiável no iPhone.
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  const jaControlado = !!navigator.serviceWorker.controller;
+  let recarregou = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!jaControlado || recarregou) return; // 1ª instalação não recarrega
+    recarregou = true;
+    location.reload();
+  });
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }).catch(() => {});
+  });
 }
 </script>
 
@@ -62,7 +78,7 @@ if ('serviceWorker' in navigator) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-23-r133" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-23-r134" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>

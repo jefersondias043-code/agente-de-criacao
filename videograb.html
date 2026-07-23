@@ -3,1194 +3,225 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="VideoGrab - Baixe seus vídeos do Instagram, TikTok e YouTube sem marca d'água" />
+  <meta name="description" content="VideoGrab — baixe vídeos de Instagram, TikTok, YouTube e mais, direto do celular." />
   <title>VideoGrab</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet"
-  />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
-    rel="stylesheet"
-  />
-
   <style>
-/* ==========================================================================
-   VideoGrab — tema portado do app Flutter original.
-   (CSS de public/css/styles.css embutido; o bloco "agente-light-theme" abaixo
-   remapeia para a paleta clara da plataforma.)
-   ========================================================================== */
-
-:root {
-  --primary: #8b0000;
-  --secondary: #c41e3a;
-  --surface: #1a1a1a;
-  --surface-highest: #0a0a0a;
-  --error: #cf6679;
-  --success: #4caf50;
-  --on-surface: #e8e8e8;
-  --outline: #333333;
-  --hint: #666666;
-  --label: #aaaaaa;
-  --snackbar-bg: #2a2a2a;
-  --radius-lg: 16px;
-  --radius-md: 12px;
-  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html,
-body {
-  height: 100%;
-}
-
-body {
-  font-family: var(--font);
-  color: var(--on-surface);
-  background: var(--surface-highest);
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
-}
-
-.hidden {
-  display: none !important;
-}
-
-.material-symbols-rounded {
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  user-select: none;
-}
-
-/* ============ Telas ============ */
-
-.screen {
-  min-height: 100dvh;
-  background: linear-gradient(
-    to bottom,
-    var(--surface-highest) 0%,
-    rgba(26, 26, 26, 0.95) 50%,
-    rgba(26, 26, 26, 0.9) 100%
-  );
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: env(safe-area-inset-top, 0px); /* Ilha Dinâmica/notch do iPhone */
-}
-
-/* Entrada da tela: fade + slide (800ms easeOutCubic, igual ao app) */
-.animate-screen {
-  animation: screen-enter 800ms cubic-bezier(0.215, 0.61, 0.355, 1) both;
-}
-
-@keyframes screen-enter {
-  from {
-    opacity: 0;
-    transform: translateY(10%);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Animações escalonadas internas */
-.anim {
-  opacity: 0;
-  animation-fill-mode: forwards;
-}
-
-.anim-header {
-  animation: fade-slide-down-in 600ms cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
-}
-
-@keyframes fade-slide-down-in {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fade-scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* ============ Logo ============ */
-
-.logo-circle {
-  width: 112px;
-  height: 112px;
-  margin: 0 auto;
-  border-radius: 50%;
-  background: rgba(139, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.logo-icon {
-  font-size: 64px;
-  color: var(--primary);
-}
-
-.logo-circle-small {
-  width: 80px;
-  height: 80px;
-}
-
-.logo-icon-small {
-  font-size: 48px;
-}
-
-/* ============ Tela principal ============ */
-
-.home-content {
-  width: 100%;
-  max-width: 480px;
-  min-height: 100dvh;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.home-header {
-  text-align: center;
-}
-
-.home-header .logo-circle {
-  margin-bottom: 24px;
-}
-
-.home-title {
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-  color: var(--on-surface);
-}
-
-.home-subtitle {
-  margin-top: 8px;
-  font-size: 16px;
-  color: rgba(232, 232, 232, 0.7);
-}
-
-.platforms-row {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.platform-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 14px;
-  border: 1px solid rgba(232, 232, 232, 0.15);
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(232, 232, 232, 0.55);
-  background: rgba(26, 26, 26, 0.5);
-  transition: all 200ms ease;
-}
-
-.platform-chip svg {
-  width: 16px;
-  height: 16px;
-}
-
-.platform-chip.active {
-  border-color: var(--primary);
-  background: rgba(139, 0, 0, 0.15);
-  color: var(--on-surface);
-  box-shadow: 0 2px 12px rgba(139, 0, 0, 0.25);
-}
-
-.home-content .input-wrapper {
-  margin-top: 48px;
-}
-
-.home-content .primary-button {
-  margin-top: 32px;
-}
-
-.home-content .status-card {
-  margin-top: 32px;
-}
-
-.spacer {
-  flex: 1;
-  min-height: 24px;
-}
-
-/* ============ Campo de texto ============ */
-
-.input-wrapper {
-  position: relative;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 4px 8px rgba(139, 0, 0, 0.05);
-  transition: box-shadow 200ms ease;
-  text-align: left;
-}
-
-.input-wrapper.focused {
-  box-shadow: 0 4px 20px 2px rgba(139, 0, 0, 0.2);
-}
-
-.input-wrapper.error {
-  box-shadow: 0 4px 20px 1px rgba(139, 0, 0, 0.15);
-}
-
-.text-field {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--outline);
-  border-radius: var(--radius-lg);
-  padding: 26px 56px 14px 52px;
-  font-family: var(--font);
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--on-surface);
-  outline: none;
-  transition: border-color 150ms ease;
-}
-
-.text-field:focus {
-  border: 2px solid var(--primary);
-  padding: 25px 55px 13px 51px;
-}
-
-.text-field:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.input-wrapper.error .text-field {
-  border-color: rgba(207, 102, 121, 0.5);
-}
-
-.input-wrapper.error .text-field:focus {
-  border-color: var(--error);
-}
-
-.floating-label {
-  position: absolute;
-  left: 52px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--label);
-  pointer-events: none;
-  transition: all 150ms ease;
-}
-
-.text-field:focus + .floating-label,
-.text-field:not(:placeholder-shown) + .floating-label {
-  top: 14px;
-  transform: none;
-  font-size: 12px;
-}
-
-.text-field:focus + .floating-label {
-  color: var(--primary);
-}
-
-.input-wrapper.error .floating-label {
-  color: var(--error);
-}
-
-.hint-text {
-  position: absolute;
-  left: 52px;
-  bottom: 14px;
-  font-size: 15px;
-  color: var(--hint);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 150ms ease;
-}
-
-.text-field:focus:placeholder-shown ~ .hint-text {
-  opacity: 1;
-}
-
-.input-prefix-icon {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 24px;
-  color: rgba(232, 232, 232, 0.5);
-  transition: color 150ms ease;
-  pointer-events: none;
-}
-
-.input-wrapper.focused .input-prefix-icon {
-  color: var(--primary);
-}
-
-.input-wrapper.error .input-prefix-icon {
-  color: var(--error);
-}
-
-.clear-button {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: rgba(232, 232, 232, 0.7);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 150ms ease;
-}
-
-.clear-button:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.clear-button .material-symbols-rounded {
-  font-size: 22px;
-}
-
-/* ============ Botão principal ============ */
-
-.primary-button {
-  position: relative;
-  width: 100%;
-  min-height: 56px;
-  border: none;
-  border-radius: var(--radius-lg);
-  background: var(--primary);
-  color: #ffffff;
-  font-family: var(--font);
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(139, 0, 0, 0.5);
-  transition: background 200ms ease, box-shadow 200ms ease, transform 100ms ease;
-}
-
-.primary-button:hover:not(.loading) {
-  background: #a00000;
-  box-shadow: 0 8px 20px rgba(139, 0, 0, 0.55);
-}
-
-.primary-button:active:not(.loading) {
-  transform: scale(0.985);
-}
-
-.primary-button.loading {
-  background: rgba(139, 0, 0, 0.1);
-  box-shadow: none;
-  cursor: default;
-}
-
-.button-content,
-.button-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 16px 24px;
-  animation: fade-scale-in 300ms ease both;
-}
-
-.button-content .material-symbols-rounded {
-  font-size: 24px;
-}
-
-.button-label {
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 1px;
-}
-
-.loading-label {
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  color: var(--primary);
-}
-
-.spinner {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2.5px solid rgba(139, 0, 0, 0.2);
-  border-top-color: var(--primary);
-  animation: spin 900ms linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ============ Card de status ============ */
-
-.status-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: rgba(26, 26, 26, 0.7);
-  border: 1px solid rgba(232, 232, 232, 0.12);
-  border-radius: var(--radius-md);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.status-icon {
-  font-size: 20px;
-  flex-shrink: 0;
-  color: rgba(232, 232, 232, 0.6);
-}
-
-.status-text {
-  flex: 1;
-  font-size: 14px;
-  text-align: center;
-  color: rgba(232, 232, 232, 0.6);
-}
-
-.status-card.error .status-icon,
-.status-card.error .status-text {
-  color: var(--error);
-}
-
-.status-card.success .status-icon,
-.status-card.success .status-text {
-  color: var(--success);
-}
-
-.status-card.error .status-text,
-.status-card.success .status-text {
-  font-weight: 600;
-}
-
-/* ============ Transcrever e enviar (ponte com a plataforma) ============ */
-
-.vg-actions {
-  margin-top: 16px;
-  padding: 14px 16px;
-  background: var(--surface);
-  border: 1px dashed var(--outline);
-  border-radius: var(--radius-md);
-  text-align: center;
-}
-
-.vg-actions-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--label);
-  margin-bottom: 10px;
-}
-
-.vg-actions-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-}
-
-.vg-send {
-  border: 1px solid var(--outline);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--on-surface);
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 500;
-  padding: 6px 13px;
-  cursor: pointer;
-  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
-}
-
-.vg-send:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.vg-send:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* ============ Rodapé ============ */
-
-.footer {
-  text-align: center;
-}
-
-.divider {
-  border: none;
-  border-top: 1px solid rgba(232, 232, 232, 0.12);
-  margin: 16px 0;
-}
-
-.footer-line1 {
-  font-size: 12px;
-  color: rgba(232, 232, 232, 0.4);
-}
-
-.footer-line2 {
-  margin-top: 4px;
-  font-size: 11px;
-  color: rgba(232, 232, 232, 0.3);
-}
-
-/* ============ Snackbar ============ */
-
-#snackbar-container {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 1000;
-  pointer-events: none;
-}
-
-.snackbar {
-  background: var(--snackbar-bg);
-  color: #ffffff;
-  font-size: 14px;
-  padding: 14px 20px;
-  border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  animation: snackbar-in 250ms cubic-bezier(0.215, 0.61, 0.355, 1) both;
-  pointer-events: auto;
-  overflow-wrap: break-word;
-}
-
-.snackbar.error {
-  background: var(--error);
-  color: #1a1a1a;
-  font-weight: 600;
-}
-
-.snackbar.leaving {
-  animation: snackbar-out 250ms ease both;
-}
-
-@keyframes snackbar-in {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes snackbar-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-}
-
-/* ============ Responsividade ============ */
-
-@media (min-width: 768px) {
-  .home-content {
-    max-width: 560px;
-    padding: 40px 32px;
-  }
-}
-
-@media (max-width: 360px) {
-  .home-content {
-    padding: 16px;
-  }
-
-  .button-label,
-  .loading-label {
-    font-size: 15px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
-    transition-duration: 0.01ms !important;
-  }
-
-  .anim {
-    opacity: 1;
-  }
-}
-  </style>
-
-  <style id="agente-light-theme">
-/* Paleta clara da plataforma Agente (mesmo padrão dos demais tools embutidos).
-   Além das vars, sobrescreve as cores ESCURAS hardcoded do CSS original
-   (gradiente da tela, chips, status, rodapé — lição r31: caçar cores fixas). */
-:root {
-  --primary: #b8341c;
-  --secondary: #b8341c;
-  --surface: #ffffff;
-  --surface-highest: #faf8f4;
-  --error: #b3261e;
-  --success: #2e7d4f;
-  --on-surface: #16140f;
-  --outline: #e4dccb;
-  --hint: #857a67;
-  --label: #6b6357;
-  --snackbar-bg: #16140f;
-}
-.screen { background: var(--surface-highest); }
-.home-subtitle { color: rgba(22, 20, 15, 0.65); }
-.platform-chip {
-  border-color: rgba(22, 20, 15, 0.15);
-  background: #ffffff;
-  color: rgba(22, 20, 15, 0.55);
-}
-.platform-chip.active {
-  background: rgba(184, 52, 28, 0.08);
-  box-shadow: 0 2px 12px rgba(184, 52, 28, 0.15);
-}
-.logo-circle { background: rgba(184, 52, 28, 0.1); }
-.input-wrapper { box-shadow: 0 4px 8px rgba(184, 52, 28, 0.05); }
-.input-wrapper.focused { box-shadow: 0 4px 20px 2px rgba(184, 52, 28, 0.16); }
-.input-wrapper.error { box-shadow: 0 4px 20px 1px rgba(184, 52, 28, 0.12); }
-.input-wrapper.error .text-field { border-color: rgba(179, 38, 30, 0.5); }
-.input-prefix-icon { color: rgba(22, 20, 15, 0.45); }
-.clear-button { color: rgba(22, 20, 15, 0.6); }
-.clear-button:hover { background: rgba(22, 20, 15, 0.06); }
-.primary-button { box-shadow: 0 6px 16px rgba(184, 52, 28, 0.35); }
-.primary-button:hover:not(.loading) {
-  background: #9e2c17;
-  box-shadow: 0 8px 20px rgba(184, 52, 28, 0.4);
-}
-.primary-button.loading { background: rgba(184, 52, 28, 0.08); }
-.spinner { border-color: rgba(184, 52, 28, 0.2); border-top-color: var(--primary); }
-.status-card { background: #ffffff; border-color: rgba(22, 20, 15, 0.12); }
-.status-icon,
-.status-text { color: rgba(22, 20, 15, 0.6); }
-.divider { border-top-color: rgba(22, 20, 15, 0.12); }
-.footer-line1 { color: rgba(22, 20, 15, 0.45); }
-.footer-line2 { color: rgba(22, 20, 15, 0.35); }
-.snackbar.error { color: #ffffff; }
+    /* VideoGrab — ferramenta de HANDOFF (sem servidor).
+       Funciona 100% no navegador/GitHub Pages e no celular: o app prepara o
+       link e abre um baixador web confiável (cobalt.tools) pra concluir. */
+    :root {
+      --bg: #0d0d0f; --card: #17171a; --card-2: #202024;
+      --line: #2c2c31; --ink: #ececf0; --mute: #9a9aa4; --faint: #6b6b74;
+      --accent: #e0344b; --accent-2: #ff5a6e; --ok: #34c759;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: var(--bg); color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh; min-height: 100dvh;
+      padding: calc(1.1rem + env(safe-area-inset-top, 0px)) 1rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+      display: flex; justify-content: center;
+    }
+    .wrap { width: 100%; max-width: 520px; }
+    .head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.35rem; }
+    .logo {
+      width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+      background: linear-gradient(150deg, var(--accent), #a01831);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 6px 18px rgba(224, 52, 75, 0.28);
+    }
+    .logo svg { width: 22px; height: 22px; }
+    h1 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+    .sub { color: var(--mute); font-size: 0.9rem; margin: 0.15rem 0 1.1rem; line-height: 1.4; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 1rem; margin-bottom: 0.9rem;
+    }
+    label.field-label { display: block; font-size: 0.78rem; font-weight: 700; color: var(--mute); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+    .input-row { position: relative; }
+    #link {
+      width: 100%; resize: none; min-height: 74px;
+      background: var(--card-2); border: 1px solid var(--line); border-radius: 12px;
+      color: var(--ink); font-size: 1rem; line-height: 1.45; padding: 0.75rem 0.85rem;
+      font-family: inherit;
+    }
+    #link:focus { outline: none; border-color: var(--accent); }
+    #link::placeholder { color: var(--faint); }
+
+    .chip {
+      display: none; align-items: center; gap: 0.4rem; margin-top: 0.6rem;
+      font-size: 0.8rem; font-weight: 600; color: var(--ink);
+      background: var(--card-2); border: 1px solid var(--line);
+      padding: 0.3rem 0.65rem; border-radius: 999px; width: fit-content;
+    }
+    .chip.show { display: inline-flex; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+
+    .btn {
+      width: 100%; border: none; cursor: pointer; margin-top: 0.85rem;
+      padding: 0.95rem 1rem; border-radius: 13px;
+      background: var(--accent); color: #fff; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      transition: transform 0.1s ease, background 0.15s ease, opacity 0.15s ease;
+      font-family: inherit;
+    }
+    .btn:active { transform: scale(0.985); }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn svg { width: 19px; height: 19px; }
+
+    .status { margin-top: 0.7rem; font-size: 0.86rem; line-height: 1.45; min-height: 1.2em; }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--accent-2); }
+
+    .steps { list-style: none; padding: 0; margin: 0.2rem 0 0; }
+    .steps li { display: flex; gap: 0.65rem; align-items: flex-start; padding: 0.4rem 0; color: var(--mute); font-size: 0.88rem; line-height: 1.4; }
+    .steps .n {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+      background: var(--card-2); border: 1px solid var(--line);
+      color: var(--ink); font-size: 0.75rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .note { color: var(--faint); font-size: 0.76rem; line-height: 1.5; margin-top: 0.4rem; }
+    .note b { color: var(--mute); font-weight: 700; }
+    .plats { color: var(--faint); font-size: 0.78rem; margin-top: 0.9rem; text-align: center; }
   </style>
 </head>
 <body>
-  <!-- ============ TELA PRINCIPAL ============ -->
-  <main id="home-screen" class="screen home-screen">
-    <div class="home-content animate-screen">
-      <header class="home-header anim anim-header">
-        <div class="logo-circle logo-circle-small">
-          <span class="material-symbols-rounded logo-icon logo-icon-small" aria-hidden="true">video_library</span>
-        </div>
-        <h1 class="home-title">VideoGrab</h1>
-        <p class="home-subtitle">Baixe seus vídeos sem marca d'água</p>
-
-        <div class="platforms-row" id="platforms-row" aria-label="Plataformas suportadas">
-          <span class="platform-chip" data-platform="instagram">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <rect x="3" y="3" width="18" height="18" rx="5" />
-              <circle cx="12" cy="12" r="4.2" />
-              <circle cx="17.3" cy="6.7" r="1.2" fill="currentColor" stroke="none" />
-            </svg>
-            Instagram
-          </span>
-          <span class="platform-chip" data-platform="tiktok">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-2.59-2.59c.27 0 .53.04.77.12V9.77a5.76 5.76 0 0 0-.77-.05 5.69 5.69 0 1 0 5.69 5.69V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.28 4.28 0 0 1-3.25-1.48Z" />
-            </svg>
-            TikTok
-          </span>
-          <span class="platform-chip" data-platform="youtube">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M21.6 7.2a2.5 2.5 0 0 0-1.76-1.77C18.25 5 12 5 12 5s-6.25 0-7.84.43A2.5 2.5 0 0 0 2.4 7.2 26 26 0 0 0 2 12a26 26 0 0 0 .4 4.8 2.5 2.5 0 0 0 1.76 1.77C5.75 19 12 19 12 19s6.25 0 7.84-.43a2.5 2.5 0 0 0 1.76-1.77A26 26 0 0 0 22 12a26 26 0 0 0-.4-4.8ZM10 15.2V8.8l5.2 3.2Z" />
-            </svg>
-            YouTube
-          </span>
-        </div>
-      </header>
-
-      <div class="input-wrapper" id="link-input-wrapper">
-        <span class="material-symbols-rounded input-prefix-icon" id="link-prefix-icon" aria-hidden="true">link</span>
-        <input
-          type="url"
-          id="link-input"
-          class="text-field"
-          placeholder=" "
-          autocomplete="off"
-          autocapitalize="off"
-          spellcheck="false"
-          inputmode="url"
-          enterkeyhint="done"
-        />
-        <label for="link-input" class="floating-label">Link do vídeo</label>
-        <span class="hint-text" aria-hidden="true">Instagram, TikTok ou YouTube</span>
-        <button type="button" class="clear-button hidden" id="link-clear" aria-label="Limpar" title="Limpar">
-          <span class="material-symbols-rounded" aria-hidden="true">close</span>
-        </button>
+  <div class="wrap">
+    <div class="head">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="3"/><path d="M10 9l5 3-5 3z" fill="#fff" stroke="none"/>
+        </svg>
       </div>
-
-      <button type="button" class="primary-button" id="download-button">
-        <span class="button-content" id="download-button-content">
-          <span class="material-symbols-rounded" aria-hidden="true">download</span>
-          <span class="button-label">BAIXAR VÍDEO</span>
-        </span>
-        <span class="button-loading hidden" id="download-button-loading">
-          <span class="spinner" aria-hidden="true"></span>
-          <span class="loading-label">Processando...</span>
-        </span>
-      </button>
-
-      <div class="status-card" id="status-card" role="status" aria-live="polite">
-        <span class="material-symbols-rounded status-icon" id="status-icon" aria-hidden="true">info</span>
-        <span class="status-text" id="status-text">Cole o link do vídeo do Instagram, TikTok ou YouTube</span>
+      <div>
+        <h1>VideoGrab</h1>
       </div>
-
-      <!-- Ponte com a plataforma: transcreve o vídeo baixado (Whisper do app
-           pai) e envia o texto para outra ferramenta. Só aparece embutido. -->
-      <div class="vg-actions hidden" id="vg-actions">
-        <span class="vg-actions-label">Transcrever e enviar para</span>
-        <div class="vg-actions-row">
-          <button type="button" class="vg-send" data-target="generate">Gerar matéria</button>
-          <button type="button" class="vg-send" data-target="autopost">AutoPost</button>
-          <button type="button" class="vg-send" data-target="detector">Detector</button>
-          <button type="button" class="vg-send" data-target="reescrita">Reescrever</button>
-          <button type="button" class="vg-send" data-target="replicador">Replicador</button>
-          <button type="button" class="vg-send" data-target="cartazes">Cartaz</button>
-          <button type="button" class="vg-send" data-target="carrossel">Carrossel</button>
-        </div>
-      </div>
-
-      <div class="spacer"></div>
-
-      <footer class="footer">
-        <hr class="divider" />
-        <p class="footer-line1">VideoGrab</p>
-        <p class="footer-line2">Aplicativo desenvolvido por Jeferson Dias</p>
-      </footer>
     </div>
-  </main>
+    <p class="sub">Baixe vídeos de Instagram, TikTok, YouTube e mais — direto do celular, sem instalar nada.</p>
 
-  <!-- ============ SNACKBARS ============ -->
-  <div id="snackbar-container" aria-live="assertive"></div>
+    <div class="card">
+      <label class="field-label" for="link">Link do vídeo</label>
+      <div class="input-row">
+        <textarea id="link" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false"
+          placeholder="Cole aqui o link do Instagram, TikTok, YouTube…"></textarea>
+      </div>
+      <div class="chip" id="chip"><span class="dot"></span><span id="chipName"></span></div>
 
-  <script src="src/server-config.js"></script>
+      <button class="btn" id="go" type="button" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7"/><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/>
+        </svg>
+        <span id="goLabel">Abrir baixador com este link</span>
+      </button>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <ol class="steps">
+        <li><span class="n">1</span><span>Cole o link do vídeo acima e toque em <b style="color:var(--ink)">Abrir baixador</b>.</span></li>
+        <li><span class="n">2</span><span>O link é copiado e o baixador abre numa nova aba.</span></li>
+        <li><span class="n">3</span><span>Lá, se o link não entrar sozinho, <b style="color:var(--ink)">cole</b> e toque em baixar. No iPhone, use <b style="color:var(--ink)">“Salvar vídeo”</b> pra ir à galeria.</span></li>
+      </ol>
+      <p class="note">O download é feito por um serviço web independente e confiável (<b>cobalt.tools</b>, open-source e sem anúncios). Nada é baixado nem armazenado por este app. Alguns links (ex.: certos vídeos do YouTube) podem não estar disponíveis no serviço.</p>
+    </div>
+
+    <div class="plats">Instagram · TikTok · YouTube · X (Twitter) · Facebook · e mais</div>
+  </div>
+
   <script>
-'use strict';
-/* Código de public/js/{snackbar,home,main}.js fundido em UM script CLÁSSICO
-   (sem ESM — type="module" é bloqueado em file://, e a plataforma abre por
-   duplo-clique). Mudanças sobre o original:
-   - API absoluta (VIDEOGRAB_API): o servidor roda à parte (videograb-server/).
-   - Ping de /api/health no load (mostra se o servidor está de pé).
-   - Mensagens amigáveis quando o servidor está desligado.
-   - Pós-download: barra "Transcrever e enviar para…" → manda o vídeo ao app
-     pai (agente:ingest → Whisper) e roteia o texto (agente:content-out). */
-(function () {
-  // Onde o servidor de extração está rodando. Resolvido pelo pingServer():
-  // testa os candidatos de src/server-config.js (local → nuvem) e fixa o
-  // primeiro que responder. Null = nenhum respondeu ainda.
-  var VIDEOGRAB_API = null;
+    (function () {
+      var input = document.getElementById('link');
+      var chip = document.getElementById('chip');
+      var chipName = document.getElementById('chipName');
+      var go = document.getElementById('go');
+      var status = document.getElementById('status');
 
-  function apiCandidates() {
-    return window.agenteServers
-      ? window.agenteServers.candidates('videograb')
-      : ['http://localhost:3000'];
-  }
+      // Baixador de destino (open-source, reputável, sem anúncios).
+      var DOWNLOADER = 'https://cobalt.tools/';
 
-  // https = versão publicada (GitHub Pages etc.); http/file = uso local.
-  var IS_PUBLISHED = location.protocol === 'https:';
-
-  function serverOffMessage() {
-    if (!IS_PUBLISHED) {
-      return 'Servidor desligado. Ele sobe sozinho ao entrar no Windows (após rodar "Instalar inicio automatico.bat" uma vez). Para iniciar agora, use "Agente.bat". A conexão é detectada automaticamente, sem precisar recarregar.';
-    }
-    if (window.agenteServers && window.agenteServers.hasRemote('videograb')) {
-      return 'Conectando ao servidor do VideoGrab… O servidor gratuito hiberna quando fica ocioso; a primeira conexão pode levar até 1 minuto. A página reconecta sozinha.';
-    }
-    return 'O servidor do VideoGrab ainda não foi publicado para esta versão online. (Administrador: publique o videograb-server e preencha src/server-config.js — guia em DEPLOY.md.)';
-  }
-
-  // ---------- Snackbar (de snackbar.js) ----------
-  var snackContainer = document.getElementById('snackbar-container');
-
-  function showSnackbar(message, options) {
-    options = options || {};
-    var error = !!options.error;
-    var durationMs = options.durationMs || 4000;
-    var el = document.createElement('div');
-    el.className = error ? 'snackbar error' : 'snackbar';
-    el.textContent = message;
-    snackContainer.appendChild(el);
-    setTimeout(function () {
-      el.classList.add('leaving');
-      el.addEventListener('animationend', function () { el.remove(); }, { once: true });
-    }, durationMs);
-  }
-
-  function showError(message) {
-    showSnackbar(message, { error: true, durationMs: 5000 });
-  }
-
-  // ---------- Tela principal (de home.js) ----------
-  // Espelha a detecção do servidor (videograb-server/src/platforms.js).
-  var PLATFORM_MATCHERS = [
-    { id: 'instagram', test: function (link) { return link.includes('instagram.com'); } },
-    { id: 'tiktok', test: function (link) { return link.includes('tiktok.com'); } },
-    { id: 'youtube', test: function (link) { return link.includes('youtube.com') || link.includes('youtu.be'); } },
-  ];
-
-  var INVALID_LINK_MESSAGE = 'Por favor, cole um link válido do Instagram, TikTok ou YouTube';
-
-  function detectPlatform(link) {
-    var found = PLATFORM_MATCHERS.find(function (p) { return p.test(link); });
-    return found ? found.id : null;
-  }
-
-  var input = document.getElementById('link-input');
-  var wrapper = document.getElementById('link-input-wrapper');
-  var clearButton = document.getElementById('link-clear');
-  var button = document.getElementById('download-button');
-  var buttonContent = document.getElementById('download-button-content');
-  var buttonLoading = document.getElementById('download-button-loading');
-  var statusCard = document.getElementById('status-card');
-  var statusIcon = document.getElementById('status-icon');
-  var statusText = document.getElementById('status-text');
-  var platformChips = document.querySelectorAll('#platforms-row .platform-chip');
-
-  var isLoading = false;
-  var eventSource = null;
-
-  // kind ('error'|'success'|'info') força o estado; sem ele vale a heurística
-  // do app original (contém "Erro"/"Por favor" = erro; "✅"/"salvo" = sucesso).
-  function setStatus(status, kind) {
-    var isErr = kind ? kind === 'error' : (status.includes('Erro') || status.includes('Por favor'));
-    var isSuccess = kind ? kind === 'success' : (status.includes('✅') || status.includes('salvo'));
-
-    statusCard.classList.toggle('error', isErr);
-    statusCard.classList.toggle('success', isSuccess && !isErr);
-    statusIcon.textContent = isErr ? 'error' : isSuccess ? 'check_circle' : 'info';
-    statusText.textContent = status;
-  }
-
-  function setLoading(loading) {
-    isLoading = loading;
-    input.disabled = loading;
-    button.classList.toggle('loading', loading);
-    buttonContent.classList.toggle('hidden', loading);
-    buttonLoading.classList.toggle('hidden', !loading);
-    updateClearButton();
-  }
-
-  function updateClearButton() {
-    var visible = input.value.length > 0 && !isLoading;
-    clearButton.classList.toggle('hidden', !visible);
-  }
-
-  function updatePlatformChips() {
-    var detected = detectPlatform(input.value.trim());
-    platformChips.forEach(function (chip) {
-      chip.classList.toggle('active', chip.dataset.platform === detected);
-    });
-  }
-
-  function fail(message) {
-    showError(message);
-    setStatus(message, 'error');
-    setLoading(false);
-  }
-
-  function startDownload() {
-    if (isLoading) return;
-
-    var link = input.value.trim();
-
-    if (!detectPlatform(link)) {
-      fail(INVALID_LINK_MESSAGE);
-      return;
-    }
-
-    // Nenhum servidor respondeu ainda (o pingServer segue tentando sozinho).
-    if (!VIDEOGRAB_API) {
-      fail(serverOffMessage());
-      return;
-    }
-
-    showActions(false);
-    setLoading(true);
-    setStatus('Extraindo URL do vídeo...');
-
-    eventSource = new EventSource(VIDEOGRAB_API + '/api/extract?url=' + encodeURIComponent(link));
-
-    eventSource.addEventListener('status', function (event) {
-      setStatus(JSON.parse(event.data).status);
-    });
-
-    eventSource.addEventListener('result', function (event) {
-      closeEventSource();
-      var downloadId = JSON.parse(event.data).downloadId;
-      downloadVideo(downloadId)
-        .catch(function (e) { fail('Erro ao baixar: ' + e.message); })
-        .finally(function () { setLoading(false); });
-    });
-
-    eventSource.addEventListener('fail', function (event) {
-      closeEventSource();
-      fail(JSON.parse(event.data).message);
-    });
-
-    eventSource.onerror = function () {
-      // Conexão perdida (o fechamento normal já ocorre em result/fail antes).
-      if (eventSource) {
-        closeEventSource();
-        fail('Erro: sem conexão com o servidor do VideoGrab. ' + serverOffMessage());
+      function detectPlatform(url) {
+        if (/instagram\.com|instagr\.am/i.test(url)) return 'Instagram';
+        if (/(?:^|\.)tiktok\.com|vm\.tiktok\.com/i.test(url)) return 'TikTok';
+        if (/youtube\.com|youtu\.be/i.test(url)) return 'YouTube';
+        if (/twitter\.com|\bx\.com/i.test(url)) return 'X (Twitter)';
+        if (/facebook\.com|fb\.watch/i.test(url)) return 'Facebook';
+        if (/reddit\.com/i.test(url)) return 'Reddit';
+        if (/twitch\.tv/i.test(url)) return 'Twitch';
+        if (/vimeo\.com/i.test(url)) return 'Vimeo';
+        return null;
       }
-    };
-  }
-
-  function closeEventSource() {
-    if (eventSource) {
-      eventSource.close();
-      eventSource = null;
-    }
-  }
-
-  async function downloadVideo(downloadId) {
-    setStatus('Baixando vídeo... 0%');
-
-    var response = await fetch(VIDEOGRAB_API + '/api/download?id=' + encodeURIComponent(downloadId));
-    if (!response.ok) throw new Error('HTTP ' + response.status);
-
-    var total = Number(response.headers.get('Content-Length')) || 0;
-    var fileName =
-      parseFileName(response.headers.get('Content-Disposition')) ||
-      'video_' + formatTimestamp(new Date()) + '.mp4';
-
-    var reader = response.body.getReader();
-    var chunks = [];
-    var received = 0;
-
-    for (;;) {
-      var step = await reader.read();
-      if (step.done) break;
-      chunks.push(step.value);
-      received += step.value.length;
-      if (total > 0) {
-        setStatus('Baixando... ' + Math.floor((received / total) * 100) + '%');
-      } else {
-        setStatus('Baixando... ' + (received / (1024 * 1024)).toFixed(1) + ' MB');
+      function isHttpUrl(s) {
+        try { var u = new URL(s.trim()); return u.protocol === 'http:' || u.protocol === 'https:'; }
+        catch (e) { return false; }
       }
-    }
-
-    var blob = new Blob(chunks, { type: 'video/mp4' });
-    saveBlob(blob, fileName);
-
-    lastBlob = blob;
-    lastFileName = fileName;
-    showActions(true);
-
-    setStatus('✅ Vídeo baixado!');
-    showSnackbar('Vídeo salvo na pasta de downloads!');
-  }
-
-  function saveBlob(blob, fileName) {
-    var url = URL.createObjectURL(blob);
-    var anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = fileName;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
-  }
-
-  function parseFileName(contentDisposition) {
-    if (!contentDisposition) return null;
-    var match = /filename="([^"]+)"/.exec(contentDisposition);
-    return match ? match[1] : null;
-  }
-
-  // Mesmo formato do app original: <prefixo>_yyyy-MM-dd_HHmmss.mp4
-  function formatTimestamp(date) {
-    var pad = function (n) { return String(n).padStart(2, '0'); };
-    return (
-      date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
-      '_' + pad(date.getHours()) + pad(date.getMinutes()) + pad(date.getSeconds())
-    );
-  }
-
-  // ---------- Ponte com a plataforma: transcrever e enviar ----------
-  // O vídeo baixado vai ao app pai por postMessage (agente:ingest, File é
-  // structured-cloneable e funciona em file://); o pai transcreve com o
-  // Whisper/chave Groq unificada e devolve o texto, que segue para a
-  // ferramenta escolhida via agente:content-out (roteado pelo handoff do pai).
-  var IS_EMBEDDED = (function () {
-    try { return window.parent && window.parent !== window; } catch (e) { return false; }
-  })();
-  var TRANSCRIBE_MAX_BYTES = 25 * 1024 * 1024; // limite do Whisper na plataforma
-
-  var actionsEl = document.getElementById('vg-actions');
-  var lastBlob = null;
-  var lastFileName = '';
-  var pendingReq = null; // { reqId, target }
-
-  function parentOrigin() {
-    return location.protocol === 'file:' ? '*' : location.origin;
-  }
-
-  function showActions(show) {
-    actionsEl.classList.toggle('hidden', !(show && IS_EMBEDDED && lastBlob));
-  }
-
-  function setActionsBusy(busy) {
-    actionsEl.querySelectorAll('.vg-send').forEach(function (b) { b.disabled = busy; });
-  }
-
-  function transcribeAndSend(target) {
-    if (!lastBlob || !IS_EMBEDDED || pendingReq) return;
-    if (lastBlob.size > TRANSCRIBE_MAX_BYTES) {
-      setStatus('O vídeo passa de 25 MB — anexe o arquivo baixado direto no AutoPost IA, que divide arquivos grandes.', 'error');
-      return;
-    }
-    var reqId = 'vg-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-    pendingReq = { reqId: reqId, target: target };
-    setActionsBusy(true);
-    setStatus('Transcrevendo o vídeo…');
-    try {
-      var file = new File([lastBlob], lastFileName || 'video.mp4', { type: 'video/mp4' });
-      window.parent.postMessage({ type: 'agente:ingest', file: file, reqId: reqId }, parentOrigin());
-    } catch (e) {
-      pendingReq = null;
-      setActionsBusy(false);
-      setStatus('Erro ao enviar o vídeo para transcrição.', 'error');
-    }
-  }
-
-  actionsEl.querySelectorAll('.vg-send').forEach(function (b) {
-    b.addEventListener('click', function () { transcribeAndSend(b.dataset.target); });
-  });
-
-  window.addEventListener('message', function (e) {
-    // Só o app pai (r54: nunca processar mensagens de janelas arbitrárias).
-    if (!e || e.source !== window.parent || !e.data || !pendingReq) return;
-    if (e.data.reqId !== pendingReq.reqId) return;
-    if (e.data.type === 'agente:ingest-progress') {
-      setStatus(e.data.msg || 'Transcrevendo…');
-    } else if (e.data.type === 'agente:ingest-result') {
-      var target = pendingReq.target;
-      pendingReq = null;
-      setActionsBusy(false);
-      window.parent.postMessage(
-        { type: 'agente:content-out', target: target, text: String(e.data.text || '') },
-        parentOrigin()
-      );
-      setStatus('✅ Transcrição enviada.', 'success');
-    } else if (e.data.type === 'agente:ingest-error') {
-      pendingReq = null;
-      setActionsBusy(false);
-      setStatus('Erro: ' + (e.data.error || 'não foi possível transcrever.'), 'error');
-    }
-  });
-
-  // ---------- Saúde do servidor (com AUTO-RECONEXÃO) ----------
-  // Testa os candidatos NA ORDEM (local → nuvem) e fixa o primeiro que
-  // responder. Re-testa sozinho enquanto nenhum estiver de pé; assim que um
-  // sobe (Agente.bat local, ou o servidor da nuvem acorda), o card conecta
-  // automaticamente — sem recarregar. Para de re-testar quando conecta.
-  var _vgServerOnline = false;
-  var _vgPingTimer = null;
-  function pingServer() {
-    var candidates = apiCandidates();
-    var index = 0;
-    function tryNext() {
-      if (index >= candidates.length) {
-        if (!_vgServerOnline) setStatus(serverOffMessage(), 'error');
-        if (_vgPingTimer) clearTimeout(_vgPingTimer);
-        _vgPingTimer = setTimeout(pingServer, 4000);   // novo ciclo em 4s
-        return;
+      function setStatus(msg, kind) {
+        status.textContent = msg || '';
+        status.className = 'status' + (kind ? ' ' + kind : '');
       }
-      var base = candidates[index++];
-      fetch(base + '/api/health', { cache: 'no-store' })
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function () {
-          VIDEOGRAB_API = base;
-          _vgServerOnline = true;
-          if (_vgPingTimer) { clearTimeout(_vgPingTimer); _vgPingTimer = null; }
-          setStatus('Servidor conectado. Cole o link do vídeo do Instagram, TikTok ou YouTube');
-        })
-        .catch(tryNext);
-    }
-    tryNext();
-  }
 
-  // ---------- Wiring (de home.js + main.js) ----------
-  input.addEventListener('input', function () {
-    updateClearButton();
-    updatePlatformChips();
-  });
-  input.addEventListener('focus', function () { wrapper.classList.add('focused'); });
-  input.addEventListener('blur', function () { wrapper.classList.remove('focused'); });
+      function refresh() {
+        var v = input.value.trim();
+        var valid = isHttpUrl(v);
+        go.disabled = !valid;
+        var plat = valid ? detectPlatform(v) : null;
+        if (plat) { chipName.textContent = plat; chip.classList.add('show'); }
+        else { chip.classList.remove('show'); }
+        if (!v) setStatus('');
+        else if (!valid) setStatus('Cole um link completo (começando com https://).', 'err');
+        else setStatus('');
+      }
 
-  input.addEventListener('keydown', function (event) {
-    if (event.key === 'Enter' && !isLoading) {
-      event.preventDefault();
-      startDownload();
-    }
-  });
+      input.addEventListener('input', refresh);
 
-  clearButton.addEventListener('click', function () {
-    input.value = '';
-    updateClearButton();
-    updatePlatformChips();
-    input.focus();
-  });
+      go.addEventListener('click', async function () {
+        var link = input.value.trim();
+        if (!isHttpUrl(link)) { setStatus('Cole um link válido do vídeo.', 'err'); input.focus(); return; }
 
-  button.addEventListener('click', startDownload);
+        // 1) Copia o link (dentro do gesto do toque → funciona no iPhone).
+        var copied = false;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(link);
+            copied = true;
+          }
+        } catch (e) { copied = false; }
 
-  // Remove a chave de licença de versões anteriores, se existir (main.js).
-  try { localStorage.removeItem('license_key'); } catch (e) { /* sem storage */ }
+        // 2) Abre o baixador numa nova aba. Tenta pré-preencher via ?u= (se o
+        //    serviço ignorar, o link já está no clipboard como plano B).
+        var target = DOWNLOADER + '?u=' + encodeURIComponent(link);
+        var win = window.open(target, '_blank', 'noopener');
 
-  pingServer();
-})();
+        if (!win) {
+          // Pop-up bloqueado: oferece o link copiado + instrução.
+          setStatus(copied
+            ? 'Link copiado! Abra o baixador e cole o link (a aba pode ter sido bloqueada — toque de novo).'
+            : 'Não foi possível abrir a aba. Copie o link manualmente e acesse cobalt.tools.', 'err');
+          return;
+        }
+        setStatus(copied
+          ? 'Baixador aberto e link copiado. Se ele não preencher sozinho, cole (toque e segure → Colar) e baixe.'
+          : 'Baixador aberto — cole o link do vídeo e baixe.', 'ok');
+      });
+
+      // Conveniência: se o usuário já tem um link na área de transferência ao
+      // abrir, tenta pré-preencher (silencioso; falha sem incomodar).
+      window.addEventListener('DOMContentLoaded', function () {
+        try {
+          if (navigator.clipboard && navigator.clipboard.readText) {
+            navigator.clipboard.readText().then(function (t) {
+              if (!input.value && t && isHttpUrl(t) && detectPlatform(t)) { input.value = t.trim(); refresh(); }
+            }).catch(function () {});
+          }
+        } catch (e) {}
+      });
+
+      refresh();
+    })();
   </script>
 </body>
 </html>

@@ -78,7 +78,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-23-r145" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-23-r146" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -956,21 +956,8 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                     Salvar
                   </button>
-                  <select class="select" id="p-export-scale" title="Qualidade da exportação" style="width: auto; min-width: 92px; padding: 0.35rem 0.5rem; flex: 0 0 auto;">
-                    <option value="1">1× · 1080</option>
-                    <option value="2">2× · 2160</option>
-                  </select>
-                  <button class="btn btn-accent btn-sm" id="p-export" style="flex: 1; min-width: 110px;">
+                  <button class="btn btn-accent btn-sm btn-icon" id="p-export" title="Exportar cartaz" aria-label="Exportar cartaz">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Exportar PNG
-                  </button>
-                  <button class="btn btn-accent btn-sm hidden" id="p-export-imgs" style="flex: 1; min-width: 130px;" title="Baixar cada slide como uma imagem">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                    Exportar imagens
-                  </button>
-                  <button class="btn btn-ghost btn-sm hidden" id="p-export-zip" style="flex: 1; min-width: 100px;" title="Baixar todos os slides num único .zip">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Baixar .zip
                   </button>
                   <button class="btn btn-danger btn-sm" id="p-delete" title="Excluir cartaz">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>

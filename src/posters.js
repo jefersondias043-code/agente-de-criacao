@@ -650,20 +650,13 @@ function setupEditorChrome() {
   if (typeof setupPreviewSplitter === 'function') setupPreviewSplitter();
   const acts = $('#et-actions');
   const menuItems = $('#et-menu-items');
-  const scaleSlot = $('#et-scale-slot');
   const put = (id, host) => { const el = $(`#${id}`); if (el && host && el.parentElement !== host) host.appendChild(el); };
-  ['p-undo', 'p-redo', 'p-save', 'p-export', 'p-export-imgs'].forEach(id => put(id, acts));
-  put('p-export-scale', scaleSlot);
-  ['p-export-zip', 'p-improve', 'p-delete'].forEach(id => put(id, menuItems));
+  // Exportação agora é UM ícone (#p-export) que abre a tela de configurações.
+  ['p-undo', 'p-redo', 'p-save', 'p-export'].forEach(id => put(id, acts));
+  ['p-improve', 'p-delete'].forEach(id => put(id, menuItems));
   // No menu, o botão de excluir (ícone-só na barra antiga) ganha rótulo
   const del = $('#p-delete');
   if (del && !del.dataset.labeled) { del.dataset.labeled = '1'; del.appendChild(document.createTextNode(' Excluir cartaz')); }
-  // "Exportar imagens" (carrossel) encurta para caber na topbar
-  const expImgs = $('#p-export-imgs');
-  if (expImgs && !expImgs.dataset.short) {
-    expImgs.dataset.short = '1';
-    expImgs.childNodes.forEach(n => { if (n.nodeType === 3 && n.textContent.trim()) n.textContent = ' Exportar'; });
-  }
   // Título = cartaz ativo
   const p = State.posters.find(x => x.id === State.activePosterId);
   const t = $('#et-title');
@@ -1159,23 +1152,9 @@ function renderPosterEditor() {
     toast('Cartaz removido.', 'success');
   };
 
-  // Exportação: cartaz único → "Exportar PNG"; carrossel → "Exportar imagens" OU ".zip"
-  const car = isCarousel();
-  const toggleBtn = (id, show) => { const el = $(`#${id}`); if (el) el.classList.toggle('hidden', !show); };
-  toggleBtn('p-export', !car);
-  toggleBtn('p-export-imgs', car);
-  toggleBtn('p-export-zip', car);
-
-  const doExport = (fn) => {
-    applyEditorTo(s); // aplica valores atuais ao alvo (cartaz ou slide ativo)
-    savePosters();
-    fn();
-  };
-  // Qualidade da exportação: 1× (1080, padrão) ou 2× (2160, alta resolução).
-  const exportScale = () => { const sel = $('#p-export-scale'); return sel && sel.value === '2' ? 2 : 1; };
-  $('#p-export').onclick = () => doExport(() => exportPoster(p, exportScale()));
-  if ($('#p-export-imgs')) $('#p-export-imgs').onclick = () => doExport(() => exportCarousel(p, 'images', exportScale()));
-  if ($('#p-export-zip')) $('#p-export-zip').onclick = () => doExport(() => exportCarousel(p, 'zip', exportScale()));
+  // Exportação: um ÍCONE abre a tela de configurações (proporção, resolução,
+  // formato do arquivo e — no carrossel — imagens/zip), já pré-preenchida.
+  $('#p-export').onclick = () => openPosterExportSettings(p);
 
   // Pickers em cards (r100): selects visuais viram áreas dedicadas com cards.
   if (typeof setupPosterPickers === 'function') setupPosterPickers();
@@ -2957,12 +2936,15 @@ async function captureStageCanvas(fmt, scale) {
   }
 }
 
-async function exportPoster(p, scale) {
+async function exportPoster(p, scale, fileType) {
+  const jpg = fileType === 'jpg' || fileType === 'jpeg';
+  const mime = jpg ? 'image/jpeg' : 'image/png';
+  const ext = jpg ? 'jpg' : 'png';
   try {
     const canvas = await captureStageCanvas(posterActiveFormat(), scale);
     if (!canvas) { toast('Não foi possível exportar.', 'error'); return; }
-    const name = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`;
-    const blob = await canvasToBlob(canvas, 'image/png');
+    const name = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}.${ext}`;
+    const blob = await canvasToBlob(canvas, mime, jpg ? 0.92 : undefined);
     // Mostra a PRÉVIA + botão salvar/compartilhar. O salvamento vira uma ação
     // nova do usuário → o share nativo do iPhone funciona (não pode ser
     // disparado automático logo após o html2canvas, o iOS bloqueia).
@@ -2972,6 +2954,120 @@ async function exportPoster(p, scale) {
   } finally {
     fitPosterPreview();
   }
+}
+
+/* Tela de EXPORTAÇÃO: um ícone abre estas configurações, JÁ pré-preenchidas
+   com as escolhas da edição. O usuário confere/ajusta e exporta.
+   - Proporção (formato) com sugestão de plataforma;
+   - Resolução (1×/2×);
+   - Formato do arquivo (PNG/JPG);
+   - Carrossel: imagens separadas ou .zip. */
+function openPosterExportSettings(p) {
+  if (!p || typeof document === 'undefined') return;
+  const isCar = (typeof posterIsCarousel === 'function') && posterIsCarousel(p);
+  const s = (typeof getSlide === 'function') ? getSlide(p) : p;
+  const FORMATS = (typeof POSTER_FORMATS !== 'undefined') ? POSTER_FORMATS : {};
+  const PLAT = {
+    '4:5': 'Instagram · Facebook (feed)',
+    '1:1': 'Feed quadrado (todas as redes)',
+    '9:16': 'Stories e Reels (Instagram · TikTok · Shorts)',
+    '3:4': 'Feed (padrão)',
+  };
+  let selFmt = (s && s.format) || (p && p.format) || '3:4';
+  if (!FORMATS[selFmt]) selFmt = Object.keys(FORMATS)[0] || '3:4';
+  let selScale = 1, selFile = 'png', selMode = 'images';
+
+  const fmtCards = Object.keys(FORMATS).map((k) => {
+    const parts = k.split(':').map(Number);
+    const boxH = 30, boxW = Math.max(14, Math.round(boxH * (parts[0] / parts[1])));
+    return `<button type="button" class="exps-fmt${k === selFmt ? ' sel' : ''}" data-fmt="${k}">
+      <span class="exps-fmt-box" style="width:${boxW}px;height:${boxH}px;"></span>
+      <span class="exps-fmt-ratio">${k}</span>
+      <span class="exps-fmt-hint">${escapeHtml(PLAT[k] || (FORMATS[k] && FORMATS[k].hint) || '')}</span>
+    </button>`;
+  }).join('');
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'xport-backdrop';
+  backdrop.innerHTML = `<div class="xport-card exps-card" role="dialog" aria-modal="true">
+    <div class="xport-head">
+      <div><div class="xport-title">Exportar ${isCar ? 'carrossel' : 'cartaz'}</div>
+      <div class="xport-sub">Confira as opções e exporte.</div></div>
+      <button class="xport-close" type="button" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="exps-body">
+      <div class="exps-group">
+        <div class="exps-label">Proporção <span class="exps-note">sugestão por plataforma</span></div>
+        <div class="exps-formats">${fmtCards}</div>
+      </div>
+      <div class="exps-group">
+        <div class="exps-label">Resolução</div>
+        <div class="exps-seg" data-seg="scale">
+          <button type="button" data-v="1" class="sel">1× · 1080px</button>
+          <button type="button" data-v="2">2× · 2160px</button>
+        </div>
+      </div>
+      <div class="exps-group">
+        <div class="exps-label">Formato do arquivo</div>
+        <div class="exps-seg" data-seg="file">
+          <button type="button" data-v="png" class="sel">PNG</button>
+          <button type="button" data-v="jpg">JPG</button>
+        </div>
+      </div>
+      ${isCar ? `<div class="exps-group">
+        <div class="exps-label">Entrega do carrossel</div>
+        <div class="exps-seg" data-seg="mode">
+          <button type="button" data-v="images" class="sel">Imagens</button>
+          <button type="button" data-v="zip">Arquivo .zip</button>
+        </div>
+      </div>` : ''}
+    </div>
+    <div class="xport-actions"><button class="xport-save" type="button" id="exps-go">Exportar</button></div>
+  </div>`;
+
+  let closed = false;
+  const cleanup = () => { if (closed) return; closed = true; if (backdrop.remove) backdrop.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') cleanup(); };
+  const closeBtn = backdrop.querySelector('.xport-close');
+  if (closeBtn) closeBtn.onclick = cleanup;
+  backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(); };
+  document.addEventListener('keydown', onKey);
+
+  backdrop.querySelectorAll('.exps-fmt').forEach((btn) => { btn.onclick = () => {
+    selFmt = btn.dataset.fmt;
+    backdrop.querySelectorAll('.exps-fmt').forEach((b) => b.classList.toggle('sel', b === btn));
+  }; });
+  backdrop.querySelectorAll('.exps-seg').forEach((seg) => {
+    seg.querySelectorAll('button').forEach((btn) => { btn.onclick = () => {
+      seg.querySelectorAll('button').forEach((b) => b.classList.toggle('sel', b === btn));
+      const v = btn.dataset.v, k = seg.dataset.seg;
+      if (k === 'scale') selScale = Number(v);
+      else if (k === 'file') selFile = v;
+      else if (k === 'mode') selMode = v;
+    }; });
+  });
+
+  const goBtn = backdrop.querySelector('#exps-go');
+  if (goBtn) goBtn.onclick = async () => {
+    cleanup();
+    // Aplica a proporção escolhida pelo MESMO seletor de formato (trata carrossel:
+    // sincroniza todos os slides) e espera o re-render.
+    const fsel = $('#p-format');
+    if (fsel && fsel.value !== selFmt) {
+      fsel.value = selFmt;
+      if (typeof fsel.onchange === 'function') fsel.onchange();
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }
+    const tgt = (typeof getSlide === 'function') ? getSlide(p) : p;
+    if (typeof applyEditorTo === 'function') applyEditorTo(tgt);
+    if (typeof savePosters === 'function') savePosters();
+    if (isCar) exportCarousel(p, selMode, selScale, selFile);
+    else exportPoster(p, selScale, selFile);
+  };
+
+  document.body.appendChild(backdrop);
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => backdrop.classList.add('open'));
+  else backdrop.classList.add('open');
 }
 
 function clamp(v, min, max) {

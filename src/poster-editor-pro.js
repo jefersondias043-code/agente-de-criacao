@@ -118,8 +118,12 @@ function setupPosterProUI() {
   const actions = document.querySelector('#p-content .poster-actions');
   if (actions && !$('#p-undo')) {
     const mk = (id, label, title) => { const b = document.createElement('button'); b.id = id; b.type = 'button'; b.className = 'btn btn-ghost btn-sm'; b.title = title; b.textContent = label; return b; };
-    const undo = mk('p-undo', '↶', 'Desfazer (Ctrl+Z)');
-    const redo = mk('p-redo', '↷', 'Refazer (Ctrl+Y)');
+    // Botões de ícone dedicados (setas de girar) — leem-se na hora como desfazer/refazer.
+    const mkIcon = (id, svg, title) => { const b = document.createElement('button'); b.id = id; b.type = 'button'; b.className = 'btn btn-ghost btn-sm btn-icon pe-histbtn'; b.title = title; b.setAttribute('aria-label', title); b.innerHTML = svg; return b; };
+    const UNDO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+    const REDO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+    const undo = mkIcon('p-undo', UNDO_SVG, 'Desfazer (Ctrl+Z)');
+    const redo = mkIcon('p-redo', REDO_SVG, 'Refazer (Ctrl+Y)');
     const improve = mk('p-improve', '✨ Melhorar', 'A IA sugere melhorias de design');
     undo.onclick = posterUndo; redo.onclick = posterRedo; improve.onclick = improvePosterDesign;
     actions.insertBefore(redo, actions.firstChild);

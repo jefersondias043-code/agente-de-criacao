@@ -3,22 +3,20 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<meta name="description" content="Removedor de Fundo — recorte automático 100% no navegador, sem servidor." />
-<title>Removedor de Fundo</title>
+<meta name="description" content="Editor de imagem com remoção de fundo — 100% no navegador, sem servidor." />
+<title>Editor de Imagem</title>
 <style>
 /* ==========================================================================
-   REMOVEDOR DE FUNDO — editor de recorte 100% no navegador (r150+).
-   A segmentação roda LOCAL com ONNX Runtime Web + U²-Netp (vendor/ort/ +
-   models/u2netp.onnx). Nenhum servidor, nenhuma dependência externa: o mesmo
-   modelo roda igual no celular e no computador. Baixado 1x e cacheado pelo
-   service worker.
+   EDITOR DE IMAGEM (com Removedor de Fundo) — 100% no navegador (r150+).
+   A remoção de fundo roda LOCAL com ONNX Runtime Web + U²-Netp (vendor/ort/ +
+   models/u2netp.onnx). Nenhum servidor, nenhuma dependência externa.
 
-   Pipeline de render (sem loops de pixel no caminho quente):
-   - aiAlpha:  máscara da IA → alfa (blur/limiar aplicados) — recalc. raro
-   - brushAdd/brushSub: correções manuais (restaurar/apagar) — camadas persistentes
-   - finalAlpha = aiAlpha ⊕ brushAdd ⊖ brushSub (só operações de canvas)
-   - cut = original recortada por finalAlpha (destination-in)
-   - view = área de trabalho + xadrez + fundo + recorte, escalados (zoom/pan)
+   Pipeline (operações de canvas no caminho quente; loop de pixel só nos ajustes):
+   - adjOrig:  original + ajustes (brilho/contraste/saturação/temperatura/exposição)
+   - maskGray → aiAlpha (suavizar/recuar) → finalAlpha (⊕ pincel restaurar ⊖ apagar)
+   - cut = adjOrig recortada por finalAlpha (destination-in)
+   - outFull = "Original" (foto inteira) OU fundo + cut, na resolução de trabalho
+   - view = outFull escalado (zoom/pan), respeitando o recorte de enquadramento
    Cores e tipografia espelham o tema claro premium do app pai.
    ========================================================================== */
 :root {
@@ -95,7 +93,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .zoombar button:active { transform: scale(.92); }
 .zoombar button svg { width: 18px; height: 18px; }
 
-/* ---------- Dropzone (estado vazio) ---------- */
+/* ---------- Dropzone ---------- */
 .drop {
   position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 1rem; padding: 2rem; text-align: center;
@@ -122,7 +120,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .btn.sm { padding: .5rem .8rem; font-size: .82rem; }
 .drop .hint { font-size: .72rem; color: var(--ink-mute); }
 
-/* ---------- Loading overlay ---------- */
+/* ---------- Loader ---------- */
 .loader {
   position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 1rem; background: rgba(247,246,242,.92);
@@ -135,17 +133,22 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .progress { width: min(240px, 70vw); height: 7px; border-radius: 999px; background: var(--paper-2); overflow: hidden; }
 .progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 
-/* ---------- Panel de controles ---------- */
+/* ---------- Panel ---------- */
 .panel {
   flex: 0 0 auto; background: var(--surface); border-top: 1px solid var(--line-soft);
   box-shadow: 0 -6px 20px rgba(25,23,18,.06); z-index: 5;
   padding: .7rem .8rem calc(.7rem + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column; gap: .7rem;
 }
-.segmented { display: flex; gap: 4px; background: var(--paper-2); border-radius: 12px; padding: 4px; }
+/* segmented rolável (5 categorias) */
+.segmented {
+  display: flex; gap: 4px; background: var(--paper-2); border-radius: 12px; padding: 4px;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.segmented::-webkit-scrollbar { display: none; }
 .segmented button {
-  flex: 1; padding: .5rem .3rem; border-radius: 9px; font-size: .78rem; font-weight: 700;
-  color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 3px; transition: .15s;
+  flex: 1 0 auto; min-width: 62px; padding: .5rem .55rem; border-radius: 9px; font-size: .74rem; font-weight: 700;
+  color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 3px; transition: .15s; white-space: nowrap;
 }
 .segmented button svg { width: 18px; height: 18px; }
 .segmented button.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-sm); }
@@ -153,7 +156,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .cat.active { display: flex; }
 
 .row { display: flex; align-items: center; gap: .6rem; }
-.row .lbl { font-size: .78rem; font-weight: 600; color: var(--ink-soft); min-width: 74px; }
+.row .lbl { font-size: .78rem; font-weight: 600; color: var(--ink-soft); min-width: 82px; }
 .row .val { font-size: .74rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
 input[type=range] {
   -webkit-appearance: none; appearance: none; flex: 1; height: 5px; border-radius: 999px;
@@ -167,13 +170,23 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 
 .choices { display: flex; gap: 6px; flex-wrap: wrap; }
 .choice {
-  flex: 1 1 auto; min-width: 70px; padding: .5rem .4rem; border-radius: 10px; font-size: .78rem; font-weight: 600;
+  flex: 1 1 auto; min-width: 66px; padding: .5rem .4rem; border-radius: 10px; font-size: .76rem; font-weight: 600;
   border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
   display: flex; align-items: center; justify-content: center; gap: 5px; transition: .15s;
 }
 .choice svg { width: 16px; height: 16px; }
 .choice:active { transform: scale(.96); }
 .choice.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+/* chips horizontais (filtros, proporções) */
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto; padding: .45rem .8rem; border-radius: 999px; font-size: .78rem; font-weight: 700;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); white-space: nowrap; transition: .15s;
+}
+.chip:active { transform: scale(.96); }
+.chip.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
 .swatches { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
 .swatch { width: 30px; height: 30px; border-radius: 8px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); position: relative; }
@@ -191,13 +204,17 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 .toolseg button svg { width: 16px; height: 16px; }
 .toolseg button.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
+.miniactions { display: flex; gap: 6px; }
+.miniactions .btn { flex: 1; }
+
 .actions { display: flex; gap: .5rem; }
 .actions .btn { flex: 1; }
 .note { font-size: .68rem; color: var(--ink-mute); text-align: center; line-height: 1.4; }
+.sep { height: 1px; background: var(--line-soft); margin: .1rem 0; }
 
 /* ---------- Desktop ---------- */
 @media (min-width: 820px) {
-  .app { display: grid; grid-template-columns: 1fr 340px; grid-template-rows: auto 1fr; }
+  .app { display: grid; grid-template-columns: 1fr 344px; grid-template-rows: auto 1fr; }
   .topbar { grid-row: 1; grid-column: 1 / -1; }
   .stage { grid-row: 2; grid-column: 1; }
   .panel {
@@ -223,9 +240,9 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 <div class="app" id="app">
   <!-- Topbar -->
   <header class="topbar">
-    <div class="title"><span class="dot"></span> Removedor de Fundo</div>
+    <div class="title"><span class="dot"></span> Editor de Imagem</div>
     <div class="spacer"></div>
-    <button class="iconbtn" id="btnCompare" title="Comparar (segure)" aria-label="Comparar antes e depois" disabled>
+    <button class="iconbtn" id="btnCompare" title="Comparar com a original (segure)" aria-label="Comparar" disabled>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 8l4 4-4 4"/></svg>
     </button>
     <button class="iconbtn" id="btnRedo" title="Refazer recorte automático" aria-label="Refazer recorte" disabled>
@@ -249,8 +266,8 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     <!-- Dropzone -->
     <div class="drop" id="drop">
       <div class="art"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
-      <h1>Remova o fundo de qualquer imagem</h1>
-      <p>Recorte automático, 100% no seu navegador. Funciona no celular e no computador — de graça e sem enviar sua imagem para nenhum servidor.</p>
+      <h1>Edite sua imagem e remova o fundo</h1>
+      <p>Um editor completo — ajustes, filtros, cortar e girar — com remoção de fundo automática. 100% no seu navegador, sem enviar nada para nenhum servidor.</p>
       <button class="btn" id="btnPick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 5v12"/></svg> Escolher imagem</button>
       <div class="hint">ou arraste uma imagem aqui · Ctrl+V para colar</div>
     </div>
@@ -267,15 +284,62 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   <!-- Panel -->
   <div class="panel hidden" id="panel">
     <div class="segmented" id="segs">
+      <button data-cat="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Ajustes</button>
+      <button data-cat="filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><circle cx="15" cy="15" r="6"/></svg>Filtros</button>
+      <button data-cat="cortar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Cortar</button>
       <button data-cat="fundo" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>Fundo</button>
       <button data-cat="pincel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/></svg>Retoque</button>
-      <button data-cat="borda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7a5 5 0 1 0 5 5" stroke-dasharray="2 2"/></svg>Borda</button>
+    </div>
+
+    <!-- Ajustes -->
+    <div class="cat" data-cat="ajustes">
+      <div class="row"><span class="lbl">Brilho</span><input type="range" id="ajBrightness" min="-100" max="100" value="0"><span class="val" id="ajBrightnessV">0</span></div>
+      <div class="row"><span class="lbl">Contraste</span><input type="range" id="ajContrast" min="-100" max="100" value="0"><span class="val" id="ajContrastV">0</span></div>
+      <div class="row"><span class="lbl">Saturação</span><input type="range" id="ajSaturation" min="-100" max="100" value="0"><span class="val" id="ajSaturationV">0</span></div>
+      <div class="row"><span class="lbl">Temperatura</span><input type="range" id="ajTemperature" min="-100" max="100" value="0"><span class="val" id="ajTemperatureV">0</span></div>
+      <div class="row"><span class="lbl">Exposição</span><input type="range" id="ajExposure" min="-100" max="100" value="0"><span class="val" id="ajExposureV">0</span></div>
+      <button class="btn ghost sm" id="ajReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8"/><path d="M3 3v5h5"/></svg> Redefinir ajustes</button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="cat" data-cat="filtros">
+      <div class="chips" id="filters">
+        <button class="chip active" data-filter="none">Original</button>
+        <button class="chip" data-filter="vivido">Vívido</button>
+        <button class="chip" data-filter="pb">P&amp;B</button>
+        <button class="chip" data-filter="quente">Quente</button>
+        <button class="chip" data-filter="frio">Frio</button>
+        <button class="chip" data-filter="nitido">Nítido</button>
+        <button class="chip" data-filter="vintage">Vintage</button>
+        <button class="chip" data-filter="suave">Suave</button>
+      </div>
+      <div class="note">Cada filtro é um ponto de partida — depois é só afinar em “Ajustes”.</div>
+    </div>
+
+    <!-- Cortar -->
+    <div class="cat" data-cat="cortar">
+      <div class="chips" id="aspects">
+        <button class="chip active" data-aspect="free">Livre</button>
+        <button class="chip" data-aspect="1:1">1:1</button>
+        <button class="chip" data-aspect="4:5">4:5</button>
+        <button class="chip" data-aspect="3:4">3:4</button>
+        <button class="chip" data-aspect="16:9">16:9</button>
+        <button class="chip" data-aspect="9:16">9:16</button>
+      </div>
+      <div class="miniactions">
+        <button class="btn ghost sm" id="rotL" title="Girar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12a10 10 0 1 0 3-7.1L2 8"/><path d="M2 3v5h5"/></svg> Girar</button>
+        <button class="btn ghost sm" id="flipH" title="Espelhar horizontal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 8L4 12l4 4"/><path d="M16 8l4 4-4 4"/></svg> Espelhar</button>
+        <button class="btn ghost sm" id="flipV" title="Espelhar vertical"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18"/><path d="M8 8l4-4 4 4"/><path d="M8 16l4 4 4-4"/></svg> Virar</button>
+      </div>
+      <button class="btn ghost sm" id="cropReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8"/><path d="M3 3v5h5"/></svg> Redefinir corte</button>
+      <div class="note">Arraste o quadro para reposicionar e as alças para redimensionar. Escolha uma proporção para travar o formato.</div>
     </div>
 
     <!-- Fundo -->
     <div class="cat active" data-cat="fundo">
       <div class="choices" id="bgKind">
         <button class="choice active" data-bg="transparent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>Transparente</button>
+        <button class="choice" data-bg="original"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Original</button>
         <button class="choice" data-bg="color"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2a10 10 0 1 0 0 20c1 0 1.5-.8 1.5-1.6 0-1.4-1.3-1.6-1.3-2.9 0-.9.7-1.5 1.6-1.5H15a5 5 0 0 0 5-5c0-4.4-3.6-8-8-8z"/></svg>Cor</button>
         <button class="choice" data-bg="blur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 5.7 6 10a6 6 0 0 1-12 0c0-4.3 6-10 6-10z"/></svg>Desfoque</button>
         <button class="choice" data-bg="image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Imagem</button>
@@ -296,6 +360,12 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
         <span class="val" id="blurVal">16</span>
       </div>
       <div class="note hidden" id="bgImgNote">O fundo desfocado usa a própria imagem — ótimo para destacar o sujeito sem perder o contexto.</div>
+      <div id="edgeControls">
+        <div class="sep"></div>
+        <div class="row"><span class="lbl">Suavizar borda</span><input type="range" id="feather" min="0" max="12" value="1.5" step="0.5"><span class="val" id="featherVal">1.5</span></div>
+        <div class="row"><span class="lbl">Recuar borda</span><input type="range" id="contract" min="-30" max="30" value="0"><span class="val" id="contractVal">0</span></div>
+        <div class="note">“Suavizar” deixa a borda macia (bom para cabelo). “Recuar” encolhe o recorte para eliminar franjas do fundo antigo.</div>
+      </div>
     </div>
 
     <!-- Retoque -->
@@ -304,33 +374,10 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
         <button class="active" data-mode="restore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Restaurar</button>
         <button data-mode="erase"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>Apagar</button>
       </div>
-      <div class="row">
-        <span class="lbl">Tamanho</span>
-        <input type="range" id="brushSize" min="6" max="160" value="42">
-        <span class="val" id="brushVal">42</span>
-      </div>
-      <div class="row">
-        <span class="lbl">Suavidade</span>
-        <input type="range" id="brushSoft" min="0" max="100" value="55">
-        <span class="val" id="brushSoftVal">55</span>
-      </div>
+      <div class="row"><span class="lbl">Tamanho</span><input type="range" id="brushSize" min="6" max="160" value="42"><span class="val" id="brushVal">42</span></div>
+      <div class="row"><span class="lbl">Suavidade</span><input type="range" id="brushSoft" min="0" max="100" value="55"><span class="val" id="brushSoftVal">55</span></div>
       <div class="note">Pinte no palco para <b>restaurar</b> (traz de volta) ou <b>apagar</b> partes do recorte. No celular, use um dedo para pintar e dois para mover/dar zoom.</div>
       <button class="btn ghost sm" id="brushReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8"/><path d="M3 3v5h5"/></svg> Desfazer retoques</button>
-    </div>
-
-    <!-- Borda -->
-    <div class="cat" data-cat="borda">
-      <div class="row">
-        <span class="lbl">Suavizar</span>
-        <input type="range" id="feather" min="0" max="12" value="1.5" step="0.5">
-        <span class="val" id="featherVal">1.5</span>
-      </div>
-      <div class="row">
-        <span class="lbl">Recuar</span>
-        <input type="range" id="contract" min="-30" max="30" value="0">
-        <span class="val" id="contractVal">0</span>
-      </div>
-      <div class="note">“Suavizar” deixa a borda mais macia (bom para cabelo). “Recuar” encolhe o recorte para eliminar franjas do fundo antigo; valores positivos apertam a borda.</div>
     </div>
 
     <!-- Ações -->
@@ -349,11 +396,10 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 <script>
 'use strict';
 (function () {
-  // ---------- Utilidades DOM ----------
   const $ = (s) => document.querySelector(s);
   const view = $('#view'), stage = $('#stage'), vctx = view.getContext('2d');
   const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
-  const MAXSIDE = 1800;          // limite de resolução de trabalho (memória/perf no celular)
+  const MAXSIDE = 1800;
 
   let toastTimer = null;
   function toast(msg, err) {
@@ -363,28 +409,23 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 
   // ---------- Estado ----------
   const S = {
-    orig: null,        // canvas: imagem original (res. de trabalho)
-    maskGray: null,    // canvas: máscara da IA em cinza (branco=sujeito)
-    aiAlpha: null,     // canvas: alfa derivado da IA (blur/limiar aplicados)
-    brushAdd: null,    // canvas: cobertura restaurada manualmente (alfa)
-    brushSub: null,    // canvas: cobertura apagada manualmente (alfa)
-    finalAlpha: null,  // canvas: alfa final combinado
-    cut: null,         // canvas: recorte (original × finalAlpha)
-    bg: null,          // canvas: fundo renderizado (res. de trabalho)
+    orig: null, adjOrig: null, maskGray: null, aiAlpha: null,
+    brushAdd: null, brushSub: null, finalAlpha: null, cut: null, bg: null, outFull: null,
     W: 0, H: 0,
     scale: 1, fitScale: 1, panX: 0, panY: 0,
     bgKind: 'transparent', bgColor: '#ffffff', blurAmt: 16, bgImage: null,
     feather: 1.5, contract: 0,
     brushMode: 'restore', brushSize: 42, brushSoft: 55,
+    adj: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0 },
+    crop: null, cropAspect: null,     // {x,y,w,h} em px da imagem · aspecto travado (w/h) ou null
     cat: 'fundo',
     compareRaw: false,
-    dirtyCut: true, dirtyBg: true,
+    dirtyCut: true, dirtyBg: true, dirtyAdj: true, dirtyOut: true,
     ready: false,
   };
   const embedded = window.parent && window.parent !== window;
   function parentOrigin() { return location.protocol === 'file:' ? '*' : location.origin; }
 
-  // ---------- Padrão xadrez (transparência) ----------
   const checker = (function () {
     const c = document.createElement('canvas'); c.width = c.height = 20;
     const x = c.getContext('2d');
@@ -393,6 +434,10 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     return c;
   })();
   function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+  function srcImage() { return S.adjOrig || S.orig; }
+  function cropMode() { return S.cat === 'cortar'; }
+  function activeRect() { return S.crop ? S.crop : { x: 0, y: 0, w: S.W, h: S.H }; }
+  function shownRect() { return cropMode() ? { x: 0, y: 0, w: S.W, h: S.H } : activeRect(); }
 
   // =====================================================================
   //  MOTOR DE IA — ONNX Runtime Web + U²-Netp (carregado 1x, sob demanda)
@@ -431,13 +476,11 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     sessionPromise = (async () => {
       if (typeof ort === 'undefined') throw new Error('Motor de IA indisponível.');
       ort.env.wasm.wasmPaths = new URL('vendor/ort/', location.href).href;
-      ort.env.wasm.numThreads = 1;   // sem COOP/COEP no Pages → single-thread (com SIMD)
+      ort.env.wasm.numThreads = 1;
       ort.env.wasm.simd = true;
       const buf = await fetchModelBuffer(new URL('models/u2netp.onnx', location.href).href);
       setLoader(true, 'Iniciando o motor de IA…', 'Preparando o processamento no seu navegador.', null);
-      session = await ort.InferenceSession.create(buf, {
-        executionProviders: ['wasm'], graphOptimizationLevel: 'all',
-      });
+      session = await ort.InferenceSession.create(buf, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
       return session;
     })();
     return sessionPromise;
@@ -447,7 +490,6 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     const sess = await loadSession();
     setLoader(true, 'Removendo o fundo…', 'Isolando o objeto principal.', null);
     await new Promise((r) => setTimeout(r, 16));
-
     const tmp = mkCanvas(SZ, SZ); const tx = tmp.getContext('2d');
     tx.drawImage(srcCanvas, 0, 0, SZ, SZ);
     const d = tx.getImageData(0, 0, SZ, SZ).data;
@@ -461,7 +503,6 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     const feeds = {}; feeds[sess.inputNames[0]] = input;
     const out = (await sess.run(feeds))[sess.outputNames[0]];
     const md = out.data;
-
     let mn = Infinity, mx = -Infinity;
     for (let i = 0; i < md.length; i++) { const v = md[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
     const rng = (mx - mn) || 1;
@@ -472,7 +513,6 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255;
     }
     sc.putImageData(id, 0, 0);
-
     const full = mkCanvas(outW, outH); const fc = full.getContext('2d');
     fc.imageSmoothingEnabled = true; fc.imageSmoothingQuality = 'high';
     fc.drawImage(small, 0, 0, outW, outH);
@@ -480,7 +520,39 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   }
 
   // =====================================================================
-  //  PIPELINE DE MÁSCARA / COMPOSIÇÃO
+  //  AJUSTES (brilho/contraste/saturação/temperatura/exposição) — LUT
+  // =====================================================================
+  function adjNeutral() { const a = S.adj; return !a.brightness && !a.contrast && !a.saturation && !a.temperature && !a.exposure; }
+  function applyAdjustments() {
+    S.dirtyAdj = false;
+    if (adjNeutral()) { S.adjOrig = null; S.dirtyCut = true; S.dirtyBg = true; S.dirtyOut = true; return; }
+    const { W, H } = S, a = S.adj;
+    const expF = Math.pow(2, (a.exposure / 100) * 0.6);
+    const C = a.contrast * 1.4;
+    const F = (259 * (C + 255)) / (255 * (259 - C));
+    const bAdd = a.brightness * 1.1;
+    const tR = a.temperature * 0.5, tB = -a.temperature * 0.5;
+    const clamp = (x) => x < 0 ? 0 : x > 255 ? 255 : x;
+    const base = new Float32Array(256);
+    for (let v = 0; v < 256; v++) { let x = v * expF; x = F * (x - 128) + 128; x += bAdd; base[v] = x; }
+    const LR = new Uint8ClampedArray(256), LG = new Uint8ClampedArray(256), LB = new Uint8ClampedArray(256);
+    for (let v = 0; v < 256; v++) { LR[v] = clamp(base[v] + tR); LG[v] = clamp(base[v]); LB[v] = clamp(base[v] + tB); }
+    const satF = 1 + a.saturation / 100;
+    if (!S.adjOrig || S.adjOrig.width !== W || S.adjOrig.height !== H) S.adjOrig = mkCanvas(W, H);
+    const ac = S.adjOrig.getContext('2d');
+    ac.drawImage(S.orig, 0, 0);
+    const idata = ac.getImageData(0, 0, W, H); const p = idata.data;
+    for (let i = 0; i < p.length; i += 4) {
+      let r = LR[p[i]], g = LG[p[i + 1]], b = LB[p[i + 2]];
+      if (satF !== 1) { const gray = 0.299 * r + 0.587 * g + 0.114 * b; r = gray + (r - gray) * satF; g = gray + (g - gray) * satF; b = gray + (b - gray) * satF; }
+      p[i] = r; p[i + 1] = g; p[i + 2] = b;
+    }
+    ac.putImageData(idata, 0, 0);
+    S.dirtyCut = true; S.dirtyBg = true; S.dirtyOut = true;
+  }
+
+  // =====================================================================
+  //  MÁSCARA / COMPOSIÇÃO
   // =====================================================================
   function buildAiAlpha() {
     const { W, H } = S;
@@ -489,68 +561,83 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     if (blurPx > 0) bx.filter = 'blur(' + blurPx + 'px)';
     bx.drawImage(S.maskGray, 0, 0);
     bx.filter = 'none';
-    const idata = bx.getImageData(0, 0, W, H);
-    const p = idata.data;
-    const shift = S.contract;
-    const t0 = 128 + shift * 2.2;
-    const soft = 26;
+    const idata = bx.getImageData(0, 0, W, H); const p = idata.data;
+    const t0 = 128 + S.contract * 2.2, soft = 26;
     for (let i = 0; i < p.length; i += 4) {
-      const g = p[i];
-      let a;
+      const g = p[i]; let a;
       if (g <= t0 - soft) a = 0;
       else if (g >= t0 + soft) a = 255;
       else { const t = (g - (t0 - soft)) / (2 * soft); a = Math.round(t * t * (3 - 2 * t) * 255); }
       p[i] = p[i + 1] = p[i + 2] = 0; p[i + 3] = a;
     }
-    if (!S.aiAlpha) S.aiAlpha = mkCanvas(W, H);
+    if (!S.aiAlpha || S.aiAlpha.width !== W || S.aiAlpha.height !== H) S.aiAlpha = mkCanvas(W, H);
     S.aiAlpha.getContext('2d').putImageData(idata, 0, 0);
-    S.dirtyCut = true;
+    S.dirtyCut = true; S.dirtyOut = true;
   }
 
   function rebuildCut() {
     const { W, H } = S;
-    if (!S.finalAlpha) S.finalAlpha = mkCanvas(W, H);
+    if (!S.finalAlpha || S.finalAlpha.width !== W || S.finalAlpha.height !== H) S.finalAlpha = mkCanvas(W, H);
     const fa = S.finalAlpha.getContext('2d');
-    fa.clearRect(0, 0, W, H);
-    fa.globalCompositeOperation = 'source-over';
+    fa.clearRect(0, 0, W, H); fa.globalCompositeOperation = 'source-over';
     fa.drawImage(S.aiAlpha, 0, 0);
     if (S.brushAdd) fa.drawImage(S.brushAdd, 0, 0);
     if (S.brushSub) { fa.globalCompositeOperation = 'destination-out'; fa.drawImage(S.brushSub, 0, 0); }
     fa.globalCompositeOperation = 'source-over';
-    if (!S.cut) S.cut = mkCanvas(W, H);
+    if (!S.cut || S.cut.width !== W || S.cut.height !== H) S.cut = mkCanvas(W, H);
     const cc = S.cut.getContext('2d');
-    cc.clearRect(0, 0, W, H);
-    cc.globalCompositeOperation = 'source-over';
-    cc.drawImage(S.orig, 0, 0);
-    cc.globalCompositeOperation = 'destination-in';
-    cc.drawImage(S.finalAlpha, 0, 0);
+    cc.clearRect(0, 0, W, H); cc.globalCompositeOperation = 'source-over';
+    cc.drawImage(srcImage(), 0, 0);
+    cc.globalCompositeOperation = 'destination-in'; cc.drawImage(S.finalAlpha, 0, 0);
     cc.globalCompositeOperation = 'source-over';
     S.dirtyCut = false;
   }
 
   function rebuildBg() {
     const { W, H } = S;
-    if (!S.bg) S.bg = mkCanvas(W, H);
-    const c = S.bg.getContext('2d');
-    c.clearRect(0, 0, W, H);
-    if (S.bgKind === 'transparent') { S.dirtyBg = false; return; }
+    if (!S.bg || S.bg.width !== W || S.bg.height !== H) S.bg = mkCanvas(W, H);
+    const c = S.bg.getContext('2d'); c.clearRect(0, 0, W, H);
     if (S.bgKind === 'color') { c.fillStyle = S.bgColor; c.fillRect(0, 0, W, H); }
     else if (S.bgKind === 'blur') {
-      c.filter = 'blur(' + S.blurAmt + 'px)';
-      const m = S.blurAmt * 2;
-      c.drawImage(S.orig, -m, -m, W + 2 * m, H + 2 * m);
-      c.filter = 'none';
+      c.filter = 'blur(' + S.blurAmt + 'px)'; const m = S.blurAmt * 2;
+      c.drawImage(srcImage(), -m, -m, W + 2 * m, H + 2 * m); c.filter = 'none';
     } else if (S.bgKind === 'image' && S.bgImage) {
-      const iw = S.bgImage.width, ih = S.bgImage.height;
-      const r = Math.max(W / iw, H / ih);
-      const dw = iw * r, dh = ih * r;
-      c.drawImage(S.bgImage, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      const iw = S.bgImage.width, ih = S.bgImage.height, r = Math.max(W / iw, H / ih);
+      const dw = iw * r, dh = ih * r; c.drawImage(S.bgImage, (W - dw) / 2, (H - dh) / 2, dw, dh);
     }
     S.dirtyBg = false;
   }
 
+  function rebuildOutFull() {
+    const { W, H } = S;
+    if (!S.outFull || S.outFull.width !== W || S.outFull.height !== H) S.outFull = mkCanvas(W, H);
+    const c = S.outFull.getContext('2d'); c.clearRect(0, 0, W, H);
+    if (S.bgKind === 'original') { c.drawImage(srcImage(), 0, 0); }
+    else {
+      if (S.dirtyCut) rebuildCut();
+      if (S.bgKind !== 'transparent') { if (S.dirtyBg) rebuildBg(); c.drawImage(S.bg, 0, 0); }
+      c.drawImage(S.cut, 0, 0);
+    }
+    S.dirtyOut = false;
+  }
+
   // =====================================================================
-  //  VIEW (zoom/pan)
+  //  ORIENTAÇÃO (girar / espelhar) — reescreve todas as camadas
+  // =====================================================================
+  function rot90(src) { const c = mkCanvas(src.height, src.width); const x = c.getContext('2d'); x.translate(src.height, 0); x.rotate(Math.PI / 2); x.drawImage(src, 0, 0); return c; }
+  function flipC(src, horiz) { const c = mkCanvas(src.width, src.height); const x = c.getContext('2d'); if (horiz) { x.translate(src.width, 0); x.scale(-1, 1); } else { x.translate(0, src.height); x.scale(1, -1); } x.drawImage(src, 0, 0); return c; }
+  function transformAll(fn, swap) {
+    ['orig', 'maskGray', 'aiAlpha', 'brushAdd', 'brushSub'].forEach((k) => { if (S[k]) S[k] = fn(S[k]); });
+    S.adjOrig = null;
+    if (swap) { const t = S.W; S.W = S.H; S.H = t; }
+    S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null;
+    S.crop = null; S.cropAspect = null; setActiveChip('#aspects', 'free');
+    S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true;
+    updateBadge(); resizeView(); computeFit(); fitToScreen();
+  }
+
+  // =====================================================================
+  //  VIEW (zoom/pan) + recorte de enquadramento
   // =====================================================================
   let checkerPattern = null;
   function resizeView() {
@@ -561,34 +648,30 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     if (S.orig) { computeFit(); render(); }
   }
   function computeFit() {
-    const vw = view.width, vh = view.height;
-    const pad = 28 * DPR;
-    S.fitScale = Math.min((vw - pad) / S.W, (vh - pad) / S.H);
+    const sr = shownRect(); const pad = 28 * DPR;
+    S.fitScale = Math.min((view.width - pad) / sr.w, (view.height - pad) / sr.h);
     if (!isFinite(S.fitScale) || S.fitScale <= 0) S.fitScale = 1;
   }
   function fitToScreen() { S.scale = 1; S.panX = 0; S.panY = 0; render(); }
-
   function projRect() {
-    const s = S.fitScale * S.scale;
-    const w = S.W * s, h = S.H * s;
-    const x = (view.width - w) / 2 + S.panX;
-    const y = (view.height - h) / 2 + S.panY;
-    return { x, y, w, h, s };
+    const sr = shownRect(); const s = S.fitScale * S.scale;
+    const w = sr.w * s, h = sr.h * s;
+    return { x: (view.width - w) / 2 + S.panX, y: (view.height - h) / 2 + S.panY, w, h, s };
   }
+  function viewToImage(vx, vy) { const sr = shownRect(), pr = projRect(); return { x: sr.x + (vx - pr.x) / pr.s, y: sr.y + (vy - pr.y) / pr.s }; }
+  function imageToView(ix, iy) { const sr = shownRect(), pr = projRect(); return { x: pr.x + (ix - sr.x) * pr.s, y: pr.y + (iy - sr.y) * pr.s }; }
 
   let rafPending = false;
   function requestRender() { if (!rafPending) { rafPending = true; requestAnimationFrame(() => { rafPending = false; render(); }); } }
 
   function render() {
     if (!S.orig) return;
-    if (S.dirtyBg) rebuildBg();
-    if (S.dirtyCut) rebuildCut();
+    if (S.dirtyAdj) applyAdjustments();
+    if (S.dirtyOut) rebuildOutFull();
     const vw = view.width, vh = view.height;
-    vctx.setTransform(1, 0, 0, 1, 0, 0);
-    vctx.clearRect(0, 0, vw, vh);
-    vctx.fillStyle = '#2a2723';
-    vctx.fillRect(0, 0, vw, vh);
-    const pr = projRect();
+    vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.clearRect(0, 0, vw, vh);
+    vctx.fillStyle = '#2a2723'; vctx.fillRect(0, 0, vw, vh);
+    const pr = projRect(), sr = shownRect();
     vctx.save();
     vctx.shadowColor = 'rgba(0,0,0,.45)'; vctx.shadowBlur = 24 * DPR; vctx.shadowOffsetY = 6 * DPR;
     vctx.fillStyle = '#000'; vctx.fillRect(pr.x, pr.y, pr.w, pr.h);
@@ -596,55 +679,89 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 
     if (S.compareRaw) {
       vctx.imageSmoothingQuality = 'high';
-      vctx.drawImage(S.orig, pr.x, pr.y, pr.w, pr.h);
+      vctx.drawImage(S.orig, sr.x, sr.y, sr.w, sr.h, pr.x, pr.y, pr.w, pr.h);
     } else {
       if (S.bgKind === 'transparent') {
         if (!checkerPattern) checkerPattern = vctx.createPattern(checker, 'repeat');
         vctx.save(); vctx.beginPath(); vctx.rect(pr.x, pr.y, pr.w, pr.h); vctx.clip();
-        vctx.fillStyle = checkerPattern;
-        vctx.translate(pr.x, pr.y); vctx.fillRect(0, 0, pr.w, pr.h); vctx.restore();
-      } else {
-        vctx.drawImage(S.bg, pr.x, pr.y, pr.w, pr.h);
+        vctx.fillStyle = checkerPattern; vctx.translate(pr.x, pr.y); vctx.fillRect(0, 0, pr.w, pr.h); vctx.restore();
       }
       vctx.imageSmoothingQuality = 'high';
-      vctx.drawImage(S.cut, pr.x, pr.y, pr.w, pr.h);
+      vctx.drawImage(S.outFull, sr.x, sr.y, sr.w, sr.h, pr.x, pr.y, pr.w, pr.h);
     }
-    vctx.strokeStyle = 'rgba(255,255,255,.55)'; vctx.lineWidth = 1;
+    vctx.strokeStyle = 'rgba(255,255,255,.5)'; vctx.lineWidth = 1;
     vctx.strokeRect(pr.x + .5, pr.y + .5, pr.w - 1, pr.h - 1);
 
-    if (S.cat === 'pincel' && brushCursor.show) {
-      const rad = (S.brushSize / 2) * pr.s;
-      vctx.beginPath(); vctx.arc(brushCursor.x, brushCursor.y, rad, 0, 7);
-      vctx.strokeStyle = S.brushMode === 'erase' ? 'rgba(207,52,24,.95)' : 'rgba(46,125,79,.95)';
-      vctx.lineWidth = 2; vctx.stroke();
-      vctx.strokeStyle = 'rgba(255,255,255,.9)'; vctx.lineWidth = 1;
-      vctx.beginPath(); vctx.arc(brushCursor.x, brushCursor.y, rad, 0, 7); vctx.stroke();
+    if (cropMode()) drawCropOverlay(pr);
+    if (S.cat === 'pincel' && brushCursor.show) drawBrushCursor(pr);
+  }
+
+  function drawBrushCursor(pr) {
+    const rad = (S.brushSize / 2) * pr.s;
+    vctx.beginPath(); vctx.arc(brushCursor.x, brushCursor.y, rad, 0, 7);
+    vctx.strokeStyle = S.brushMode === 'erase' ? 'rgba(207,52,24,.95)' : 'rgba(46,125,79,.95)';
+    vctx.lineWidth = 2; vctx.stroke();
+    vctx.strokeStyle = 'rgba(255,255,255,.9)'; vctx.lineWidth = 1;
+    vctx.beginPath(); vctx.arc(brushCursor.x, brushCursor.y, rad, 0, 7); vctx.stroke();
+  }
+
+  // ---------- Recorte (crop) ----------
+  const HANDLE = 22; // px de tolerância p/ alça (em coords de view/DPR)
+  function ensureCrop() { if (!S.crop) S.crop = { x: 0, y: 0, w: S.W, h: S.H }; }
+  function drawCropOverlay(pr) {
+    ensureCrop();
+    const a = S.crop;
+    const p0 = imageToView(a.x, a.y), p1 = imageToView(a.x + a.w, a.y + a.h);
+    const rx = p0.x, ry = p0.y, rw = p1.x - p0.x, rh = p1.y - p0.y;
+    // escurece fora do recorte
+    vctx.save(); vctx.fillStyle = 'rgba(20,18,15,.55)';
+    vctx.beginPath(); vctx.rect(pr.x, pr.y, pr.w, pr.h); vctx.rect(rx, ry, rw, rh); vctx.fill('evenodd'); vctx.restore();
+    // moldura + regra dos terços
+    vctx.strokeStyle = '#fff'; vctx.lineWidth = 2; vctx.strokeRect(rx, ry, rw, rh);
+    vctx.strokeStyle = 'rgba(255,255,255,.35)'; vctx.lineWidth = 1;
+    for (let i = 1; i < 3; i++) {
+      vctx.beginPath(); vctx.moveTo(rx + rw * i / 3, ry); vctx.lineTo(rx + rw * i / 3, ry + rh); vctx.stroke();
+      vctx.beginPath(); vctx.moveTo(rx, ry + rh * i / 3); vctx.lineTo(rx + rw, ry + rh * i / 3); vctx.stroke();
     }
+    // alças de canto
+    vctx.fillStyle = '#fff';
+    [[rx, ry], [rx + rw, ry], [rx, ry + rh], [rx + rw, ry + rh]].forEach(([hx, hy]) => {
+      vctx.beginPath(); vctx.arc(hx, hy, 6 * DPR / DPR + 4, 0, 7); vctx.fill();
+    });
+  }
+  function cropHitTest(v) {
+    ensureCrop();
+    const a = S.crop;
+    const corners = { nw: imageToView(a.x, a.y), ne: imageToView(a.x + a.w, a.y), sw: imageToView(a.x, a.y + a.h), se: imageToView(a.x + a.w, a.y + a.h) };
+    for (const k in corners) { if (Math.hypot(v.x - corners[k].x, v.y - corners[k].y) < HANDLE * DPR / 1.5) return k; }
+    const p0 = imageToView(a.x, a.y), p1 = imageToView(a.x + a.w, a.y + a.h);
+    if (v.x >= p0.x && v.x <= p1.x && v.y >= p0.y && v.y <= p1.y) return 'move';
+    return null;
   }
 
   // =====================================================================
   //  CARREGAR IMAGEM
   // =====================================================================
+  function updateBadge() {
+    const r = activeRect();
+    $('#badge').textContent = Math.round(r.w) + ' × ' + Math.round(r.h) + ' px';
+  }
   async function loadImage(src) {
     let img;
     try { img = await createImageBitmap(src); }
-    catch (e) {
-      img = await new Promise((res, rej) => {
-        const im = new Image();
-        im.onload = () => res(im); im.onerror = rej;
-        im.src = (typeof src === 'string') ? src : URL.createObjectURL(src);
-      });
-    }
+    catch (e) { img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = (typeof src === 'string') ? src : URL.createObjectURL(src); }); }
     let w = img.width, h = img.height;
     const scale = Math.min(1, MAXSIDE / Math.max(w, h));
     w = Math.round(w * scale); h = Math.round(h * scale);
     S.W = w; S.H = h;
     S.orig = mkCanvas(w, h);
-    const oc = S.orig.getContext('2d');
-    oc.imageSmoothingQuality = 'high';
-    oc.drawImage(img, 0, 0, w, h);
-    S.brushAdd = null; S.brushSub = null; S.aiAlpha = null; S.finalAlpha = null; S.cut = null; S.bg = null;
-    S.dirtyBg = true; S.dirtyCut = true;
+    const oc = S.orig.getContext('2d'); oc.imageSmoothingQuality = 'high'; oc.drawImage(img, 0, 0, w, h);
+    // reseta camadas e edições
+    S.adjOrig = null; S.brushAdd = null; S.brushSub = null; S.aiAlpha = null; S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null;
+    S.crop = null; S.cropAspect = null;
+    S.adj = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0 };
+    syncAdjInputs(); setActiveChip('#filters', 'none'); setActiveChip('#aspects', 'free');
+    S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true;
 
     $('#drop').classList.add('hidden');
     ['#btnCompare', '#btnRedo', '#btnNew'].forEach((id) => $(id).removeAttribute('disabled'));
@@ -653,17 +770,13 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       S.maskGray = await segment(S.orig, w, h);
       buildAiAlpha();
       S.ready = true;
-      $('#panel').classList.remove('hidden');
-      $('#zoombar').classList.remove('hidden');
-      $('#badge').classList.remove('hidden');
-      $('#badge').textContent = w + ' × ' + h + ' px';
-      setLoader(false);
+      $('#panel').classList.remove('hidden'); $('#zoombar').classList.remove('hidden'); $('#badge').classList.remove('hidden');
+      updateBadge(); setLoader(false);
       resizeView(); computeFit(); fitToScreen();
       toast('Fundo removido ✓');
     } catch (e) {
       setLoader(false);
-      const fileProto = location.protocol === 'file:';
-      toast(fileProto
+      toast(location.protocol === 'file:'
         ? 'Abra pela versão publicada (o modo arquivo local bloqueia a IA).'
         : 'Não foi possível carregar a IA: ' + (e && e.message ? e.message : e), true);
       $('#panel').classList.add('hidden');
@@ -674,70 +787,50 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 
   async function reSegment() {
     if (!S.orig) return;
-    try {
-      S.maskGray = await segment(S.orig, S.W, S.H);
-      S.brushAdd = null; S.brushSub = null;
-      buildAiAlpha(); requestRender(); setLoader(false);
-      toast('Recorte refeito ✓');
-    } catch (e) { setLoader(false); toast('Falha ao refazer.', true); }
+    try { S.maskGray = await segment(S.orig, S.W, S.H); S.brushAdd = null; S.brushSub = null; buildAiAlpha(); S.dirtyOut = true; requestRender(); setLoader(false); toast('Recorte refeito ✓'); }
+    catch (e) { setLoader(false); toast('Falha ao refazer.', true); }
   }
 
   // =====================================================================
-  //  PINCEL (retoque manual)
+  //  PINCEL
   // =====================================================================
   const brushCursor = { x: 0, y: 0, show: false };
   function paintAt(ix, iy) {
-    const target = S.brushMode === 'restore'
-      ? (S.brushAdd || (S.brushAdd = mkCanvas(S.W, S.H)))
-      : (S.brushSub || (S.brushSub = mkCanvas(S.W, S.H)));
+    const target = S.brushMode === 'restore' ? (S.brushAdd || (S.brushAdd = mkCanvas(S.W, S.H))) : (S.brushSub || (S.brushSub = mkCanvas(S.W, S.H)));
     const ctx = target.getContext('2d');
-    const rad = S.brushSize / 2;
-    const softEdge = 0.5 + (S.brushSoft / 100) * 0.5;
-    const inner = rad * (1 - softEdge);
+    const rad = S.brushSize / 2, softEdge = 0.5 + (S.brushSoft / 100) * 0.5, inner = rad * (1 - softEdge);
     const g = ctx.createRadialGradient(ix, iy, Math.max(0, inner), ix, iy, rad);
-    g.addColorStop(0, 'rgba(0,0,0,1)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = g;
+    g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(ix, iy, rad, 0, 7); ctx.fill();
-    S.dirtyCut = true;
-  }
-  function viewToImage(vx, vy) {
-    const pr = projRect();
-    return { x: (vx - pr.x) / pr.s, y: (vy - pr.y) / pr.s };
+    S.dirtyCut = true; S.dirtyOut = true;
   }
 
   // =====================================================================
-  //  ENTRADA (ponteiros): pintar / mover / pinça
+  //  ENTRADA (ponteiros)
   // =====================================================================
   const pointers = new Map();
-  let mode = null;
-  let last = null, pinchStart = null, lastPaint = null;
-
-  function evtToView(e) {
-    const r = view.getBoundingClientRect();
-    return { x: (e.clientX - r.left) * DPR, y: (e.clientY - r.top) * DPR };
-  }
+  let mode = null, last = null, pinchStart = null, lastPaint = null, cropHandle = null;
+  function evtToView(e) { const r = view.getBoundingClientRect(); return { x: (e.clientX - r.left) * DPR, y: (e.clientY - r.top) * DPR }; }
 
   stage.addEventListener('pointerdown', (e) => {
     if (!S.orig) return;
     view.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, evtToView(e));
+    const v = evtToView(e); pointers.set(e.pointerId, v);
     if (pointers.size === 2) {
-      mode = 'pinch';
-      const pts = [...pointers.values()];
+      mode = 'pinch'; const pts = [...pointers.values()];
       pinchStart = { d: dist(pts[0], pts[1]), scale: S.scale, cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2, panX: S.panX, panY: S.panY };
-    } else {
-      const v = evtToView(e);
-      const painting = (S.cat === 'pincel');
-      mode = painting ? 'paint' : 'pan';
-      last = v;
-      if (mode === 'paint') {
-        const p = viewToImage(v.x, v.y); paintAt(p.x, p.y); lastPaint = p;
-        brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true;
-      }
-      requestRender();
+      return;
     }
+    if (cropMode()) {
+      cropHandle = cropHitTest(v);
+      mode = cropHandle ? 'crop' : 'pan'; last = v; requestRender(); return;
+    }
+    if (S.cat === 'pincel') {
+      mode = 'paint'; last = v; const p = viewToImage(v.x, v.y); paintAt(p.x, p.y); lastPaint = p;
+      brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); return;
+    }
+    mode = 'pan'; last = v;
   });
 
   stage.addEventListener('pointermove', (e) => {
@@ -745,62 +838,70 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       if (S.orig && S.cat === 'pincel') { const v = evtToView(e); brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); }
       return;
     }
-    pointers.set(e.pointerId, evtToView(e));
+    const v = evtToView(e); pointers.set(e.pointerId, v);
     if (mode === 'pinch' && pointers.size >= 2) {
-      const pts = [...pointers.values()];
-      const d = dist(pts[0], pts[1]);
+      const pts = [...pointers.values()], d = dist(pts[0], pts[1]);
       const ns = clamp(pinchStart.scale * (d / pinchStart.d), 0.4, 8);
-      const midNow = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-      S.panX = pinchStart.panX + (midNow.x - pinchStart.cx);
-      S.panY = pinchStart.panY + (midNow.y - pinchStart.cy);
-      S.scale = ns;
-      zoomAround(pinchStart.cx, pinchStart.cy, 1);
-      requestRender();
-    } else if (mode === 'paint') {
-      const v = evtToView(e);
+      const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      S.panX = pinchStart.panX + (mid.x - pinchStart.cx); S.panY = pinchStart.panY + (mid.y - pinchStart.cy);
+      S.scale = ns; zoomAround(pinchStart.cx, pinchStart.cy, 1); requestRender();
+    } else if (mode === 'crop') { cropDrag(v); requestRender(); }
+    else if (mode === 'paint') {
       const p = viewToImage(v.x, v.y);
-      if (lastPaint) {
-        const steps = Math.ceil(dist(lastPaint, p) / (S.brushSize * 0.25)) || 1;
-        for (let i = 1; i <= steps; i++) paintAt(lastPaint.x + (p.x - lastPaint.x) * i / steps, lastPaint.y + (p.y - lastPaint.y) * i / steps);
-      } else paintAt(p.x, p.y);
-      lastPaint = p; brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true;
-      requestRender();
-    } else if (mode === 'pan') {
-      const v = evtToView(e);
-      S.panX += v.x - last.x; S.panY += v.y - last.y; last = v;
-      requestRender();
-    }
+      if (lastPaint) { const steps = Math.ceil(dist(lastPaint, p) / (S.brushSize * 0.25)) || 1; for (let i = 1; i <= steps; i++) paintAt(lastPaint.x + (p.x - lastPaint.x) * i / steps, lastPaint.y + (p.y - lastPaint.y) * i / steps); }
+      else paintAt(p.x, p.y);
+      lastPaint = p; brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender();
+    } else if (mode === 'pan') { S.panX += v.x - last.x; S.panY += v.y - last.y; last = v; requestRender(); }
   });
 
-  function zoomAround(cx, cy, factor) {
-    const s2 = S.fitScale * S.scale;
-    const prevScale = s2 / (factor || 1);
-    const w0 = S.W * prevScale, h0 = S.H * prevScale;
-    const x0 = (view.width - w0) / 2 + S.panX, y0 = (view.height - h0) / 2 + S.panY;
-    const imgX = (cx - x0) / prevScale, imgY = (cy - y0) / prevScale;
-    const w2 = S.W * s2, h2 = S.H * s2;
-    S.panX = cx - (view.width - w2) / 2 - imgX * s2;
-    S.panY = cy - (view.height - h2) / 2 - imgY * s2;
+  function cropDrag(v) {
+    ensureCrop(); const a = S.crop, p = viewToImage(v.x, v.y);
+    const MIN = 24;
+    let x0 = a.x, y0 = a.y, x1 = a.x + a.w, y1 = a.y + a.h;
+    if (cropHandle === 'move') {
+      const pv = viewToImage(last.x, last.y); const dx = p.x - pv.x, dy = p.y - pv.y;
+      x0 = clamp(a.x + dx, 0, S.W - a.w); y0 = clamp(a.y + dy, 0, S.H - a.h);
+      S.crop = { x: x0, y: y0, w: a.w, h: a.h }; last = v; return;
+    }
+    if (cropHandle.indexOf('n') >= 0) y0 = clamp(p.y, 0, y1 - MIN);
+    if (cropHandle.indexOf('s') >= 0) y1 = clamp(p.y, y0 + MIN, S.H);
+    if (cropHandle.indexOf('w') >= 0) x0 = clamp(p.x, 0, x1 - MIN);
+    if (cropHandle.indexOf('e') >= 0) x1 = clamp(p.x, x0 + MIN, S.W);
+    let nw = x1 - x0, nh = y1 - y0;
+    if (S.cropAspect) {
+      // trava a proporção ajustando a dimensão que não é a "âncora" do canto
+      const ar = S.cropAspect;
+      if (cropHandle === 'nw' || cropHandle === 'se') nh = nw / ar; else nw = nh * ar;
+      if (cropHandle.indexOf('n') >= 0) y0 = y1 - nh; else y1 = y0 + nh;
+      if (cropHandle.indexOf('w') >= 0) x0 = x1 - nw; else x1 = x0 + nw;
+      // se estourou os limites, reduz mantendo a proporção
+      if (x0 < 0 || y0 < 0 || x1 > S.W || y1 > S.H) {
+        const sc = Math.min((x1) / nw, (S.W - x0) / nw, (y1) / nh, (S.H - y0) / nh, 1);
+        // fallback simples: clampa a caixa
+        x0 = clamp(x0, 0, S.W - MIN); y0 = clamp(y0, 0, S.H - MIN);
+        x1 = clamp(x1, x0 + MIN, S.W); y1 = clamp(y1, y0 + MIN, S.H);
+      }
+    }
+    S.crop = { x: x0, y: y0, w: Math.max(MIN, x1 - x0), h: Math.max(MIN, y1 - y0) };
+    updateBadge();
   }
 
+  function zoomAround(cx, cy, factor) {
+    const sr = shownRect(), s2 = S.fitScale * S.scale, prevScale = s2 / (factor || 1);
+    const w0 = sr.w * prevScale, h0 = sr.h * prevScale, x0 = (view.width - w0) / 2 + S.panX, y0 = (view.height - h0) / 2 + S.panY;
+    const imgX = (cx - x0) / prevScale, imgY = (cy - y0) / prevScale;
+    const w2 = sr.w * s2, h2 = sr.h * s2;
+    S.panX = cx - (view.width - w2) / 2 - imgX * s2; S.panY = cy - (view.height - h2) / 2 - imgY * s2;
+  }
   function endPointer(e) {
     if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
-    if (pointers.size === 0) { mode = null; last = null; lastPaint = null; }
-    else if (pointers.size === 1) { mode = (S.cat === 'pincel') ? null : 'pan'; last = [...pointers.values()][0]; lastPaint = null; }
+    if (pointers.size === 0) { mode = null; last = null; lastPaint = null; cropHandle = null; }
+    else if (pointers.size === 1) { mode = (S.cat === 'pincel' || cropMode()) ? null : 'pan'; last = [...pointers.values()][0]; lastPaint = null; }
   }
   stage.addEventListener('pointerup', endPointer);
   stage.addEventListener('pointercancel', endPointer);
   stage.addEventListener('pointerleave', (e) => { if (!pointers.has(e.pointerId)) { brushCursor.show = false; requestRender(); } });
-
-  stage.addEventListener('wheel', (e) => {
-    if (!S.orig) return; e.preventDefault();
-    const v = evtToView(e);
-    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-    S.scale = clamp(S.scale * factor, 0.4, 8);
-    zoomAround(v.x, v.y, factor);
-    requestRender();
-  }, { passive: false });
-
+  stage.addEventListener('wheel', (e) => { if (!S.orig) return; e.preventDefault(); const v = evtToView(e); const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12; S.scale = clamp(S.scale * factor, 0.4, 8); zoomAround(v.x, v.y, factor); requestRender(); }, { passive: false });
   function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
@@ -808,44 +909,93 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   //  EXPORTAR
   // =====================================================================
   function renderFinalCanvas() {
-    if (S.dirtyCut) rebuildCut();
-    const out = mkCanvas(S.W, S.H); const c = out.getContext('2d');
-    if (S.bgKind !== 'transparent') { if (S.dirtyBg) rebuildBg(); c.drawImage(S.bg, 0, 0); }
-    c.drawImage(S.cut, 0, 0);
+    if (S.dirtyAdj) applyAdjustments();
+    if (S.dirtyOut) rebuildOutFull();
+    const r = activeRect(), w = Math.round(r.w), h = Math.round(r.h);
+    const out = mkCanvas(w, h); const c = out.getContext('2d');
+    c.drawImage(S.outFull, Math.round(r.x), Math.round(r.y), w, h, 0, 0, w, h);
     return out;
   }
   function exportDataURL() { return renderFinalCanvas().toDataURL('image/png'); }
 
   // =====================================================================
-  //  UI — ligações
+  //  UI helpers
   // =====================================================================
+  function setActiveChip(sel, val) { document.querySelectorAll(sel + ' .chip').forEach((c) => c.classList.toggle('active', c.dataset.filter === val || c.dataset.aspect === val)); }
+  function syncAdjInputs() {
+    const a = S.adj;
+    $('#ajBrightness').value = a.brightness; $('#ajBrightnessV').textContent = a.brightness;
+    $('#ajContrast').value = a.contrast; $('#ajContrastV').textContent = a.contrast;
+    $('#ajSaturation').value = a.saturation; $('#ajSaturationV').textContent = a.saturation;
+    $('#ajTemperature').value = a.temperature; $('#ajTemperatureV').textContent = a.temperature;
+    $('#ajExposure').value = a.exposure; $('#ajExposureV').textContent = a.exposure;
+  }
+
+  // seleção de imagem
   $('#btnPick').onclick = () => $('#fileInput').click();
   $('#btnNew').onclick = () => $('#fileInput').click();
   $('#fileInput').onchange = (e) => { const f = e.target.files && e.target.files[0]; if (f) startWith(f); e.target.value = ''; };
-
-  function startWith(file) {
-    if (!/^image\//.test(file.type)) { toast('Selecione um arquivo de imagem.', true); return; }
-    loadImage(file);
-  }
+  function startWith(file) { if (!/^image\//.test(file.type)) { toast('Selecione um arquivo de imagem.', true); return; } loadImage(file); }
 
   const drop = $('#drop');
   ['dragenter', 'dragover'].forEach((ev) => stage.addEventListener(ev, (e) => { e.preventDefault(); if (!S.orig) drop.classList.add('dragover'); }));
   ['dragleave', 'drop'].forEach((ev) => stage.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('dragover'); }));
   stage.addEventListener('drop', (e) => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) startWith(f); });
-  window.addEventListener('paste', (e) => {
-    const items = e.clipboardData && e.clipboardData.items; if (!items) return;
-    for (const it of items) { if (it.type && it.type.indexOf('image') === 0) { const f = it.getAsFile(); if (f) { startWith(f); break; } } }
-  });
+  window.addEventListener('paste', (e) => { const items = e.clipboardData && e.clipboardData.items; if (!items) return; for (const it of items) { if (it.type && it.type.indexOf('image') === 0) { const f = it.getAsFile(); if (f) { startWith(f); break; } } } });
 
+  // categorias
   $('#segs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-cat]'); if (!b) return;
+    const wasCrop = cropMode();
     S.cat = b.dataset.cat;
     document.querySelectorAll('#segs button').forEach((x) => x.classList.toggle('active', x === b));
     document.querySelectorAll('.cat').forEach((c) => c.classList.toggle('active', c.dataset.cat === S.cat));
-    brushCursor.show = false; requestRender();
+    if (cropMode()) ensureCrop();
+    brushCursor.show = false;
+    // ao entrar/sair do modo corte, o "shownRect" muda → recomputa enquadramento
+    if (cropMode() !== wasCrop) { updateBadge(); computeFit(); fitToScreen(); } else requestRender();
   });
 
-  // Fundo
+  // ---- Ajustes ----
+  function onAdj(id, key) { $(id).addEventListener('input', (e) => { S.adj[key] = +e.target.value; $(id + 'V').textContent = e.target.value; setActiveChip('#filters', 'custom'); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); }); }
+  onAdj('#ajBrightness', 'brightness'); onAdj('#ajContrast', 'contrast'); onAdj('#ajSaturation', 'saturation'); onAdj('#ajTemperature', 'temperature'); onAdj('#ajExposure', 'exposure');
+  $('#ajReset').onclick = () => { S.adj = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0 }; syncAdjInputs(); setActiveChip('#filters', 'none'); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); toast('Ajustes redefinidos'); };
+
+  // ---- Filtros ----
+  const FILTERS = {
+    none:    { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0 },
+    vivido:  { brightness: 4, contrast: 14, saturation: 38, temperature: 4, exposure: 4 },
+    pb:      { brightness: 2, contrast: 12, saturation: -100, temperature: 0, exposure: 0 },
+    quente:  { brightness: 2, contrast: 6, saturation: 10, temperature: 38, exposure: 3 },
+    frio:    { brightness: 2, contrast: 6, saturation: 6, temperature: -36, exposure: 2 },
+    nitido:  { brightness: 6, contrast: 18, saturation: 8, temperature: 2, exposure: 4 },
+    vintage: { brightness: 6, contrast: -8, saturation: -18, temperature: 20, exposure: 2 },
+    suave:   { brightness: 8, contrast: -12, saturation: -6, temperature: 6, exposure: 6 },
+  };
+  $('#filters').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip[data-filter]'); if (!b) return;
+    const f = FILTERS[b.dataset.filter]; if (!f) return;
+    S.adj = Object.assign({}, f); syncAdjInputs(); setActiveChip('#filters', b.dataset.filter);
+    S.dirtyAdj = true; S.dirtyOut = true; requestRender();
+  });
+
+  // ---- Cortar ----
+  $('#aspects').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip[data-aspect]'); if (!b) return;
+    setActiveChip('#aspects', b.dataset.aspect);
+    if (b.dataset.aspect === 'free') { S.cropAspect = null; return; }
+    const [aw, ah] = b.dataset.aspect.split(':').map(Number); const ar = aw / ah; S.cropAspect = ar;
+    // maior retângulo com essa proporção centrado na imagem
+    let w = S.W, h = w / ar; if (h > S.H) { h = S.H; w = h * ar; }
+    S.crop = { x: (S.W - w) / 2, y: (S.H - h) / 2, w, h }; updateBadge(); requestRender();
+  });
+  $('#rotL').onclick = () => transformAll(rot90, true);
+  $('#flipH').onclick = () => transformAll((s) => flipC(s, true), false);
+  $('#flipV').onclick = () => transformAll((s) => flipC(s, false), false);
+  $('#cropReset').onclick = () => { S.crop = null; S.cropAspect = null; setActiveChip('#aspects', 'free'); updateBadge(); computeFit(); fitToScreen(); toast('Corte redefinido'); };
+
+  // ---- Fundo ----
+  function refreshEdgeControls() { $('#edgeControls').classList.toggle('hidden', S.bgKind === 'original'); }
   $('#bgKind').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-bg]'); if (!b) return;
     S.bgKind = b.dataset.bg;
@@ -853,82 +1003,43 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     $('#swatches').classList.toggle('hidden', S.bgKind !== 'color');
     $('#blurRow').classList.toggle('hidden', S.bgKind !== 'blur');
     $('#bgImgNote').classList.toggle('hidden', S.bgKind !== 'blur');
-    if (S.bgKind === 'image') { $('#bgImgInput').click(); }
-    S.dirtyBg = true; requestRender();
+    refreshEdgeControls();
+    if (S.bgKind === 'image') $('#bgImgInput').click();
+    S.dirtyBg = true; S.dirtyOut = true; requestRender();
   });
-  $('#swatches').addEventListener('click', (e) => {
-    const b = e.target.closest('.swatch[data-color]'); if (!b) return;
-    S.bgColor = b.dataset.color;
-    document.querySelectorAll('#swatches .swatch').forEach((x) => x.classList.toggle('active', x === b));
-    S.dirtyBg = true; requestRender();
-  });
-  $('#colorPick').addEventListener('input', (e) => {
-    S.bgColor = e.target.value; S.bgKind = 'color';
-    document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x.dataset.bg === 'color'));
-    document.querySelectorAll('#swatches .swatch[data-color]').forEach((x) => x.classList.remove('active'));
-    $('#swatches').classList.remove('hidden');
-    S.dirtyBg = true; requestRender();
-  });
-  $('#blurAmt').addEventListener('input', (e) => { S.blurAmt = +e.target.value; $('#blurVal').textContent = e.target.value; S.dirtyBg = true; requestRender(); });
-  $('#bgImgInput').onchange = (e) => {
-    const f = e.target.files && e.target.files[0]; e.target.value = '';
-    if (!f) return;
-    const im = new Image(); im.onload = () => { S.bgImage = im; S.bgKind = 'image'; S.dirtyBg = true; requestRender(); };
-    im.src = URL.createObjectURL(f);
-  };
-
-  // Retoque
-  $('#brushMode').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-mode]'); if (!b) return;
-    S.brushMode = b.dataset.mode;
-    document.querySelectorAll('#brushMode button').forEach((x) => x.classList.toggle('active', x === b));
-  });
-  $('#brushSize').addEventListener('input', (e) => { S.brushSize = +e.target.value; $('#brushVal').textContent = e.target.value; requestRender(); });
-  $('#brushSoft').addEventListener('input', (e) => { S.brushSoft = +e.target.value; $('#brushSoftVal').textContent = e.target.value; });
-  $('#brushReset').onclick = () => { S.brushAdd = null; S.brushSub = null; S.dirtyCut = true; requestRender(); toast('Retoques desfeitos'); };
-
-  // Borda
+  $('#swatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-color]'); if (!b) return; S.bgColor = b.dataset.color; document.querySelectorAll('#swatches .swatch').forEach((x) => x.classList.toggle('active', x === b)); S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
+  $('#colorPick').addEventListener('input', (e) => { S.bgColor = e.target.value; S.bgKind = 'color'; document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x.dataset.bg === 'color')); document.querySelectorAll('#swatches .swatch[data-color]').forEach((x) => x.classList.remove('active')); $('#swatches').classList.remove('hidden'); refreshEdgeControls(); S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
+  $('#blurAmt').addEventListener('input', (e) => { S.blurAmt = +e.target.value; $('#blurVal').textContent = e.target.value; S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
+  $('#bgImgInput').onchange = (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return; const im = new Image(); im.onload = () => { S.bgImage = im; S.bgKind = 'image'; S.dirtyBg = true; S.dirtyOut = true; requestRender(); }; im.src = URL.createObjectURL(f); };
   $('#feather').addEventListener('input', (e) => { S.feather = +e.target.value; $('#featherVal').textContent = e.target.value; buildAiAlpha(); requestRender(); });
   $('#contract').addEventListener('input', (e) => { S.contract = +e.target.value; $('#contractVal').textContent = e.target.value; buildAiAlpha(); requestRender(); });
 
-  // Topbar
+  // ---- Retoque ----
+  $('#brushMode').addEventListener('click', (e) => { const b = e.target.closest('button[data-mode]'); if (!b) return; S.brushMode = b.dataset.mode; document.querySelectorAll('#brushMode button').forEach((x) => x.classList.toggle('active', x === b)); });
+  $('#brushSize').addEventListener('input', (e) => { S.brushSize = +e.target.value; $('#brushVal').textContent = e.target.value; requestRender(); });
+  $('#brushSoft').addEventListener('input', (e) => { S.brushSoft = +e.target.value; $('#brushSoftVal').textContent = e.target.value; });
+  $('#brushReset').onclick = () => { S.brushAdd = null; S.brushSub = null; S.dirtyCut = true; S.dirtyOut = true; requestRender(); toast('Retoques desfeitos'); };
+
+  // ---- Topbar ----
   const cmp = $('#btnCompare');
   const startCmp = () => { if (!S.ready) return; S.compareRaw = true; cmp.classList.add('on'); requestRender(); };
   const endCmp = () => { S.compareRaw = false; cmp.classList.remove('on'); requestRender(); };
-  cmp.addEventListener('pointerdown', startCmp);
-  cmp.addEventListener('pointerup', endCmp);
-  cmp.addEventListener('pointerleave', endCmp);
-  cmp.addEventListener('pointercancel', endCmp);
+  cmp.addEventListener('pointerdown', startCmp); cmp.addEventListener('pointerup', endCmp); cmp.addEventListener('pointerleave', endCmp); cmp.addEventListener('pointercancel', endCmp);
   $('#btnRedo').onclick = reSegment;
 
-  // Zoom
+  // ---- Zoom ----
   $('#zIn').onclick = () => { S.scale = clamp(S.scale * 1.25, 0.4, 8); zoomAround(view.width / 2, view.height / 2, 1.25); requestRender(); };
   $('#zOut').onclick = () => { S.scale = clamp(S.scale / 1.25, 0.4, 8); zoomAround(view.width / 2, view.height / 2, 1 / 1.25); requestRender(); };
   $('#zFit').onclick = fitToScreen;
 
-  // Exportar
-  $('#btnDownload').onclick = () => {
-    if (!S.ready) return;
-    try {
-      const url = exportDataURL();
-      const a = document.createElement('a');
-      a.href = url; a.download = 'recorte-' + Date.now() + '.png';
-      document.body.appendChild(a); a.click(); a.remove();
-      toast('Imagem baixada ✓');
-    } catch (e) { toast('Erro ao exportar.', true); }
-  };
+  // ---- Exportar ----
+  $('#btnDownload').onclick = () => { if (!S.ready) return; try { const url = exportDataURL(); const a = document.createElement('a'); a.href = url; a.download = 'imagem-' + Date.now() + '.png'; document.body.appendChild(a); a.click(); a.remove(); toast('Imagem baixada ✓'); } catch (e) { toast('Erro ao exportar.', true); } };
   $('#btnUse').onclick = () => {
     if (!S.ready) return;
     try {
       const url = exportDataURL();
-      if (embedded) {
-        window.parent.postMessage({ type: 'agente:image-out', dataUrl: url }, parentOrigin());
-        toast('Enviado para o app ✓');
-      } else {
-        const a = document.createElement('a'); a.href = url; a.download = 'recorte-' + Date.now() + '.png';
-        document.body.appendChild(a); a.click(); a.remove();
-        toast('Imagem baixada ✓');
-      }
+      if (embedded) { window.parent.postMessage({ type: 'agente:image-out', dataUrl: url }, parentOrigin()); toast('Enviado para o app ✓'); }
+      else { const a = document.createElement('a'); a.href = url; a.download = 'imagem-' + Date.now() + '.png'; document.body.appendChild(a); a.click(); a.remove(); toast('Imagem baixada ✓'); }
     } catch (e) { toast('Erro ao enviar.', true); }
   };
 
@@ -937,9 +1048,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   new ResizeObserver(() => resizeView()).observe(stage);
 
   // O motor de IA (~15 MB) só é baixado quando o usuário escolhe a 1ª imagem —
-  // com barra de progresso — para respeitar o plano de dados de quem só abre a
-  // ferramenta e não a usa. Não há pré-carregamento em segundo plano.
-
+  // com barra de progresso — respeitando o plano de dados. Sem pré-carga.
   resizeView();
 })();
 </script>

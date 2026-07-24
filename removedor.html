@@ -15,27 +15,21 @@
    - adjOrig:  original + ajustes (brilho/contraste/saturação/temperatura/exposição)
    - maskGray → aiAlpha (suavizar/recuar) → finalAlpha (⊕ pincel restaurar ⊖ apagar)
    - cut = adjOrig recortada por finalAlpha (destination-in)
-   - outFull = "Original" (foto inteira) OU fundo + cut, na resolução de trabalho
-   - view = outFull escalado (zoom/pan), respeitando o recorte de enquadramento
+   - outFull = "Original" (foto inteira) OU fundo + sombra + contorno + cut
+   - view/export = outFull, respeitando o recorte de enquadramento (não-destrutivo)
+
+   Desfazer/refazer: camadas-fonte (orig/maskGray/brushAdd/brushSub) versionadas
+   e codificadas em Blob PNG sob demanda; o histórico guarda ponteiros de versão
+   + configurações — mudança de config não recodifica imagem alguma.
    Cores e tipografia espelham o tema claro premium do app pai.
    ========================================================================== */
 :root {
-  --paper: #f7f6f2;
-  --paper-2: #eeece5;
-  --surface: #ffffff;
-  --ink: #191712;
-  --ink-soft: #5c564b;
-  --ink-mute: #8f8879;
-  --line: #e3e0d6;
-  --line-soft: #edeae1;
-  --accent: #cf3418;
-  --accent-hover: #b52c12;
-  --accent-soft: #fae7e1;
-  --success: #2e7d4f;
-  --workspace: #2a2723;
-  --radius: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
+  --paper: #f7f6f2; --paper-2: #eeece5; --surface: #ffffff;
+  --ink: #191712; --ink-soft: #5c564b; --ink-mute: #8f8879;
+  --line: #e3e0d6; --line-soft: #edeae1;
+  --accent: #cf3418; --accent-hover: #b52c12; --accent-soft: #fae7e1;
+  --success: #2e7d4f; --workspace: #2a2723;
+  --radius: 10px; --radius-lg: 16px; --radius-xl: 22px;
   --shadow-sm: 0 1px 2px rgba(25,23,18,.06), 0 1px 1px rgba(25,23,18,.04);
   --shadow-md: 0 6px 16px rgba(25,23,18,.09), 0 2px 5px rgba(25,23,18,.05);
   --shadow-lg: 0 18px 44px rgba(25,23,18,.16), 0 6px 16px rgba(25,23,18,.07);
@@ -43,89 +37,47 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
-body {
-  font-family: var(--font); color: var(--ink); background: var(--paper);
-  -webkit-font-smoothing: antialiased; overflow: hidden;
-  padding-top: env(safe-area-inset-top, 0px);
-}
+body { font-family: var(--font); color: var(--ink); background: var(--paper); -webkit-font-smoothing: antialiased; overflow: hidden; padding-top: env(safe-area-inset-top, 0px); }
 .hidden { display: none !important; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
-button:disabled { opacity: .5; cursor: not-allowed; }
+button:disabled { opacity: .4; cursor: not-allowed; }
 
-/* ---------- Shell ---------- */
 .app { display: flex; flex-direction: column; height: 100%; }
-.topbar {
-  flex: 0 0 auto; display: flex; align-items: center; gap: .6rem;
-  padding: .55rem .8rem; background: var(--surface); border-bottom: 1px solid var(--line-soft);
-  box-shadow: var(--shadow-sm); z-index: 5;
-}
+.topbar { flex: 0 0 auto; display: flex; align-items: center; gap: .5rem; padding: .55rem .8rem; background: var(--surface); border-bottom: 1px solid var(--line-soft); box-shadow: var(--shadow-sm); z-index: 5; }
 .topbar .title { font-size: .95rem; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: .5rem; }
 .topbar .title .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 .topbar .spacer { flex: 1; }
-.iconbtn {
-  width: 38px; height: 38px; border-radius: var(--radius);
-  display: grid; place-items: center; color: var(--ink-soft);
-  border: 1px solid var(--line); background: var(--surface); transition: .15s;
-}
-.iconbtn:hover { background: var(--paper-2); color: var(--ink); }
-.iconbtn:active { transform: scale(.94); }
+.iconbtn { width: 38px; height: 38px; border-radius: var(--radius); display: grid; place-items: center; color: var(--ink-soft); border: 1px solid var(--line); background: var(--surface); transition: .15s; }
+.iconbtn:hover:not(:disabled) { background: var(--paper-2); color: var(--ink); }
+.iconbtn:active:not(:disabled) { transform: scale(.94); }
 .iconbtn svg { width: 19px; height: 19px; }
 .iconbtn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
-/* ---------- Stage ---------- */
-.stage {
-  flex: 1 1 auto; position: relative; background: var(--workspace); overflow: hidden;
-  touch-action: none; min-height: 0;
-}
+.stage { flex: 1 1 auto; position: relative; background: var(--workspace); overflow: hidden; touch-action: none; min-height: 0; }
 #view { display: block; width: 100%; height: 100%; }
-.stage-badge {
-  position: absolute; left: 10px; bottom: 10px; z-index: 3; pointer-events: none;
-  font-size: .68rem; font-weight: 600; color: #fff; background: rgba(0,0,0,.45);
-  padding: 3px 8px; border-radius: 999px; backdrop-filter: blur(4px); letter-spacing: .01em;
-}
-.zoombar {
-  position: absolute; right: 10px; bottom: 10px; z-index: 3; display: flex; flex-direction: column;
-  gap: 6px; background: rgba(255,255,255,.9); border: 1px solid var(--line); border-radius: 12px;
-  padding: 5px; box-shadow: var(--shadow-md); backdrop-filter: blur(6px);
-}
+.stage-badge { position: absolute; left: 10px; bottom: 10px; z-index: 3; pointer-events: none; font-size: .68rem; font-weight: 600; color: #fff; background: rgba(0,0,0,.45); padding: 3px 8px; border-radius: 999px; backdrop-filter: blur(4px); }
+.zoombar { position: absolute; right: 10px; bottom: 10px; z-index: 3; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,.9); border: 1px solid var(--line); border-radius: 12px; padding: 5px; box-shadow: var(--shadow-md); backdrop-filter: blur(6px); }
 .zoombar button { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; color: var(--ink-soft); }
 .zoombar button:hover { background: var(--paper-2); color: var(--ink); }
 .zoombar button:active { transform: scale(.92); }
 .zoombar button svg { width: 18px; height: 18px; }
 
-/* ---------- Dropzone ---------- */
-.drop {
-  position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 1rem; padding: 2rem; text-align: center;
-  background: var(--paper);
-}
+.drop { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; padding: 2rem; text-align: center; background: var(--paper); }
 .drop.dragover { background: var(--accent-soft); }
-.drop .art {
-  width: 76px; height: 76px; border-radius: 22px; display: grid; place-items: center;
-  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-md); color: var(--accent);
-}
+.drop .art { width: 76px; height: 76px; border-radius: 22px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-md); color: var(--accent); }
 .drop .art svg { width: 36px; height: 36px; }
 .drop h1 { font-size: 1.15rem; font-weight: 800; letter-spacing: -.02em; }
 .drop p { font-size: .85rem; color: var(--ink-soft); max-width: 34ch; line-height: 1.5; }
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-  padding: .7rem 1.15rem; border-radius: 12px; font-weight: 700; font-size: .9rem;
-  background: var(--accent); color: #fff; box-shadow: var(--shadow-sm); transition: .15s;
-}
-.btn:hover { background: var(--accent-hover); }
-.btn:active { transform: scale(.97); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; padding: .7rem 1.15rem; border-radius: 12px; font-weight: 700; font-size: .9rem; background: var(--accent); color: #fff; box-shadow: var(--shadow-sm); transition: .15s; }
+.btn:hover:not(:disabled) { background: var(--accent-hover); }
+.btn:active:not(:disabled) { transform: scale(.97); }
 .btn svg { width: 17px; height: 17px; }
 .btn.ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
-.btn.ghost:hover { background: var(--paper-2); }
+.btn.ghost:hover:not(:disabled) { background: var(--paper-2); }
 .btn.sm { padding: .5rem .8rem; font-size: .82rem; }
 .drop .hint { font-size: .72rem; color: var(--ink-mute); }
 
-/* ---------- Loader ---------- */
-.loader {
-  position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 1rem; background: rgba(247,246,242,.92);
-  backdrop-filter: blur(3px); text-align: center; padding: 2rem;
-}
+.loader { position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; background: rgba(247,246,242,.92); backdrop-filter: blur(3px); text-align: center; padding: 2rem; }
 .spinner { width: 46px; height: 46px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .loader .msg { font-size: .9rem; font-weight: 600; color: var(--ink); }
@@ -133,58 +85,31 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .progress { width: min(240px, 70vw); height: 7px; border-radius: 999px; background: var(--paper-2); overflow: hidden; }
 .progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 
-/* ---------- Panel ---------- */
-.panel {
-  flex: 0 0 auto; background: var(--surface); border-top: 1px solid var(--line-soft);
-  box-shadow: 0 -6px 20px rgba(25,23,18,.06); z-index: 5;
-  padding: .7rem .8rem calc(.7rem + env(safe-area-inset-bottom, 0px));
-  display: flex; flex-direction: column; gap: .7rem;
-}
-/* segmented rolável (5 categorias) */
-.segmented {
-  display: flex; gap: 4px; background: var(--paper-2); border-radius: 12px; padding: 4px;
-  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
-}
+.panel { flex: 0 0 auto; background: var(--surface); border-top: 1px solid var(--line-soft); box-shadow: 0 -6px 20px rgba(25,23,18,.06); z-index: 5; padding: .7rem .8rem calc(.7rem + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: .7rem; }
+.segmented { display: flex; gap: 4px; background: var(--paper-2); border-radius: 12px; padding: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .segmented::-webkit-scrollbar { display: none; }
-.segmented button {
-  flex: 1 0 auto; min-width: 62px; padding: .5rem .55rem; border-radius: 9px; font-size: .74rem; font-weight: 700;
-  color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 3px; transition: .15s; white-space: nowrap;
-}
+.segmented button { flex: 1 0 auto; min-width: 60px; padding: .5rem .5rem; border-radius: 9px; font-size: .72rem; font-weight: 700; color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 3px; transition: .15s; white-space: nowrap; }
 .segmented button svg { width: 18px; height: 18px; }
 .segmented button.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-sm); }
 .cat { display: none; flex-direction: column; gap: .6rem; }
 .cat.active { display: flex; }
 
 .row { display: flex; align-items: center; gap: .6rem; }
-.row .lbl { font-size: .78rem; font-weight: 600; color: var(--ink-soft); min-width: 82px; }
+.row .lbl { font-size: .78rem; font-weight: 600; color: var(--ink-soft); min-width: 88px; }
 .row .val { font-size: .74rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
-input[type=range] {
-  -webkit-appearance: none; appearance: none; flex: 1; height: 5px; border-radius: 999px;
-  background: var(--paper-2); outline: none;
-}
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
-  background: var(--accent); border: 3px solid #fff; box-shadow: var(--shadow-sm); cursor: pointer;
-}
+input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 5px; border-radius: 999px; background: var(--paper-2); outline: none; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: var(--shadow-sm); cursor: pointer; }
 input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; cursor: pointer; }
 
 .choices { display: flex; gap: 6px; flex-wrap: wrap; }
-.choice {
-  flex: 1 1 auto; min-width: 66px; padding: .5rem .4rem; border-radius: 10px; font-size: .76rem; font-weight: 600;
-  border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
-  display: flex; align-items: center; justify-content: center; gap: 5px; transition: .15s;
-}
+.choice { flex: 1 1 auto; min-width: 66px; padding: .5rem .4rem; border-radius: 10px; font-size: .76rem; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); display: flex; align-items: center; justify-content: center; gap: 5px; transition: .15s; }
 .choice svg { width: 16px; height: 16px; }
 .choice:active { transform: scale(.96); }
 .choice.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
-/* chips horizontais (filtros, proporções) */
 .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
 .chips::-webkit-scrollbar { display: none; }
-.chip {
-  flex: 0 0 auto; padding: .45rem .8rem; border-radius: 999px; font-size: .78rem; font-weight: 700;
-  border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); white-space: nowrap; transition: .15s;
-}
+.chip { flex: 0 0 auto; padding: .45rem .8rem; border-radius: 999px; font-size: .78rem; font-weight: 700; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); white-space: nowrap; transition: .15s; }
 .chip:active { transform: scale(.96); }
 .chip.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
@@ -196,52 +121,75 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 .swatch.pick input { position: absolute; opacity: 0; width: 0; height: 0; }
 
 .toolseg { display: flex; gap: 6px; }
-.toolseg button {
-  flex: 1; padding: .55rem; border-radius: 10px; font-size: .8rem; font-weight: 700;
-  border: 1px solid var(--line); color: var(--ink-soft); background: var(--surface);
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-}
+.toolseg button { flex: 1; padding: .55rem; border-radius: 10px; font-size: .8rem; font-weight: 700; border: 1px solid var(--line); color: var(--ink-soft); background: var(--surface); display: flex; align-items: center; justify-content: center; gap: 6px; }
 .toolseg button svg { width: 16px; height: 16px; }
 .toolseg button.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
+.switch { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+.switch .lbl { font-size: .82rem; font-weight: 700; color: var(--ink); }
+.toggle { width: 44px; height: 26px; border-radius: 999px; background: var(--line); position: relative; transition: .18s; flex: 0 0 auto; }
+.toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: var(--shadow-sm); transition: .18s; }
+.toggle.on { background: var(--accent); }
+.toggle.on::after { transform: translateX(18px); }
+
 .miniactions { display: flex; gap: 6px; }
 .miniactions .btn { flex: 1; }
-
 .actions { display: flex; gap: .5rem; }
 .actions .btn { flex: 1; }
 .note { font-size: .68rem; color: var(--ink-mute); text-align: center; line-height: 1.4; }
 .sep { height: 1px; background: var(--line-soft); margin: .1rem 0; }
+.eff-body { display: flex; flex-direction: column; gap: .55rem; }
 
-/* ---------- Desktop ---------- */
 @media (min-width: 820px) {
-  .app { display: grid; grid-template-columns: 1fr 344px; grid-template-rows: auto 1fr; }
+  .app { display: grid; grid-template-columns: 1fr 348px; grid-template-rows: auto 1fr; }
   .topbar { grid-row: 1; grid-column: 1 / -1; }
   .stage { grid-row: 2; grid-column: 1; }
-  .panel {
-    grid-row: 2; grid-column: 2; border-top: none; border-left: 1px solid var(--line-soft);
-    box-shadow: none; overflow-y: auto; gap: 1rem;
-  }
+  .panel { grid-row: 2; grid-column: 2; border-top: none; border-left: 1px solid var(--line-soft); box-shadow: none; overflow-y: auto; gap: 1rem; }
   .segmented { position: sticky; top: 0; }
 }
 
-/* ---------- Toast ---------- */
-.toast {
-  position: fixed; left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none;
-  background: var(--ink); color: var(--paper); font-size: .82rem; font-weight: 600;
-  padding: .65rem 1rem; border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 20;
-  transition: .25s; max-width: 90vw; text-align: center;
-}
+.toast { position: fixed; left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none; background: var(--ink); color: var(--paper); font-size: .82rem; font-weight: 600; padding: .65rem 1rem; border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 40; transition: .25s; max-width: 90vw; text-align: center; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.err { background: var(--accent); }
+
+/* ---------- Modal de exportação ---------- */
+.modal-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(25,23,18,.5); backdrop-filter: blur(3px); display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+.modal { width: 100%; max-width: 480px; background: var(--surface); border-radius: var(--radius-xl) var(--radius-xl) 0 0; box-shadow: var(--shadow-lg); padding: 1rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom, 0px)); transform: translateY(30px); transition: transform .25s; max-height: 92vh; overflow-y: auto; }
+.modal-backdrop.open .modal { transform: translateY(0); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .3rem; }
+.modal-title { font-size: 1.05rem; font-weight: 800; letter-spacing: -.02em; }
+.modal-x { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; color: var(--ink-soft); }
+.modal-x:hover { background: var(--paper-2); }
+.modal-x svg { width: 18px; height: 18px; }
+.modal-section { margin-top: 1rem; }
+.modal-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .12em; font-weight: 800; color: var(--ink-mute); margin-bottom: .5rem; }
+.fmt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.fmt { padding: .7rem .4rem; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: .78rem; font-weight: 700; transition: .15s; }
+.fmt svg { width: 20px; height: 20px; }
+.fmt small { font-size: .62rem; font-weight: 500; color: var(--ink-mute); }
+.fmt.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.fmt.active small { color: var(--accent); }
+.res-grid { display: flex; gap: 7px; flex-wrap: wrap; }
+.res { flex: 1 1 auto; min-width: 92px; padding: .6rem .5rem; border-radius: 11px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); font-size: .8rem; font-weight: 700; text-align: center; transition: .15s; }
+.res small { display: block; font-size: .64rem; font-weight: 500; color: var(--ink-mute); margin-top: 1px; }
+.res.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.res.active small { color: var(--accent); }
+.modal-actions { display: flex; gap: .5rem; margin-top: 1.2rem; }
+.modal-actions .btn { flex: 1; }
 </style>
 </head>
 <body>
 <div class="app" id="app">
-  <!-- Topbar -->
   <header class="topbar">
     <div class="title"><span class="dot"></span> Editor de Imagem</div>
     <div class="spacer"></div>
+    <button class="iconbtn" id="btnUndo" title="Desfazer" aria-label="Desfazer" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>
+    </button>
+    <button class="iconbtn" id="btnRedoH" title="Refazer" aria-label="Refazer" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg>
+    </button>
     <button class="iconbtn" id="btnCompare" title="Comparar com a original (segure)" aria-label="Comparar" disabled>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 8l4 4-4 4"/></svg>
     </button>
@@ -253,7 +201,6 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     </button>
   </header>
 
-  <!-- Stage -->
   <div class="stage" id="stage">
     <canvas id="view"></canvas>
     <div class="stage-badge hidden" id="badge"></div>
@@ -263,16 +210,14 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       <button id="zOut" title="Afastar" aria-label="Afastar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
     </div>
 
-    <!-- Dropzone -->
     <div class="drop" id="drop">
       <div class="art"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
       <h1>Edite sua imagem e remova o fundo</h1>
-      <p>Um editor completo — ajustes, filtros, cortar e girar — com remoção de fundo automática. 100% no seu navegador, sem enviar nada para nenhum servidor.</p>
+      <p>Um editor completo — ajustes, filtros, cortar, efeitos e remoção de fundo automática. 100% no seu navegador, sem enviar nada para nenhum servidor.</p>
       <button class="btn" id="btnPick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 5v12"/></svg> Escolher imagem</button>
       <div class="hint">ou arraste uma imagem aqui · Ctrl+V para colar</div>
     </div>
 
-    <!-- Loader -->
     <div class="loader hidden" id="loader">
       <div class="spinner"></div>
       <div class="msg" id="loadMsg">Preparando…</div>
@@ -281,13 +226,13 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     </div>
   </div>
 
-  <!-- Panel -->
   <div class="panel hidden" id="panel">
     <div class="segmented" id="segs">
       <button data-cat="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Ajustes</button>
       <button data-cat="filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><circle cx="15" cy="15" r="6"/></svg>Filtros</button>
       <button data-cat="cortar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Cortar</button>
       <button data-cat="fundo" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>Fundo</button>
+      <button data-cat="efeitos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.09 4.26L19 8.27l-3.5 3.36L16.18 17 12 14.5 7.82 17l.68-5.37L5 8.27l4.91-1.01z"/></svg>Efeitos</button>
       <button data-cat="pincel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/></svg>Retoque</button>
     </div>
 
@@ -298,6 +243,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       <div class="row"><span class="lbl">Saturação</span><input type="range" id="ajSaturation" min="-100" max="100" value="0"><span class="val" id="ajSaturationV">0</span></div>
       <div class="row"><span class="lbl">Temperatura</span><input type="range" id="ajTemperature" min="-100" max="100" value="0"><span class="val" id="ajTemperatureV">0</span></div>
       <div class="row"><span class="lbl">Exposição</span><input type="range" id="ajExposure" min="-100" max="100" value="0"><span class="val" id="ajExposureV">0</span></div>
+      <div class="row"><span class="lbl">Nitidez</span><input type="range" id="ajSharpen" min="0" max="100" value="0"><span class="val" id="ajSharpenV">0</span></div>
       <button class="btn ghost sm" id="ajReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8"/><path d="M3 3v5h5"/></svg> Redefinir ajustes</button>
     </div>
 
@@ -354,17 +300,43 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
         <button class="swatch" style="background:#f6d9c9" data-color="#f6d9c9"></button>
         <label class="swatch pick" title="Escolher cor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><input type="color" id="colorPick" value="#ffffff"></label>
       </div>
-      <div class="row hidden" id="blurRow">
-        <span class="lbl">Intensidade</span>
-        <input type="range" id="blurAmt" min="2" max="40" value="16">
-        <span class="val" id="blurVal">16</span>
-      </div>
+      <div class="row hidden" id="blurRow"><span class="lbl">Intensidade</span><input type="range" id="blurAmt" min="2" max="40" value="18"><span class="val" id="blurVal">18</span></div>
       <div class="note hidden" id="bgImgNote">O fundo desfocado usa a própria imagem — ótimo para destacar o sujeito sem perder o contexto.</div>
       <div id="edgeControls">
         <div class="sep"></div>
         <div class="row"><span class="lbl">Suavizar borda</span><input type="range" id="feather" min="0" max="12" value="1.5" step="0.5"><span class="val" id="featherVal">1.5</span></div>
         <div class="row"><span class="lbl">Recuar borda</span><input type="range" id="contract" min="-30" max="30" value="0"><span class="val" id="contractVal">0</span></div>
         <div class="note">“Suavizar” deixa a borda macia (bom para cabelo). “Recuar” encolhe o recorte para eliminar franjas do fundo antigo.</div>
+      </div>
+    </div>
+
+    <!-- Efeitos -->
+    <div class="cat" data-cat="efeitos">
+      <div class="note hidden" id="effNote">Os efeitos aparecem sobre o recorte — escolha um fundo diferente de “Original” para vê-los.</div>
+      <div class="switch"><span class="lbl">Sombra</span><div class="toggle" id="shadowToggle" role="switch" tabindex="0"></div></div>
+      <div class="eff-body hidden" id="shadowBody">
+        <div class="row"><span class="lbl">Desfoque</span><input type="range" id="shBlur" min="0" max="60" value="18"><span class="val" id="shBlurV">18</span></div>
+        <div class="row"><span class="lbl">Distância</span><input type="range" id="shDist" min="0" max="60" value="12"><span class="val" id="shDistV">12</span></div>
+        <div class="row"><span class="lbl">Ângulo</span><input type="range" id="shAngle" min="0" max="360" value="135"><span class="val" id="shAngleV">135</span></div>
+        <div class="row"><span class="lbl">Opacidade</span><input type="range" id="shOpacity" min="0" max="100" value="45"><span class="val" id="shOpacityV">45</span></div>
+        <div class="swatches" id="shSwatches">
+          <button class="swatch active" style="background:#000000" data-shcolor="#000000"></button>
+          <button class="swatch" style="background:#3a2a1a" data-shcolor="#3a2a1a"></button>
+          <button class="swatch" style="background:#1f2a44" data-shcolor="#1f2a44"></button>
+          <label class="swatch pick" title="Cor da sombra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><input type="color" id="shColorPick" value="#000000"></label>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="switch"><span class="lbl">Contorno</span><div class="toggle" id="borderToggle" role="switch" tabindex="0"></div></div>
+      <div class="eff-body hidden" id="borderBody">
+        <div class="row"><span class="lbl">Espessura</span><input type="range" id="bdSize" min="1" max="40" value="8"><span class="val" id="bdSizeV">8</span></div>
+        <div class="swatches" id="bdSwatches">
+          <button class="swatch active" style="background:#ffffff" data-bdcolor="#ffffff"></button>
+          <button class="swatch" style="background:#000000" data-bdcolor="#000000"></button>
+          <button class="swatch" style="background:#cf3418" data-bdcolor="#cf3418"></button>
+          <button class="swatch" style="background:#f2b705" data-bdcolor="#f2b705"></button>
+          <label class="swatch pick" title="Cor do contorno"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><input type="color" id="bdColorPick" value="#ffffff"></label>
+        </div>
       </div>
     </div>
 
@@ -380,10 +352,34 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       <button class="btn ghost sm" id="brushReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8"/><path d="M3 3v5h5"/></svg> Desfazer retoques</button>
     </div>
 
-    <!-- Ações -->
     <div class="actions">
-      <button class="btn ghost" id="btnDownload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg> Baixar</button>
-      <button class="btn" id="btnUse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg> Usar no app</button>
+      <button class="btn" id="btnExport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg> Exportar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de exportação -->
+<div class="modal-backdrop" id="exportModal">
+  <div class="modal" role="dialog" aria-label="Exportar imagem">
+    <div class="modal-head">
+      <div class="modal-title">Exportar</div>
+      <button class="modal-x" id="exportClose" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">Formato</div>
+      <div class="fmt-grid" id="fmtGrid">
+        <button class="fmt active" data-fmt="png"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>PNG<small>fundo transparente</small></button>
+        <button class="fmt" data-fmt="jpeg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l4-4 5 5"/></svg>JPEG<small>menor · sem transparência</small></button>
+        <button class="fmt" data-fmt="pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>PDF<small>documento</small></button>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-label">Resolução</div>
+      <div class="res-grid" id="resGrid"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="exportSend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg> Enviar para Cartaz</button>
+      <button class="btn" id="exportDo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg> Baixar</button>
     </div>
   </div>
 </div>
@@ -402,82 +398,55 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   const MAXSIDE = 1800;
 
   let toastTimer = null;
-  function toast(msg, err) {
-    const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = 'toast'; }, 2600);
-  }
+  function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = 'toast'; }, 2600); }
 
-  // ---------- Estado ----------
   const S = {
     orig: null, adjOrig: null, maskGray: null, aiAlpha: null,
     brushAdd: null, brushSub: null, finalAlpha: null, cut: null, bg: null, outFull: null,
     W: 0, H: 0,
     scale: 1, fitScale: 1, panX: 0, panY: 0,
-    bgKind: 'transparent', bgColor: '#ffffff', blurAmt: 16, bgImage: null,
+    bgKind: 'transparent', bgColor: '#ffffff', blurAmt: 18, bgImage: null,
     feather: 1.5, contract: 0,
     brushMode: 'restore', brushSize: 42, brushSoft: 55,
-    adj: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0 },
-    crop: null, cropAspect: null,     // {x,y,w,h} em px da imagem · aspecto travado (w/h) ou null
-    cat: 'fundo',
-    compareRaw: false,
+    adj: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 },
+    shadow: { on: false, blur: 18, dist: 12, angle: 135, opacity: 45, color: '#000000' },
+    border: { on: false, size: 8, color: '#ffffff' },
+    crop: null, cropAspect: null,
+    cat: 'fundo', compareRaw: false,
     dirtyCut: true, dirtyBg: true, dirtyAdj: true, dirtyOut: true,
     ready: false,
+    exportFmt: 'png', exportRes: 'max',
   };
   const embedded = window.parent && window.parent !== window;
   function parentOrigin() { return location.protocol === 'file:' ? '*' : location.origin; }
 
-  const checker = (function () {
-    const c = document.createElement('canvas'); c.width = c.height = 20;
-    const x = c.getContext('2d');
-    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 20, 20);
-    x.fillStyle = '#d9d5cc'; x.fillRect(0, 0, 10, 10); x.fillRect(10, 10, 10, 10);
-    return c;
-  })();
+  const checker = (function () { const c = document.createElement('canvas'); c.width = c.height = 20; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 20, 20); x.fillStyle = '#d9d5cc'; x.fillRect(0, 0, 10, 10); x.fillRect(10, 10, 10, 10); return c; })();
   function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
   function srcImage() { return S.adjOrig || S.orig; }
   function cropMode() { return S.cat === 'cortar'; }
   function activeRect() { return S.crop ? S.crop : { x: 0, y: 0, w: S.W, h: S.H }; }
   function shownRect() { return cropMode() ? { x: 0, y: 0, w: S.W, h: S.H } : activeRect(); }
+  const _temp = {};
+  function getTemp(name, w, h) { let c = _temp[name]; if (!c) { c = _temp[name] = mkCanvas(w, h); } else if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } return c; }
+  function hexA(hex, opa) { const h = hex.replace('#', ''); const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16); return 'rgba(' + r + ',' + g + ',' + b + ',' + (opa / 100) + ')'; }
 
-  // =====================================================================
-  //  MOTOR DE IA — ONNX Runtime Web + U²-Netp (carregado 1x, sob demanda)
-  // =====================================================================
+  // ============ MOTOR DE IA ============
   let session = null, sessionPromise = null;
   const MEAN = [0.485, 0.456, 0.406], STD = [0.229, 0.224, 0.225], SZ = 320;
-
-  function setLoader(show, msg, sub, pct) {
-    $('#loader').classList.toggle('hidden', !show);
-    if (msg != null) $('#loadMsg').textContent = msg;
-    $('#loadSub').textContent = sub || '';
-    const pw = $('#progWrap');
-    if (pct == null) { pw.classList.add('hidden'); }
-    else { pw.classList.remove('hidden'); $('#progBar').style.width = Math.round(pct * 100) + '%'; }
-  }
-
+  function setLoader(show, msg, sub, pct) { $('#loader').classList.toggle('hidden', !show); if (msg != null) $('#loadMsg').textContent = msg; $('#loadSub').textContent = sub || ''; const pw = $('#progWrap'); if (pct == null) pw.classList.add('hidden'); else { pw.classList.remove('hidden'); $('#progBar').style.width = Math.round(pct * 100) + '%'; } }
   async function fetchModelBuffer(url) {
-    const res = await fetch(url, { cache: 'force-cache' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const res = await fetch(url, { cache: 'force-cache' }); if (!res.ok) throw new Error('HTTP ' + res.status);
     const total = +(res.headers.get('content-length') || 0);
     if (!res.body || !total) return new Uint8Array(await res.arrayBuffer());
     const reader = res.body.getReader(); const chunks = []; let got = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value); got += value.length;
-      setLoader(true, 'Baixando o modelo…', 'Só na primeira vez — depois fica salvo no aparelho.', got / total);
-    }
-    const out = new Uint8Array(got); let off = 0;
-    for (const c of chunks) { out.set(c, off); off += c.length; }
-    return out;
+    for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length; setLoader(true, 'Baixando o modelo…', 'Só na primeira vez — depois fica salvo no aparelho.', got / total); }
+    const out = new Uint8Array(got); let off = 0; for (const c of chunks) { out.set(c, off); off += c.length; } return out;
   }
-
   function loadSession() {
     if (sessionPromise) return sessionPromise;
     sessionPromise = (async () => {
       if (typeof ort === 'undefined') throw new Error('Motor de IA indisponível.');
-      ort.env.wasm.wasmPaths = new URL('vendor/ort/', location.href).href;
-      ort.env.wasm.numThreads = 1;
-      ort.env.wasm.simd = true;
+      ort.env.wasm.wasmPaths = new URL('vendor/ort/', location.href).href; ort.env.wasm.numThreads = 1; ort.env.wasm.simd = true;
       const buf = await fetchModelBuffer(new URL('models/u2netp.onnx', location.href).href);
       setLoader(true, 'Iniciando o motor de IA…', 'Preparando o processamento no seu navegador.', null);
       session = await ort.InferenceSession.create(buf, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
@@ -485,570 +454,454 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     })();
     return sessionPromise;
   }
-
   async function segment(srcCanvas, outW, outH) {
-    const sess = await loadSession();
-    setLoader(true, 'Removendo o fundo…', 'Isolando o objeto principal.', null);
-    await new Promise((r) => setTimeout(r, 16));
-    const tmp = mkCanvas(SZ, SZ); const tx = tmp.getContext('2d');
-    tx.drawImage(srcCanvas, 0, 0, SZ, SZ);
-    const d = tx.getImageData(0, 0, SZ, SZ).data;
-    const chw = new Float32Array(3 * SZ * SZ);
-    for (let i = 0; i < SZ * SZ; i++) {
-      chw[i]               = (d[i * 4]     / 255 - MEAN[0]) / STD[0];
-      chw[SZ * SZ + i]     = (d[i * 4 + 1] / 255 - MEAN[1]) / STD[1];
-      chw[2 * SZ * SZ + i] = (d[i * 4 + 2] / 255 - MEAN[2]) / STD[2];
-    }
-    const input = new ort.Tensor('float32', chw, [1, 3, SZ, SZ]);
-    const feeds = {}; feeds[sess.inputNames[0]] = input;
-    const out = (await sess.run(feeds))[sess.outputNames[0]];
-    const md = out.data;
-    let mn = Infinity, mx = -Infinity;
-    for (let i = 0; i < md.length; i++) { const v = md[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
-    const rng = (mx - mn) || 1;
-    const small = mkCanvas(SZ, SZ); const sc = small.getContext('2d');
-    const id = sc.createImageData(SZ, SZ);
-    for (let i = 0; i < SZ * SZ; i++) {
-      const v = Math.round(((md[i] - mn) / rng) * 255);
-      id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255;
-    }
+    const sess = await loadSession(); setLoader(true, 'Removendo o fundo…', 'Isolando o objeto principal.', null); await new Promise((r) => setTimeout(r, 16));
+    const tmp = mkCanvas(SZ, SZ); const tx = tmp.getContext('2d'); tx.drawImage(srcCanvas, 0, 0, SZ, SZ);
+    const d = tx.getImageData(0, 0, SZ, SZ).data; const chw = new Float32Array(3 * SZ * SZ);
+    for (let i = 0; i < SZ * SZ; i++) { chw[i] = (d[i * 4] / 255 - MEAN[0]) / STD[0]; chw[SZ * SZ + i] = (d[i * 4 + 1] / 255 - MEAN[1]) / STD[1]; chw[2 * SZ * SZ + i] = (d[i * 4 + 2] / 255 - MEAN[2]) / STD[2]; }
+    const input = new ort.Tensor('float32', chw, [1, 3, SZ, SZ]); const feeds = {}; feeds[sess.inputNames[0]] = input;
+    const out = (await sess.run(feeds))[sess.outputNames[0]]; const md = out.data;
+    let mn = Infinity, mx = -Infinity; for (let i = 0; i < md.length; i++) { const v = md[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+    const rng = (mx - mn) || 1; const small = mkCanvas(SZ, SZ); const sc = small.getContext('2d'); const id = sc.createImageData(SZ, SZ);
+    for (let i = 0; i < SZ * SZ; i++) { const v = Math.round(((md[i] - mn) / rng) * 255); id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255; }
     sc.putImageData(id, 0, 0);
-    const full = mkCanvas(outW, outH); const fc = full.getContext('2d');
-    fc.imageSmoothingEnabled = true; fc.imageSmoothingQuality = 'high';
-    fc.drawImage(small, 0, 0, outW, outH);
-    return full;
+    const full = mkCanvas(outW, outH); const fc = full.getContext('2d'); fc.imageSmoothingEnabled = true; fc.imageSmoothingQuality = 'high'; fc.drawImage(small, 0, 0, outW, outH); return full;
   }
 
-  // =====================================================================
-  //  AJUSTES (brilho/contraste/saturação/temperatura/exposição) — LUT
-  // =====================================================================
-  function adjNeutral() { const a = S.adj; return !a.brightness && !a.contrast && !a.saturation && !a.temperature && !a.exposure; }
+  // ============ AJUSTES (LUT + nitidez) ============
+  function adjNeutral() { const a = S.adj; return !a.brightness && !a.contrast && !a.saturation && !a.temperature && !a.exposure && !a.sharpen; }
   function applyAdjustments() {
     S.dirtyAdj = false;
     if (adjNeutral()) { S.adjOrig = null; S.dirtyCut = true; S.dirtyBg = true; S.dirtyOut = true; return; }
     const { W, H } = S, a = S.adj;
-    const expF = Math.pow(2, (a.exposure / 100) * 0.6);
-    const C = a.contrast * 1.4;
-    const F = (259 * (C + 255)) / (255 * (259 - C));
-    const bAdd = a.brightness * 1.1;
-    const tR = a.temperature * 0.5, tB = -a.temperature * 0.5;
+    const expF = Math.pow(2, (a.exposure / 100) * 0.6); const C = a.contrast * 1.4; const F = (259 * (C + 255)) / (255 * (259 - C));
+    const bAdd = a.brightness * 1.1, tR = a.temperature * 0.5, tB = -a.temperature * 0.5;
     const clamp = (x) => x < 0 ? 0 : x > 255 ? 255 : x;
-    const base = new Float32Array(256);
-    for (let v = 0; v < 256; v++) { let x = v * expF; x = F * (x - 128) + 128; x += bAdd; base[v] = x; }
+    const base = new Float32Array(256); for (let v = 0; v < 256; v++) { let x = v * expF; x = F * (x - 128) + 128; x += bAdd; base[v] = x; }
     const LR = new Uint8ClampedArray(256), LG = new Uint8ClampedArray(256), LB = new Uint8ClampedArray(256);
     for (let v = 0; v < 256; v++) { LR[v] = clamp(base[v] + tR); LG[v] = clamp(base[v]); LB[v] = clamp(base[v] + tB); }
     const satF = 1 + a.saturation / 100;
     if (!S.adjOrig || S.adjOrig.width !== W || S.adjOrig.height !== H) S.adjOrig = mkCanvas(W, H);
-    const ac = S.adjOrig.getContext('2d');
-    ac.drawImage(S.orig, 0, 0);
+    const ac = S.adjOrig.getContext('2d'); ac.drawImage(S.orig, 0, 0);
     const idata = ac.getImageData(0, 0, W, H); const p = idata.data;
-    for (let i = 0; i < p.length; i += 4) {
-      let r = LR[p[i]], g = LG[p[i + 1]], b = LB[p[i + 2]];
-      if (satF !== 1) { const gray = 0.299 * r + 0.587 * g + 0.114 * b; r = gray + (r - gray) * satF; g = gray + (g - gray) * satF; b = gray + (b - gray) * satF; }
-      p[i] = r; p[i + 1] = g; p[i + 2] = b;
-    }
+    for (let i = 0; i < p.length; i += 4) { let r = LR[p[i]], g = LG[p[i + 1]], b = LB[p[i + 2]]; if (satF !== 1) { const gray = 0.299 * r + 0.587 * g + 0.114 * b; r = gray + (r - gray) * satF; g = gray + (g - gray) * satF; b = gray + (b - gray) * satF; } p[i] = r; p[i + 1] = g; p[i + 2] = b; }
+    if (a.sharpen > 0) sharpen(idata, W, H, a.sharpen / 100);
     ac.putImageData(idata, 0, 0);
     S.dirtyCut = true; S.dirtyBg = true; S.dirtyOut = true;
   }
-
-  // =====================================================================
-  //  MÁSCARA / COMPOSIÇÃO
-  // =====================================================================
-  function buildAiAlpha() {
-    const { W, H } = S;
-    const blurPx = S.feather;
-    const blurred = mkCanvas(W, H); const bx = blurred.getContext('2d');
-    if (blurPx > 0) bx.filter = 'blur(' + blurPx + 'px)';
-    bx.drawImage(S.maskGray, 0, 0);
-    bx.filter = 'none';
-    const idata = bx.getImageData(0, 0, W, H); const p = idata.data;
-    const t0 = 128 + S.contract * 2.2, soft = 26;
-    for (let i = 0; i < p.length; i += 4) {
-      const g = p[i]; let a;
-      if (g <= t0 - soft) a = 0;
-      else if (g >= t0 + soft) a = 255;
-      else { const t = (g - (t0 - soft)) / (2 * soft); a = Math.round(t * t * (3 - 2 * t) * 255); }
-      p[i] = p[i + 1] = p[i + 2] = 0; p[i + 3] = a;
+  // Nitidez: máscara de nitidez (unsharp) leve — out = src + k*(src - média4)
+  function sharpen(idata, W, H, amount) {
+    const src = idata.data; const out = new Uint8ClampedArray(src); const k = amount * 0.8;
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const i = (y * W + x) * 4;
+        for (let c = 0; c < 3; c++) {
+          const idx = i + c;
+          const neigh = (src[idx - 4] + src[idx + 4] + src[idx - W * 4] + src[idx + W * 4]) / 4;
+          out[idx] = src[idx] + (src[idx] - neigh) * k;
+        }
+      }
     }
-    if (!S.aiAlpha || S.aiAlpha.width !== W || S.aiAlpha.height !== H) S.aiAlpha = mkCanvas(W, H);
-    S.aiAlpha.getContext('2d').putImageData(idata, 0, 0);
-    S.dirtyCut = true; S.dirtyOut = true;
+    src.set(out);
   }
 
+  // ============ MÁSCARA / COMPOSIÇÃO ============
+  function buildAiAlpha() {
+    const { W, H } = S; const blurred = getTemp('aiblur', W, H); const bx = blurred.getContext('2d');
+    bx.clearRect(0, 0, W, H); if (S.feather > 0) bx.filter = 'blur(' + S.feather + 'px)'; bx.drawImage(S.maskGray, 0, 0); bx.filter = 'none';
+    const idata = bx.getImageData(0, 0, W, H); const p = idata.data; const t0 = 128 + S.contract * 2.2, soft = 26;
+    for (let i = 0; i < p.length; i += 4) { const g = p[i]; let al; if (g <= t0 - soft) al = 0; else if (g >= t0 + soft) al = 255; else { const t = (g - (t0 - soft)) / (2 * soft); al = Math.round(t * t * (3 - 2 * t) * 255); } p[i] = p[i + 1] = p[i + 2] = 0; p[i + 3] = al; }
+    if (!S.aiAlpha || S.aiAlpha.width !== W || S.aiAlpha.height !== H) S.aiAlpha = mkCanvas(W, H);
+    S.aiAlpha.getContext('2d').putImageData(idata, 0, 0); S.dirtyCut = true; S.dirtyOut = true;
+  }
   function rebuildCut() {
     const { W, H } = S;
     if (!S.finalAlpha || S.finalAlpha.width !== W || S.finalAlpha.height !== H) S.finalAlpha = mkCanvas(W, H);
-    const fa = S.finalAlpha.getContext('2d');
-    fa.clearRect(0, 0, W, H); fa.globalCompositeOperation = 'source-over';
-    fa.drawImage(S.aiAlpha, 0, 0);
+    const fa = S.finalAlpha.getContext('2d'); fa.clearRect(0, 0, W, H); fa.globalCompositeOperation = 'source-over'; fa.drawImage(S.aiAlpha, 0, 0);
     if (S.brushAdd) fa.drawImage(S.brushAdd, 0, 0);
     if (S.brushSub) { fa.globalCompositeOperation = 'destination-out'; fa.drawImage(S.brushSub, 0, 0); }
     fa.globalCompositeOperation = 'source-over';
     if (!S.cut || S.cut.width !== W || S.cut.height !== H) S.cut = mkCanvas(W, H);
-    const cc = S.cut.getContext('2d');
-    cc.clearRect(0, 0, W, H); cc.globalCompositeOperation = 'source-over';
-    cc.drawImage(srcImage(), 0, 0);
-    cc.globalCompositeOperation = 'destination-in'; cc.drawImage(S.finalAlpha, 0, 0);
-    cc.globalCompositeOperation = 'source-over';
-    S.dirtyCut = false;
+    const cc = S.cut.getContext('2d'); cc.clearRect(0, 0, W, H); cc.globalCompositeOperation = 'source-over'; cc.drawImage(srcImage(), 0, 0);
+    cc.globalCompositeOperation = 'destination-in'; cc.drawImage(S.finalAlpha, 0, 0); cc.globalCompositeOperation = 'source-over'; S.dirtyCut = false;
   }
-
   function rebuildBg() {
-    const { W, H } = S;
-    if (!S.bg || S.bg.width !== W || S.bg.height !== H) S.bg = mkCanvas(W, H);
+    const { W, H } = S; if (!S.bg || S.bg.width !== W || S.bg.height !== H) S.bg = mkCanvas(W, H);
     const c = S.bg.getContext('2d'); c.clearRect(0, 0, W, H);
     if (S.bgKind === 'color') { c.fillStyle = S.bgColor; c.fillRect(0, 0, W, H); }
     else if (S.bgKind === 'blur') {
-      c.filter = 'blur(' + S.blurAmt + 'px)'; const m = S.blurAmt * 2;
-      c.drawImage(srcImage(), -m, -m, W + 2 * m, H + 2 * m); c.filter = 'none';
+      // Desfoque REAL por reamostragem (funciona em todo navegador, incl. iOS,
+      // onde ctx.filter='blur' às vezes é ignorado). Reduz muito e amplia de volta;
+      // ctx.filter reforça a suavidade quando disponível.
+      const amt = S.blurAmt; const scale = Math.max(0.03, Math.min(0.5, 1 / (amt * 0.5 + 1)));
+      const sw = Math.max(1, Math.round(W * scale)), sh = Math.max(1, Math.round(H * scale));
+      const small = getTemp('bgsmall', sw, sh); const sc = small.getContext('2d');
+      sc.imageSmoothingEnabled = true; sc.imageSmoothingQuality = 'high'; sc.clearRect(0, 0, sw, sh); sc.drawImage(srcImage(), 0, 0, sw, sh);
+      c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; const m = Math.round(amt);
+      try { c.filter = 'blur(' + Math.min(amt, 10) + 'px)'; } catch (_) { /* */ }
+      c.drawImage(small, 0, 0, sw, sh, -m, -m, W + 2 * m, H + 2 * m); c.filter = 'none';
     } else if (S.bgKind === 'image' && S.bgImage) {
-      const iw = S.bgImage.width, ih = S.bgImage.height, r = Math.max(W / iw, H / ih);
-      const dw = iw * r, dh = ih * r; c.drawImage(S.bgImage, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      const iw = S.bgImage.width, ih = S.bgImage.height, r = Math.max(W / iw, H / ih); const dw = iw * r, dh = ih * r; c.drawImage(S.bgImage, (W - dw) / 2, (H - dh) / 2, dw, dh);
     }
     S.dirtyBg = false;
   }
-
   function rebuildOutFull() {
-    const { W, H } = S;
-    if (!S.outFull || S.outFull.width !== W || S.outFull.height !== H) S.outFull = mkCanvas(W, H);
+    const { W, H } = S; if (!S.outFull || S.outFull.width !== W || S.outFull.height !== H) S.outFull = mkCanvas(W, H);
     const c = S.outFull.getContext('2d'); c.clearRect(0, 0, W, H);
-    if (S.bgKind === 'original') { c.drawImage(srcImage(), 0, 0); }
-    else {
-      if (S.dirtyCut) rebuildCut();
-      if (S.bgKind !== 'transparent') { if (S.dirtyBg) rebuildBg(); c.drawImage(S.bg, 0, 0); }
-      c.drawImage(S.cut, 0, 0);
+    if (S.bgKind === 'original') { c.drawImage(srcImage(), 0, 0); S.dirtyOut = false; return; }
+    if (S.dirtyCut) rebuildCut();
+    if (S.bgKind !== 'transparent') { if (S.dirtyBg) rebuildBg(); c.drawImage(S.bg, 0, 0); }
+    // Sombra projetada (silhueta = finalAlpha, que é preto com alfa do recorte)
+    if (S.shadow.on) {
+      const sh = getTemp('sh', W, H); const sx = sh.getContext('2d'); sx.clearRect(0, 0, W, H);
+      const ang = S.shadow.angle * Math.PI / 180, dx = Math.cos(ang) * S.shadow.dist, dy = Math.sin(ang) * S.shadow.dist;
+      sx.save(); sx.shadowColor = hexA(S.shadow.color, S.shadow.opacity); sx.shadowBlur = S.shadow.blur; sx.shadowOffsetX = dx; sx.shadowOffsetY = dy;
+      sx.drawImage(S.finalAlpha, 0, 0); sx.restore();
+      sx.globalCompositeOperation = 'destination-out'; sx.drawImage(S.finalAlpha, 0, 0); sx.globalCompositeOperation = 'source-over';
+      c.drawImage(sh, 0, 0);
     }
-    S.dirtyOut = false;
+    // Contorno (dilata finalAlpha e recolore)
+    if (S.border.on && S.border.size > 0) {
+      const bd = getTemp('bd', W, H); const bx = bd.getContext('2d'); bx.clearRect(0, 0, W, H);
+      const t = S.border.size, N = 28; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2; bx.drawImage(S.finalAlpha, Math.cos(a) * t, Math.sin(a) * t); }
+      bx.globalCompositeOperation = 'source-in'; bx.fillStyle = S.border.color; bx.fillRect(0, 0, W, H); bx.globalCompositeOperation = 'source-over';
+      c.drawImage(bd, 0, 0);
+    }
+    c.drawImage(S.cut, 0, 0); S.dirtyOut = false;
   }
 
-  // =====================================================================
-  //  ORIENTAÇÃO (girar / espelhar) — reescreve todas as camadas
-  // =====================================================================
+  // ============ ORIENTAÇÃO ============
   function rot90(src) { const c = mkCanvas(src.height, src.width); const x = c.getContext('2d'); x.translate(src.height, 0); x.rotate(Math.PI / 2); x.drawImage(src, 0, 0); return c; }
   function flipC(src, horiz) { const c = mkCanvas(src.width, src.height); const x = c.getContext('2d'); if (horiz) { x.translate(src.width, 0); x.scale(-1, 1); } else { x.translate(0, src.height); x.scale(1, -1); } x.drawImage(src, 0, 0); return c; }
   function transformAll(fn, swap) {
     ['orig', 'maskGray', 'aiAlpha', 'brushAdd', 'brushSub'].forEach((k) => { if (S[k]) S[k] = fn(S[k]); });
-    S.adjOrig = null;
-    if (swap) { const t = S.W; S.W = S.H; S.H = t; }
-    S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null;
-    S.crop = null; S.cropAspect = null; setActiveChip('#aspects', 'free');
+    S.adjOrig = null; if (swap) { const t = S.W; S.W = S.H; S.H = t; }
+    S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null; S.crop = null; S.cropAspect = null; setActiveChip('#aspects', 'free');
+    ['orig', 'maskGray', 'brushAdd', 'brushSub'].forEach(bumpLayer);
     S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true;
-    updateBadge(); resizeView(); computeFit(); fitToScreen();
+    updateBadge(); resizeView(); computeFit(); fitToScreen(); commit();
   }
 
-  // =====================================================================
-  //  VIEW (zoom/pan) + recorte de enquadramento
-  // =====================================================================
+  // ============ VIEW ============
   let checkerPattern = null;
-  function resizeView() {
-    const r = stage.getBoundingClientRect();
-    view.width = Math.max(1, Math.round(r.width * DPR));
-    view.height = Math.max(1, Math.round(r.height * DPR));
-    view.style.width = r.width + 'px'; view.style.height = r.height + 'px';
-    if (S.orig) { computeFit(); render(); }
-  }
-  function computeFit() {
-    const sr = shownRect(); const pad = 28 * DPR;
-    S.fitScale = Math.min((view.width - pad) / sr.w, (view.height - pad) / sr.h);
-    if (!isFinite(S.fitScale) || S.fitScale <= 0) S.fitScale = 1;
-  }
+  function resizeView() { const r = stage.getBoundingClientRect(); view.width = Math.max(1, Math.round(r.width * DPR)); view.height = Math.max(1, Math.round(r.height * DPR)); view.style.width = r.width + 'px'; view.style.height = r.height + 'px'; if (S.orig) { computeFit(); render(); } }
+  function computeFit() { const sr = shownRect(); const pad = 28 * DPR; S.fitScale = Math.min((view.width - pad) / sr.w, (view.height - pad) / sr.h); if (!isFinite(S.fitScale) || S.fitScale <= 0) S.fitScale = 1; }
   function fitToScreen() { S.scale = 1; S.panX = 0; S.panY = 0; render(); }
-  function projRect() {
-    const sr = shownRect(); const s = S.fitScale * S.scale;
-    const w = sr.w * s, h = sr.h * s;
-    return { x: (view.width - w) / 2 + S.panX, y: (view.height - h) / 2 + S.panY, w, h, s };
-  }
+  function projRect() { const sr = shownRect(); const s = S.fitScale * S.scale; const w = sr.w * s, h = sr.h * s; return { x: (view.width - w) / 2 + S.panX, y: (view.height - h) / 2 + S.panY, w, h, s }; }
   function viewToImage(vx, vy) { const sr = shownRect(), pr = projRect(); return { x: sr.x + (vx - pr.x) / pr.s, y: sr.y + (vy - pr.y) / pr.s }; }
   function imageToView(ix, iy) { const sr = shownRect(), pr = projRect(); return { x: pr.x + (ix - sr.x) * pr.s, y: pr.y + (iy - sr.y) * pr.s }; }
-
   let rafPending = false;
   function requestRender() { if (!rafPending) { rafPending = true; requestAnimationFrame(() => { rafPending = false; render(); }); } }
-
   function render() {
-    if (!S.orig) return;
-    if (S.dirtyAdj) applyAdjustments();
-    if (S.dirtyOut) rebuildOutFull();
-    const vw = view.width, vh = view.height;
-    vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.clearRect(0, 0, vw, vh);
-    vctx.fillStyle = '#2a2723'; vctx.fillRect(0, 0, vw, vh);
+    if (!S.orig) return; if (S.dirtyAdj) applyAdjustments(); if (S.dirtyOut) rebuildOutFull();
+    const vw = view.width, vh = view.height; vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.clearRect(0, 0, vw, vh); vctx.fillStyle = '#2a2723'; vctx.fillRect(0, 0, vw, vh);
     const pr = projRect(), sr = shownRect();
-    vctx.save();
-    vctx.shadowColor = 'rgba(0,0,0,.45)'; vctx.shadowBlur = 24 * DPR; vctx.shadowOffsetY = 6 * DPR;
-    vctx.fillStyle = '#000'; vctx.fillRect(pr.x, pr.y, pr.w, pr.h);
-    vctx.restore();
-
-    if (S.compareRaw) {
-      vctx.imageSmoothingQuality = 'high';
-      vctx.drawImage(S.orig, sr.x, sr.y, sr.w, sr.h, pr.x, pr.y, pr.w, pr.h);
-    } else {
-      if (S.bgKind === 'transparent') {
-        if (!checkerPattern) checkerPattern = vctx.createPattern(checker, 'repeat');
-        vctx.save(); vctx.beginPath(); vctx.rect(pr.x, pr.y, pr.w, pr.h); vctx.clip();
-        vctx.fillStyle = checkerPattern; vctx.translate(pr.x, pr.y); vctx.fillRect(0, 0, pr.w, pr.h); vctx.restore();
-      }
-      vctx.imageSmoothingQuality = 'high';
-      vctx.drawImage(S.outFull, sr.x, sr.y, sr.w, sr.h, pr.x, pr.y, pr.w, pr.h);
+    vctx.save(); vctx.shadowColor = 'rgba(0,0,0,.45)'; vctx.shadowBlur = 24 * DPR; vctx.shadowOffsetY = 6 * DPR; vctx.fillStyle = '#000'; vctx.fillRect(pr.x, pr.y, pr.w, pr.h); vctx.restore();
+    if (S.compareRaw) { vctx.imageSmoothingQuality = 'high'; vctx.drawImage(S.orig, sr.x, sr.y, sr.w, sr.h, pr.x, pr.y, pr.w, pr.h); }
+    else {
+      if (S.bgKind === 'transparent') { if (!checkerPattern) checkerPattern = vctx.createPattern(checker, 'repeat'); vctx.save(); vctx.beginPath(); vctx.rect(pr.x, pr.y, pr.w, pr.h); vctx.clip(); vctx.fillStyle = checkerPattern; vctx.translate(pr.x, pr.y); vctx.fillRect(0, 0, pr.w, pr.h); vctx.restore(); }
+      vctx.imageSmoothingQuality = 'high'; vctx.drawImage(S.outFull, sr.x, sr.y, sr.w, sr.h, pr.x, pr.y, pr.w, pr.h);
     }
-    vctx.strokeStyle = 'rgba(255,255,255,.5)'; vctx.lineWidth = 1;
-    vctx.strokeRect(pr.x + .5, pr.y + .5, pr.w - 1, pr.h - 1);
-
-    if (cropMode()) drawCropOverlay(pr);
-    if (S.cat === 'pincel' && brushCursor.show) drawBrushCursor(pr);
+    vctx.strokeStyle = 'rgba(255,255,255,.5)'; vctx.lineWidth = 1; vctx.strokeRect(pr.x + .5, pr.y + .5, pr.w - 1, pr.h - 1);
+    if (cropMode()) drawCropOverlay(pr); if (S.cat === 'pincel' && brushCursor.show) drawBrushCursor(pr);
   }
+  function drawBrushCursor(pr) { const rad = (S.brushSize / 2) * pr.s; vctx.beginPath(); vctx.arc(brushCursor.x, brushCursor.y, rad, 0, 7); vctx.strokeStyle = S.brushMode === 'erase' ? 'rgba(207,52,24,.95)' : 'rgba(46,125,79,.95)'; vctx.lineWidth = 2; vctx.stroke(); vctx.strokeStyle = 'rgba(255,255,255,.9)'; vctx.lineWidth = 1; vctx.beginPath(); vctx.arc(brushCursor.x, brushCursor.y, rad, 0, 7); vctx.stroke(); }
 
-  function drawBrushCursor(pr) {
-    const rad = (S.brushSize / 2) * pr.s;
-    vctx.beginPath(); vctx.arc(brushCursor.x, brushCursor.y, rad, 0, 7);
-    vctx.strokeStyle = S.brushMode === 'erase' ? 'rgba(207,52,24,.95)' : 'rgba(46,125,79,.95)';
-    vctx.lineWidth = 2; vctx.stroke();
-    vctx.strokeStyle = 'rgba(255,255,255,.9)'; vctx.lineWidth = 1;
-    vctx.beginPath(); vctx.arc(brushCursor.x, brushCursor.y, rad, 0, 7); vctx.stroke();
-  }
-
-  // ---------- Recorte (crop) ----------
-  const HANDLE = 22; // px de tolerância p/ alça (em coords de view/DPR)
+  // ---- Recorte ----
+  const HANDLE = 22;
   function ensureCrop() { if (!S.crop) S.crop = { x: 0, y: 0, w: S.W, h: S.H }; }
   function drawCropOverlay(pr) {
-    ensureCrop();
-    const a = S.crop;
-    const p0 = imageToView(a.x, a.y), p1 = imageToView(a.x + a.w, a.y + a.h);
+    ensureCrop(); const a = S.crop; const p0 = imageToView(a.x, a.y), p1 = imageToView(a.x + a.w, a.y + a.h);
     const rx = p0.x, ry = p0.y, rw = p1.x - p0.x, rh = p1.y - p0.y;
-    // escurece fora do recorte
-    vctx.save(); vctx.fillStyle = 'rgba(20,18,15,.55)';
-    vctx.beginPath(); vctx.rect(pr.x, pr.y, pr.w, pr.h); vctx.rect(rx, ry, rw, rh); vctx.fill('evenodd'); vctx.restore();
-    // moldura + regra dos terços
+    vctx.save(); vctx.fillStyle = 'rgba(20,18,15,.55)'; vctx.beginPath(); vctx.rect(pr.x, pr.y, pr.w, pr.h); vctx.rect(rx, ry, rw, rh); vctx.fill('evenodd'); vctx.restore();
     vctx.strokeStyle = '#fff'; vctx.lineWidth = 2; vctx.strokeRect(rx, ry, rw, rh);
     vctx.strokeStyle = 'rgba(255,255,255,.35)'; vctx.lineWidth = 1;
-    for (let i = 1; i < 3; i++) {
-      vctx.beginPath(); vctx.moveTo(rx + rw * i / 3, ry); vctx.lineTo(rx + rw * i / 3, ry + rh); vctx.stroke();
-      vctx.beginPath(); vctx.moveTo(rx, ry + rh * i / 3); vctx.lineTo(rx + rw, ry + rh * i / 3); vctx.stroke();
-    }
-    // alças de canto
-    vctx.fillStyle = '#fff';
-    [[rx, ry], [rx + rw, ry], [rx, ry + rh], [rx + rw, ry + rh]].forEach(([hx, hy]) => {
-      vctx.beginPath(); vctx.arc(hx, hy, 6 * DPR / DPR + 4, 0, 7); vctx.fill();
-    });
+    for (let i = 1; i < 3; i++) { vctx.beginPath(); vctx.moveTo(rx + rw * i / 3, ry); vctx.lineTo(rx + rw * i / 3, ry + rh); vctx.stroke(); vctx.beginPath(); vctx.moveTo(rx, ry + rh * i / 3); vctx.lineTo(rx + rw, ry + rh * i / 3); vctx.stroke(); }
+    vctx.fillStyle = '#fff'; [[rx, ry], [rx + rw, ry], [rx, ry + rh], [rx + rw, ry + rh]].forEach(([hx, hy]) => { vctx.beginPath(); vctx.arc(hx, hy, 7, 0, 7); vctx.fill(); });
   }
   function cropHitTest(v) {
-    ensureCrop();
-    const a = S.crop;
+    ensureCrop(); const a = S.crop;
     const corners = { nw: imageToView(a.x, a.y), ne: imageToView(a.x + a.w, a.y), sw: imageToView(a.x, a.y + a.h), se: imageToView(a.x + a.w, a.y + a.h) };
     for (const k in corners) { if (Math.hypot(v.x - corners[k].x, v.y - corners[k].y) < HANDLE * DPR / 1.5) return k; }
     const p0 = imageToView(a.x, a.y), p1 = imageToView(a.x + a.w, a.y + a.h);
-    if (v.x >= p0.x && v.x <= p1.x && v.y >= p0.y && v.y <= p1.y) return 'move';
-    return null;
+    if (v.x >= p0.x && v.x <= p1.x && v.y >= p0.y && v.y <= p1.y) return 'move'; return null;
   }
 
-  // =====================================================================
-  //  CARREGAR IMAGEM
-  // =====================================================================
-  function updateBadge() {
-    const r = activeRect();
-    $('#badge').textContent = Math.round(r.w) + ' × ' + Math.round(r.h) + ' px';
-  }
+  // ============ CARREGAR IMAGEM ============
+  function updateBadge() { const r = activeRect(); $('#badge').textContent = Math.round(r.w) + ' × ' + Math.round(r.h) + ' px'; }
   async function loadImage(src) {
     let img;
-    try { img = await createImageBitmap(src); }
-    catch (e) { img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = (typeof src === 'string') ? src : URL.createObjectURL(src); }); }
-    let w = img.width, h = img.height;
-    const scale = Math.min(1, MAXSIDE / Math.max(w, h));
-    w = Math.round(w * scale); h = Math.round(h * scale);
-    S.W = w; S.H = h;
-    S.orig = mkCanvas(w, h);
-    const oc = S.orig.getContext('2d'); oc.imageSmoothingQuality = 'high'; oc.drawImage(img, 0, 0, w, h);
-    // reseta camadas e edições
+    try { img = await createImageBitmap(src); } catch (e) { img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = (typeof src === 'string') ? src : URL.createObjectURL(src); }); }
+    let w = img.width, h = img.height; const scale = Math.min(1, MAXSIDE / Math.max(w, h)); w = Math.round(w * scale); h = Math.round(h * scale);
+    S.W = w; S.H = h; S.orig = mkCanvas(w, h); const oc = S.orig.getContext('2d'); oc.imageSmoothingQuality = 'high'; oc.drawImage(img, 0, 0, w, h);
     S.adjOrig = null; S.brushAdd = null; S.brushSub = null; S.aiAlpha = null; S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null;
-    S.crop = null; S.cropAspect = null;
-    S.adj = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0 };
-    syncAdjInputs(); setActiveChip('#filters', 'none'); setActiveChip('#aspects', 'free');
+    // Muta em PLACE (não reatribui) — handlers de efeitos capturam essas
+    // referências no setup; trocar o objeto quebraria os toggles/sliders.
+    S.crop = null; S.cropAspect = null; Object.assign(S.adj, { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 });
+    Object.assign(S.shadow, { on: false, blur: 18, dist: 12, angle: 135, opacity: 45, color: '#000000' }); Object.assign(S.border, { on: false, size: 8, color: '#ffffff' });
+    S.bgKind = 'transparent';
+    syncAllInputs(); setActiveChip('#filters', 'none'); setActiveChip('#aspects', 'free');
     S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true;
-
-    $('#drop').classList.add('hidden');
-    ['#btnCompare', '#btnRedo', '#btnNew'].forEach((id) => $(id).removeAttribute('disabled'));
-
+    $('#drop').classList.add('hidden'); ['#btnCompare', '#btnRedo', '#btnNew'].forEach((id) => $(id).removeAttribute('disabled'));
     try {
-      S.maskGray = await segment(S.orig, w, h);
-      buildAiAlpha();
-      S.ready = true;
+      S.maskGray = await segment(S.orig, w, h); buildAiAlpha(); S.ready = true;
       $('#panel').classList.remove('hidden'); $('#zoombar').classList.remove('hidden'); $('#badge').classList.remove('hidden');
-      updateBadge(); setLoader(false);
-      resizeView(); computeFit(); fitToScreen();
+      updateBadge(); setLoader(false); resizeView(); computeFit(); fitToScreen();
+      resetHistory(); await pushHistory();
       toast('Fundo removido ✓');
     } catch (e) {
-      setLoader(false);
-      toast(location.protocol === 'file:'
-        ? 'Abra pela versão publicada (o modo arquivo local bloqueia a IA).'
-        : 'Não foi possível carregar a IA: ' + (e && e.message ? e.message : e), true);
-      $('#panel').classList.add('hidden');
-      resizeView(); computeFit(); fitToScreen();
-      console.error(e);
+      setLoader(false); toast(location.protocol === 'file:' ? 'Abra pela versão publicada (o modo arquivo local bloqueia a IA).' : 'Não foi possível carregar a IA: ' + (e && e.message ? e.message : e), true);
+      $('#panel').classList.add('hidden'); resizeView(); computeFit(); fitToScreen(); console.error(e);
     }
   }
+  async function reSegment() { if (!S.orig) return; try { S.maskGray = await segment(S.orig, S.W, S.H); S.brushAdd = null; S.brushSub = null; ['maskGray', 'brushAdd', 'brushSub'].forEach(bumpLayer); buildAiAlpha(); S.dirtyOut = true; requestRender(); setLoader(false); commit(); toast('Recorte refeito ✓'); } catch (e) { setLoader(false); toast('Falha ao refazer.', true); } }
 
-  async function reSegment() {
-    if (!S.orig) return;
-    try { S.maskGray = await segment(S.orig, S.W, S.H); S.brushAdd = null; S.brushSub = null; buildAiAlpha(); S.dirtyOut = true; requestRender(); setLoader(false); toast('Recorte refeito ✓'); }
-    catch (e) { setLoader(false); toast('Falha ao refazer.', true); }
-  }
-
-  // =====================================================================
-  //  PINCEL
-  // =====================================================================
+  // ============ PINCEL ============
   const brushCursor = { x: 0, y: 0, show: false };
   function paintAt(ix, iy) {
     const target = S.brushMode === 'restore' ? (S.brushAdd || (S.brushAdd = mkCanvas(S.W, S.H))) : (S.brushSub || (S.brushSub = mkCanvas(S.W, S.H)));
-    const ctx = target.getContext('2d');
-    const rad = S.brushSize / 2, softEdge = 0.5 + (S.brushSoft / 100) * 0.5, inner = rad * (1 - softEdge);
-    const g = ctx.createRadialGradient(ix, iy, Math.max(0, inner), ix, iy, rad);
-    g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(ix, iy, rad, 0, 7); ctx.fill();
-    S.dirtyCut = true; S.dirtyOut = true;
+    const ctx = target.getContext('2d'); const rad = S.brushSize / 2, softEdge = 0.5 + (S.brushSoft / 100) * 0.5, inner = rad * (1 - softEdge);
+    const g = ctx.createRadialGradient(ix, iy, Math.max(0, inner), ix, iy, rad); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ix, iy, rad, 0, 7); ctx.fill(); S.dirtyCut = true; S.dirtyOut = true;
   }
 
-  // =====================================================================
-  //  ENTRADA (ponteiros)
-  // =====================================================================
-  const pointers = new Map();
-  let mode = null, last = null, pinchStart = null, lastPaint = null, cropHandle = null;
+  // ============ ENTRADA (ponteiros) ============
+  const pointers = new Map(); let mode = null, last = null, pinchStart = null, lastPaint = null, cropHandle = null, painted = false;
   function evtToView(e) { const r = view.getBoundingClientRect(); return { x: (e.clientX - r.left) * DPR, y: (e.clientY - r.top) * DPR }; }
-
   stage.addEventListener('pointerdown', (e) => {
-    if (!S.orig) return;
-    view.setPointerCapture(e.pointerId);
-    const v = evtToView(e); pointers.set(e.pointerId, v);
-    if (pointers.size === 2) {
-      mode = 'pinch'; const pts = [...pointers.values()];
-      pinchStart = { d: dist(pts[0], pts[1]), scale: S.scale, cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2, panX: S.panX, panY: S.panY };
-      return;
-    }
-    if (cropMode()) {
-      cropHandle = cropHitTest(v);
-      mode = cropHandle ? 'crop' : 'pan'; last = v; requestRender(); return;
-    }
-    if (S.cat === 'pincel') {
-      mode = 'paint'; last = v; const p = viewToImage(v.x, v.y); paintAt(p.x, p.y); lastPaint = p;
-      brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); return;
-    }
+    if (!S.orig) return; view.setPointerCapture(e.pointerId); const v = evtToView(e); pointers.set(e.pointerId, v);
+    if (pointers.size === 2) { mode = 'pinch'; const pts = [...pointers.values()]; pinchStart = { d: dist(pts[0], pts[1]), scale: S.scale, cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2, panX: S.panX, panY: S.panY }; return; }
+    if (cropMode()) { cropHandle = cropHitTest(v); mode = cropHandle ? 'crop' : 'pan'; last = v; requestRender(); return; }
+    if (S.cat === 'pincel') { mode = 'paint'; last = v; const p = viewToImage(v.x, v.y); paintAt(p.x, p.y); lastPaint = p; painted = true; brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); return; }
     mode = 'pan'; last = v;
   });
-
   stage.addEventListener('pointermove', (e) => {
-    if (!pointers.has(e.pointerId)) {
-      if (S.orig && S.cat === 'pincel') { const v = evtToView(e); brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); }
-      return;
-    }
+    if (!pointers.has(e.pointerId)) { if (S.orig && S.cat === 'pincel') { const v = evtToView(e); brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); } return; }
     const v = evtToView(e); pointers.set(e.pointerId, v);
-    if (mode === 'pinch' && pointers.size >= 2) {
-      const pts = [...pointers.values()], d = dist(pts[0], pts[1]);
-      const ns = clamp(pinchStart.scale * (d / pinchStart.d), 0.4, 8);
-      const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
-      S.panX = pinchStart.panX + (mid.x - pinchStart.cx); S.panY = pinchStart.panY + (mid.y - pinchStart.cy);
-      S.scale = ns; zoomAround(pinchStart.cx, pinchStart.cy, 1); requestRender();
-    } else if (mode === 'crop') { cropDrag(v); requestRender(); }
-    else if (mode === 'paint') {
-      const p = viewToImage(v.x, v.y);
-      if (lastPaint) { const steps = Math.ceil(dist(lastPaint, p) / (S.brushSize * 0.25)) || 1; for (let i = 1; i <= steps; i++) paintAt(lastPaint.x + (p.x - lastPaint.x) * i / steps, lastPaint.y + (p.y - lastPaint.y) * i / steps); }
-      else paintAt(p.x, p.y);
-      lastPaint = p; brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender();
-    } else if (mode === 'pan') { S.panX += v.x - last.x; S.panY += v.y - last.y; last = v; requestRender(); }
+    if (mode === 'pinch' && pointers.size >= 2) { const pts = [...pointers.values()], d = dist(pts[0], pts[1]); const ns = clamp(pinchStart.scale * (d / pinchStart.d), 0.4, 8); const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }; S.panX = pinchStart.panX + (mid.x - pinchStart.cx); S.panY = pinchStart.panY + (mid.y - pinchStart.cy); S.scale = ns; zoomAround(pinchStart.cx, pinchStart.cy, 1); requestRender(); }
+    else if (mode === 'crop') { cropDrag(v); requestRender(); }
+    else if (mode === 'paint') { const p = viewToImage(v.x, v.y); if (lastPaint) { const steps = Math.ceil(dist(lastPaint, p) / (S.brushSize * 0.25)) || 1; for (let i = 1; i <= steps; i++) paintAt(lastPaint.x + (p.x - lastPaint.x) * i / steps, lastPaint.y + (p.y - lastPaint.y) * i / steps); } else paintAt(p.x, p.y); lastPaint = p; brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); }
+    else if (mode === 'pan') { S.panX += v.x - last.x; S.panY += v.y - last.y; last = v; requestRender(); }
   });
-
   function cropDrag(v) {
-    ensureCrop(); const a = S.crop, p = viewToImage(v.x, v.y);
-    const MIN = 24;
-    let x0 = a.x, y0 = a.y, x1 = a.x + a.w, y1 = a.y + a.h;
-    if (cropHandle === 'move') {
-      const pv = viewToImage(last.x, last.y); const dx = p.x - pv.x, dy = p.y - pv.y;
-      x0 = clamp(a.x + dx, 0, S.W - a.w); y0 = clamp(a.y + dy, 0, S.H - a.h);
-      S.crop = { x: x0, y: y0, w: a.w, h: a.h }; last = v; return;
-    }
+    ensureCrop(); const a = S.crop, p = viewToImage(v.x, v.y); const MIN = 24; let x0 = a.x, y0 = a.y, x1 = a.x + a.w, y1 = a.y + a.h;
+    if (cropHandle === 'move') { const pv = viewToImage(last.x, last.y); const dx = p.x - pv.x, dy = p.y - pv.y; x0 = clamp(a.x + dx, 0, S.W - a.w); y0 = clamp(a.y + dy, 0, S.H - a.h); S.crop = { x: x0, y: y0, w: a.w, h: a.h }; last = v; updateBadge(); return; }
     if (cropHandle.indexOf('n') >= 0) y0 = clamp(p.y, 0, y1 - MIN);
     if (cropHandle.indexOf('s') >= 0) y1 = clamp(p.y, y0 + MIN, S.H);
     if (cropHandle.indexOf('w') >= 0) x0 = clamp(p.x, 0, x1 - MIN);
     if (cropHandle.indexOf('e') >= 0) x1 = clamp(p.x, x0 + MIN, S.W);
     let nw = x1 - x0, nh = y1 - y0;
-    if (S.cropAspect) {
-      // trava a proporção ajustando a dimensão que não é a "âncora" do canto
-      const ar = S.cropAspect;
-      if (cropHandle === 'nw' || cropHandle === 'se') nh = nw / ar; else nw = nh * ar;
-      if (cropHandle.indexOf('n') >= 0) y0 = y1 - nh; else y1 = y0 + nh;
-      if (cropHandle.indexOf('w') >= 0) x0 = x1 - nw; else x1 = x0 + nw;
-      // se estourou os limites, reduz mantendo a proporção
-      if (x0 < 0 || y0 < 0 || x1 > S.W || y1 > S.H) {
-        const sc = Math.min((x1) / nw, (S.W - x0) / nw, (y1) / nh, (S.H - y0) / nh, 1);
-        // fallback simples: clampa a caixa
-        x0 = clamp(x0, 0, S.W - MIN); y0 = clamp(y0, 0, S.H - MIN);
-        x1 = clamp(x1, x0 + MIN, S.W); y1 = clamp(y1, y0 + MIN, S.H);
-      }
-    }
-    S.crop = { x: x0, y: y0, w: Math.max(MIN, x1 - x0), h: Math.max(MIN, y1 - y0) };
-    updateBadge();
+    if (S.cropAspect) { const ar = S.cropAspect; if (cropHandle === 'nw' || cropHandle === 'se') nh = nw / ar; else nw = nh * ar; if (cropHandle.indexOf('n') >= 0) y0 = y1 - nh; else y1 = y0 + nh; if (cropHandle.indexOf('w') >= 0) x0 = x1 - nw; else x1 = x0 + nw; x0 = clamp(x0, 0, S.W - MIN); y0 = clamp(y0, 0, S.H - MIN); x1 = clamp(x1, x0 + MIN, S.W); y1 = clamp(y1, y0 + MIN, S.H); }
+    S.crop = { x: x0, y: y0, w: Math.max(MIN, x1 - x0), h: Math.max(MIN, y1 - y0) }; updateBadge();
   }
-
-  function zoomAround(cx, cy, factor) {
-    const sr = shownRect(), s2 = S.fitScale * S.scale, prevScale = s2 / (factor || 1);
-    const w0 = sr.w * prevScale, h0 = sr.h * prevScale, x0 = (view.width - w0) / 2 + S.panX, y0 = (view.height - h0) / 2 + S.panY;
-    const imgX = (cx - x0) / prevScale, imgY = (cy - y0) / prevScale;
-    const w2 = sr.w * s2, h2 = sr.h * s2;
-    S.panX = cx - (view.width - w2) / 2 - imgX * s2; S.panY = cy - (view.height - h2) / 2 - imgY * s2;
-  }
+  function zoomAround(cx, cy, factor) { const sr = shownRect(), s2 = S.fitScale * S.scale, prevScale = s2 / (factor || 1); const w0 = sr.w * prevScale, h0 = sr.h * prevScale, x0 = (view.width - w0) / 2 + S.panX, y0 = (view.height - h0) / 2 + S.panY; const imgX = (cx - x0) / prevScale, imgY = (cy - y0) / prevScale; const w2 = sr.w * s2, h2 = sr.h * s2; S.panX = cx - (view.width - w2) / 2 - imgX * s2; S.panY = cy - (view.height - h2) / 2 - imgY * s2; }
   function endPointer(e) {
     if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
-    if (pointers.size === 0) { mode = null; last = null; lastPaint = null; cropHandle = null; }
-    else if (pointers.size === 1) { mode = (S.cat === 'pincel' || cropMode()) ? null : 'pan'; last = [...pointers.values()][0]; lastPaint = null; }
+    if (pointers.size === 0) {
+      if (mode === 'paint' && painted) { bumpLayer(S.brushMode === 'restore' ? 'brushAdd' : 'brushSub'); commit(); }
+      if (mode === 'crop') commit();
+      mode = null; last = null; lastPaint = null; cropHandle = null; painted = false;
+    } else if (pointers.size === 1) { mode = (S.cat === 'pincel' || cropMode()) ? null : 'pan'; last = [...pointers.values()][0]; lastPaint = null; }
   }
-  stage.addEventListener('pointerup', endPointer);
-  stage.addEventListener('pointercancel', endPointer);
+  stage.addEventListener('pointerup', endPointer); stage.addEventListener('pointercancel', endPointer);
   stage.addEventListener('pointerleave', (e) => { if (!pointers.has(e.pointerId)) { brushCursor.show = false; requestRender(); } });
   stage.addEventListener('wheel', (e) => { if (!S.orig) return; e.preventDefault(); const v = evtToView(e); const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12; S.scale = clamp(S.scale * factor, 0.4, 8); zoomAround(v.x, v.y, factor); requestRender(); }, { passive: false });
   function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
-  // =====================================================================
-  //  EXPORTAR
-  // =====================================================================
-  function renderFinalCanvas() {
-    if (S.dirtyAdj) applyAdjustments();
-    if (S.dirtyOut) rebuildOutFull();
-    const r = activeRect(), w = Math.round(r.w), h = Math.round(r.h);
-    const out = mkCanvas(w, h); const c = out.getContext('2d');
-    c.drawImage(S.outFull, Math.round(r.x), Math.round(r.y), w, h, 0, 0, w, h);
-    return out;
+  // ============ HISTÓRICO (desfazer/refazer) ============
+  const layerVer = { orig: 0, maskGray: 0, brushAdd: 0, brushSub: 0 };
+  const layerCache = new Map(); let hist = [], histIdx = -1, histBusy = false;
+  function bumpLayer(n) { layerVer[n]++; }
+  function resetHistory() { hist = []; histIdx = -1; layerCache.clear(); layerVer.orig = 0; layerVer.maskGray = 0; layerVer.brushAdd = 0; layerVer.brushSub = 0; updateUndoButtons(); }
+  function snapSettings() { return { adj: Object.assign({}, S.adj), bgKind: S.bgKind, bgColor: S.bgColor, blurAmt: S.blurAmt, feather: S.feather, contract: S.contract, crop: S.crop ? Object.assign({}, S.crop) : null, cropAspect: S.cropAspect, shadow: Object.assign({}, S.shadow), border: Object.assign({}, S.border), cat: S.cat, W: S.W, H: S.H, ver: Object.assign({}, layerVer) }; }
+  function encodeLayer(name) { return new Promise((res) => { const key = name + '@' + layerVer[name]; if (layerCache.has(key)) return res(); const cv = S[name]; if (!cv) { layerCache.set(key, null); return res(); } cv.toBlob((b) => { layerCache.set(key, b); res(); }, 'image/png'); }); }
+  async function pushHistory() {
+    if (histBusy) return; await Promise.all(['orig', 'maskGray', 'brushAdd', 'brushSub'].map(encodeLayer));
+    hist = hist.slice(0, histIdx + 1); hist.push(snapSettings()); histIdx = hist.length - 1;
+    const CAP = 24; if (hist.length > CAP) { hist.shift(); histIdx--; }
+    pruneCache(); updateUndoButtons();
   }
-  function exportDataURL() { return renderFinalCanvas().toDataURL('image/png'); }
+  function commit() { pushHistory(); }
+  function pruneCache() { const live = new Set(); hist.forEach((s) => ['orig', 'maskGray', 'brushAdd', 'brushSub'].forEach((n) => live.add(n + '@' + s.ver[n]))); [...layerCache.keys()].forEach((k) => { if (!live.has(k)) layerCache.delete(k); }); }
+  async function loadLayer(name, ver) { const key = name + '@' + ver; const blob = layerCache.get(key); if (!blob) return null; const bmp = await createImageBitmap(blob); const c = mkCanvas(bmp.width, bmp.height); c.getContext('2d').drawImage(bmp, 0, 0); return c; }
+  async function restoreState(s) {
+    histBusy = true;
+    for (const name of ['orig', 'maskGray', 'brushAdd', 'brushSub']) { if (layerVer[name] !== s.ver[name]) { S[name] = await loadLayer(name, s.ver[name]); layerVer[name] = s.ver[name]; } }
+    S.W = s.W; S.H = s.H; Object.assign(S.adj, s.adj); S.bgKind = s.bgKind; S.bgColor = s.bgColor; S.blurAmt = s.blurAmt; S.feather = s.feather; S.contract = s.contract;
+    S.crop = s.crop ? Object.assign({}, s.crop) : null; S.cropAspect = s.cropAspect; Object.assign(S.shadow, s.shadow); Object.assign(S.border, s.border);
+    S.adjOrig = null; S.aiAlpha = null; S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null;
+    if (S.maskGray) buildAiAlpha();
+    S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true;
+    syncAllInputs(); histBusy = false; updateBadge(); resizeView(); computeFit(); fitToScreen();
+  }
+  async function undo() { if (histIdx <= 0 || histBusy) return; histIdx--; await restoreState(hist[histIdx]); updateUndoButtons(); }
+  async function redo() { if (histIdx >= hist.length - 1 || histBusy) return; histIdx++; await restoreState(hist[histIdx]); updateUndoButtons(); }
+  function updateUndoButtons() { $('#btnUndo').disabled = histIdx <= 0; $('#btnRedoH').disabled = histIdx >= hist.length - 1; }
 
-  // =====================================================================
-  //  UI helpers
-  // =====================================================================
+  // ============ EXPORTAR ============
+  function renderFinalCanvas() {
+    if (S.dirtyAdj) applyAdjustments(); if (S.dirtyOut) rebuildOutFull();
+    const r = activeRect(), w = Math.round(r.w), h = Math.round(r.h); const out = mkCanvas(w, h); const c = out.getContext('2d');
+    c.drawImage(S.outFull, Math.round(r.x), Math.round(r.y), w, h, 0, 0, w, h); return out;
+  }
+  function scaledCanvas(base, longEdge) {
+    const long = Math.max(base.width, base.height); if (!longEdge || longEdge >= long) return base;
+    const k = longEdge / long; const c = mkCanvas(Math.max(1, Math.round(base.width * k)), Math.max(1, Math.round(base.height * k))); const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(base, 0, 0, c.width, c.height); return c;
+  }
+  function flatten(canvas, color) { const c = mkCanvas(canvas.width, canvas.height); const x = c.getContext('2d'); x.fillStyle = color || '#ffffff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(canvas, 0, 0); return c; }
+  function dataURLToBytes(durl) { const s = String(durl); const i = s.indexOf(','); const bin = atob(s.slice(i + 1)); const arr = new Uint8Array(bin.length); for (let j = 0; j < bin.length; j++) arr[j] = bin.charCodeAt(j); return arr; }
+  function dataURLToBlob(durl) { const bytes = dataURLToBytes(durl); const mime = (String(durl).match(/data:([^;]+)/) || [])[1] || 'application/octet-stream'; return new Blob([bytes], { type: mime }); }
+  function pdfFromJpeg(jpeg, w, h) {
+    const enc = (s) => { const a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i) & 0xff; return a; };
+    const parts = []; let len = 0; const off = {}; const push = (u8) => { parts.push(u8); len += u8.length; };
+    push(enc('%PDF-1.4\n'));
+    const obj = (n, body) => { off[n] = len; push(enc(n + ' 0 obj\n')); push(enc(body)); push(enc('\nendobj\n')); };
+    obj(1, '<</Type/Catalog/Pages 2 0 R>>');
+    obj(2, '<</Type/Pages/Kids[3 0 R]/Count 1>>');
+    obj(3, '<</Type/Page/Parent 2 0 R/MediaBox[0 0 ' + w + ' ' + h + ']/Resources<</XObject<</Im0 4 0 R>>>>/Contents 5 0 R>>');
+    off[4] = len; push(enc('4 0 obj\n')); push(enc('<</Type/XObject/Subtype/Image/Width ' + w + '/Height ' + h + '/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ' + jpeg.length + '>>\nstream\n')); push(jpeg); push(enc('\nendstream\nendobj\n'));
+    const content = 'q ' + w + ' 0 0 ' + h + ' 0 0 cm /Im0 Do Q'; off[5] = len; push(enc('5 0 obj\n')); push(enc('<</Length ' + content.length + '>>\nstream\n')); push(enc(content)); push(enc('\nendstream\nendobj\n'));
+    const xrefStart = len; let xref = 'xref\n0 6\n0000000000 65535 f \n'; for (let i = 1; i <= 5; i++) xref += String(off[i]).padStart(10, '0') + ' 00000 n \n';
+    push(enc(xref)); push(enc('trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n' + xrefStart + '\n%%EOF'));
+    const outb = new Uint8Array(len); let o = 0; for (const p of parts) { outb.set(p, o); o += p.length; } return outb;
+  }
+  async function saveFile(blob, name, type) {
+    try { if (navigator.canShare) { const file = new File([blob], name, { type }); if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return true; } } }
+    catch (e) { if (e && e.name === 'AbortError') return false; }
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1500); return true;
+  }
+
+  function openExport() { if (!S.ready) return; buildResChips(); setFmt(S.exportFmt); $('#exportModal').classList.add('open'); }
+  function closeExport() { $('#exportModal').classList.remove('open'); }
+  function buildResChips() {
+    const r = activeRect(); const maxLong = Math.round(Math.max(r.w, r.h)); const opts = [{ key: 'max', label: 'Máxima', long: maxLong }];
+    [1080, 720].forEach((L) => { if (L < maxLong) opts.push({ key: String(L), label: L + ' px', long: L }); });
+    const dim = (long) => { const ar = r.w / r.h; return ar >= 1 ? long + ' × ' + Math.round(long / ar) : Math.round(long * ar) + ' × ' + long; };
+    const grid = $('#resGrid'); grid.innerHTML = opts.map((o) => '<button class="res' + (o.key === S.exportRes ? ' active' : '') + '" data-res="' + o.key + '">' + o.label + '<small>' + dim(o.long) + '</small></button>').join('');
+    if (!opts.some((o) => o.key === S.exportRes)) { S.exportRes = 'max'; grid.querySelector('[data-res="max"]').classList.add('active'); }
+  }
+  function setFmt(f) { S.exportFmt = f; document.querySelectorAll('#fmtGrid .fmt').forEach((b) => b.classList.toggle('active', b.dataset.fmt === f)); }
+  function currentLongEdge() { if (S.exportRes === 'max') return null; return +S.exportRes; }
+  function buildExport(forceFmt) {
+    const fmt = forceFmt || S.exportFmt; const base = scaledCanvas(renderFinalCanvas(), currentLongEdge());
+    if (fmt === 'png') { const durl = base.toDataURL('image/png'); return { blob: dataURLToBlob(durl), name: 'imagem-' + Date.now() + '.png', type: 'image/png' }; }
+    if (fmt === 'jpeg') { const flat = flatten(base, S.bgKind === 'color' ? S.bgColor : '#ffffff'); const durl = flat.toDataURL('image/jpeg', 0.92); return { blob: dataURLToBlob(durl), name: 'imagem-' + Date.now() + '.jpg', type: 'image/jpeg' }; }
+    // pdf
+    const flat = flatten(base, S.bgKind === 'color' ? S.bgColor : '#ffffff'); const jbytes = dataURLToBytes(flat.toDataURL('image/jpeg', 0.92)); const pdf = pdfFromJpeg(jbytes, flat.width, flat.height);
+    return { blob: new Blob([pdf], { type: 'application/pdf' }), name: 'imagem-' + Date.now() + '.pdf', type: 'application/pdf' };
+  }
+
+  // ============ UI helpers ============
   function setActiveChip(sel, val) { document.querySelectorAll(sel + ' .chip').forEach((c) => c.classList.toggle('active', c.dataset.filter === val || c.dataset.aspect === val)); }
-  function syncAdjInputs() {
+  function setSwatch(sel, attr, val) { document.querySelectorAll(sel + ' .swatch[data-' + attr + ']').forEach((x) => x.classList.toggle('active', x.dataset[attr] === val)); }
+  function syncAllInputs() {
     const a = S.adj;
     $('#ajBrightness').value = a.brightness; $('#ajBrightnessV').textContent = a.brightness;
     $('#ajContrast').value = a.contrast; $('#ajContrastV').textContent = a.contrast;
     $('#ajSaturation').value = a.saturation; $('#ajSaturationV').textContent = a.saturation;
     $('#ajTemperature').value = a.temperature; $('#ajTemperatureV').textContent = a.temperature;
     $('#ajExposure').value = a.exposure; $('#ajExposureV').textContent = a.exposure;
+    $('#ajSharpen').value = a.sharpen; $('#ajSharpenV').textContent = a.sharpen;
+    $('#feather').value = S.feather; $('#featherVal').textContent = S.feather;
+    $('#contract').value = S.contract; $('#contractVal').textContent = S.contract;
+    $('#blurAmt').value = S.blurAmt; $('#blurVal').textContent = S.blurAmt;
+    document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x.dataset.bg === S.bgKind));
+    $('#swatches').classList.toggle('hidden', S.bgKind !== 'color'); $('#blurRow').classList.toggle('hidden', S.bgKind !== 'blur'); $('#bgImgNote').classList.toggle('hidden', S.bgKind !== 'blur');
+    setSwatch('#swatches', 'color', S.bgColor);
+    $('#edgeControls').classList.toggle('hidden', S.bgKind === 'original');
+    // efeitos
+    $('#shadowToggle').classList.toggle('on', S.shadow.on); $('#shadowBody').classList.toggle('hidden', !S.shadow.on);
+    $('#shBlur').value = S.shadow.blur; $('#shBlurV').textContent = S.shadow.blur; $('#shDist').value = S.shadow.dist; $('#shDistV').textContent = S.shadow.dist;
+    $('#shAngle').value = S.shadow.angle; $('#shAngleV').textContent = S.shadow.angle; $('#shOpacity').value = S.shadow.opacity; $('#shOpacityV').textContent = S.shadow.opacity;
+    setSwatch('#shSwatches', 'shcolor', S.shadow.color);
+    $('#borderToggle').classList.toggle('on', S.border.on); $('#borderBody').classList.toggle('hidden', !S.border.on);
+    $('#bdSize').value = S.border.size; $('#bdSizeV').textContent = S.border.size; setSwatch('#bdSwatches', 'bdcolor', S.border.color);
+    $('#effNote').classList.toggle('hidden', S.bgKind !== 'original');
+    // recorte
+    setActiveChip('#aspects', S.cropAspect ? aspectName(S.cropAspect) : 'free');
   }
+  function aspectName(ar) { const map = { '1': '1:1', '0.8': '4:5', '0.75': '3:4' }; const cands = { '1:1': 1, '4:5': 4 / 5, '3:4': 3 / 4, '16:9': 16 / 9, '9:16': 9 / 16 }; for (const k in cands) if (Math.abs(cands[k] - ar) < 0.01) return k; return 'free'; }
 
-  // seleção de imagem
   $('#btnPick').onclick = () => $('#fileInput').click();
   $('#btnNew').onclick = () => $('#fileInput').click();
   $('#fileInput').onchange = (e) => { const f = e.target.files && e.target.files[0]; if (f) startWith(f); e.target.value = ''; };
   function startWith(file) { if (!/^image\//.test(file.type)) { toast('Selecione um arquivo de imagem.', true); return; } loadImage(file); }
-
   const drop = $('#drop');
   ['dragenter', 'dragover'].forEach((ev) => stage.addEventListener(ev, (e) => { e.preventDefault(); if (!S.orig) drop.classList.add('dragover'); }));
   ['dragleave', 'drop'].forEach((ev) => stage.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('dragover'); }));
   stage.addEventListener('drop', (e) => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) startWith(f); });
   window.addEventListener('paste', (e) => { const items = e.clipboardData && e.clipboardData.items; if (!items) return; for (const it of items) { if (it.type && it.type.indexOf('image') === 0) { const f = it.getAsFile(); if (f) { startWith(f); break; } } } });
 
-  // categorias
   $('#segs').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-cat]'); if (!b) return;
-    const wasCrop = cropMode();
-    S.cat = b.dataset.cat;
+    const b = e.target.closest('button[data-cat]'); if (!b) return; const wasCrop = cropMode(); S.cat = b.dataset.cat;
     document.querySelectorAll('#segs button').forEach((x) => x.classList.toggle('active', x === b));
     document.querySelectorAll('.cat').forEach((c) => c.classList.toggle('active', c.dataset.cat === S.cat));
-    if (cropMode()) ensureCrop();
-    brushCursor.show = false;
-    // ao entrar/sair do modo corte, o "shownRect" muda → recomputa enquadramento
+    if (cropMode()) ensureCrop(); brushCursor.show = false;
     if (cropMode() !== wasCrop) { updateBadge(); computeFit(); fitToScreen(); } else requestRender();
   });
 
-  // ---- Ajustes ----
-  function onAdj(id, key) { $(id).addEventListener('input', (e) => { S.adj[key] = +e.target.value; $(id + 'V').textContent = e.target.value; setActiveChip('#filters', 'custom'); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); }); }
-  onAdj('#ajBrightness', 'brightness'); onAdj('#ajContrast', 'contrast'); onAdj('#ajSaturation', 'saturation'); onAdj('#ajTemperature', 'temperature'); onAdj('#ajExposure', 'exposure');
-  $('#ajReset').onclick = () => { S.adj = { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0 }; syncAdjInputs(); setActiveChip('#filters', 'none'); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); toast('Ajustes redefinidos'); };
+  // Ajustes
+  function onAdj(id, key) { const el = $(id); el.addEventListener('input', (e) => { S.adj[key] = +e.target.value; $(id + 'V').textContent = e.target.value; setActiveChip('#filters', 'custom'); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); }); el.addEventListener('change', commit); }
+  onAdj('#ajBrightness', 'brightness'); onAdj('#ajContrast', 'contrast'); onAdj('#ajSaturation', 'saturation'); onAdj('#ajTemperature', 'temperature'); onAdj('#ajExposure', 'exposure'); onAdj('#ajSharpen', 'sharpen');
+  $('#ajReset').onclick = () => { Object.assign(S.adj, { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 }); syncAllInputs(); setActiveChip('#filters', 'none'); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); commit(); toast('Ajustes redefinidos'); };
 
-  // ---- Filtros ----
-  const FILTERS = {
-    none:    { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0 },
-    vivido:  { brightness: 4, contrast: 14, saturation: 38, temperature: 4, exposure: 4 },
-    pb:      { brightness: 2, contrast: 12, saturation: -100, temperature: 0, exposure: 0 },
-    quente:  { brightness: 2, contrast: 6, saturation: 10, temperature: 38, exposure: 3 },
-    frio:    { brightness: 2, contrast: 6, saturation: 6, temperature: -36, exposure: 2 },
-    nitido:  { brightness: 6, contrast: 18, saturation: 8, temperature: 2, exposure: 4 },
-    vintage: { brightness: 6, contrast: -8, saturation: -18, temperature: 20, exposure: 2 },
-    suave:   { brightness: 8, contrast: -12, saturation: -6, temperature: 6, exposure: 6 },
-  };
-  $('#filters').addEventListener('click', (e) => {
-    const b = e.target.closest('.chip[data-filter]'); if (!b) return;
-    const f = FILTERS[b.dataset.filter]; if (!f) return;
-    S.adj = Object.assign({}, f); syncAdjInputs(); setActiveChip('#filters', b.dataset.filter);
-    S.dirtyAdj = true; S.dirtyOut = true; requestRender();
-  });
+  const FILTERS = { none: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 }, vivido: { brightness: 4, contrast: 14, saturation: 38, temperature: 4, exposure: 4, sharpen: 10 }, pb: { brightness: 2, contrast: 12, saturation: -100, temperature: 0, exposure: 0, sharpen: 8 }, quente: { brightness: 2, contrast: 6, saturation: 10, temperature: 38, exposure: 3, sharpen: 0 }, frio: { brightness: 2, contrast: 6, saturation: 6, temperature: -36, exposure: 2, sharpen: 0 }, nitido: { brightness: 6, contrast: 18, saturation: 8, temperature: 2, exposure: 4, sharpen: 40 }, vintage: { brightness: 6, contrast: -8, saturation: -18, temperature: 20, exposure: 2, sharpen: 0 }, suave: { brightness: 8, contrast: -12, saturation: -6, temperature: 6, exposure: 6, sharpen: 0 } };
+  $('#filters').addEventListener('click', (e) => { const b = e.target.closest('.chip[data-filter]'); if (!b) return; const f = FILTERS[b.dataset.filter]; if (!f) return; Object.assign(S.adj, f); syncAllInputs(); setActiveChip('#filters', b.dataset.filter); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); commit(); });
 
-  // ---- Cortar ----
-  $('#aspects').addEventListener('click', (e) => {
-    const b = e.target.closest('.chip[data-aspect]'); if (!b) return;
-    setActiveChip('#aspects', b.dataset.aspect);
-    if (b.dataset.aspect === 'free') { S.cropAspect = null; return; }
-    const [aw, ah] = b.dataset.aspect.split(':').map(Number); const ar = aw / ah; S.cropAspect = ar;
-    // maior retângulo com essa proporção centrado na imagem
-    let w = S.W, h = w / ar; if (h > S.H) { h = S.H; w = h * ar; }
-    S.crop = { x: (S.W - w) / 2, y: (S.H - h) / 2, w, h }; updateBadge(); requestRender();
-  });
-  $('#rotL').onclick = () => transformAll(rot90, true);
-  $('#flipH').onclick = () => transformAll((s) => flipC(s, true), false);
-  $('#flipV').onclick = () => transformAll((s) => flipC(s, false), false);
-  $('#cropReset').onclick = () => { S.crop = null; S.cropAspect = null; setActiveChip('#aspects', 'free'); updateBadge(); computeFit(); fitToScreen(); toast('Corte redefinido'); };
+  $('#aspects').addEventListener('click', (e) => { const b = e.target.closest('.chip[data-aspect]'); if (!b) return; setActiveChip('#aspects', b.dataset.aspect); if (b.dataset.aspect === 'free') { S.cropAspect = null; commit(); return; } const [aw, ah] = b.dataset.aspect.split(':').map(Number); const ar = aw / ah; S.cropAspect = ar; let w = S.W, h = w / ar; if (h > S.H) { h = S.H; w = h * ar; } S.crop = { x: (S.W - w) / 2, y: (S.H - h) / 2, w, h }; updateBadge(); requestRender(); commit(); });
+  $('#rotL').onclick = () => transformAll(rot90, true); $('#flipH').onclick = () => transformAll((s) => flipC(s, true), false); $('#flipV').onclick = () => transformAll((s) => flipC(s, false), false);
+  $('#cropReset').onclick = () => { S.crop = null; S.cropAspect = null; setActiveChip('#aspects', 'free'); updateBadge(); computeFit(); fitToScreen(); commit(); toast('Corte redefinido'); };
 
-  // ---- Fundo ----
-  function refreshEdgeControls() { $('#edgeControls').classList.toggle('hidden', S.bgKind === 'original'); }
-  $('#bgKind').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-bg]'); if (!b) return;
-    S.bgKind = b.dataset.bg;
-    document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x === b));
-    $('#swatches').classList.toggle('hidden', S.bgKind !== 'color');
-    $('#blurRow').classList.toggle('hidden', S.bgKind !== 'blur');
-    $('#bgImgNote').classList.toggle('hidden', S.bgKind !== 'blur');
-    refreshEdgeControls();
-    if (S.bgKind === 'image') $('#bgImgInput').click();
-    S.dirtyBg = true; S.dirtyOut = true; requestRender();
-  });
-  $('#swatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-color]'); if (!b) return; S.bgColor = b.dataset.color; document.querySelectorAll('#swatches .swatch').forEach((x) => x.classList.toggle('active', x === b)); S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
+  function refreshEdgeControls() { $('#edgeControls').classList.toggle('hidden', S.bgKind === 'original'); $('#effNote').classList.toggle('hidden', S.bgKind !== 'original'); }
+  $('#bgKind').addEventListener('click', (e) => { const b = e.target.closest('button[data-bg]'); if (!b) return; S.bgKind = b.dataset.bg; document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x === b)); $('#swatches').classList.toggle('hidden', S.bgKind !== 'color'); $('#blurRow').classList.toggle('hidden', S.bgKind !== 'blur'); $('#bgImgNote').classList.toggle('hidden', S.bgKind !== 'blur'); refreshEdgeControls(); if (S.bgKind === 'image') $('#bgImgInput').click(); S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); });
+  $('#swatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-color]'); if (!b) return; S.bgColor = b.dataset.color; setSwatch('#swatches', 'color', S.bgColor); S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); });
   $('#colorPick').addEventListener('input', (e) => { S.bgColor = e.target.value; S.bgKind = 'color'; document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x.dataset.bg === 'color')); document.querySelectorAll('#swatches .swatch[data-color]').forEach((x) => x.classList.remove('active')); $('#swatches').classList.remove('hidden'); refreshEdgeControls(); S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
-  $('#blurAmt').addEventListener('input', (e) => { S.blurAmt = +e.target.value; $('#blurVal').textContent = e.target.value; S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
-  $('#bgImgInput').onchange = (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return; const im = new Image(); im.onload = () => { S.bgImage = im; S.bgKind = 'image'; S.dirtyBg = true; S.dirtyOut = true; requestRender(); }; im.src = URL.createObjectURL(f); };
-  $('#feather').addEventListener('input', (e) => { S.feather = +e.target.value; $('#featherVal').textContent = e.target.value; buildAiAlpha(); requestRender(); });
-  $('#contract').addEventListener('input', (e) => { S.contract = +e.target.value; $('#contractVal').textContent = e.target.value; buildAiAlpha(); requestRender(); });
+  $('#colorPick').addEventListener('change', commit);
+  $('#blurAmt').addEventListener('input', (e) => { S.blurAmt = +e.target.value; $('#blurVal').textContent = e.target.value; S.dirtyBg = true; S.dirtyOut = true; requestRender(); }); $('#blurAmt').addEventListener('change', commit);
+  $('#bgImgInput').onchange = (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return; const im = new Image(); im.onload = () => { S.bgImage = im; S.bgKind = 'image'; S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); }; im.src = URL.createObjectURL(f); };
+  $('#feather').addEventListener('input', (e) => { S.feather = +e.target.value; $('#featherVal').textContent = e.target.value; buildAiAlpha(); requestRender(); }); $('#feather').addEventListener('change', commit);
+  $('#contract').addEventListener('input', (e) => { S.contract = +e.target.value; $('#contractVal').textContent = e.target.value; buildAiAlpha(); requestRender(); }); $('#contract').addEventListener('change', commit);
 
-  // ---- Retoque ----
+  // Efeitos
+  function toggleFx(toggleSel, bodySel, obj) { const t = $(toggleSel); const flip = () => { obj.on = !obj.on; t.classList.toggle('on', obj.on); $(bodySel).classList.toggle('hidden', !obj.on); S.dirtyOut = true; requestRender(); commit(); }; t.addEventListener('click', flip); t.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } }); }
+  toggleFx('#shadowToggle', '#shadowBody', S.shadow); toggleFx('#borderToggle', '#borderBody', S.border);
+  function onFx(id, obj, key) { const el = $(id); el.addEventListener('input', (e) => { obj[key] = +e.target.value; $(id + 'V').textContent = e.target.value; S.dirtyOut = true; requestRender(); }); el.addEventListener('change', commit); }
+  onFx('#shBlur', S.shadow, 'blur'); onFx('#shDist', S.shadow, 'dist'); onFx('#shAngle', S.shadow, 'angle'); onFx('#shOpacity', S.shadow, 'opacity'); onFx('#bdSize', S.border, 'size');
+  $('#shSwatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-shcolor]'); if (!b) return; S.shadow.color = b.dataset.shcolor; setSwatch('#shSwatches', 'shcolor', S.shadow.color); S.dirtyOut = true; requestRender(); commit(); });
+  $('#shColorPick').addEventListener('input', (e) => { S.shadow.color = e.target.value; document.querySelectorAll('#shSwatches .swatch[data-shcolor]').forEach((x) => x.classList.remove('active')); S.dirtyOut = true; requestRender(); }); $('#shColorPick').addEventListener('change', commit);
+  $('#bdSwatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-bdcolor]'); if (!b) return; S.border.color = b.dataset.bdcolor; setSwatch('#bdSwatches', 'bdcolor', S.border.color); S.dirtyOut = true; requestRender(); commit(); });
+  $('#bdColorPick').addEventListener('input', (e) => { S.border.color = e.target.value; document.querySelectorAll('#bdSwatches .swatch[data-bdcolor]').forEach((x) => x.classList.remove('active')); S.dirtyOut = true; requestRender(); }); $('#bdColorPick').addEventListener('change', commit);
+
+  // Retoque
   $('#brushMode').addEventListener('click', (e) => { const b = e.target.closest('button[data-mode]'); if (!b) return; S.brushMode = b.dataset.mode; document.querySelectorAll('#brushMode button').forEach((x) => x.classList.toggle('active', x === b)); });
   $('#brushSize').addEventListener('input', (e) => { S.brushSize = +e.target.value; $('#brushVal').textContent = e.target.value; requestRender(); });
   $('#brushSoft').addEventListener('input', (e) => { S.brushSoft = +e.target.value; $('#brushSoftVal').textContent = e.target.value; });
-  $('#brushReset').onclick = () => { S.brushAdd = null; S.brushSub = null; S.dirtyCut = true; S.dirtyOut = true; requestRender(); toast('Retoques desfeitos'); };
+  $('#brushReset').onclick = () => { S.brushAdd = null; S.brushSub = null; bumpLayer('brushAdd'); bumpLayer('brushSub'); S.dirtyCut = true; S.dirtyOut = true; requestRender(); commit(); toast('Retoques desfeitos'); };
 
-  // ---- Topbar ----
-  const cmp = $('#btnCompare');
-  const startCmp = () => { if (!S.ready) return; S.compareRaw = true; cmp.classList.add('on'); requestRender(); };
-  const endCmp = () => { S.compareRaw = false; cmp.classList.remove('on'); requestRender(); };
+  // Topbar
+  const cmp = $('#btnCompare'); const startCmp = () => { if (!S.ready) return; S.compareRaw = true; cmp.classList.add('on'); requestRender(); }; const endCmp = () => { S.compareRaw = false; cmp.classList.remove('on'); requestRender(); };
   cmp.addEventListener('pointerdown', startCmp); cmp.addEventListener('pointerup', endCmp); cmp.addEventListener('pointerleave', endCmp); cmp.addEventListener('pointercancel', endCmp);
-  $('#btnRedo').onclick = reSegment;
+  $('#btnRedo').onclick = reSegment; $('#btnUndo').onclick = undo; $('#btnRedoH').onclick = redo;
 
-  // ---- Zoom ----
   $('#zIn').onclick = () => { S.scale = clamp(S.scale * 1.25, 0.4, 8); zoomAround(view.width / 2, view.height / 2, 1.25); requestRender(); };
   $('#zOut').onclick = () => { S.scale = clamp(S.scale / 1.25, 0.4, 8); zoomAround(view.width / 2, view.height / 2, 1 / 1.25); requestRender(); };
   $('#zFit').onclick = fitToScreen;
 
-  // ---- Exportar ----
-  $('#btnDownload').onclick = () => { if (!S.ready) return; try { const url = exportDataURL(); const a = document.createElement('a'); a.href = url; a.download = 'imagem-' + Date.now() + '.png'; document.body.appendChild(a); a.click(); a.remove(); toast('Imagem baixada ✓'); } catch (e) { toast('Erro ao exportar.', true); } };
-  $('#btnUse').onclick = () => {
-    if (!S.ready) return;
-    try {
-      const url = exportDataURL();
-      if (embedded) { window.parent.postMessage({ type: 'agente:image-out', dataUrl: url }, parentOrigin()); toast('Enviado para o app ✓'); }
-      else { const a = document.createElement('a'); a.href = url; a.download = 'imagem-' + Date.now() + '.png'; document.body.appendChild(a); a.click(); a.remove(); toast('Imagem baixada ✓'); }
-    } catch (e) { toast('Erro ao enviar.', true); }
-  };
+  // Export modal
+  $('#btnExport').onclick = openExport;
+  $('#exportClose').onclick = closeExport;
+  $('#exportModal').addEventListener('click', (e) => { if (e.target === $('#exportModal')) closeExport(); });
+  $('#fmtGrid').addEventListener('click', (e) => { const b = e.target.closest('.fmt[data-fmt]'); if (b) setFmt(b.dataset.fmt); });
+  $('#resGrid').addEventListener('click', (e) => { const b = e.target.closest('.res[data-res]'); if (!b) return; S.exportRes = b.dataset.res; document.querySelectorAll('#resGrid .res').forEach((x) => x.classList.toggle('active', x === b)); });
+  $('#exportDo').onclick = async () => { if (!S.ready) return; try { const f = buildExport(); const ok = await saveFile(f.blob, f.name, f.type); if (ok) { toast('Imagem exportada ✓'); closeExport(); } } catch (e) { toast('Erro ao exportar.', true); console.error(e); } };
+  $('#exportSend').onclick = () => { if (!S.ready) return; try { const base = scaledCanvas(renderFinalCanvas(), currentLongEdge()); const url = base.toDataURL('image/png'); if (embedded) { window.parent.postMessage({ type: 'agente:image-out', dataUrl: url }, parentOrigin()); toast('Enviado para o Cartaz ✓'); closeExport(); } else { saveFile(dataURLToBlob(url), 'imagem-' + Date.now() + '.png', 'image/png'); toast('Imagem baixada ✓'); closeExport(); } } catch (e) { toast('Erro ao enviar.', true); } };
 
-  // resize
+  // teclado: Ctrl/Cmd+Z / Shift+Z
+  window.addEventListener('keydown', (e) => { if (!(e.ctrlKey || e.metaKey)) return; if (e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); } else if (e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); } });
+
   let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(resizeView, 120); });
   new ResizeObserver(() => resizeView()).observe(stage);
-
-  // O motor de IA (~15 MB) só é baixado quando o usuário escolhe a 1ª imagem —
-  // com barra de progresso — respeitando o plano de dados. Sem pré-carga.
   resizeView();
 })();
 </script>

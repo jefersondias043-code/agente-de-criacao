@@ -24,7 +24,7 @@ if (location.protocol !== 'file:') {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' data: https://fonts.gstatic.com; " +
     "img-src 'self' data: blob: https:; " +
-    "connect-src 'self' https: http://localhost:7000 http://127.0.0.1:7000 blob: data:; " +
+    "connect-src 'self' https: blob: data:; " +
     "worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'; " +
     "object-src 'none'; base-uri 'self'" +
     '">');
@@ -80,7 +80,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-23-r152" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-24-r153" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1089,7 +1089,6 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
      FONTE ÚNICA: a lista entre os marcadores é gerada de scripts/scripts.manifest.mjs
      por `npm run sync:manifest`. Não edite à mão (evita drift com o service-worker). -->
 <!-- scripts:start -->
-<script src="src/server-config.js"></script>
 <script src="src/catalogs.js"></script>
 <script src="src/core.js"></script>
 <script src="src/crypto.js"></script>

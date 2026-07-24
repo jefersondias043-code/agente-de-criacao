@@ -140,6 +140,29 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 .sep { height: 1px; background: var(--line-soft); margin: .1rem 0; }
 .eff-body { display: flex; flex-direction: column; gap: .55rem; }
 
+/* editor de degradê (reutilizado em Fundo e Moldura) */
+.grad-editor { display: flex; flex-direction: column; gap: .55rem; }
+.grad-preview { height: 34px; border-radius: 10px; border: 1px solid var(--line); box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
+.grad-stops { display: flex; align-items: center; gap: 8px; }
+.grad-stop { position: relative; cursor: pointer; }
+.grad-dot { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line), var(--shadow-sm); }
+.grad-stop input[type=color] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.grad-plus { background: var(--paper-2); color: var(--ink-soft); font-size: 1.1rem; font-weight: 700; border-style: dashed; }
+.grad-x { width: 26px; height: 26px; border-radius: 50%; background: var(--paper-2); color: var(--ink-soft); font-size: 1rem; line-height: 1; }
+.grad-x:hover { background: var(--accent-soft); color: var(--accent); }
+.grad-presets { display: flex; gap: 7px; flex-wrap: wrap; }
+.grad-chip { width: 34px; height: 26px; border-radius: 7px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); }
+.grad-chip:active { transform: scale(.94); }
+
+/* Trocar cor */
+.colorswap-row { display: flex; align-items: center; gap: .55rem; }
+.cs-lbl { font-size: .78rem; font-weight: 700; color: var(--ink-soft); }
+.cs-chip { width: 40px; height: 34px; border-radius: 9px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); position: relative; background: repeating-conic-gradient(#d9d5cc 0% 25%, #fff 0% 50%) 50% / 14px 14px; }
+.cs-arrow { width: 18px; height: 18px; color: var(--ink-mute); flex: 0 0 auto; }
+.cs-pick { cursor: pointer; } .cs-pick input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.stage.picking { cursor: crosshair; }
+.pickBtn.on, #pickBtn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
 @media (min-width: 820px) {
   .app { display: grid; grid-template-columns: 1fr 348px; grid-template-rows: auto 1fr; }
   .topbar { grid-row: 1; grid-column: 1 / -1; }
@@ -232,6 +255,8 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       <button data-cat="filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><circle cx="15" cy="15" r="6"/></svg>Filtros</button>
       <button data-cat="cortar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Cortar</button>
       <button data-cat="fundo" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>Fundo</button>
+      <button data-cat="cor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11l-7 7-4-4"/><path d="M12 2a10 10 0 1 0 10 10c0-1.7-.4-2-2-2h-2a2 2 0 0 1-2-2V4c0-1.6-.3-2-2-2z"/></svg>Trocar cor</button>
+      <button data-cat="moldura"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>Moldura</button>
       <button data-cat="efeitos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.09 4.26L19 8.27l-3.5 3.36L16.18 17 12 14.5 7.82 17l.68-5.37L5 8.27l4.91-1.01z"/></svg>Efeitos</button>
       <button data-cat="pincel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/></svg>Retoque</button>
     </div>
@@ -287,8 +312,31 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
         <button class="choice active" data-bg="transparent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>Transparente</button>
         <button class="choice" data-bg="original"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Original</button>
         <button class="choice" data-bg="color"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2a10 10 0 1 0 0 20c1 0 1.5-.8 1.5-1.6 0-1.4-1.3-1.6-1.3-2.9 0-.9.7-1.5 1.6-1.5H15a5 5 0 0 0 5-5c0-4.4-3.6-8-8-8z"/></svg>Cor</button>
+        <button class="choice" data-bg="gradient"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 14l18-8"/></svg>Degradê</button>
         <button class="choice" data-bg="blur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 5.7 6 10a6 6 0 0 1-12 0c0-4.3 6-10 6-10z"/></svg>Desfoque</button>
         <button class="choice" data-bg="image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Imagem</button>
+      </div>
+      <div class="grad-editor hidden" id="bgGradEditor" data-grad="bg">
+        <div class="grad-preview" id="bgGradPreview"></div>
+        <div class="grad-stops">
+          <label class="grad-stop"><span class="grad-dot" id="bgGradDot1"></span><input type="color" id="bgGradC1" value="#ff8a3c"></label>
+          <label class="grad-stop"><span class="grad-dot" id="bgGradDot2"></span><input type="color" id="bgGradC2" value="#cf3418"></label>
+          <label class="grad-stop grad-add" id="bgGradAddWrap"><span class="grad-dot grad-plus" id="bgGradDot3">+</span><input type="color" id="bgGradC3" value="#7a1fd8"></label>
+          <button class="grad-x hidden" id="bgGradRemove3" title="Remover 3ª cor">×</button>
+        </div>
+        <div class="grad-presets" id="bgGradPresets">
+          <button class="grad-chip" data-g1="#ff8a3c" data-g2="#cf3418" style="background:linear-gradient(135deg,#ff8a3c,#cf3418)"></button>
+          <button class="grad-chip" data-g1="#1fa2ff" data-g2="#12d8cf" style="background:linear-gradient(135deg,#1fa2ff,#12d8cf)"></button>
+          <button class="grad-chip" data-g1="#7a1fd8" data-g2="#ff2d7e" style="background:linear-gradient(135deg,#7a1fd8,#ff2d7e)"></button>
+          <button class="grad-chip" data-g1="#0f2027" data-g2="#2c5364" style="background:linear-gradient(135deg,#0f2027,#2c5364)"></button>
+          <button class="grad-chip" data-g1="#f7971e" data-g2="#ffd200" style="background:linear-gradient(135deg,#f7971e,#ffd200)"></button>
+          <button class="grad-chip" data-g1="#ffffff" data-g2="#c9c4b8" style="background:linear-gradient(135deg,#ffffff,#c9c4b8)"></button>
+        </div>
+        <div class="toolseg" id="bgGradType">
+          <button class="active" data-gtype="linear">Linear</button>
+          <button data-gtype="radial">Radial</button>
+        </div>
+        <div class="row" id="bgGradAngleRow"><span class="lbl">Ângulo</span><input type="range" id="bgGradAngle" min="0" max="360" value="135"><span class="val" id="bgGradAngleV">135</span></div>
       </div>
       <div class="swatches hidden" id="swatches">
         <button class="swatch active" style="background:#ffffff" data-color="#ffffff"></button>
@@ -308,6 +356,69 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
         <div class="row"><span class="lbl">Recuar borda</span><input type="range" id="contract" min="-30" max="30" value="0"><span class="val" id="contractVal">0</span></div>
         <div class="note">“Suavizar” deixa a borda macia (bom para cabelo). “Recuar” encolhe o recorte para eliminar franjas do fundo antigo.</div>
       </div>
+    </div>
+
+    <!-- Trocar cor -->
+    <div class="cat" data-cat="cor">
+      <div class="miniactions">
+        <button class="btn ghost sm" id="pickBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4.5 8-11a8 8 0 1 0-16 0c0 6.5 8 11 8 11z"/><circle cx="12" cy="11" r="2.5"/></svg> Selecionar cor na imagem</button>
+      </div>
+      <div class="colorswap-row"><span class="cs-lbl">De</span><span class="cs-chip" id="csSource" title="Cor selecionada"></span><svg class="cs-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg><span class="cs-lbl">Para</span><label class="cs-chip cs-pick" id="csTargetWrap" style="background:#cf3418"><input type="color" id="csTarget" value="#cf3418"></label></div>
+      <div class="swatches" id="csSwatches">
+        <button class="swatch active" style="background:#cf3418" data-cscolor="#cf3418"></button>
+        <button class="swatch" style="background:#1f6feb" data-cscolor="#1f6feb"></button>
+        <button class="swatch" style="background:#2e7d4f" data-cscolor="#2e7d4f"></button>
+        <button class="swatch" style="background:#f2b705" data-cscolor="#f2b705"></button>
+        <button class="swatch" style="background:#7a1fd8" data-cscolor="#7a1fd8"></button>
+        <button class="swatch" style="background:#111111" data-cscolor="#111111"></button>
+        <button class="swatch" style="background:#ffffff" data-cscolor="#ffffff"></button>
+      </div>
+      <div class="row"><span class="lbl">Tolerância</span><input type="range" id="csTol" min="5" max="100" value="35"><span class="val" id="csTolV">35</span></div>
+      <div class="row"><span class="lbl">Suavidade</span><input type="range" id="csSoft" min="0" max="100" value="45"><span class="val" id="csSoftV">45</span></div>
+      <div class="note" id="csNote">Toque em “Selecionar cor na imagem” e depois no objeto que quer recolorir. A troca preserva luz, sombra e textura — só muda a cor.</div>
+      <button class="btn ghost sm" id="csReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8"/><path d="M3 3v5h5"/></svg> Desfazer troca de cor</button>
+    </div>
+
+    <!-- Moldura -->
+    <div class="cat" data-cat="moldura">
+      <div class="choices" id="frameShape">
+        <button class="choice active" data-frame="none">Nenhuma</button>
+        <button class="choice" data-frame="rect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>Retângulo</button>
+        <button class="choice" data-frame="square"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18"/></svg>Quadrada</button>
+        <button class="choice" data-frame="circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>Circular</button>
+      </div>
+      <div id="frameBody" class="hidden">
+        <div class="row"><span class="lbl">Espessura</span><input type="range" id="frSize" min="4" max="120" value="36"><span class="val" id="frSizeV">36</span></div>
+        <div class="toolseg" id="frFill">
+          <button class="active" data-fill="solid">Cor sólida</button>
+          <button data-fill="gradient">Degradê</button>
+        </div>
+        <div class="swatches" id="frSwatches">
+          <button class="swatch active" style="background:#ffffff" data-frcolor="#ffffff"></button>
+          <button class="swatch" style="background:#000000" data-frcolor="#000000"></button>
+          <button class="swatch" style="background:#cf3418" data-frcolor="#cf3418"></button>
+          <button class="swatch" style="background:#f2b705" data-frcolor="#f2b705"></button>
+          <button class="swatch" style="background:#1f6feb" data-frcolor="#1f6feb"></button>
+          <label class="swatch pick" title="Cor da moldura"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><input type="color" id="frColorPick" value="#ffffff"></label>
+        </div>
+        <div class="grad-editor hidden" id="frGradEditor" data-grad="fr">
+          <div class="grad-preview" id="frGradPreview"></div>
+          <div class="grad-stops">
+            <label class="grad-stop"><span class="grad-dot" id="frGradDot1"></span><input type="color" id="frGradC1" value="#ffd200"></label>
+            <label class="grad-stop"><span class="grad-dot" id="frGradDot2"></span><input type="color" id="frGradC2" value="#f7971e"></label>
+            <label class="grad-stop grad-add" id="frGradAddWrap"><span class="grad-dot grad-plus" id="frGradDot3">+</span><input type="color" id="frGradC3" value="#cf3418"></label>
+            <button class="grad-x hidden" id="frGradRemove3" title="Remover 3ª cor">×</button>
+          </div>
+          <div class="grad-presets" id="frGradPresets">
+            <button class="grad-chip" data-g1="#ffd200" data-g2="#f7971e" style="background:linear-gradient(135deg,#ffd200,#f7971e)"></button>
+            <button class="grad-chip" data-g1="#e0e0e0" data-g2="#9a9a9a" style="background:linear-gradient(135deg,#e0e0e0,#9a9a9a)"></button>
+            <button class="grad-chip" data-g1="#ff2d7e" data-g2="#7a1fd8" style="background:linear-gradient(135deg,#ff2d7e,#7a1fd8)"></button>
+            <button class="grad-chip" data-g1="#12d8cf" data-g2="#1fa2ff" style="background:linear-gradient(135deg,#12d8cf,#1fa2ff)"></button>
+          </div>
+          <div class="row"><span class="lbl">Ângulo</span><input type="range" id="frGradAngle" min="0" max="360" value="135"><span class="val" id="frGradAngleV">135</span></div>
+        </div>
+      </div>
+      <div class="note">Molduras enquadram a composição inteira (respeitando o corte). A circular recorta em círculo com transparência ao redor.</div>
     </div>
 
     <!-- Efeitos -->
@@ -411,9 +522,13 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     adj: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 },
     shadow: { on: false, blur: 18, dist: 12, angle: 135, opacity: 45, color: '#000000' },
     border: { on: false, size: 8, color: '#ffffff' },
+    bgGrad: { c1: '#ff8a3c', c2: '#cf3418', c3: null, angle: 135, type: 'linear' },
+    frame: { shape: 'none', size: 36, fill: 'solid', color: '#ffffff', g: { c1: '#ffd200', c2: '#f7971e', c3: null, angle: 135, type: 'linear' } },
+    recolor: { on: false, source: null, target: '#cf3418', tol: 35, soft: 45 },
+    picking: false,
     crop: null, cropAspect: null,
     cat: 'fundo', compareRaw: false,
-    dirtyCut: true, dirtyBg: true, dirtyAdj: true, dirtyOut: true,
+    dirtyCut: true, dirtyBg: true, dirtyAdj: true, dirtyOut: true, dirtyFrame: true,
     ready: false,
     exportFmt: 'png', exportRes: 'max',
   };
@@ -429,6 +544,21 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   const _temp = {};
   function getTemp(name, w, h) { let c = _temp[name]; if (!c) { c = _temp[name] = mkCanvas(w, h); } else if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } return c; }
   function hexA(hex, opa) { const h = hex.replace('#', ''); const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16); return 'rgba(' + r + ',' + g + ',' + b + ',' + (opa / 100) + ')'; }
+  function hexToRgb(hex) { const h = hex.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+  function rgbToHex(r, g, b) { const h = (n) => ('0' + Math.round(n).toString(16)).slice(-2); return '#' + h(r) + h(g) + h(b); }
+  function rgbToHsl(r, g, b) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); let h = 0, s = 0; const l = (mx + mn) / 2; const d = mx - mn; if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); if (mx === r) h = ((g - b) / d + (g < b ? 6 : 0)); else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; } return [h, s, l]; }
+  function hue2rgb(p, q, t) { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; }
+  function hslToRgb(h, s, l) { let r, g, b; if (!s) { r = g = b = l; } else { const q = l < 0.5 ? l * (1 + s) : l + s - l * s; const p = 2 * l - q; r = hue2rgb(p, q, h + 1 / 3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1 / 3); } return [r * 255, g * 255, b * 255]; }
+  // Constrói um gradiente de canvas a partir de {c1,c2,c3?,angle,type} cobrindo (0,0,w,h) deslocado por (ox,oy).
+  function makeGradient(ctx, spec, w, h, ox, oy) {
+    ox = ox || 0; oy = oy || 0; let g;
+    if (spec.type === 'radial') { g = ctx.createRadialGradient(ox + w / 2, oy + h / 2, Math.min(w, h) * 0.05, ox + w / 2, oy + h / 2, Math.max(w, h) * 0.72); }
+    else { const a = (spec.angle - 90) * Math.PI / 180; const cx = ox + w / 2, cy = oy + h / 2; const len = (Math.abs(Math.cos(a)) * w + Math.abs(Math.sin(a)) * h) / 2; g = ctx.createLinearGradient(cx - Math.cos(a) * len, cy - Math.sin(a) * len, cx + Math.cos(a) * len, cy + Math.sin(a) * len); }
+    const cols = [spec.c1, spec.c2]; if (spec.c3) cols.splice(1, 0, spec.c3);
+    cols.forEach((c, i) => g.addColorStop(cols.length === 1 ? 0 : i / (cols.length - 1), c));
+    return g;
+  }
+  function gradCss(spec) { const cols = [spec.c1]; if (spec.c3) cols.push(spec.c3); cols.push(spec.c2); return (spec.type === 'radial' ? 'radial-gradient(circle,' : 'linear-gradient(' + spec.angle + 'deg,') + cols.join(',') + ')'; }
 
   // ============ MOTOR DE IA ============
   let session = null, sessionPromise = null;
@@ -468,11 +598,14 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     const full = mkCanvas(outW, outH); const fc = full.getContext('2d'); fc.imageSmoothingEnabled = true; fc.imageSmoothingQuality = 'high'; fc.drawImage(small, 0, 0, outW, outH); return full;
   }
 
-  // ============ AJUSTES (LUT + nitidez) ============
+  // ============ AJUSTES (LUT + nitidez) + TROCA DE COR ============
   function adjNeutral() { const a = S.adj; return !a.brightness && !a.contrast && !a.saturation && !a.temperature && !a.exposure && !a.sharpen; }
+  function recolorActive() { return S.recolor.on && !!S.recolor.source; }
+  function imageEditsActive() { return !adjNeutral() || recolorActive(); }
+  function smoothstep(e0, e1, x) { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); }
   function applyAdjustments() {
     S.dirtyAdj = false;
-    if (adjNeutral()) { S.adjOrig = null; S.dirtyCut = true; S.dirtyBg = true; S.dirtyOut = true; return; }
+    if (!imageEditsActive()) { S.adjOrig = null; S.dirtyCut = true; S.dirtyBg = true; S.dirtyOut = true; return; }
     const { W, H } = S, a = S.adj;
     const expF = Math.pow(2, (a.exposure / 100) * 0.6); const C = a.contrast * 1.4; const F = (259 * (C + 255)) / (255 * (259 - C));
     const bAdd = a.brightness * 1.1, tR = a.temperature * 0.5, tB = -a.temperature * 0.5;
@@ -481,10 +614,24 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     const LR = new Uint8ClampedArray(256), LG = new Uint8ClampedArray(256), LB = new Uint8ClampedArray(256);
     for (let v = 0; v < 256; v++) { LR[v] = clamp(base[v] + tR); LG[v] = clamp(base[v]); LB[v] = clamp(base[v] + tB); }
     const satF = 1 + a.saturation / 100;
+    // Troca de cor: casa por MATIZ (com a cor selecionada) e recolore preservando
+    // luminância (mantém sombras) e escalando a saturação (mantém textura).
+    let rc = null;
+    if (recolorActive()) { const sh = rgbToHsl(S.recolor.source[0], S.recolor.source[1], S.recolor.source[2]); const tg = hexToRgb(S.recolor.target); const th = rgbToHsl(tg[0], tg[1], tg[2]); rc = { sh, th, tolHue: (S.recolor.tol / 100) * 0.5, softHue: 0.015 + (S.recolor.soft / 100) * 0.28, satRatio: sh[1] > 0.05 ? th[1] / sh[1] : 1 }; }
     if (!S.adjOrig || S.adjOrig.width !== W || S.adjOrig.height !== H) S.adjOrig = mkCanvas(W, H);
     const ac = S.adjOrig.getContext('2d'); ac.drawImage(S.orig, 0, 0);
     const idata = ac.getImageData(0, 0, W, H); const p = idata.data;
-    for (let i = 0; i < p.length; i += 4) { let r = LR[p[i]], g = LG[p[i + 1]], b = LB[p[i + 2]]; if (satF !== 1) { const gray = 0.299 * r + 0.587 * g + 0.114 * b; r = gray + (r - gray) * satF; g = gray + (g - gray) * satF; b = gray + (b - gray) * satF; } p[i] = r; p[i + 1] = g; p[i + 2] = b; }
+    for (let i = 0; i < p.length; i += 4) {
+      let r = LR[p[i]], g = LG[p[i + 1]], b = LB[p[i + 2]];
+      if (satF !== 1) { const gray = 0.299 * r + 0.587 * g + 0.114 * b; r = gray + (r - gray) * satF; g = gray + (g - gray) * satF; b = gray + (b - gray) * satF; }
+      if (rc) {
+        const hsl = rgbToHsl(r, g, b); let dh = Math.abs(hsl[0] - rc.sh[0]); if (dh > 0.5) dh = 1 - dh;
+        let strength = 1 - smoothstep(rc.tolHue, rc.tolHue + rc.softHue, dh);
+        strength *= smoothstep(0.12, 0.30, hsl[1]) * smoothstep(0.06, 0.20, rc.sh[1] + 0.0001);
+        if (strength > 0.003) { const ns = Math.min(1, hsl[1] * rc.satRatio); const nr = hslToRgb(rc.th[0], ns, hsl[2]); r += (nr[0] - r) * strength; g += (nr[1] - g) * strength; b += (nr[2] - b) * strength; }
+      }
+      p[i] = r; p[i + 1] = g; p[i + 2] = b;
+    }
     if (a.sharpen > 0) sharpen(idata, W, H, a.sharpen / 100);
     ac.putImageData(idata, 0, 0);
     S.dirtyCut = true; S.dirtyBg = true; S.dirtyOut = true;
@@ -529,6 +676,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     const { W, H } = S; if (!S.bg || S.bg.width !== W || S.bg.height !== H) S.bg = mkCanvas(W, H);
     const c = S.bg.getContext('2d'); c.clearRect(0, 0, W, H);
     if (S.bgKind === 'color') { c.fillStyle = S.bgColor; c.fillRect(0, 0, W, H); }
+    else if (S.bgKind === 'gradient') { c.fillStyle = makeGradient(c, S.bgGrad, W, H, 0, 0); c.fillRect(0, 0, W, H); }
     else if (S.bgKind === 'blur') {
       // Desfoque REAL por reamostragem (funciona em todo navegador, incl. iOS,
       // onde ctx.filter='blur' às vezes é ignorado). Reduz muito e amplia de volta;
@@ -570,6 +718,33 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     c.drawImage(S.cut, 0, 0); S.dirtyOut = false;
   }
 
+  // ============ MOLDURA ============
+  // Enquadra a composição (região do recorte) com formato + moldura. Não-destrutivo:
+  // gera um canvas do tamanho do activeRect a partir do outFull. Circular recorta
+  // em círculo (cantos transparentes). Bordas desenham a moldura para dentro.
+  function frameFillStyle(ctx, w, h) { const f = S.frame; return f.fill === 'gradient' ? makeGradient(ctx, f.g, w, h, 0, 0) : f.color; }
+  function roundRectPath(ctx, x, y, w, h, r) { r = Math.min(r, w / 2, h / 2); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  function buildFramed() {
+    const r = activeRect(), w = Math.max(1, Math.round(r.w)), h = Math.max(1, Math.round(r.h));
+    const out = getTemp('framed', w, h); const c = out.getContext('2d'); c.clearRect(0, 0, w, h);
+    const shape = S.frame.shape, t = S.frame.size;
+    if (shape === 'circle') {
+      const rad = Math.min(w, h) / 2; const cx = w / 2, cy = h / 2;
+      c.save(); c.beginPath(); c.arc(cx, cy, rad, 0, 7); c.clip();
+      c.drawImage(S.outFull, Math.round(r.x), Math.round(r.y), w, h, 0, 0, w, h); c.restore();
+      if (t > 0) { c.lineWidth = t; c.strokeStyle = frameFillStyle(c, w, h); c.beginPath(); c.arc(cx, cy, rad - t / 2, 0, 7); c.stroke(); }
+    } else {
+      c.drawImage(S.outFull, Math.round(r.x), Math.round(r.y), w, h, 0, 0, w, h);
+      if (t > 0) {
+        c.lineWidth = t; c.strokeStyle = frameFillStyle(c, w, h);
+        if (shape === 'rect') { const rad = Math.min(w, h) * 0.08 + t * 0.4; roundRectPath(c, t / 2, t / 2, w - t, h - t, rad); c.stroke(); }
+        else { c.strokeRect(t / 2, t / 2, w - t, h - t); }
+      }
+    }
+    S.dirtyFrame = false; return out;
+  }
+  function frameActive() { return S.frame.shape !== 'none'; }
+
   // ============ ORIENTAÇÃO ============
   function rot90(src) { const c = mkCanvas(src.height, src.width); const x = c.getContext('2d'); x.translate(src.height, 0); x.rotate(Math.PI / 2); x.drawImage(src, 0, 0); return c; }
   function flipC(src, horiz) { const c = mkCanvas(src.width, src.height); const x = c.getContext('2d'); if (horiz) { x.translate(src.width, 0); x.scale(-1, 1); } else { x.translate(0, src.height); x.scale(1, -1); } x.drawImage(src, 0, 0); return c; }
@@ -593,14 +768,17 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   let rafPending = false;
   function requestRender() { if (!rafPending) { rafPending = true; requestAnimationFrame(() => { rafPending = false; render(); }); } }
   function render() {
-    if (!S.orig) return; if (S.dirtyAdj) applyAdjustments(); if (S.dirtyOut) rebuildOutFull();
+    if (!S.orig) return; if (S.dirtyAdj) applyAdjustments(); if (S.dirtyOut) { rebuildOutFull(); S.dirtyFrame = true; }
     const vw = view.width, vh = view.height; vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.clearRect(0, 0, vw, vh); vctx.fillStyle = '#2a2723'; vctx.fillRect(0, 0, vw, vh);
     const pr = projRect(), sr = shownRect();
     vctx.save(); vctx.shadowColor = 'rgba(0,0,0,.45)'; vctx.shadowBlur = 24 * DPR; vctx.shadowOffsetY = 6 * DPR; vctx.fillStyle = '#000'; vctx.fillRect(pr.x, pr.y, pr.w, pr.h); vctx.restore();
+    const framed = frameActive() && !cropMode();
     if (S.compareRaw) { vctx.imageSmoothingQuality = 'high'; vctx.drawImage(S.orig, sr.x, sr.y, sr.w, sr.h, pr.x, pr.y, pr.w, pr.h); }
     else {
-      if (S.bgKind === 'transparent') { if (!checkerPattern) checkerPattern = vctx.createPattern(checker, 'repeat'); vctx.save(); vctx.beginPath(); vctx.rect(pr.x, pr.y, pr.w, pr.h); vctx.clip(); vctx.fillStyle = checkerPattern; vctx.translate(pr.x, pr.y); vctx.fillRect(0, 0, pr.w, pr.h); vctx.restore(); }
-      vctx.imageSmoothingQuality = 'high'; vctx.drawImage(S.outFull, sr.x, sr.y, sr.w, sr.h, pr.x, pr.y, pr.w, pr.h);
+      if (S.bgKind === 'transparent' || framed) { if (!checkerPattern) checkerPattern = vctx.createPattern(checker, 'repeat'); vctx.save(); vctx.beginPath(); vctx.rect(pr.x, pr.y, pr.w, pr.h); vctx.clip(); vctx.fillStyle = checkerPattern; vctx.translate(pr.x, pr.y); vctx.fillRect(0, 0, pr.w, pr.h); vctx.restore(); }
+      vctx.imageSmoothingQuality = 'high';
+      if (framed) { if (S.dirtyFrame) buildFramed(); vctx.drawImage(_temp.framed, 0, 0, _temp.framed.width, _temp.framed.height, pr.x, pr.y, pr.w, pr.h); }
+      else vctx.drawImage(S.outFull, sr.x, sr.y, sr.w, sr.h, pr.x, pr.y, pr.w, pr.h);
     }
     vctx.strokeStyle = 'rgba(255,255,255,.5)'; vctx.lineWidth = 1; vctx.strokeRect(pr.x + .5, pr.y + .5, pr.w - 1, pr.h - 1);
     if (cropMode()) drawCropOverlay(pr); if (S.cat === 'pincel' && brushCursor.show) drawBrushCursor(pr);
@@ -639,9 +817,10 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     // referências no setup; trocar o objeto quebraria os toggles/sliders.
     S.crop = null; S.cropAspect = null; Object.assign(S.adj, { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 });
     Object.assign(S.shadow, { on: false, blur: 18, dist: 12, angle: 135, opacity: 45, color: '#000000' }); Object.assign(S.border, { on: false, size: 8, color: '#ffffff' });
+    S.frame.shape = 'none'; Object.assign(S.recolor, { on: false, source: null, target: '#cf3418', tol: 35, soft: 45 }); setPicking(false);
     S.bgKind = 'transparent';
     syncAllInputs(); setActiveChip('#filters', 'none'); setActiveChip('#aspects', 'free');
-    S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true;
+    S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true; S.dirtyFrame = true;
     $('#drop').classList.add('hidden'); ['#btnCompare', '#btnRedo', '#btnNew'].forEach((id) => $(id).removeAttribute('disabled'));
     try {
       S.maskGray = await segment(S.orig, w, h); buildAiAlpha(); S.ready = true;
@@ -670,6 +849,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   function evtToView(e) { const r = view.getBoundingClientRect(); return { x: (e.clientX - r.left) * DPR, y: (e.clientY - r.top) * DPR }; }
   stage.addEventListener('pointerdown', (e) => {
     if (!S.orig) return; view.setPointerCapture(e.pointerId); const v = evtToView(e); pointers.set(e.pointerId, v);
+    if (S.picking) { sampleColorAt(v); return; }
     if (pointers.size === 2) { mode = 'pinch'; const pts = [...pointers.values()]; pinchStart = { d: dist(pts[0], pts[1]), scale: S.scale, cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2, panX: S.panX, panY: S.panY }; return; }
     if (cropMode()) { cropHandle = cropHitTest(v); mode = cropHandle ? 'crop' : 'pan'; last = v; requestRender(); return; }
     if (S.cat === 'pincel') { mode = 'paint'; last = v; const p = viewToImage(v.x, v.y); paintAt(p.x, p.y); lastPaint = p; painted = true; brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); return; }
@@ -684,7 +864,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     else if (mode === 'pan') { S.panX += v.x - last.x; S.panY += v.y - last.y; last = v; requestRender(); }
   });
   function cropDrag(v) {
-    ensureCrop(); const a = S.crop, p = viewToImage(v.x, v.y); const MIN = 24; let x0 = a.x, y0 = a.y, x1 = a.x + a.w, y1 = a.y + a.h;
+    ensureCrop(); S.dirtyFrame = true; const a = S.crop, p = viewToImage(v.x, v.y); const MIN = 24; let x0 = a.x, y0 = a.y, x1 = a.x + a.w, y1 = a.y + a.h;
     if (cropHandle === 'move') { const pv = viewToImage(last.x, last.y); const dx = p.x - pv.x, dy = p.y - pv.y; x0 = clamp(a.x + dx, 0, S.W - a.w); y0 = clamp(a.y + dy, 0, S.H - a.h); S.crop = { x: x0, y: y0, w: a.w, h: a.h }; last = v; updateBadge(); return; }
     if (cropHandle.indexOf('n') >= 0) y0 = clamp(p.y, 0, y1 - MIN);
     if (cropHandle.indexOf('s') >= 0) y1 = clamp(p.y, y0 + MIN, S.H);
@@ -709,12 +889,25 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
+  // ---- Conta-gotas (troca de cor) ----
+  function setPicking(on) { S.picking = on; stage.classList.toggle('picking', on); $('#pickBtn').classList.toggle('on', on); }
+  function sampleColorAt(v) {
+    const p = viewToImage(v.x, v.y); const x = clamp(Math.round(p.x), 0, S.W - 1), y = clamp(Math.round(p.y), 0, S.H - 1);
+    // amostra em média 3x3 na imagem exibida (base ou ajustada, mas SEM recolor p/ estabilidade)
+    const src = S.adjOrig || S.orig; const sc = src.getContext('2d'); let R = 0, G = 0, B = 0, n = 0;
+    const d = sc.getImageData(clamp(x - 1, 0, S.W - 1), clamp(y - 1, 0, S.H - 1), 3, 3).data;
+    for (let i = 0; i < d.length; i += 4) { R += d[i]; G += d[i + 1]; B += d[i + 2]; n++; }
+    S.recolor.source = [R / n, G / n, B / n]; S.recolor.on = true;
+    setPicking(false); syncColorSwap(); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); commit();
+  }
+  function syncColorSwap() { const s = S.recolor.source; $('#csSource').style.background = s ? rgbToHex(s[0], s[1], s[2]) : ''; $('#csSource').classList.toggle('empty', !s); }
+
   // ============ HISTÓRICO (desfazer/refazer) ============
   const layerVer = { orig: 0, maskGray: 0, brushAdd: 0, brushSub: 0 };
   const layerCache = new Map(); let hist = [], histIdx = -1, histBusy = false;
   function bumpLayer(n) { layerVer[n]++; }
   function resetHistory() { hist = []; histIdx = -1; layerCache.clear(); layerVer.orig = 0; layerVer.maskGray = 0; layerVer.brushAdd = 0; layerVer.brushSub = 0; updateUndoButtons(); }
-  function snapSettings() { return { adj: Object.assign({}, S.adj), bgKind: S.bgKind, bgColor: S.bgColor, blurAmt: S.blurAmt, feather: S.feather, contract: S.contract, crop: S.crop ? Object.assign({}, S.crop) : null, cropAspect: S.cropAspect, shadow: Object.assign({}, S.shadow), border: Object.assign({}, S.border), cat: S.cat, W: S.W, H: S.H, ver: Object.assign({}, layerVer) }; }
+  function snapSettings() { return { adj: Object.assign({}, S.adj), bgKind: S.bgKind, bgColor: S.bgColor, blurAmt: S.blurAmt, feather: S.feather, contract: S.contract, crop: S.crop ? Object.assign({}, S.crop) : null, cropAspect: S.cropAspect, shadow: Object.assign({}, S.shadow), border: Object.assign({}, S.border), bgGrad: Object.assign({}, S.bgGrad), frame: { shape: S.frame.shape, size: S.frame.size, fill: S.frame.fill, color: S.frame.color, g: Object.assign({}, S.frame.g) }, recolor: { on: S.recolor.on, source: S.recolor.source ? S.recolor.source.slice() : null, target: S.recolor.target, tol: S.recolor.tol, soft: S.recolor.soft }, cat: S.cat, W: S.W, H: S.H, ver: Object.assign({}, layerVer) }; }
   function encodeLayer(name) { return new Promise((res) => { const key = name + '@' + layerVer[name]; if (layerCache.has(key)) return res(); const cv = S[name]; if (!cv) { layerCache.set(key, null); return res(); } cv.toBlob((b) => { layerCache.set(key, b); res(); }, 'image/png'); }); }
   async function pushHistory() {
     if (histBusy) return; await Promise.all(['orig', 'maskGray', 'brushAdd', 'brushSub'].map(encodeLayer));
@@ -730,9 +923,12 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     for (const name of ['orig', 'maskGray', 'brushAdd', 'brushSub']) { if (layerVer[name] !== s.ver[name]) { S[name] = await loadLayer(name, s.ver[name]); layerVer[name] = s.ver[name]; } }
     S.W = s.W; S.H = s.H; Object.assign(S.adj, s.adj); S.bgKind = s.bgKind; S.bgColor = s.bgColor; S.blurAmt = s.blurAmt; S.feather = s.feather; S.contract = s.contract;
     S.crop = s.crop ? Object.assign({}, s.crop) : null; S.cropAspect = s.cropAspect; Object.assign(S.shadow, s.shadow); Object.assign(S.border, s.border);
+    if (s.bgGrad) Object.assign(S.bgGrad, s.bgGrad);
+    if (s.frame) { S.frame.shape = s.frame.shape; S.frame.size = s.frame.size; S.frame.fill = s.frame.fill; S.frame.color = s.frame.color; Object.assign(S.frame.g, s.frame.g); }
+    if (s.recolor) { S.recolor.on = s.recolor.on; S.recolor.source = s.recolor.source ? s.recolor.source.slice() : null; S.recolor.target = s.recolor.target; S.recolor.tol = s.recolor.tol; S.recolor.soft = s.recolor.soft; }
     S.adjOrig = null; S.aiAlpha = null; S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null;
     if (S.maskGray) buildAiAlpha();
-    S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true;
+    S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true; S.dirtyFrame = true;
     syncAllInputs(); histBusy = false; updateBadge(); resizeView(); computeFit(); fitToScreen();
   }
   async function undo() { if (histIdx <= 0 || histBusy) return; histIdx--; await restoreState(hist[histIdx]); updateUndoButtons(); }
@@ -741,8 +937,10 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 
   // ============ EXPORTAR ============
   function renderFinalCanvas() {
-    if (S.dirtyAdj) applyAdjustments(); if (S.dirtyOut) rebuildOutFull();
-    const r = activeRect(), w = Math.round(r.w), h = Math.round(r.h); const out = mkCanvas(w, h); const c = out.getContext('2d');
+    if (S.dirtyAdj) applyAdjustments(); if (S.dirtyOut) { rebuildOutFull(); S.dirtyFrame = true; }
+    const r = activeRect(), w = Math.round(r.w), h = Math.round(r.h);
+    if (frameActive()) { if (S.dirtyFrame) buildFramed(); const src = _temp.framed; const out = mkCanvas(src.width, src.height); out.getContext('2d').drawImage(src, 0, 0); return out; }
+    const out = mkCanvas(w, h); const c = out.getContext('2d');
     c.drawImage(S.outFull, Math.round(r.x), Math.round(r.y), w, h, 0, 0, w, h); return out;
   }
   function scaledCanvas(base, longEdge) {
@@ -818,8 +1016,31 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     $('#borderToggle').classList.toggle('on', S.border.on); $('#borderBody').classList.toggle('hidden', !S.border.on);
     $('#bdSize').value = S.border.size; $('#bdSizeV').textContent = S.border.size; setSwatch('#bdSwatches', 'bdcolor', S.border.color);
     $('#effNote').classList.toggle('hidden', S.bgKind !== 'original');
+    // fundo degradê
+    $('#bgGradEditor').classList.toggle('hidden', S.bgKind !== 'gradient'); syncGradEditor('bg', S.bgGrad);
+    // trocar cor
+    syncColorSwap(); $('#csTarget').value = S.recolor.target; $('#csTargetWrap').style.background = S.recolor.target;
+    $('#csTol').value = S.recolor.tol; $('#csTolV').textContent = S.recolor.tol; $('#csSoft').value = S.recolor.soft; $('#csSoftV').textContent = S.recolor.soft;
+    setSwatch('#csSwatches', 'cscolor', S.recolor.target);
+    // moldura
+    document.querySelectorAll('#frameShape button').forEach((x) => x.classList.toggle('active', x.dataset.frame === S.frame.shape));
+    $('#frameBody').classList.toggle('hidden', S.frame.shape === 'none');
+    $('#frSize').value = S.frame.size; $('#frSizeV').textContent = S.frame.size;
+    document.querySelectorAll('#frFill button').forEach((x) => x.classList.toggle('active', x.dataset.fill === S.frame.fill));
+    $('#frSwatches').classList.toggle('hidden', S.frame.fill !== 'solid'); $('#frGradEditor').classList.toggle('hidden', S.frame.fill !== 'gradient');
+    setSwatch('#frSwatches', 'frcolor', S.frame.color); syncGradEditor('fr', S.frame.g);
     // recorte
     setActiveChip('#aspects', S.cropAspect ? aspectName(S.cropAspect) : 'free');
+  }
+  function syncGradEditor(prefix, g) {
+    $('#' + prefix + 'GradPreview').style.background = gradCss(g);
+    $('#' + prefix + 'GradC1').value = g.c1; $('#' + prefix + 'GradDot1').style.background = g.c1;
+    $('#' + prefix + 'GradC2').value = g.c2; $('#' + prefix + 'GradDot2').style.background = g.c2;
+    const has3 = !!g.c3; $('#' + prefix + 'GradAddWrap').classList.toggle('hidden', has3); $('#' + prefix + 'GradRemove3').classList.toggle('hidden', !has3);
+    if (has3) { $('#' + prefix + 'GradC3').value = g.c3; }
+    $('#' + prefix + 'GradAngle').value = g.angle; $('#' + prefix + 'GradAngleV').textContent = g.angle;
+    if ($('#' + prefix + 'GradType')) document.querySelectorAll('#' + prefix + 'GradType button').forEach((x) => x.classList.toggle('active', x.dataset.gtype === g.type));
+    if ($('#' + prefix + 'GradAngleRow')) $('#' + prefix + 'GradAngleRow').classList.toggle('hidden', g.type === 'radial');
   }
   function aspectName(ar) { const map = { '1': '1:1', '0.8': '4:5', '0.75': '3:4' }; const cands = { '1:1': 1, '4:5': 4 / 5, '3:4': 3 / 4, '16:9': 16 / 9, '9:16': 9 / 16 }; for (const k in cands) if (Math.abs(cands[k] - ar) < 0.01) return k; return 'free'; }
 
@@ -838,6 +1059,8 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     document.querySelectorAll('#segs button').forEach((x) => x.classList.toggle('active', x === b));
     document.querySelectorAll('.cat').forEach((c) => c.classList.toggle('active', c.dataset.cat === S.cat));
     if (cropMode()) ensureCrop(); brushCursor.show = false;
+    if (S.cat !== 'cor' && S.picking) setPicking(false);
+    S.dirtyFrame = true;
     if (cropMode() !== wasCrop) { updateBadge(); computeFit(); fitToScreen(); } else requestRender();
   });
 
@@ -849,12 +1072,12 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   const FILTERS = { none: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 }, vivido: { brightness: 4, contrast: 14, saturation: 38, temperature: 4, exposure: 4, sharpen: 10 }, pb: { brightness: 2, contrast: 12, saturation: -100, temperature: 0, exposure: 0, sharpen: 8 }, quente: { brightness: 2, contrast: 6, saturation: 10, temperature: 38, exposure: 3, sharpen: 0 }, frio: { brightness: 2, contrast: 6, saturation: 6, temperature: -36, exposure: 2, sharpen: 0 }, nitido: { brightness: 6, contrast: 18, saturation: 8, temperature: 2, exposure: 4, sharpen: 40 }, vintage: { brightness: 6, contrast: -8, saturation: -18, temperature: 20, exposure: 2, sharpen: 0 }, suave: { brightness: 8, contrast: -12, saturation: -6, temperature: 6, exposure: 6, sharpen: 0 } };
   $('#filters').addEventListener('click', (e) => { const b = e.target.closest('.chip[data-filter]'); if (!b) return; const f = FILTERS[b.dataset.filter]; if (!f) return; Object.assign(S.adj, f); syncAllInputs(); setActiveChip('#filters', b.dataset.filter); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); commit(); });
 
-  $('#aspects').addEventListener('click', (e) => { const b = e.target.closest('.chip[data-aspect]'); if (!b) return; setActiveChip('#aspects', b.dataset.aspect); if (b.dataset.aspect === 'free') { S.cropAspect = null; commit(); return; } const [aw, ah] = b.dataset.aspect.split(':').map(Number); const ar = aw / ah; S.cropAspect = ar; let w = S.W, h = w / ar; if (h > S.H) { h = S.H; w = h * ar; } S.crop = { x: (S.W - w) / 2, y: (S.H - h) / 2, w, h }; updateBadge(); requestRender(); commit(); });
+  $('#aspects').addEventListener('click', (e) => { const b = e.target.closest('.chip[data-aspect]'); if (!b) return; setActiveChip('#aspects', b.dataset.aspect); if (b.dataset.aspect === 'free') { S.cropAspect = null; commit(); return; } const [aw, ah] = b.dataset.aspect.split(':').map(Number); const ar = aw / ah; S.cropAspect = ar; let w = S.W, h = w / ar; if (h > S.H) { h = S.H; w = h * ar; } S.crop = { x: (S.W - w) / 2, y: (S.H - h) / 2, w, h }; S.dirtyFrame = true; updateBadge(); requestRender(); commit(); });
   $('#rotL').onclick = () => transformAll(rot90, true); $('#flipH').onclick = () => transformAll((s) => flipC(s, true), false); $('#flipV').onclick = () => transformAll((s) => flipC(s, false), false);
-  $('#cropReset').onclick = () => { S.crop = null; S.cropAspect = null; setActiveChip('#aspects', 'free'); updateBadge(); computeFit(); fitToScreen(); commit(); toast('Corte redefinido'); };
+  $('#cropReset').onclick = () => { S.crop = null; S.cropAspect = null; setActiveChip('#aspects', 'free'); S.dirtyFrame = true; updateBadge(); computeFit(); fitToScreen(); commit(); toast('Corte redefinido'); };
 
   function refreshEdgeControls() { $('#edgeControls').classList.toggle('hidden', S.bgKind === 'original'); $('#effNote').classList.toggle('hidden', S.bgKind !== 'original'); }
-  $('#bgKind').addEventListener('click', (e) => { const b = e.target.closest('button[data-bg]'); if (!b) return; S.bgKind = b.dataset.bg; document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x === b)); $('#swatches').classList.toggle('hidden', S.bgKind !== 'color'); $('#blurRow').classList.toggle('hidden', S.bgKind !== 'blur'); $('#bgImgNote').classList.toggle('hidden', S.bgKind !== 'blur'); refreshEdgeControls(); if (S.bgKind === 'image') $('#bgImgInput').click(); S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); });
+  $('#bgKind').addEventListener('click', (e) => { const b = e.target.closest('button[data-bg]'); if (!b) return; S.bgKind = b.dataset.bg; document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x === b)); $('#swatches').classList.toggle('hidden', S.bgKind !== 'color'); $('#blurRow').classList.toggle('hidden', S.bgKind !== 'blur'); $('#bgImgNote').classList.toggle('hidden', S.bgKind !== 'blur'); $('#bgGradEditor').classList.toggle('hidden', S.bgKind !== 'gradient'); if (S.bgKind === 'gradient') syncGradEditor('bg', S.bgGrad); refreshEdgeControls(); if (S.bgKind === 'image') $('#bgImgInput').click(); S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); });
   $('#swatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-color]'); if (!b) return; S.bgColor = b.dataset.color; setSwatch('#swatches', 'color', S.bgColor); S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); });
   $('#colorPick').addEventListener('input', (e) => { S.bgColor = e.target.value; S.bgKind = 'color'; document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x.dataset.bg === 'color')); document.querySelectorAll('#swatches .swatch[data-color]').forEach((x) => x.classList.remove('active')); $('#swatches').classList.remove('hidden'); refreshEdgeControls(); S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
   $('#colorPick').addEventListener('change', commit);
@@ -872,6 +1095,36 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   $('#shColorPick').addEventListener('input', (e) => { S.shadow.color = e.target.value; document.querySelectorAll('#shSwatches .swatch[data-shcolor]').forEach((x) => x.classList.remove('active')); S.dirtyOut = true; requestRender(); }); $('#shColorPick').addEventListener('change', commit);
   $('#bdSwatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-bdcolor]'); if (!b) return; S.border.color = b.dataset.bdcolor; setSwatch('#bdSwatches', 'bdcolor', S.border.color); S.dirtyOut = true; requestRender(); commit(); });
   $('#bdColorPick').addEventListener('input', (e) => { S.border.color = e.target.value; document.querySelectorAll('#bdSwatches .swatch[data-bdcolor]').forEach((x) => x.classList.remove('active')); S.dirtyOut = true; requestRender(); }); $('#bdColorPick').addEventListener('change', commit);
+
+  // Editor de degradê genérico (usado por Fundo e Moldura). specFn() devolve o objeto do degradê; onChange() re-renderiza.
+  function wireGradEditor(prefix, specFn, onChange) {
+    const upd = (redraw) => { syncGradEditor(prefix, specFn()); if (redraw !== false) onChange(); };
+    $('#' + prefix + 'GradC1').addEventListener('input', (e) => { specFn().c1 = e.target.value; upd(); }); $('#' + prefix + 'GradC1').addEventListener('change', commit);
+    $('#' + prefix + 'GradC2').addEventListener('input', (e) => { specFn().c2 = e.target.value; upd(); }); $('#' + prefix + 'GradC2').addEventListener('change', commit);
+    $('#' + prefix + 'GradC3').addEventListener('input', (e) => { specFn().c3 = e.target.value; upd(); }); $('#' + prefix + 'GradC3').addEventListener('change', commit);
+    $('#' + prefix + 'GradRemove3').addEventListener('click', () => { specFn().c3 = null; upd(); commit(); });
+    $('#' + prefix + 'GradAngle').addEventListener('input', (e) => { specFn().angle = +e.target.value; upd(); }); $('#' + prefix + 'GradAngle').addEventListener('change', commit);
+    $('#' + prefix + 'GradPresets').addEventListener('click', (e) => { const b = e.target.closest('.grad-chip'); if (!b) return; const g = specFn(); g.c1 = b.dataset.g1; g.c2 = b.dataset.g2; g.c3 = null; upd(); commit(); });
+    if ($('#' + prefix + 'GradType')) $('#' + prefix + 'GradType').addEventListener('click', (e) => { const b = e.target.closest('button[data-gtype]'); if (!b) return; specFn().type = b.dataset.gtype; upd(); commit(); });
+  }
+  wireGradEditor('bg', () => S.bgGrad, () => { S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
+  wireGradEditor('fr', () => S.frame.g, () => { S.dirtyFrame = true; requestRender(); });
+
+  // Trocar cor
+  $('#pickBtn').onclick = () => setPicking(!S.picking);
+  $('#csSwatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-cscolor]'); if (!b) return; S.recolor.target = b.dataset.cscolor; $('#csTarget').value = S.recolor.target; $('#csTargetWrap').style.background = S.recolor.target; setSwatch('#csSwatches', 'cscolor', S.recolor.target); if (S.recolor.source) { S.dirtyAdj = true; S.dirtyOut = true; requestRender(); commit(); } });
+  $('#csTarget').addEventListener('input', (e) => { S.recolor.target = e.target.value; $('#csTargetWrap').style.background = e.target.value; document.querySelectorAll('#csSwatches .swatch').forEach((x) => x.classList.remove('active')); if (S.recolor.source) { S.dirtyAdj = true; S.dirtyOut = true; requestRender(); } });
+  $('#csTarget').addEventListener('change', () => { if (S.recolor.source) commit(); });
+  function onCs(id, key) { $(id).addEventListener('input', (e) => { S.recolor[key] = +e.target.value; $(id + 'V').textContent = e.target.value; if (S.recolor.source) { S.dirtyAdj = true; S.dirtyOut = true; requestRender(); } }); $(id).addEventListener('change', () => { if (S.recolor.source) commit(); }); }
+  onCs('#csTol', 'tol'); onCs('#csSoft', 'soft');
+  $('#csReset').onclick = () => { S.recolor.on = false; S.recolor.source = null; setPicking(false); syncColorSwap(); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); commit(); toast('Troca de cor desfeita'); };
+
+  // Moldura
+  $('#frameShape').addEventListener('click', (e) => { const b = e.target.closest('button[data-frame]'); if (!b) return; S.frame.shape = b.dataset.frame; document.querySelectorAll('#frameShape button').forEach((x) => x.classList.toggle('active', x === b)); $('#frameBody').classList.toggle('hidden', S.frame.shape === 'none'); S.dirtyFrame = true; requestRender(); commit(); });
+  $('#frSize').addEventListener('input', (e) => { S.frame.size = +e.target.value; $('#frSizeV').textContent = e.target.value; S.dirtyFrame = true; requestRender(); }); $('#frSize').addEventListener('change', commit);
+  $('#frFill').addEventListener('click', (e) => { const b = e.target.closest('button[data-fill]'); if (!b) return; S.frame.fill = b.dataset.fill; document.querySelectorAll('#frFill button').forEach((x) => x.classList.toggle('active', x === b)); $('#frSwatches').classList.toggle('hidden', S.frame.fill !== 'solid'); $('#frGradEditor').classList.toggle('hidden', S.frame.fill !== 'gradient'); if (S.frame.fill === 'gradient') syncGradEditor('fr', S.frame.g); S.dirtyFrame = true; requestRender(); commit(); });
+  $('#frSwatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-frcolor]'); if (!b) return; S.frame.color = b.dataset.frcolor; setSwatch('#frSwatches', 'frcolor', S.frame.color); S.dirtyFrame = true; requestRender(); commit(); });
+  $('#frColorPick').addEventListener('input', (e) => { S.frame.color = e.target.value; document.querySelectorAll('#frSwatches .swatch[data-frcolor]').forEach((x) => x.classList.remove('active')); S.dirtyFrame = true; requestRender(); }); $('#frColorPick').addEventListener('change', commit);
 
   // Retoque
   $('#brushMode').addEventListener('click', (e) => { const b = e.target.closest('button[data-mode]'); if (!b) return; S.brushMode = b.dataset.mode; document.querySelectorAll('#brushMode button').forEach((x) => x.classList.toggle('active', x === b)); });

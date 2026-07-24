@@ -1,25 +1,28 @@
 # Publicando a plataforma na internet
 
-> Guia para colocar o **Agente** no ar para qualquer usuário, com as ferramentas
-> funcionando — incluindo a única que depende de servidor (Removedor de Fundo).
-> Nada muda para quem usa localmente: o app continua abrindo por duplo-clique /
-> `Agente.bat`, e o servidor local sempre tem prioridade.
+> Guia para colocar o **Agente** no ar para qualquer usuário. Boa notícia: o app
+> é **100% estático** — todas as ferramentas rodam no próprio navegador, sem
+> nenhum servidor de apoio. Não há build. A pasta publicada é a raiz do
+> repositório. Nada muda para quem usa localmente (duplo-clique / `Agente.bat`).
 
 ## Arquitetura publicada
 
 ```
-┌────────────────────────────┐
-│  App (site estático)       │  GitHub Pages / Cloudflare Pages / Netlify
-│  ferramentas no navegador  │  ← grátis, sem hibernar
-└─────────┬──────────────────┘
-          │ HTTPS
-          └──────────────► Removedor de Fundo (IA)   → Hugging Face Spaces (Docker)
+┌────────────────────────────────────┐
+│  App (site estático)               │  GitHub Pages / Cloudflare Pages / Netlify
+│  TODAS as ferramentas no navegador │  ← grátis, sem servidor, sem hibernar
+└────────────────────────────────────┘
 ```
 
-O arquivo **`src/server-config.js`** é o coração disso: a ferramenta testa os
-endereços na ordem *(salvo no navegador → localhost → nuvem)* e usa o primeiro que
-responder. Publicar = subir o servidor do Removedor e preencher o campo `REMOTE`
-desse arquivo.
+O **Removedor de Fundo** também roda inteiro no navegador: a segmentação usa
+ONNX Runtime Web + o modelo U²-Netp, ambos vendorizados no repositório
+(`vendor/ort/` e `models/u2netp.onnx`). O motor (~11 MB) e o modelo (~4,6 MB)
+são baixados **uma única vez** na primeira abertura da ferramenta e ficam no
+cache do service worker (servidos cache-first). Funciona igual no celular e no
+computador — e offline, depois do primeiro uso.
+
+> Detector Flop, AutoPost IA e Replicador são páginas embutidas (iframe), também
+> sem servidor.
 
 ---
 
@@ -43,66 +46,31 @@ Escolha UMA das opções:
 | **Netlify** | ✅ funciona com privado | idem |
 
 Qualquer uma delas serve o app por HTTPS e publica de novo a cada `git push`.
+Não há passo de build nem servidor a manter.
 
-> O app é 100% estático — não há build. A pasta publicada é a raiz do repositório.
-
-## Passo 3 — Removedor de Fundo na nuvem (Hugging Face Spaces)
-
-O servidor de IA já vem com **`removedor-server/Dockerfile`** pronto.
-
-1. Crie conta em <https://huggingface.co> → **New Space**.
-2. Escolha **SDK: Docker** (Blank) · hardware **CPU basic (grátis)** · visibilidade Public.
-3. Envie para o Space os 3 arquivos de `removedor-server/`:
-   `Dockerfile`, `server.py`, `requirements.txt`
-   (pela aba *Files → Add file*, ou por `git push` para o repositório do Space).
-4. No `README.md` do Space, garanta o metadado da porta:
-
-   ```yaml
-   ---
-   title: Agente Removedor de Fundo
-   sdk: docker
-   app_port: 7860
-   ---
-   ```
-
-5. Aguarde o build. A URL fica `https://SEU-USUARIO-NOME-DO-SPACE.hf.space`.
-   Teste: `https://….hf.space/health` → `{"ok":true, …}`.
-
-> **Dica:** no plano grátis (CPU, 16 GB RAM) o modelo padrão BiRefNet funciona,
-> mas é lento (~30–60 s por imagem). O usuário pode escolher "Rápido (U²-Net)"
-> no seletor de modelo da ferramenta para respostas em poucos segundos.
-
-## Passo 4 — Apontar o app para o servidor
-
-Edite **`src/server-config.js`** e preencha com a URL do passo 3:
-
-```js
-const REMOTE = {
-  removedor: 'https://seu-usuario-agente-removedor.hf.space',
-};
-```
-
-Depois:
+## Passo 3 — Publicar
 
 ```bash
 npm run verify         # lint + testes + manifesto
 npm run bump:version   # invalida o cache do service worker
-git add -A && git commit -m "Servidor remoto configurado" && git push
+git add -A && git commit -m "Publicação" && git push
 ```
 
-Pronto. Quem abrir o app publicado usa a nuvem sem configurar nada; quem roda no
-PC continua usando o servidor local (ele tem prioridade na ordem de teste).
+Pronto. Todo mundo — celular ou computador — usa a plataforma inteira sem
+configurar nada.
 
 ---
 
 ## Ressalvas conhecidas
 
-- **Hibernação (planos grátis):** o HF Spaces "dorme" após ~15 min sem uso; a
-  primeira requisição demora até 1 min. A ferramenta avisa o usuário e reconecta
-  sozinha (mensagem "o servidor gratuito hiberna…").
-- **Removedor no plano grátis:** sem GPU. Para produção séria, considere hardware
-  pago no HF (a partir de ~US$ 0,05/h) ou uma máquina própria.
-- **Override por navegador (avançado):** dá para apontar um navegador específico
-  para outro servidor sem mexer no código — no console:
-  `localStorage.setItem('agente:server:removedor', 'https://outra-url')`.
-  Remover: `localStorage.removeItem(...)`.
+- **Primeiro uso do Removedor de Fundo:** baixa ~15 MB (motor + modelo de IA)
+  uma vez; a ferramenta mostra uma barra de progresso. Depois disso abre na hora,
+  inclusive offline.
+- **Modo arquivo local (`file://`, duplo-clique):** navegadores bloqueiam parte
+  do carregamento de módulos/modelos por `file://`. As ferramentas de IA (como o
+  Removedor) pedem a **versão publicada por HTTPS**. O resto do app funciona
+  normalmente por duplo-clique.
+- **Threads da IA:** o GitHub Pages não envia os cabeçalhos COOP/COEP, então o
+  motor roda em thread única (com SIMD). É suficiente — alguns segundos por
+  imagem. Se você hospedar num lugar que permita esses cabeçalhos, o ORT usa
+  múltiplas threads automaticamente e fica ainda mais rápido.

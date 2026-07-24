@@ -4,7 +4,6 @@
 // quebrava o boot (função undefined) ou servia cache obsoleto.
 // Ordem = dependência (app.js por último faz o boot).
 export const SCRIPTS = [
-  'server-config.js',
   'catalogs.js',
   'core.js',
   'crypto.js',

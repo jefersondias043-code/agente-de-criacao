@@ -1,4 +1,4 @@
-const CACHE = 'agp-v152';
+const CACHE = 'agp-v153';
 const URLS = [
   './',
   './index.html',
@@ -17,7 +17,6 @@ const URLS = [
   './icon-maskable-512.png',
   './vendor/lamejs.js',
   // scripts:start — gerado de scripts/scripts.manifest.mjs (npm run sync:manifest)
-  './src/server-config.js',
   './src/catalogs.js',
   './src/core.js',
   './src/crypto.js',
@@ -72,11 +71,33 @@ self.addEventListener('activate', (e) => {
 // sempre busca a versão mais recente (evita rodar código obsoleto do cache) e,
 // se a rede falhar (offline), cai para o cache. CDNs externos ficam cache-first
 // (bibliotecas versionadas, raramente mudam).
+//
+// EXCEÇÃO cache-first para /vendor/ e /models/: são binários GRANDES e IMUTÁVEIS
+// (o motor de IA ~11 MB e o modelo de recorte ~4,6 MB do Removedor de Fundo).
+// Com network-first eles seriam rebaixados a cada abertura — o que quebraria a
+// promessa de "baixa uma vez e fica salvo". Servimos do cache quando presentes;
+// senão busca na rede e guarda. Para atualizá-los, sobe a versão do CACHE (o
+// activate limpa os caches antigos).
+function isImmutableAsset(url) {
+  const p = new URL(url).pathname;
+  return p.indexOf('/vendor/') !== -1 || p.indexOf('/models/') !== -1;
+}
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const sameOrigin = new URL(req.url).origin === self.location.origin;
-  if (sameOrigin) {
+  if (sameOrigin && isImmutableAsset(req.url)) {
+    // cache-first (imutável): evita rebaixar megabytes a cada uso
+    e.respondWith(
+      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, clone));
+        }
+        return res;
+      }))
+    );
+  } else if (sameOrigin) {
     e.respondWith(
       fetch(req)
         .then((res) => {

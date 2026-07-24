@@ -1,4 +1,4 @@
-const CACHE = 'agp-v155';
+const CACHE = 'agp-v156';
 const URLS = [
   './',
   './index.html',

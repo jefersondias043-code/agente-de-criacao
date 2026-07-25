@@ -143,16 +143,18 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 /* editor de degradê (reutilizado em Fundo e Moldura) */
 .grad-editor { display: flex; flex-direction: column; gap: .55rem; }
 .grad-preview { height: 34px; border-radius: 10px; border: 1px solid var(--line); box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
-.grad-stops { display: flex; align-items: center; gap: 8px; }
+.grad-stops { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .grad-stop { position: relative; cursor: pointer; }
 .grad-dot { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line), var(--shadow-sm); }
 .grad-stop input[type=color] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
-.grad-plus { background: var(--paper-2); color: var(--ink-soft); font-size: 1.1rem; font-weight: 700; border-style: dashed; }
-.grad-x { width: 26px; height: 26px; border-radius: 50%; background: var(--paper-2); color: var(--ink-soft); font-size: 1rem; line-height: 1; }
-.grad-x:hover { background: var(--accent-soft); color: var(--accent); }
-.grad-presets { display: flex; gap: 7px; flex-wrap: wrap; }
-.grad-chip { width: 34px; height: 26px; border-radius: 7px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); }
+.grad-stop .grad-remove { position: absolute; top: -5px; right: -5px; width: 17px; height: 17px; border-radius: 50%; background: var(--ink); color: #fff; font-size: .72rem; line-height: 1; display: grid; place-items: center; box-shadow: var(--shadow-sm); }
+.grad-add { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--paper-2); color: var(--ink-soft); font-size: 1.25rem; font-weight: 700; border: 2px dashed var(--line); }
+.grad-add:active { transform: scale(.94); }
+.grad-sub { font-size: .66rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 800; color: var(--ink-mute); margin-top: .1rem; }
+.grad-presets { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.grad-chip { position: relative; width: 34px; height: 26px; border-radius: 7px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); }
 .grad-chip:active { transform: scale(.94); }
+.grad-chip.saved .grad-remove { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%; background: var(--ink); color: #fff; font-size: .68rem; line-height: 1; display: grid; place-items: center; }
 
 /* Trocar cor */
 .colorswap-row { display: flex; align-items: center; gap: .55rem; }
@@ -284,7 +286,8 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
         <button class="chip" data-filter="vintage">Vintage</button>
         <button class="chip" data-filter="suave">Suave</button>
       </div>
-      <div class="note">Cada filtro é um ponto de partida — depois é só afinar em “Ajustes”.</div>
+      <div class="row hidden" id="filterIntensityRow"><span class="lbl">Intensidade</span><input type="range" id="filterIntensity" min="0" max="100" value="100"><span class="val" id="filterIntensityV">100</span></div>
+      <div class="note">Escolha um filtro e ajuste a <b>intensidade</b>. Para afinar cada parâmetro, use “Ajustes”.</div>
     </div>
 
     <!-- Cortar -->
@@ -318,25 +321,15 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       </div>
       <div class="grad-editor hidden" id="bgGradEditor" data-grad="bg">
         <div class="grad-preview" id="bgGradPreview"></div>
-        <div class="grad-stops">
-          <label class="grad-stop"><span class="grad-dot" id="bgGradDot1"></span><input type="color" id="bgGradC1" value="#ff8a3c"></label>
-          <label class="grad-stop"><span class="grad-dot" id="bgGradDot2"></span><input type="color" id="bgGradC2" value="#cf3418"></label>
-          <label class="grad-stop grad-add" id="bgGradAddWrap"><span class="grad-dot grad-plus" id="bgGradDot3">+</span><input type="color" id="bgGradC3" value="#7a1fd8"></label>
-          <button class="grad-x hidden" id="bgGradRemove3" title="Remover 3ª cor">×</button>
-        </div>
-        <div class="grad-presets" id="bgGradPresets">
-          <button class="grad-chip" data-g1="#ff8a3c" data-g2="#cf3418" style="background:linear-gradient(135deg,#ff8a3c,#cf3418)"></button>
-          <button class="grad-chip" data-g1="#1fa2ff" data-g2="#12d8cf" style="background:linear-gradient(135deg,#1fa2ff,#12d8cf)"></button>
-          <button class="grad-chip" data-g1="#7a1fd8" data-g2="#ff2d7e" style="background:linear-gradient(135deg,#7a1fd8,#ff2d7e)"></button>
-          <button class="grad-chip" data-g1="#0f2027" data-g2="#2c5364" style="background:linear-gradient(135deg,#0f2027,#2c5364)"></button>
-          <button class="grad-chip" data-g1="#f7971e" data-g2="#ffd200" style="background:linear-gradient(135deg,#f7971e,#ffd200)"></button>
-          <button class="grad-chip" data-g1="#ffffff" data-g2="#c9c4b8" style="background:linear-gradient(135deg,#ffffff,#c9c4b8)"></button>
-        </div>
+        <div class="grad-stops" id="bgGradStops"></div>
+        <div class="grad-sub">Modelos</div>
+        <div class="grad-presets" id="bgGradPresets"></div>
         <div class="toolseg" id="bgGradType">
           <button class="active" data-gtype="linear">Linear</button>
           <button data-gtype="radial">Radial</button>
         </div>
         <div class="row" id="bgGradAngleRow"><span class="lbl">Ângulo</span><input type="range" id="bgGradAngle" min="0" max="360" value="135"><span class="val" id="bgGradAngleV">135</span></div>
+        <button class="btn ghost sm" id="bgGradSave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg> Salvar este degradê</button>
       </div>
       <div class="swatches hidden" id="swatches">
         <button class="swatch active" style="background:#ffffff" data-color="#ffffff"></button>
@@ -403,19 +396,15 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
         </div>
         <div class="grad-editor hidden" id="frGradEditor" data-grad="fr">
           <div class="grad-preview" id="frGradPreview"></div>
-          <div class="grad-stops">
-            <label class="grad-stop"><span class="grad-dot" id="frGradDot1"></span><input type="color" id="frGradC1" value="#ffd200"></label>
-            <label class="grad-stop"><span class="grad-dot" id="frGradDot2"></span><input type="color" id="frGradC2" value="#f7971e"></label>
-            <label class="grad-stop grad-add" id="frGradAddWrap"><span class="grad-dot grad-plus" id="frGradDot3">+</span><input type="color" id="frGradC3" value="#cf3418"></label>
-            <button class="grad-x hidden" id="frGradRemove3" title="Remover 3ª cor">×</button>
+          <div class="grad-stops" id="frGradStops"></div>
+          <div class="grad-sub">Modelos</div>
+          <div class="grad-presets" id="frGradPresets"></div>
+          <div class="toolseg" id="frGradType">
+            <button class="active" data-gtype="linear">Linear</button>
+            <button data-gtype="radial">Radial</button>
           </div>
-          <div class="grad-presets" id="frGradPresets">
-            <button class="grad-chip" data-g1="#ffd200" data-g2="#f7971e" style="background:linear-gradient(135deg,#ffd200,#f7971e)"></button>
-            <button class="grad-chip" data-g1="#e0e0e0" data-g2="#9a9a9a" style="background:linear-gradient(135deg,#e0e0e0,#9a9a9a)"></button>
-            <button class="grad-chip" data-g1="#ff2d7e" data-g2="#7a1fd8" style="background:linear-gradient(135deg,#ff2d7e,#7a1fd8)"></button>
-            <button class="grad-chip" data-g1="#12d8cf" data-g2="#1fa2ff" style="background:linear-gradient(135deg,#12d8cf,#1fa2ff)"></button>
-          </div>
-          <div class="row"><span class="lbl">Ângulo</span><input type="range" id="frGradAngle" min="0" max="360" value="135"><span class="val" id="frGradAngleV">135</span></div>
+          <div class="row" id="frGradAngleRow"><span class="lbl">Ângulo</span><input type="range" id="frGradAngle" min="0" max="360" value="135"><span class="val" id="frGradAngleV">135</span></div>
+          <button class="btn ghost sm" id="frGradSave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg> Salvar este degradê</button>
         </div>
       </div>
       <div class="note">Molduras enquadram a composição inteira (respeitando o corte). A circular recorta em círculo com transparência ao redor.</div>
@@ -520,10 +509,11 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     feather: 1.5, contract: 0,
     brushMode: 'restore', brushSize: 42, brushSoft: 55,
     adj: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 },
+    filterName: 'none', filterIntensity: 100,
     shadow: { on: false, blur: 18, dist: 12, angle: 135, opacity: 45, color: '#000000' },
     border: { on: false, size: 8, color: '#ffffff' },
-    bgGrad: { c1: '#ff8a3c', c2: '#cf3418', c3: null, angle: 135, type: 'linear' },
-    frame: { shape: 'none', size: 36, fill: 'solid', color: '#ffffff', g: { c1: '#ffd200', c2: '#f7971e', c3: null, angle: 135, type: 'linear' } },
+    bgGrad: { colors: ['#ff8a3c', '#cf3418'], angle: 135, type: 'linear' },
+    frame: { shape: 'none', size: 36, fill: 'solid', color: '#ffffff', g: { colors: ['#ffd200', '#f7971e'], angle: 135, type: 'linear' } },
     recolor: { on: false, source: null, target: '#cf3418', tol: 35, soft: 45 },
     picking: false,
     crop: null, cropAspect: null,
@@ -549,16 +539,16 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   function rgbToHsl(r, g, b) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); let h = 0, s = 0; const l = (mx + mn) / 2; const d = mx - mn; if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); if (mx === r) h = ((g - b) / d + (g < b ? 6 : 0)); else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; } return [h, s, l]; }
   function hue2rgb(p, q, t) { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; }
   function hslToRgb(h, s, l) { let r, g, b; if (!s) { r = g = b = l; } else { const q = l < 0.5 ? l * (1 + s) : l + s - l * s; const p = 2 * l - q; r = hue2rgb(p, q, h + 1 / 3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1 / 3); } return [r * 255, g * 255, b * 255]; }
-  // Constrói um gradiente de canvas a partir de {c1,c2,c3?,angle,type} cobrindo (0,0,w,h) deslocado por (ox,oy).
+  // Constrói um gradiente de canvas a partir de {colors:[...], angle, type} cobrindo (0,0,w,h) deslocado por (ox,oy).
   function makeGradient(ctx, spec, w, h, ox, oy) {
     ox = ox || 0; oy = oy || 0; let g;
     if (spec.type === 'radial') { g = ctx.createRadialGradient(ox + w / 2, oy + h / 2, Math.min(w, h) * 0.05, ox + w / 2, oy + h / 2, Math.max(w, h) * 0.72); }
     else { const a = (spec.angle - 90) * Math.PI / 180; const cx = ox + w / 2, cy = oy + h / 2; const len = (Math.abs(Math.cos(a)) * w + Math.abs(Math.sin(a)) * h) / 2; g = ctx.createLinearGradient(cx - Math.cos(a) * len, cy - Math.sin(a) * len, cx + Math.cos(a) * len, cy + Math.sin(a) * len); }
-    const cols = [spec.c1, spec.c2]; if (spec.c3) cols.splice(1, 0, spec.c3);
+    const cols = spec.colors && spec.colors.length ? spec.colors : ['#000000', '#ffffff'];
     cols.forEach((c, i) => g.addColorStop(cols.length === 1 ? 0 : i / (cols.length - 1), c));
     return g;
   }
-  function gradCss(spec) { const cols = [spec.c1]; if (spec.c3) cols.push(spec.c3); cols.push(spec.c2); return (spec.type === 'radial' ? 'radial-gradient(circle,' : 'linear-gradient(' + spec.angle + 'deg,') + cols.join(',') + ')'; }
+  function gradCss(spec) { const cols = (spec.colors && spec.colors.length) ? spec.colors : ['#000', '#fff']; return (spec.type === 'radial' ? 'radial-gradient(circle,' : 'linear-gradient(' + spec.angle + 'deg,') + cols.join(',') + ')'; }
 
   // ============ MOTOR DE IA ============
   let session = null, sessionPromise = null;
@@ -614,10 +604,16 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     const LR = new Uint8ClampedArray(256), LG = new Uint8ClampedArray(256), LB = new Uint8ClampedArray(256);
     for (let v = 0; v < 256; v++) { LR[v] = clamp(base[v] + tR); LG[v] = clamp(base[v]); LB[v] = clamp(base[v] + tB); }
     const satF = 1 + a.saturation / 100;
-    // Troca de cor: casa por MATIZ (com a cor selecionada) e recolore preservando
-    // luminância (mantém sombras) e escalando a saturação (mantém textura).
+    // Troca de cor: seleciona por MATIZ + SATURAÇÃO (ignora a luminosidade, então
+    // pega o objeto inteiro — sombras e realços). Recolore de forma ADITIVA:
+    // desloca a banda de tom para o alvo mantendo a variação relativa de luz e
+    // saturação (preserva sombras e textura, sem estourar a cor).
     let rc = null;
-    if (recolorActive()) { const sh = rgbToHsl(S.recolor.source[0], S.recolor.source[1], S.recolor.source[2]); const tg = hexToRgb(S.recolor.target); const th = rgbToHsl(tg[0], tg[1], tg[2]); rc = { sh, th, tolHue: (S.recolor.tol / 100) * 0.5, softHue: 0.015 + (S.recolor.soft / 100) * 0.28, satRatio: sh[1] > 0.05 ? th[1] / sh[1] : 1 }; }
+    if (recolorActive()) {
+      const sh = rgbToHsl(S.recolor.source[0], S.recolor.source[1], S.recolor.source[2]);
+      const tg = hexToRgb(S.recolor.target); const th = rgbToHsl(tg[0], tg[1], tg[2]);
+      rc = { sh, th, tolHue: 0.02 + (S.recolor.tol / 100) * 0.32, soft: 0.02 + (S.recolor.soft / 100) * 0.30, lowSat: sh[1] < 0.14 };
+    }
     if (!S.adjOrig || S.adjOrig.width !== W || S.adjOrig.height !== H) S.adjOrig = mkCanvas(W, H);
     const ac = S.adjOrig.getContext('2d'); ac.drawImage(S.orig, 0, 0);
     const idata = ac.getImageData(0, 0, W, H); const p = idata.data;
@@ -625,10 +621,22 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       let r = LR[p[i]], g = LG[p[i + 1]], b = LB[p[i + 2]];
       if (satF !== 1) { const gray = 0.299 * r + 0.587 * g + 0.114 * b; r = gray + (r - gray) * satF; g = gray + (g - gray) * satF; b = gray + (b - gray) * satF; }
       if (rc) {
-        const hsl = rgbToHsl(r, g, b); let dh = Math.abs(hsl[0] - rc.sh[0]); if (dh > 0.5) dh = 1 - dh;
-        let strength = 1 - smoothstep(rc.tolHue, rc.tolHue + rc.softHue, dh);
-        strength *= smoothstep(0.12, 0.30, hsl[1]) * smoothstep(0.06, 0.20, rc.sh[1] + 0.0001);
-        if (strength > 0.003) { const ns = Math.min(1, hsl[1] * rc.satRatio); const nr = hslToRgb(rc.th[0], ns, hsl[2]); r += (nr[0] - r) * strength; g += (nr[1] - g) * strength; b += (nr[2] - b) * strength; }
+        const hsl = rgbToHsl(r, g, b);
+        // distância de cor (matiz + saturação, ignorando luminosidade)
+        let dh = Math.abs(hsl[0] - rc.sh[0]); if (dh > 0.5) dh = 1 - dh;
+        const ds = Math.abs(hsl[1] - rc.sh[1]);
+        // matiz é instável em pixels quase-cinza: pondera pela saturação do pixel
+        const hueW = Math.min(hsl[1], rc.sh[1] || 1) / 0.2;
+        const dist = dh * Math.min(1, hueW) + ds * 0.5;
+        let strength = 1 - smoothstep(rc.tolHue, rc.tolHue + rc.soft, dist);
+        // evita tingir realces quase-brancos e sombras quase-pretas (sem cor definida)
+        strength *= smoothstep(0.05, 0.16, hsl[1]) * smoothstep(0.03, 0.10, hsl[2]) * (1 - smoothstep(0.90, 0.99, hsl[2]));
+        if (strength > 0.004) {
+          const nh = rc.th[0];
+          const ns = Math.max(0, Math.min(1, hsl[1] + (rc.th[1] - rc.sh[1])));   // desloca saturação (mantém textura)
+          const nl = Math.max(0, Math.min(1, hsl[2] + (rc.th[2] - rc.sh[2])));   // desloca luminosidade (mantém sombras relativas)
+          const nr = hslToRgb(nh, ns, nl); r += (nr[0] - r) * strength; g += (nr[1] - g) * strength; b += (nr[2] - b) * strength;
+        }
       }
       p[i] = r; p[i + 1] = g; p[i + 2] = b;
     }
@@ -816,6 +824,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     // Muta em PLACE (não reatribui) — handlers de efeitos capturam essas
     // referências no setup; trocar o objeto quebraria os toggles/sliders.
     S.crop = null; S.cropAspect = null; Object.assign(S.adj, { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 });
+    S.filterName = 'none'; S.filterIntensity = 100;
     Object.assign(S.shadow, { on: false, blur: 18, dist: 12, angle: 135, opacity: 45, color: '#000000' }); Object.assign(S.border, { on: false, size: 8, color: '#ffffff' });
     S.frame.shape = 'none'; Object.assign(S.recolor, { on: false, source: null, target: '#cf3418', tol: 35, soft: 45 }); setPicking(false);
     S.bgKind = 'transparent';
@@ -907,7 +916,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   const layerCache = new Map(); let hist = [], histIdx = -1, histBusy = false;
   function bumpLayer(n) { layerVer[n]++; }
   function resetHistory() { hist = []; histIdx = -1; layerCache.clear(); layerVer.orig = 0; layerVer.maskGray = 0; layerVer.brushAdd = 0; layerVer.brushSub = 0; updateUndoButtons(); }
-  function snapSettings() { return { adj: Object.assign({}, S.adj), bgKind: S.bgKind, bgColor: S.bgColor, blurAmt: S.blurAmt, feather: S.feather, contract: S.contract, crop: S.crop ? Object.assign({}, S.crop) : null, cropAspect: S.cropAspect, shadow: Object.assign({}, S.shadow), border: Object.assign({}, S.border), bgGrad: Object.assign({}, S.bgGrad), frame: { shape: S.frame.shape, size: S.frame.size, fill: S.frame.fill, color: S.frame.color, g: Object.assign({}, S.frame.g) }, recolor: { on: S.recolor.on, source: S.recolor.source ? S.recolor.source.slice() : null, target: S.recolor.target, tol: S.recolor.tol, soft: S.recolor.soft }, cat: S.cat, W: S.W, H: S.H, ver: Object.assign({}, layerVer) }; }
+  function snapSettings() { return { adj: Object.assign({}, S.adj), filterName: S.filterName, filterIntensity: S.filterIntensity, bgKind: S.bgKind, bgColor: S.bgColor, blurAmt: S.blurAmt, feather: S.feather, contract: S.contract, crop: S.crop ? Object.assign({}, S.crop) : null, cropAspect: S.cropAspect, shadow: Object.assign({}, S.shadow), border: Object.assign({}, S.border), bgGrad: { colors: S.bgGrad.colors.slice(), angle: S.bgGrad.angle, type: S.bgGrad.type }, frame: { shape: S.frame.shape, size: S.frame.size, fill: S.frame.fill, color: S.frame.color, g: { colors: S.frame.g.colors.slice(), angle: S.frame.g.angle, type: S.frame.g.type } }, recolor: { on: S.recolor.on, source: S.recolor.source ? S.recolor.source.slice() : null, target: S.recolor.target, tol: S.recolor.tol, soft: S.recolor.soft }, cat: S.cat, W: S.W, H: S.H, ver: Object.assign({}, layerVer) }; }
   function encodeLayer(name) { return new Promise((res) => { const key = name + '@' + layerVer[name]; if (layerCache.has(key)) return res(); const cv = S[name]; if (!cv) { layerCache.set(key, null); return res(); } cv.toBlob((b) => { layerCache.set(key, b); res(); }, 'image/png'); }); }
   async function pushHistory() {
     if (histBusy) return; await Promise.all(['orig', 'maskGray', 'brushAdd', 'brushSub'].map(encodeLayer));
@@ -921,10 +930,10 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   async function restoreState(s) {
     histBusy = true;
     for (const name of ['orig', 'maskGray', 'brushAdd', 'brushSub']) { if (layerVer[name] !== s.ver[name]) { S[name] = await loadLayer(name, s.ver[name]); layerVer[name] = s.ver[name]; } }
-    S.W = s.W; S.H = s.H; Object.assign(S.adj, s.adj); S.bgKind = s.bgKind; S.bgColor = s.bgColor; S.blurAmt = s.blurAmt; S.feather = s.feather; S.contract = s.contract;
+    S.W = s.W; S.H = s.H; Object.assign(S.adj, s.adj); if (s.filterName != null) { S.filterName = s.filterName; S.filterIntensity = s.filterIntensity; } S.bgKind = s.bgKind; S.bgColor = s.bgColor; S.blurAmt = s.blurAmt; S.feather = s.feather; S.contract = s.contract;
     S.crop = s.crop ? Object.assign({}, s.crop) : null; S.cropAspect = s.cropAspect; Object.assign(S.shadow, s.shadow); Object.assign(S.border, s.border);
-    if (s.bgGrad) Object.assign(S.bgGrad, s.bgGrad);
-    if (s.frame) { S.frame.shape = s.frame.shape; S.frame.size = s.frame.size; S.frame.fill = s.frame.fill; S.frame.color = s.frame.color; Object.assign(S.frame.g, s.frame.g); }
+    if (s.bgGrad) { S.bgGrad.colors = s.bgGrad.colors.slice(); S.bgGrad.angle = s.bgGrad.angle; S.bgGrad.type = s.bgGrad.type; }
+    if (s.frame) { S.frame.shape = s.frame.shape; S.frame.size = s.frame.size; S.frame.fill = s.frame.fill; S.frame.color = s.frame.color; S.frame.g.colors = s.frame.g.colors.slice(); S.frame.g.angle = s.frame.g.angle; S.frame.g.type = s.frame.g.type; }
     if (s.recolor) { S.recolor.on = s.recolor.on; S.recolor.source = s.recolor.source ? s.recolor.source.slice() : null; S.recolor.target = s.recolor.target; S.recolor.tol = s.recolor.tol; S.recolor.soft = s.recolor.soft; }
     S.adjOrig = null; S.aiAlpha = null; S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null;
     if (S.maskGray) buildAiAlpha();
@@ -1001,6 +1010,11 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     $('#ajTemperature').value = a.temperature; $('#ajTemperatureV').textContent = a.temperature;
     $('#ajExposure').value = a.exposure; $('#ajExposureV').textContent = a.exposure;
     $('#ajSharpen').value = a.sharpen; $('#ajSharpenV').textContent = a.sharpen;
+    // filtros
+    setActiveChip('#filters', S.filterName);
+    const hasFilter = FILTERS[S.filterName] && S.filterName !== 'none';
+    $('#filterIntensityRow').classList.toggle('hidden', !hasFilter);
+    $('#filterIntensity').value = S.filterIntensity; $('#filterIntensityV').textContent = S.filterIntensity;
     $('#feather').value = S.feather; $('#featherVal').textContent = S.feather;
     $('#contract').value = S.contract; $('#contractVal').textContent = S.contract;
     $('#blurAmt').value = S.blurAmt; $('#blurVal').textContent = S.blurAmt;
@@ -1032,15 +1046,37 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     // recorte
     setActiveChip('#aspects', S.cropAspect ? aspectName(S.cropAspect) : 'free');
   }
+  // Modelos embutidos de degradê (>=2 cores).
+  const GRAD_PRESETS = [
+    ['#ff8a3c', '#cf3418'], ['#1fa2ff', '#12d8cf'], ['#7a1fd8', '#ff2d7e'], ['#0f2027', '#2c5364'],
+    ['#f7971e', '#ffd200'], ['#ffffff', '#c9c4b8'], ['#12c2e9', '#c471ed', '#f64f59'], ['#f7971e', '#ffd200', '#e0e0e0'],
+  ];
+  const GRAD_STORE = 'agp.removedor.grads';
+  function loadSavedGrads() { try { return JSON.parse(localStorage.getItem(GRAD_STORE) || '[]'); } catch (_) { return []; } }
+  function saveSavedGrads(list) { try { localStorage.setItem(GRAD_STORE, JSON.stringify(list.slice(0, 30))); } catch (_) { /* */ } }
+  let savedGrads = loadSavedGrads();
+
   function syncGradEditor(prefix, g) {
     $('#' + prefix + 'GradPreview').style.background = gradCss(g);
-    $('#' + prefix + 'GradC1').value = g.c1; $('#' + prefix + 'GradDot1').style.background = g.c1;
-    $('#' + prefix + 'GradC2').value = g.c2; $('#' + prefix + 'GradDot2').style.background = g.c2;
-    const has3 = !!g.c3; $('#' + prefix + 'GradAddWrap').classList.toggle('hidden', has3); $('#' + prefix + 'GradRemove3').classList.toggle('hidden', !has3);
-    if (has3) { $('#' + prefix + 'GradC3').value = g.c3; }
+    renderGradStops(prefix, g); renderGradPresets(prefix);
     $('#' + prefix + 'GradAngle').value = g.angle; $('#' + prefix + 'GradAngleV').textContent = g.angle;
     if ($('#' + prefix + 'GradType')) document.querySelectorAll('#' + prefix + 'GradType button').forEach((x) => x.classList.toggle('active', x.dataset.gtype === g.type));
     if ($('#' + prefix + 'GradAngleRow')) $('#' + prefix + 'GradAngleRow').classList.toggle('hidden', g.type === 'radial');
+  }
+  function renderGradStops(prefix, g) {
+    const wrap = $('#' + prefix + 'GradStops'); if (!wrap) return;
+    let html = g.colors.map((c, i) =>
+      '<label class="grad-stop"><span class="grad-dot" style="background:' + c + '"></span><input type="color" data-i="' + i + '" value="' + c + '">' +
+      (g.colors.length > 2 ? '<span class="grad-remove" data-remove="' + i + '" title="Remover cor">×</span>' : '') + '</label>'
+    ).join('');
+    if (g.colors.length < 8) html += '<button class="grad-add" data-add="1" title="Adicionar cor">+</button>';
+    wrap.innerHTML = html;
+  }
+  function renderGradPresets(prefix) {
+    const wrap = $('#' + prefix + 'GradPresets'); if (!wrap) return;
+    let html = GRAD_PRESETS.map((cols, i) => '<button class="grad-chip" data-preset="' + i + '" style="background:' + gradCss({ colors: cols, angle: 135, type: 'linear' }) + '"></button>').join('');
+    html += savedGrads.map((sg, i) => '<button class="grad-chip saved" data-saved="' + i + '" style="background:' + gradCss(sg) + '"><span class="grad-remove" data-delsaved="' + i + '" title="Excluir">×</span></button>').join('');
+    wrap.innerHTML = html;
   }
   function aspectName(ar) { const map = { '1': '1:1', '0.8': '4:5', '0.75': '3:4' }; const cands = { '1:1': 1, '4:5': 4 / 5, '3:4': 3 / 4, '16:9': 16 / 9, '9:16': 9 / 16 }; for (const k in cands) if (Math.abs(cands[k] - ar) < 0.01) return k; return 'free'; }
 
@@ -1065,12 +1101,15 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   });
 
   // Ajustes
-  function onAdj(id, key) { const el = $(id); el.addEventListener('input', (e) => { S.adj[key] = +e.target.value; $(id + 'V').textContent = e.target.value; setActiveChip('#filters', 'custom'); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); }); el.addEventListener('change', commit); }
+  function onAdj(id, key) { const el = $(id); el.addEventListener('input', (e) => { S.adj[key] = +e.target.value; $(id + 'V').textContent = e.target.value; S.filterName = 'custom'; setActiveChip('#filters', 'custom'); $('#filterIntensityRow').classList.add('hidden'); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); }); el.addEventListener('change', commit); }
   onAdj('#ajBrightness', 'brightness'); onAdj('#ajContrast', 'contrast'); onAdj('#ajSaturation', 'saturation'); onAdj('#ajTemperature', 'temperature'); onAdj('#ajExposure', 'exposure'); onAdj('#ajSharpen', 'sharpen');
-  $('#ajReset').onclick = () => { Object.assign(S.adj, { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 }); syncAllInputs(); setActiveChip('#filters', 'none'); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); commit(); toast('Ajustes redefinidos'); };
+  $('#ajReset').onclick = () => { Object.assign(S.adj, { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 }); S.filterName = 'none'; S.filterIntensity = 100; syncAllInputs(); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); commit(); toast('Ajustes redefinidos'); };
 
   const FILTERS = { none: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, exposure: 0, sharpen: 0 }, vivido: { brightness: 4, contrast: 14, saturation: 38, temperature: 4, exposure: 4, sharpen: 10 }, pb: { brightness: 2, contrast: 12, saturation: -100, temperature: 0, exposure: 0, sharpen: 8 }, quente: { brightness: 2, contrast: 6, saturation: 10, temperature: 38, exposure: 3, sharpen: 0 }, frio: { brightness: 2, contrast: 6, saturation: 6, temperature: -36, exposure: 2, sharpen: 0 }, nitido: { brightness: 6, contrast: 18, saturation: 8, temperature: 2, exposure: 4, sharpen: 40 }, vintage: { brightness: 6, contrast: -8, saturation: -18, temperature: 20, exposure: 2, sharpen: 0 }, suave: { brightness: 8, contrast: -12, saturation: -6, temperature: 6, exposure: 6, sharpen: 0 } };
-  $('#filters').addEventListener('click', (e) => { const b = e.target.closest('.chip[data-filter]'); if (!b) return; const f = FILTERS[b.dataset.filter]; if (!f) return; Object.assign(S.adj, f); syncAllInputs(); setActiveChip('#filters', b.dataset.filter); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); commit(); });
+  // Aplica o preset do filtro escalado pela intensidade (0=neutro, 100=cheio).
+  function applyFilter() { const f = FILTERS[S.filterName] || FILTERS.none; const k = S.filterIntensity / 100; ['brightness', 'contrast', 'saturation', 'temperature', 'exposure', 'sharpen'].forEach((key) => { S.adj[key] = Math.round((f[key] || 0) * k); }); }
+  $('#filters').addEventListener('click', (e) => { const b = e.target.closest('.chip[data-filter]'); if (!b) return; if (!FILTERS[b.dataset.filter]) return; S.filterName = b.dataset.filter; S.filterIntensity = 100; applyFilter(); syncAllInputs(); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); commit(); });
+  $('#filterIntensity').addEventListener('input', (e) => { S.filterIntensity = +e.target.value; $('#filterIntensityV').textContent = e.target.value; if (FILTERS[S.filterName]) { applyFilter(); syncAllInputs(); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); } }); $('#filterIntensity').addEventListener('change', commit);
 
   $('#aspects').addEventListener('click', (e) => { const b = e.target.closest('.chip[data-aspect]'); if (!b) return; setActiveChip('#aspects', b.dataset.aspect); if (b.dataset.aspect === 'free') { S.cropAspect = null; commit(); return; } const [aw, ah] = b.dataset.aspect.split(':').map(Number); const ar = aw / ah; S.cropAspect = ar; let w = S.W, h = w / ar; if (h > S.H) { h = S.H; w = h * ar; } S.crop = { x: (S.W - w) / 2, y: (S.H - h) / 2, w, h }; S.dirtyFrame = true; updateBadge(); requestRender(); commit(); });
   $('#rotL').onclick = () => transformAll(rot90, true); $('#flipH').onclick = () => transformAll((s) => flipC(s, true), false); $('#flipV').onclick = () => transformAll((s) => flipC(s, false), false);
@@ -1096,16 +1135,28 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   $('#bdSwatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-bdcolor]'); if (!b) return; S.border.color = b.dataset.bdcolor; setSwatch('#bdSwatches', 'bdcolor', S.border.color); S.dirtyOut = true; requestRender(); commit(); });
   $('#bdColorPick').addEventListener('input', (e) => { S.border.color = e.target.value; document.querySelectorAll('#bdSwatches .swatch[data-bdcolor]').forEach((x) => x.classList.remove('active')); S.dirtyOut = true; requestRender(); }); $('#bdColorPick').addEventListener('change', commit);
 
-  // Editor de degradê genérico (usado por Fundo e Moldura). specFn() devolve o objeto do degradê; onChange() re-renderiza.
+  // Editor de degradê genérico multi-cor (usado por Fundo e Moldura). specFn()
+  // devolve o objeto {colors,angle,type}; onChange() re-renderiza a composição.
   function wireGradEditor(prefix, specFn, onChange) {
-    const upd = (redraw) => { syncGradEditor(prefix, specFn()); if (redraw !== false) onChange(); };
-    $('#' + prefix + 'GradC1').addEventListener('input', (e) => { specFn().c1 = e.target.value; upd(); }); $('#' + prefix + 'GradC1').addEventListener('change', commit);
-    $('#' + prefix + 'GradC2').addEventListener('input', (e) => { specFn().c2 = e.target.value; upd(); }); $('#' + prefix + 'GradC2').addEventListener('change', commit);
-    $('#' + prefix + 'GradC3').addEventListener('input', (e) => { specFn().c3 = e.target.value; upd(); }); $('#' + prefix + 'GradC3').addEventListener('change', commit);
-    $('#' + prefix + 'GradRemove3').addEventListener('click', () => { specFn().c3 = null; upd(); commit(); });
-    $('#' + prefix + 'GradAngle').addEventListener('input', (e) => { specFn().angle = +e.target.value; upd(); }); $('#' + prefix + 'GradAngle').addEventListener('change', commit);
-    $('#' + prefix + 'GradPresets').addEventListener('click', (e) => { const b = e.target.closest('.grad-chip'); if (!b) return; const g = specFn(); g.c1 = b.dataset.g1; g.c2 = b.dataset.g2; g.c3 = null; upd(); commit(); });
+    const upd = () => { syncGradEditor(prefix, specFn()); onChange(); };
+    // stops: editar cor (input), remover (×) e adicionar (+) — via delegação (dinâmico)
+    $('#' + prefix + 'GradStops').addEventListener('input', (e) => { const inp = e.target.closest('input[data-i]'); if (!inp) return; specFn().colors[+inp.dataset.i] = inp.value; upd(); });
+    $('#' + prefix + 'GradStops').addEventListener('change', (e) => { if (e.target.closest('input[data-i]')) commit(); });
+    $('#' + prefix + 'GradStops').addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-remove]'); const add = e.target.closest('[data-add]');
+      if (rm) { e.preventDefault(); const g = specFn(); if (g.colors.length > 2) { g.colors.splice(+rm.dataset.remove, 1); upd(); commit(); } }
+      else if (add) { e.preventDefault(); const g = specFn(); if (g.colors.length < 8) { g.colors.push(g.colors[g.colors.length - 1]); upd(); commit(); } }
+    });
+    $('#' + prefix + 'GradAngle').addEventListener('input', (e) => { specFn().angle = +e.target.value; $('#' + prefix + 'GradAngleV').textContent = e.target.value; $('#' + prefix + 'GradPreview').style.background = gradCss(specFn()); onChange(); }); $('#' + prefix + 'GradAngle').addEventListener('change', commit);
+    $('#' + prefix + 'GradPresets').addEventListener('click', (e) => {
+      const del = e.target.closest('[data-delsaved]'); if (del) { e.preventDefault(); e.stopPropagation(); savedGrads.splice(+del.dataset.delsaved, 1); saveSavedGrads(savedGrads); renderGradPresets('bg'); renderGradPresets('fr'); return; }
+      const chip = e.target.closest('.grad-chip'); if (!chip) return; const g = specFn();
+      if (chip.dataset.preset != null) { g.colors = GRAD_PRESETS[+chip.dataset.preset].slice(); }
+      else if (chip.dataset.saved != null) { const sg = savedGrads[+chip.dataset.saved]; g.colors = sg.colors.slice(); g.angle = sg.angle; g.type = sg.type; }
+      upd(); commit();
+    });
     if ($('#' + prefix + 'GradType')) $('#' + prefix + 'GradType').addEventListener('click', (e) => { const b = e.target.closest('button[data-gtype]'); if (!b) return; specFn().type = b.dataset.gtype; upd(); commit(); });
+    $('#' + prefix + 'GradSave').addEventListener('click', () => { const g = specFn(); savedGrads.unshift({ colors: g.colors.slice(), angle: g.angle, type: g.type }); saveSavedGrads(savedGrads); renderGradPresets('bg'); renderGradPresets('fr'); toast('Degradê salvo ✓'); });
   }
   wireGradEditor('bg', () => S.bgGrad, () => { S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
   wireGradEditor('fr', () => S.frame.g, () => { S.dirtyFrame = true; requestRender(); });

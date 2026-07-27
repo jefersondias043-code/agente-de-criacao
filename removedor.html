@@ -53,8 +53,22 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .iconbtn svg { width: 19px; height: 19px; }
 .iconbtn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
+/* SPLIT (r159): no celular a tela é dividida entre PREVIEW e FERRAMENTAS.
+   O palco tem altura própria (--split) e `flex-shrink:0` — antes ele era
+   `flex:1 1 auto` e o painel `flex:0 0 auto`, então abas altas (Moldura, Fundo
+   com degradê) empurravam o preview até sumir e a edição virava às cegas.
+   Agora quem rola é o painel; o preview fica SEMPRE visível.
+   A divisão só vale com o painel aberto (`.app.split`): na tela de boas-vindas
+   não há ferramentas, então o palco ocupa tudo. */
 .stage { flex: 1 1 auto; position: relative; background: var(--workspace); overflow: hidden; touch-action: none; min-height: 0; }
+.app.split .stage { flex: 0 0 var(--split, 46%); }
 #view { display: block; width: 100%; height: 100%; }
+/* Barra de redimensionamento entre preview e ferramentas (arrastar p/ cima ou
+   para baixo muda a divisão). Mesma ideia da alça do editor de cartazes. */
+.splitter { flex: 0 0 auto; height: 20px; background: var(--surface); border-top: 1px solid var(--line-soft); display: grid; place-items: center; cursor: row-resize; touch-action: none; z-index: 6; position: relative; }
+.splitter::before { content: ''; width: 46px; height: 4px; border-radius: 999px; background: var(--line); transition: background .15s, width .15s; }
+.splitter:active::before, .splitter.dragging::before { background: var(--accent); width: 62px; }
+.splitter::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }  /* área de toque generosa */
 .stage-badge { position: absolute; left: 10px; bottom: 10px; z-index: 3; pointer-events: none; font-size: .68rem; font-weight: 600; color: #fff; background: rgba(0,0,0,.45); padding: 3px 8px; border-radius: 999px; backdrop-filter: blur(4px); }
 .zoombar { position: absolute; right: 10px; bottom: 10px; z-index: 3; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,.9); border: 1px solid var(--line); border-radius: 12px; padding: 5px; box-shadow: var(--shadow-md); backdrop-filter: blur(6px); }
 .zoombar button { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; color: var(--ink-soft); }
@@ -85,8 +99,10 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .progress { width: min(240px, 70vw); height: 7px; border-radius: 999px; background: var(--paper-2); overflow: hidden; }
 .progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 
-.panel { flex: 0 0 auto; background: var(--surface); border-top: 1px solid var(--line-soft); box-shadow: 0 -6px 20px rgba(25,23,18,.06); z-index: 5; padding: .7rem .8rem calc(.7rem + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: .7rem; }
-.segmented { display: flex; gap: 4px; background: var(--paper-2); border-radius: 12px; padding: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: var(--surface); box-shadow: 0 -6px 20px rgba(25,23,18,.06); z-index: 5; padding: .7rem .8rem calc(.7rem + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: .7rem; }
+/* Barra de abas fixa no topo do painel que rola: o box-shadow em cor de
+   superfície tapa a faixa de padding, senão o conteúdo apareceria por trás. */
+.segmented { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; background: var(--paper-2); border-radius: 12px; padding: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; box-shadow: 0 -.7rem 0 .7rem var(--surface); }
 .segmented::-webkit-scrollbar { display: none; }
 .segmented button { flex: 1 0 auto; min-width: 60px; padding: .5rem .5rem; border-radius: 9px; font-size: .72rem; font-weight: 700; color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 3px; transition: .15s; white-space: nowrap; }
 .segmented button svg { width: 18px; height: 18px; }
@@ -166,11 +182,13 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 .pickBtn.on, #pickBtn.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
 @media (min-width: 820px) {
+  /* No computador o preview e as ferramentas ficam LADO A LADO — a divisão
+     horizontal (e a barra de arrasto) não fazem sentido aqui. */
   .app { display: grid; grid-template-columns: 1fr 348px; grid-template-rows: auto 1fr; }
   .topbar { grid-row: 1; grid-column: 1 / -1; }
   .stage { grid-row: 2; grid-column: 1; }
-  .panel { grid-row: 2; grid-column: 2; border-top: none; border-left: 1px solid var(--line-soft); box-shadow: none; overflow-y: auto; gap: 1rem; }
-  .segmented { position: sticky; top: 0; }
+  .splitter { display: none; }
+  .panel { grid-row: 2; grid-column: 2; border-left: 1px solid var(--line-soft); box-shadow: none; gap: 1rem; }
 }
 
 .toast { position: fixed; left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none; background: var(--ink); color: var(--paper); font-size: .82rem; font-weight: 600; padding: .65rem 1rem; border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 40; transition: .25s; max-width: 90vw; text-align: center; }
@@ -251,12 +269,18 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     </div>
   </div>
 
+  <!-- Divisor arrastável: define quanto da tela é preview e quanto é ferramenta.
+       Só no celular (no computador o layout é lado a lado). -->
+  <div class="splitter hidden" id="splitter" role="separator" aria-orientation="horizontal"
+       aria-label="Ajustar divisão entre pré-visualização e ferramentas" tabindex="0"></div>
+
   <div class="panel hidden" id="panel">
     <div class="segmented" id="segs">
       <button data-cat="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>Ajustes</button>
       <button data-cat="filtros"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><circle cx="15" cy="15" r="6"/></svg>Filtros</button>
       <button data-cat="cortar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Cortar</button>
       <button data-cat="fundo" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>Fundo</button>
+      <button data-cat="objeto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9V5h4"/><path d="M19 15v4h-4"/><path d="M19 9V5h-4"/><path d="M5 15v4h4"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Objeto</button>
       <button data-cat="cor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11l-7 7-4-4"/><path d="M12 2a10 10 0 1 0 10 10c0-1.7-.4-2-2-2h-2a2 2 0 0 1-2-2V4c0-1.6-.3-2-2-2z"/></svg>Trocar cor</button>
       <button data-cat="moldura"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>Moldura</button>
       <button data-cat="efeitos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.09 4.26L19 8.27l-3.5 3.36L16.18 17 12 14.5 7.82 17l.68-5.37L5 8.27l4.91-1.01z"/></svg>Efeitos</button>
@@ -348,6 +372,27 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
         <div class="row"><span class="lbl">Suavizar borda</span><input type="range" id="feather" min="0" max="12" value="1.5" step="0.5"><span class="val" id="featherVal">1.5</span></div>
         <div class="row"><span class="lbl">Recuar borda</span><input type="range" id="contract" min="-30" max="30" value="0"><span class="val" id="contractVal">0</span></div>
         <div class="note">“Suavizar” deixa a borda macia (bom para cabelo). “Recuar” encolhe o recorte para eliminar franjas do fundo antigo.</div>
+      </div>
+    </div>
+
+    <!-- Objeto (r159): o recorte vira um elemento livre DENTRO do editor —
+         mover, redimensionar e girar sobre o fundo escolhido, com a
+         transparência preservada. Arraste no preview move; pinça redimensiona;
+         a alça ↻ acima do objeto gira. -->
+    <div class="cat" data-cat="objeto">
+      <div class="note hidden" id="objNeedBg">Escolha um fundo para posicionar o recorte livremente — com “Original” a foto aparece inteira, sem recorte.</div>
+      <button class="btn ghost sm hidden" id="objUseTransparent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg> Usar fundo transparente</button>
+      <div id="objBody">
+        <div class="row"><span class="lbl">Tamanho</span><input type="range" id="objScale" min="20" max="300" value="100"><span class="val" id="objScaleV">100</span></div>
+        <div class="row"><span class="lbl">Girar</span><input type="range" id="objRot" min="0" max="359" value="0"><span class="val" id="objRotV">0</span></div>
+        <div class="row"><span class="lbl">Horizontal</span><input type="range" id="objX" min="-100" max="100" value="0"><span class="val" id="objXV">0</span></div>
+        <div class="row"><span class="lbl">Vertical</span><input type="range" id="objY" min="-100" max="100" value="0"><span class="val" id="objYV">0</span></div>
+        <div class="miniactions">
+          <button class="btn ghost sm" id="objRot90"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg> Girar 90°</button>
+          <button class="btn ghost sm" id="objCenter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg> Centralizar</button>
+        </div>
+        <button class="btn ghost sm" id="objReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8"/><path d="M3 3v5h5"/></svg> Redefinir posição</button>
+        <div class="note">No preview: arraste para mover, pince com 2 dedos para redimensionar e use a alça ↻ acima do objeto para girar. A sombra e o contorno acompanham o recorte.</div>
       </div>
     </div>
 
@@ -515,6 +560,16 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     bgGrad: { colors: ['#ff8a3c', '#cf3418'], angle: 135, type: 'linear' },
     frame: { shape: 'none', size: 36, fill: 'solid', color: '#ffffff', g: { colors: ['#ffd200', '#f7971e'], angle: 135, type: 'linear' } },
     recolor: { on: false, source: null, target: '#cf3418', tol: 35, soft: 45 },
+    // OBJETO (r159): transformação do recorte sobre o fundo. x/y são o
+    // deslocamento em PIXELS DA IMAGEM a partir do centro do quadro; scale é
+    // multiplicador; rotation em graus. Identidade = recorte no lugar original.
+    // px/py: PIVÔ de escala e giro, em px da imagem. Fica no centro do próprio
+    // recorte (não no centro do quadro) — é o que o usuário espera: ao pinçar,
+    // o objeto cresce no lugar em vez de ser arremessado para longe. Congelado
+    // no primeiro ajuste para que retoques posteriores no recorte (que mudam a
+    // silhueta) não desloquem o que já foi posicionado. null = ainda não fixado.
+    obj: { x: 0, y: 0, scale: 1, rotation: 0, px: null, py: null },
+    objBox: null,        // caixa justa do recorte (px da imagem), p/ a seleção
     picking: false,
     crop: null, cropAspect: null,
     cat: 'fundo', compareRaw: false,
@@ -679,6 +734,45 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     if (!S.cut || S.cut.width !== W || S.cut.height !== H) S.cut = mkCanvas(W, H);
     const cc = S.cut.getContext('2d'); cc.clearRect(0, 0, W, H); cc.globalCompositeOperation = 'source-over'; cc.drawImage(srcImage(), 0, 0);
     cc.globalCompositeOperation = 'destination-in'; cc.drawImage(S.finalAlpha, 0, 0); cc.globalCompositeOperation = 'source-over'; S.dirtyCut = false;
+    computeObjBox();
+  }
+  /** Caixa JUSTA do recorte (menor retângulo que contém pixels opacos), usada
+   *  para desenhar a seleção do objeto e para centralizá-lo. Medida numa cópia
+   *  reduzida (≤180px) do alfa: precisão de sobra para uma caixa de seleção e
+   *  barato o bastante para rodar a cada reconstrução do recorte. */
+  function computeObjBox() {
+    const W = S.W, H = S.H; if (!S.finalAlpha || !W || !H) { S.objBox = null; return; }
+    const k = Math.min(1, 180 / Math.max(W, H));
+    const w = Math.max(1, Math.round(W * k)), h = Math.max(1, Math.round(H * k));
+    const t = getTemp('objbox', w, h); const x = t.getContext('2d');
+    x.clearRect(0, 0, w, h); x.drawImage(S.finalAlpha, 0, 0, w, h);
+    let d; try { d = x.getImageData(0, 0, w, h).data; } catch (_) { S.objBox = null; return; }
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      if (d[(j * w + i) * 4 + 3] > 12) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; }
+    }
+    S.objBox = (x1 < 0) ? null : { x: x0 / k, y: y0 / k, w: (x1 - x0 + 1) / k, h: (y1 - y0 + 1) / k };
+  }
+  function objIdentity() { const o = S.obj; return !o.x && !o.y && o.scale === 1 && !o.rotation; }
+  /** Pivô de escala/giro: centro do recorte (ou do quadro, se não houver). */
+  function objPivot() {
+    const o = S.obj; if (o.px != null) return { x: o.px, y: o.py };
+    const b = S.objBox; return b ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : { x: S.W / 2, y: S.H / 2 };
+  }
+  /** Fixa o pivô no primeiro ajuste, para não escorregar depois. */
+  function freezePivot() { if (S.obj.px == null) { const p = objPivot(); S.obj.px = p.x; S.obj.py = p.y; } }
+  /** Leva um ponto em px da IMAGEM pela transformação do objeto: escala e giro
+   *  em torno do PIVÔ (centro do recorte), depois o deslocamento. */
+  function objPoint(ix, iy) {
+    const o = S.obj, p = objPivot(), r = o.rotation * Math.PI / 180;
+    const dx = (ix - p.x) * o.scale, dy = (iy - p.y) * o.scale;
+    const cs = Math.cos(r), sn = Math.sin(r);
+    return { x: p.x + o.x + dx * cs - dy * sn, y: p.y + o.y + dx * sn + dy * cs };
+  }
+  /** Centro do objeto (em px da imagem), já transformado. */
+  function objCenter() {
+    const b = S.objBox; if (!b) return objPoint(S.W / 2, S.H / 2);
+    return objPoint(b.x + b.w / 2, b.y + b.h / 2);
   }
   function rebuildBg() {
     const { W, H } = S; if (!S.bg || S.bg.width !== W || S.bg.height !== H) S.bg = mkCanvas(W, H);
@@ -707,6 +801,14 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     if (S.bgKind === 'original') { c.drawImage(srcImage(), 0, 0); S.dirtyOut = false; return; }
     if (S.dirtyCut) rebuildCut();
     if (S.bgKind !== 'transparent') { if (S.dirtyBg) rebuildBg(); c.drawImage(S.bg, 0, 0); }
+    // OBJETO = sombra + contorno + recorte. Quando o usuário moveu/girou/
+    // redimensionou (aba Objeto), os três são montados num canvas próprio e
+    // desenhados JUNTOS sob a mesma transformação — assim a sombra e o contorno
+    // acompanham o recorte em vez de ficarem para trás. Sem transformação, o
+    // caminho rápido de sempre: desenha direto, sem canvas extra.
+    const ident = objIdentity();
+    let ox = c;
+    if (!ident) { const t = getTemp('objl', W, H); ox = t.getContext('2d'); ox.setTransform(1, 0, 0, 1, 0, 0); ox.globalCompositeOperation = 'source-over'; ox.clearRect(0, 0, W, H); }
     // Sombra projetada (silhueta = finalAlpha, que é preto com alfa do recorte)
     if (S.shadow.on) {
       const sh = getTemp('sh', W, H); const sx = sh.getContext('2d'); sx.clearRect(0, 0, W, H);
@@ -714,16 +816,27 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       sx.save(); sx.shadowColor = hexA(S.shadow.color, S.shadow.opacity); sx.shadowBlur = S.shadow.blur; sx.shadowOffsetX = dx; sx.shadowOffsetY = dy;
       sx.drawImage(S.finalAlpha, 0, 0); sx.restore();
       sx.globalCompositeOperation = 'destination-out'; sx.drawImage(S.finalAlpha, 0, 0); sx.globalCompositeOperation = 'source-over';
-      c.drawImage(sh, 0, 0);
+      ox.drawImage(sh, 0, 0);
     }
     // Contorno (dilata finalAlpha e recolore)
     if (S.border.on && S.border.size > 0) {
       const bd = getTemp('bd', W, H); const bx = bd.getContext('2d'); bx.clearRect(0, 0, W, H);
       const t = S.border.size, N = 28; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2; bx.drawImage(S.finalAlpha, Math.cos(a) * t, Math.sin(a) * t); }
       bx.globalCompositeOperation = 'source-in'; bx.fillStyle = S.border.color; bx.fillRect(0, 0, W, H); bx.globalCompositeOperation = 'source-over';
-      c.drawImage(bd, 0, 0);
+      ox.drawImage(bd, 0, 0);
     }
-    c.drawImage(S.cut, 0, 0); S.dirtyOut = false;
+    ox.drawImage(S.cut, 0, 0);
+    if (!ident) {
+      const o = S.obj, p = objPivot();
+      c.save();
+      c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+      c.translate(p.x + o.x, p.y + o.y);
+      c.rotate(o.rotation * Math.PI / 180);
+      c.scale(o.scale, o.scale);
+      c.drawImage(_temp.objl, -p.x, -p.y);
+      c.restore();
+    }
+    S.dirtyOut = false;
   }
 
   // ============ MOLDURA ============
@@ -760,6 +873,9 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     ['orig', 'maskGray', 'aiAlpha', 'brushAdd', 'brushSub'].forEach((k) => { if (S[k]) S[k] = fn(S[k]); });
     S.adjOrig = null; if (swap) { const t = S.W; S.W = S.H; S.H = t; }
     S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null; S.crop = null; S.cropAspect = null; setActiveChip('#aspects', 'free');
+    // Girar/espelhar a FOTO muda o referencial do quadro — a transformação do
+    // objeto volta à identidade para não sair deslocada de forma imprevisível.
+    Object.assign(S.obj, { x: 0, y: 0, scale: 1, rotation: 0, px: null, py: null }); S.objBox = null; syncObjInputs();
     ['orig', 'maskGray', 'brushAdd', 'brushSub'].forEach(bumpLayer);
     S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true;
     updateBadge(); resizeView(); computeFit(); fitToScreen(); commit();
@@ -790,6 +906,56 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     }
     vctx.strokeStyle = 'rgba(255,255,255,.5)'; vctx.lineWidth = 1; vctx.strokeRect(pr.x + .5, pr.y + .5, pr.w - 1, pr.h - 1);
     if (cropMode()) drawCropOverlay(pr); if (S.cat === 'pincel' && brushCursor.show) drawBrushCursor(pr);
+    if (objMode()) drawObjOverlay();
+  }
+  /** A aba Objeto está ativa E existe recorte para manipular (com fundo
+   *  "Original" não há recorte: a foto aparece inteira). */
+  function objMode() { return S.cat === 'objeto' && S.bgKind !== 'original' && !!S.objBox && !S.compareRaw; }
+  const OBJ_HANDLE_R = 15;   // raio (px de tela) da alça de girar
+  /** Posição da alça de girar, em coordenadas do canvas de exibição. */
+  function objRotHandleView() {
+    const b = S.objBox; if (!b) return null;
+    const top = objPoint(b.x + b.w / 2, b.y);            // meio da aresta superior
+    const ctr = objPoint(b.x + b.w / 2, b.y + b.h / 2);  // centro do objeto
+    const tv = imageToView(top.x, top.y), cv = imageToView(ctr.x, ctr.y);
+    let ux = tv.x - cv.x, uy = tv.y - cv.y; const len = Math.hypot(ux, uy) || 1;
+    ux /= len; uy /= len;
+    const off = 34 * DPR;                                 // afastada da caixa
+    return { x: tv.x + ux * off, y: tv.y + uy * off };
+  }
+  function drawObjOverlay() {
+    const b = S.objBox; if (!b) return;
+    const pts = [[b.x, b.y], [b.x + b.w, b.y], [b.x + b.w, b.y + b.h], [b.x, b.y + b.h]]
+      .map(([ix, iy]) => { const p = objPoint(ix, iy); return imageToView(p.x, p.y); });
+    const pr = projRect();
+    vctx.save();
+    // A caixa fica RECORTADA ao quadro: o que passa da borda não vai para o
+    // arquivo exportado, e sem o recorte o tracejado cruzava a área de trabalho
+    // inteira quando o objeto era ampliado, dando impressão de defeito.
+    vctx.beginPath(); vctx.rect(pr.x, pr.y, pr.w, pr.h); vctx.clip();
+    vctx.lineWidth = 2 * DPR; vctx.setLineDash([7 * DPR, 5 * DPR]);
+    vctx.strokeStyle = 'rgba(255,255,255,.95)';
+    vctx.beginPath(); vctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < 4; i++) vctx.lineTo(pts[i].x, pts[i].y);
+    vctx.closePath(); vctx.stroke();
+    vctx.setLineDash([]); vctx.strokeStyle = 'rgba(207,52,24,.95)'; vctx.lineWidth = 1.2 * DPR; vctx.stroke();
+    // cantos
+    pts.forEach((p) => { vctx.beginPath(); vctx.arc(p.x, p.y, 4.5 * DPR, 0, 7); vctx.fillStyle = '#fff'; vctx.fill(); vctx.strokeStyle = '#cf3418'; vctx.lineWidth = 2 * DPR; vctx.stroke(); });
+    vctx.restore();
+    // Alça de girar: FORA do recorte, senão sumiria justamente quando o objeto
+    // encosta na borda — que é quando mais se precisa dela.
+    const h = objRotHandleView();
+    if (h) {
+      vctx.save();
+      const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      vctx.beginPath(); vctx.moveTo(mid.x, mid.y); vctx.lineTo(h.x, h.y);
+      vctx.strokeStyle = 'rgba(255,255,255,.8)'; vctx.lineWidth = 2 * DPR; vctx.stroke();
+      vctx.beginPath(); vctx.arc(h.x, h.y, OBJ_HANDLE_R * DPR, 0, 7);
+      vctx.fillStyle = '#fff'; vctx.fill(); vctx.strokeStyle = '#cf3418'; vctx.lineWidth = 2.4 * DPR; vctx.stroke();
+      // seta circular
+      vctx.beginPath(); vctx.arc(h.x, h.y, 7 * DPR, 0.6, 5.4); vctx.strokeStyle = '#cf3418'; vctx.lineWidth = 2.2 * DPR; vctx.stroke();
+      vctx.restore();
+    }
   }
   function drawBrushCursor(pr) { const rad = (S.brushSize / 2) * pr.s; vctx.beginPath(); vctx.arc(brushCursor.x, brushCursor.y, rad, 0, 7); vctx.strokeStyle = S.brushMode === 'erase' ? 'rgba(207,52,24,.95)' : 'rgba(46,125,79,.95)'; vctx.lineWidth = 2; vctx.stroke(); vctx.strokeStyle = 'rgba(255,255,255,.9)'; vctx.lineWidth = 1; vctx.beginPath(); vctx.arc(brushCursor.x, brushCursor.y, rad, 0, 7); vctx.stroke(); }
 
@@ -827,6 +993,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     S.filterName = 'none'; S.filterIntensity = 100;
     Object.assign(S.shadow, { on: false, blur: 18, dist: 12, angle: 135, opacity: 45, color: '#000000' }); Object.assign(S.border, { on: false, size: 8, color: '#ffffff' });
     S.frame.shape = 'none'; Object.assign(S.recolor, { on: false, source: null, target: '#cf3418', tol: 35, soft: 45 }); setPicking(false);
+    Object.assign(S.obj, { x: 0, y: 0, scale: 1, rotation: 0, px: null, py: null }); S.objBox = null;
     S.bgKind = 'transparent';
     syncAllInputs(); setActiveChip('#filters', 'none'); setActiveChip('#aspects', 'free');
     S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true; S.dirtyFrame = true;
@@ -834,12 +1001,16 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     try {
       S.maskGray = await segment(S.orig, w, h); buildAiAlpha(); S.ready = true;
       $('#panel').classList.remove('hidden'); $('#zoombar').classList.remove('hidden'); $('#badge').classList.remove('hidden');
+      // Painel aberto = a tela passa a ser dividida (preview em cima, ferramentas
+      // embaixo) e a barra de arrasto aparece.
+      $('#splitter').classList.remove('hidden'); $('#app').classList.add('split');
       updateBadge(); setLoader(false); resizeView(); computeFit(); fitToScreen();
       resetHistory(); await pushHistory();
       toast('Fundo removido ✓');
     } catch (e) {
       setLoader(false); toast(location.protocol === 'file:' ? 'Abra pela versão publicada (o modo arquivo local bloqueia a IA).' : 'Não foi possível carregar a IA: ' + (e && e.message ? e.message : e), true);
-      $('#panel').classList.add('hidden'); resizeView(); computeFit(); fitToScreen(); console.error(e);
+      $('#panel').classList.add('hidden'); $('#splitter').classList.add('hidden'); $('#app').classList.remove('split');
+      resizeView(); computeFit(); fitToScreen(); console.error(e);
     }
   }
   async function reSegment() { if (!S.orig) return; try { S.maskGray = await segment(S.orig, S.W, S.H); S.brushAdd = null; S.brushSub = null; ['maskGray', 'brushAdd', 'brushSub'].forEach(bumpLayer); buildAiAlpha(); S.dirtyOut = true; requestRender(); setLoader(false); commit(); toast('Recorte refeito ✓'); } catch (e) { setLoader(false); toast('Falha ao refazer.', true); } }
@@ -854,12 +1025,37 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   }
 
   // ============ ENTRADA (ponteiros) ============
-  const pointers = new Map(); let mode = null, last = null, pinchStart = null, lastPaint = null, cropHandle = null, painted = false;
+  const pointers = new Map(); let mode = null, last = null, pinchStart = null, lastPaint = null, cropHandle = null, painted = false, objStart = null;
   function evtToView(e) { const r = view.getBoundingClientRect(); return { x: (e.clientX - r.left) * DPR, y: (e.clientY - r.top) * DPR }; }
   stage.addEventListener('pointerdown', (e) => {
-    if (!S.orig) return; view.setPointerCapture(e.pointerId); const v = evtToView(e); pointers.set(e.pointerId, v);
+    // setPointerCapture pode falhar (ponteiro já solto/capturado noutro lugar) e
+    // era a PRIMEIRA instrução, sem proteção: quando lançava, o dedo nem chegava
+    // a ser registrado e o gesto inteiro morria. A captura é um reforço, não um
+    // pré-requisito — se falhar, seguimos com o gesto normalmente.
+    if (!S.orig) return;
+    try { view.setPointerCapture(e.pointerId); } catch (_) { /* */ }
+    const v = evtToView(e); pointers.set(e.pointerId, v);
     if (S.picking) { sampleColorAt(v); return; }
+    // Na aba Objeto a pinça redimensiona o OBJETO (não o zoom da tela) — é o
+    // gesto que o usuário espera quando está manipulando o elemento recortado.
+    if (pointers.size === 2 && objMode()) {
+      const pts = [...pointers.values()];
+      freezePivot();
+      mode = 'objscale'; objStart = { d: dist(pts[0], pts[1]) || 1, scale: S.obj.scale };
+      return;
+    }
     if (pointers.size === 2) { mode = 'pinch'; const pts = [...pointers.values()]; pinchStart = { d: dist(pts[0], pts[1]), scale: S.scale, cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2, panX: S.panX, panY: S.panY }; return; }
+    if (objMode()) {
+      freezePivot();
+      const h = objRotHandleView();
+      if (h && dist(v, h) <= (OBJ_HANDLE_R + 8) * DPR) {
+        const cv = (() => { const cc = objCenter(); return imageToView(cc.x, cc.y); })();
+        mode = 'objrot'; objStart = { cx: cv.x, cy: cv.y, a0: Math.atan2(v.y - cv.y, v.x - cv.x) * 180 / Math.PI, rot0: S.obj.rotation };
+        return;
+      }
+      mode = 'objmove'; last = v; objStart = { x: S.obj.x, y: S.obj.y, vx: v.x, vy: v.y };
+      return;
+    }
     if (cropMode()) { cropHandle = cropHitTest(v); mode = cropHandle ? 'crop' : 'pan'; last = v; requestRender(); return; }
     if (S.cat === 'pincel') { mode = 'paint'; last = v; const p = viewToImage(v.x, v.y); paintAt(p.x, p.y); lastPaint = p; painted = true; brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); return; }
     mode = 'pan'; last = v;
@@ -867,7 +1063,15 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   stage.addEventListener('pointermove', (e) => {
     if (!pointers.has(e.pointerId)) { if (S.orig && S.cat === 'pincel') { const v = evtToView(e); brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); } return; }
     const v = evtToView(e); pointers.set(e.pointerId, v);
-    if (mode === 'pinch' && pointers.size >= 2) { const pts = [...pointers.values()], d = dist(pts[0], pts[1]); const ns = clamp(pinchStart.scale * (d / pinchStart.d), 0.4, 8); const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }; S.panX = pinchStart.panX + (mid.x - pinchStart.cx); S.panY = pinchStart.panY + (mid.y - pinchStart.cy); S.scale = ns; zoomAround(pinchStart.cx, pinchStart.cy, 1); requestRender(); }
+    if (mode === 'objmove') { const pr = projRect(); S.obj.x = objStart.x + (v.x - objStart.vx) / pr.s; S.obj.y = objStart.y + (v.y - objStart.vy) / pr.s; S.dirtyOut = true; syncObjInputs(); requestRender(); }
+    else if (mode === 'objscale' && pointers.size >= 2) { const pts = [...pointers.values()]; S.obj.scale = clamp(objStart.scale * (dist(pts[0], pts[1]) / objStart.d), 0.2, 3); S.dirtyOut = true; syncObjInputs(); requestRender(); }
+    else if (mode === 'objrot') {
+      const a = Math.atan2(v.y - objStart.cy, v.x - objStart.cx) * 180 / Math.PI;
+      let deg = Math.round(objStart.rot0 + (a - objStart.a0)); deg = ((deg % 360) + 360) % 360;
+      const off = deg % 15; if (off < 4) deg -= off; else if (off > 11) deg += (15 - off);   // encaixe de 15°
+      S.obj.rotation = ((deg % 360) + 360) % 360; S.dirtyOut = true; syncObjInputs(); requestRender();
+    }
+    else if (mode === 'pinch' && pointers.size >= 2) { const pts = [...pointers.values()], d = dist(pts[0], pts[1]); const ns = clamp(pinchStart.scale * (d / pinchStart.d), 0.4, 8); const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }; S.panX = pinchStart.panX + (mid.x - pinchStart.cx); S.panY = pinchStart.panY + (mid.y - pinchStart.cy); S.scale = ns; zoomAround(pinchStart.cx, pinchStart.cy, 1); requestRender(); }
     else if (mode === 'crop') { cropDrag(v); requestRender(); }
     else if (mode === 'paint') { const p = viewToImage(v.x, v.y); if (lastPaint) { const steps = Math.ceil(dist(lastPaint, p) / (S.brushSize * 0.25)) || 1; for (let i = 1; i <= steps; i++) paintAt(lastPaint.x + (p.x - lastPaint.x) * i / steps, lastPaint.y + (p.y - lastPaint.y) * i / steps); } else paintAt(p.x, p.y); lastPaint = p; brushCursor.x = v.x; brushCursor.y = v.y; brushCursor.show = true; requestRender(); }
     else if (mode === 'pan') { S.panX += v.x - last.x; S.panY += v.y - last.y; last = v; requestRender(); }
@@ -889,8 +1093,16 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     if (pointers.size === 0) {
       if (mode === 'paint' && painted) { bumpLayer(S.brushMode === 'restore' ? 'brushAdd' : 'brushSub'); commit(); }
       if (mode === 'crop') commit();
-      mode = null; last = null; lastPaint = null; cropHandle = null; painted = false;
-    } else if (pointers.size === 1) { mode = (S.cat === 'pincel' || cropMode()) ? null : 'pan'; last = [...pointers.values()][0]; lastPaint = null; }
+      if (mode === 'objmove' || mode === 'objscale' || mode === 'objrot') commit();
+      mode = null; last = null; lastPaint = null; cropHandle = null; painted = false; objStart = null;
+    } else if (pointers.size === 1) {
+      // Sobrou um dedo: no modo Objeto o gesto termina aqui (a pinça já valeu);
+      // fora dele, volta a arrastar a tela.
+      if (mode === 'objscale') { commit(); mode = null; objStart = null; }
+      else if (mode === 'objmove' || mode === 'objrot') { /* segue no mesmo gesto */ }
+      else { mode = (S.cat === 'pincel' || cropMode()) ? null : 'pan'; last = [...pointers.values()][0]; }
+      lastPaint = null;
+    }
   }
   stage.addEventListener('pointerup', endPointer); stage.addEventListener('pointercancel', endPointer);
   stage.addEventListener('pointerleave', (e) => { if (!pointers.has(e.pointerId)) { brushCursor.show = false; requestRender(); } });
@@ -916,7 +1128,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   const layerCache = new Map(); let hist = [], histIdx = -1, histBusy = false;
   function bumpLayer(n) { layerVer[n]++; }
   function resetHistory() { hist = []; histIdx = -1; layerCache.clear(); layerVer.orig = 0; layerVer.maskGray = 0; layerVer.brushAdd = 0; layerVer.brushSub = 0; updateUndoButtons(); }
-  function snapSettings() { return { adj: Object.assign({}, S.adj), filterName: S.filterName, filterIntensity: S.filterIntensity, bgKind: S.bgKind, bgColor: S.bgColor, blurAmt: S.blurAmt, feather: S.feather, contract: S.contract, crop: S.crop ? Object.assign({}, S.crop) : null, cropAspect: S.cropAspect, shadow: Object.assign({}, S.shadow), border: Object.assign({}, S.border), bgGrad: { colors: S.bgGrad.colors.slice(), angle: S.bgGrad.angle, type: S.bgGrad.type }, frame: { shape: S.frame.shape, size: S.frame.size, fill: S.frame.fill, color: S.frame.color, g: { colors: S.frame.g.colors.slice(), angle: S.frame.g.angle, type: S.frame.g.type } }, recolor: { on: S.recolor.on, source: S.recolor.source ? S.recolor.source.slice() : null, target: S.recolor.target, tol: S.recolor.tol, soft: S.recolor.soft }, cat: S.cat, W: S.W, H: S.H, ver: Object.assign({}, layerVer) }; }
+  function snapSettings() { return { adj: Object.assign({}, S.adj), filterName: S.filterName, filterIntensity: S.filterIntensity, bgKind: S.bgKind, bgColor: S.bgColor, blurAmt: S.blurAmt, feather: S.feather, contract: S.contract, crop: S.crop ? Object.assign({}, S.crop) : null, cropAspect: S.cropAspect, shadow: Object.assign({}, S.shadow), border: Object.assign({}, S.border), bgGrad: { colors: S.bgGrad.colors.slice(), angle: S.bgGrad.angle, type: S.bgGrad.type }, frame: { shape: S.frame.shape, size: S.frame.size, fill: S.frame.fill, color: S.frame.color, g: { colors: S.frame.g.colors.slice(), angle: S.frame.g.angle, type: S.frame.g.type } }, recolor: { on: S.recolor.on, source: S.recolor.source ? S.recolor.source.slice() : null, target: S.recolor.target, tol: S.recolor.tol, soft: S.recolor.soft }, obj: Object.assign({}, S.obj), cat: S.cat, W: S.W, H: S.H, ver: Object.assign({}, layerVer) }; }
   function encodeLayer(name) { return new Promise((res) => { const key = name + '@' + layerVer[name]; if (layerCache.has(key)) return res(); const cv = S[name]; if (!cv) { layerCache.set(key, null); return res(); } cv.toBlob((b) => { layerCache.set(key, b); res(); }, 'image/png'); }); }
   async function pushHistory() {
     if (histBusy) return; await Promise.all(['orig', 'maskGray', 'brushAdd', 'brushSub'].map(encodeLayer));
@@ -935,6 +1147,8 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     if (s.bgGrad) { S.bgGrad.colors = s.bgGrad.colors.slice(); S.bgGrad.angle = s.bgGrad.angle; S.bgGrad.type = s.bgGrad.type; }
     if (s.frame) { S.frame.shape = s.frame.shape; S.frame.size = s.frame.size; S.frame.fill = s.frame.fill; S.frame.color = s.frame.color; S.frame.g.colors = s.frame.g.colors.slice(); S.frame.g.angle = s.frame.g.angle; S.frame.g.type = s.frame.g.type; }
     if (s.recolor) { S.recolor.on = s.recolor.on; S.recolor.source = s.recolor.source ? s.recolor.source.slice() : null; S.recolor.target = s.recolor.target; S.recolor.tol = s.recolor.tol; S.recolor.soft = s.recolor.soft; }
+    // Object.assign (não reatribuir): os manipuladores capturaram S.obj.
+    Object.assign(S.obj, s.obj || { x: 0, y: 0, scale: 1, rotation: 0, px: null, py: null });
     S.adjOrig = null; S.aiAlpha = null; S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null;
     if (S.maskGray) buildAiAlpha();
     S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true; S.dirtyFrame = true;
@@ -1045,6 +1259,8 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     setSwatch('#frSwatches', 'frcolor', S.frame.color); syncGradEditor('fr', S.frame.g);
     // recorte
     setActiveChip('#aspects', S.cropAspect ? aspectName(S.cropAspect) : 'free');
+    // objeto
+    syncObjInputs();
   }
   // Modelos embutidos de degradê (>=2 cores).
   const GRAD_PRESETS = [
@@ -1096,9 +1312,53 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     document.querySelectorAll('.cat').forEach((c) => c.classList.toggle('active', c.dataset.cat === S.cat));
     if (cropMode()) ensureCrop(); brushCursor.show = false;
     if (S.cat !== 'cor' && S.picking) setPicking(false);
+    if (S.cat === 'objeto') syncObjInputs();
     S.dirtyFrame = true;
     if (cropMode() !== wasCrop) { updateBadge(); computeFit(); fitToScreen(); } else requestRender();
   });
+
+  // ---- Objeto (mover / redimensionar / girar o recorte) ----
+  /** Espelha S.obj nos controles e mostra o aviso quando não há recorte
+   *  (fundo "Original" = foto inteira, nada para posicionar). */
+  function syncObjInputs() {
+    const o = S.obj, needBg = S.bgKind === 'original';
+    $('#objNeedBg').classList.toggle('hidden', !needBg);
+    $('#objUseTransparent').classList.toggle('hidden', !needBg);
+    $('#objBody').classList.toggle('hidden', needBg);
+    $('#objScale').value = Math.round(o.scale * 100); $('#objScaleV').textContent = Math.round(o.scale * 100);
+    $('#objRot').value = Math.round(o.rotation); $('#objRotV').textContent = Math.round(o.rotation);
+    // Deslocamento mostrado em % da largura/altura do quadro (independe do tamanho da foto).
+    const px = S.W ? Math.round((o.x / S.W) * 200) : 0, py = S.H ? Math.round((o.y / S.H) * 200) : 0;
+    $('#objX').value = clamp(px, -100, 100); $('#objXV').textContent = clamp(px, -100, 100);
+    $('#objY').value = clamp(py, -100, 100); $('#objYV').textContent = clamp(py, -100, 100);
+  }
+  function objChanged(doCommit) { S.dirtyOut = true; requestRender(); if (doCommit) commit(); }
+  $('#objScale').addEventListener('input', (e) => { freezePivot(); S.obj.scale = clamp((+e.target.value) / 100, 0.2, 3); $('#objScaleV').textContent = e.target.value; objChanged(false); });
+  $('#objRot').addEventListener('input', (e) => { freezePivot(); S.obj.rotation = ((+e.target.value % 360) + 360) % 360; $('#objRotV').textContent = e.target.value; objChanged(false); });
+  $('#objX').addEventListener('input', (e) => { freezePivot(); S.obj.x = (+e.target.value / 200) * S.W; $('#objXV').textContent = e.target.value; objChanged(false); });
+  $('#objY').addEventListener('input', (e) => { freezePivot(); S.obj.y = (+e.target.value / 200) * S.H; $('#objYV').textContent = e.target.value; objChanged(false); });
+  ['#objScale', '#objRot', '#objX', '#objY'].forEach((id) => $(id).addEventListener('change', commit));
+  $('#objRot90').onclick = () => { freezePivot(); S.obj.rotation = (Math.round(S.obj.rotation) + 90) % 360; syncObjInputs(); objChanged(true); };
+  // Centralizar: leva o CENTRO REAL do recorte (caixa justa) ao centro do quadro.
+  // Como escala e giro acontecem em torno do pivô, basta anular o deslocamento
+  // do pivô transformado até o centro — sem isso, "centralizar" só acertaria
+  // quando o recorte já estivesse no meio da foto.
+  $('#objCenter').onclick = () => {
+    const b = S.objBox; if (!b) return;
+    freezePivot();
+    const o = S.obj, p = objPivot(), r = o.rotation * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r);
+    const dx = (b.x + b.w / 2 - p.x) * o.scale, dy = (b.y + b.h / 2 - p.y) * o.scale;
+    o.x = S.W / 2 - (p.x + dx * cs - dy * sn);
+    o.y = S.H / 2 - (p.y + dx * sn + dy * cs);
+    syncObjInputs(); objChanged(true); toast('Recorte centralizado');
+  };
+  $('#objReset').onclick = () => { Object.assign(S.obj, { x: 0, y: 0, scale: 1, rotation: 0, px: null, py: null }); syncObjInputs(); objChanged(true); toast('Posição redefinida'); };
+  $('#objUseTransparent').onclick = () => {
+    S.bgKind = 'transparent';
+    document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x.dataset.bg === 'transparent'));
+    $('#swatches').classList.add('hidden'); $('#blurRow').classList.add('hidden'); $('#bgImgNote').classList.add('hidden'); $('#bgGradEditor').classList.add('hidden');
+    refreshEdgeControls(); syncObjInputs(); S.dirtyBg = true; objChanged(true);
+  };
 
   // Ajustes
   function onAdj(id, key) { const el = $(id); el.addEventListener('input', (e) => { S.adj[key] = +e.target.value; $(id + 'V').textContent = e.target.value; S.filterName = 'custom'; setActiveChip('#filters', 'custom'); $('#filterIntensityRow').classList.add('hidden'); S.dirtyAdj = true; S.dirtyOut = true; requestRender(); }); el.addEventListener('change', commit); }
@@ -1116,7 +1376,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   $('#cropReset').onclick = () => { S.crop = null; S.cropAspect = null; setActiveChip('#aspects', 'free'); S.dirtyFrame = true; updateBadge(); computeFit(); fitToScreen(); commit(); toast('Corte redefinido'); };
 
   function refreshEdgeControls() { $('#edgeControls').classList.toggle('hidden', S.bgKind === 'original'); $('#effNote').classList.toggle('hidden', S.bgKind !== 'original'); }
-  $('#bgKind').addEventListener('click', (e) => { const b = e.target.closest('button[data-bg]'); if (!b) return; S.bgKind = b.dataset.bg; document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x === b)); $('#swatches').classList.toggle('hidden', S.bgKind !== 'color'); $('#blurRow').classList.toggle('hidden', S.bgKind !== 'blur'); $('#bgImgNote').classList.toggle('hidden', S.bgKind !== 'blur'); $('#bgGradEditor').classList.toggle('hidden', S.bgKind !== 'gradient'); if (S.bgKind === 'gradient') syncGradEditor('bg', S.bgGrad); refreshEdgeControls(); if (S.bgKind === 'image') $('#bgImgInput').click(); S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); });
+  $('#bgKind').addEventListener('click', (e) => { const b = e.target.closest('button[data-bg]'); if (!b) return; S.bgKind = b.dataset.bg; document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x === b)); $('#swatches').classList.toggle('hidden', S.bgKind !== 'color'); $('#blurRow').classList.toggle('hidden', S.bgKind !== 'blur'); $('#bgImgNote').classList.toggle('hidden', S.bgKind !== 'blur'); $('#bgGradEditor').classList.toggle('hidden', S.bgKind !== 'gradient'); if (S.bgKind === 'gradient') syncGradEditor('bg', S.bgGrad); refreshEdgeControls(); syncObjInputs(); if (S.bgKind === 'image') $('#bgImgInput').click(); S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); });
   $('#swatches').addEventListener('click', (e) => { const b = e.target.closest('.swatch[data-color]'); if (!b) return; S.bgColor = b.dataset.color; setSwatch('#swatches', 'color', S.bgColor); S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); });
   $('#colorPick').addEventListener('input', (e) => { S.bgColor = e.target.value; S.bgKind = 'color'; document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x.dataset.bg === 'color')); document.querySelectorAll('#swatches .swatch[data-color]').forEach((x) => x.classList.remove('active')); $('#swatches').classList.remove('hidden'); refreshEdgeControls(); S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
   $('#colorPick').addEventListener('change', commit);
@@ -1203,6 +1463,57 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 
   // teclado: Ctrl/Cmd+Z / Shift+Z
   window.addEventListener('keydown', (e) => { if (!(e.ctrlKey || e.metaKey)) return; if (e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); } else if (e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); } });
+
+  // ============ DIVISÃO PREVIEW / FERRAMENTAS (celular) ============
+  // A barra entre o preview e o painel é arrastável: o usuário decide quanto
+  // quer de cada lado. A escolha fica salva. O ResizeObserver do palco já
+  // reajusta o canvas — não é preciso chamar resizeView() a cada movimento.
+  const SPLIT_STORE = 'agp.removedor.split';
+  const SPLIT_MIN = 22, SPLIT_MAX = 82;   // % da área útil (fora a barra de topo)
+  function applySplit(pct) {
+    const v = clamp(pct, SPLIT_MIN, SPLIT_MAX);
+    document.documentElement.style.setProperty('--split', v.toFixed(1) + '%');
+    return v;
+  }
+  (function initSplit() {
+    let saved = parseFloat(localStorage.getItem(SPLIT_STORE) || '');
+    applySplit(isFinite(saved) ? saved : 46);
+  })();
+  (function wireSplitter() {
+    const el = $('#splitter'); if (!el) return;
+    const appEl = $('#app');
+    let dragging = false, appTop = 0, appH = 1, barH = 0;
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const r = appEl.getBoundingClientRect(), tb = document.querySelector('.topbar').getBoundingClientRect();
+      appTop = tb.bottom; barH = el.getBoundingClientRect().height;
+      appH = Math.max(1, r.bottom - tb.bottom);
+      dragging = true; el.classList.add('dragging');
+      try { el.setPointerCapture(e.pointerId); } catch (_) { /* */ }
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      applySplit(((e.clientY - appTop - barH / 2) / appH) * 100);
+    });
+    const end = () => {
+      if (!dragging) return;
+      dragging = false; el.classList.remove('dragging');
+      const cur = parseFloat(document.documentElement.style.getPropertyValue('--split'));
+      if (isFinite(cur)) { try { localStorage.setItem(SPLIT_STORE, String(cur)); } catch (_) { /* */ } }
+      resizeView();
+    };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    // Teclado (acessibilidade): setas ajustam a divisão em passos de 4%.
+    el.addEventListener('keydown', (e) => {
+      const step = (e.key === 'ArrowUp') ? -4 : (e.key === 'ArrowDown') ? 4 : 0;
+      if (!step) return;
+      e.preventDefault();
+      const cur = parseFloat(document.documentElement.style.getPropertyValue('--split')) || 46;
+      const v = applySplit(cur + step);
+      try { localStorage.setItem(SPLIT_STORE, String(v)); } catch (_) { /* */ }
+      resizeView();
+    });
+  })();
 
   let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(resizeView, 120); });
   new ResizeObserver(() => resizeView()).observe(stage);

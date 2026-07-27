@@ -277,6 +277,7 @@ function _peApplySelection() {
     const id = box.dataset.lid || (box.getAttribute('data-pt') === 'avatar-overlay' ? '__avatar' : null);
     box.classList.toggle('pe-ov-sel', id != null && id === _peSelected);
   });
+  if (typeof syncLayerListSelection === 'function') syncLayerListSelection();
 }
 
 /** Seleciona um overlay (elemento/avatar/camada) SEM re-render pesado — atualiza só

@@ -813,15 +813,23 @@ function addImageAsLayer(dataUrl) {
   if (!p) return;
   const s = (typeof getSlide === 'function') ? (getSlide(p) || p) : p;
   if (!Array.isArray(s.layers)) s.layers = [];
-  s.layers.push({ id: uuid(), src: String(dataUrl), x: 50, y: 50, scale: 1, z: nextOverlayZ(s) });
+  const layer = { id: uuid(), src: String(dataUrl), x: 50, y: 50, scale: 1, rotation: 0, z: nextOverlayZ(s) };
+  s.layers.push(layer);
   p.updatedAt = new Date().toISOString();
   savePosters();
   State.activePosterId = p.id;
   _peOpen = true;
+  // Já chega SELECIONADA: as alças (girar/redimensionar/excluir) aparecem na hora,
+  // então o recorte é imediatamente manipulável, sem precisar descobrir o toque.
+  if (typeof _peSelected !== 'undefined') _peSelected = layer.id;
   goTo('posters');                     // troca para a view Cartazes (renderiza o editor)
+  // Abre direto a aba onde moram os controles da camada (Imagens › Camadas) —
+  // o recorte chega pronto para editar, sem o usuário ter de procurar onde.
+  const tab = document.querySelector('#p-edit-tabs .pedit-tab[data-pgroup="images"]');
+  if (tab) tab.click();
   if (typeof renderLayerList === 'function') renderLayerList();
   if (typeof _refreshPosterPreview === 'function') _refreshPosterPreview();
-  toast('Recorte adicionado como camada no cartaz.', 'success');
+  toast('Recorte virou camada: arraste, gire e redimensione à vontade.', 'success');
 }
 
 function renderPostersList() {
@@ -1191,6 +1199,18 @@ function renderPosterEditor() {
 let _posterUpdatePreview = null;
 function _refreshPosterPreview() { if (typeof _posterUpdatePreview === 'function') _posterUpdatePreview(); }
 
+/** Realça na LISTA a camada selecionada no cartaz (e vice-versa) — só troca a
+ *  classe, sem repintar a lista: as miniaturas são data URLs pesadas e recriá-las
+ *  a cada toque custaria caro. Chamado por _peApplySelection (poster-elements.js). */
+function syncLayerListSelection() {
+  const host = $('#p-layers-list');
+  if (!host) return;
+  const sel = (typeof _peSelected !== 'undefined') ? _peSelected : null;
+  host.querySelectorAll('.layer-row').forEach((row) => {
+    row.classList.toggle('sel', !!sel && row.dataset.lid === sel);
+  });
+}
+
 function _activeSlideForLayers() {
   const p = State.posters.find(x => x.id === State.activePosterId);
   if (!p) return null;
@@ -1200,6 +1220,10 @@ function _activeSlideForLayers() {
 function setupLayerControls() {
   const addBtn = $('#p-layer-add');
   const input = $('#p-layer-file');
+  // Atalho "Recortar fundo": abre o Removedor sem sair do fluxo do cartaz. O
+  // recorte volta sozinho como camada (postMessage 'agente:image-out').
+  const cutBtn = $('#p-layer-cut');
+  if (cutBtn) cutBtn.onclick = () => { if (typeof goTo === 'function') goTo('removedor'); };
   if (!addBtn || !input) return;
   addBtn.onclick = () => input.click();
   input.onchange = () => {
@@ -1212,7 +1236,7 @@ function setupLayerControls() {
     files.forEach((f) => {
       const rd = new FileReader();
       rd.onload = () => {
-        s.layers.push({ id: uuid(), src: String(rd.result), x: 50, y: 50, scale: 1, z: nextOverlayZ(s) });
+        s.layers.push({ id: uuid(), src: String(rd.result), x: 50, y: 50, scale: 1, rotation: 0, z: nextOverlayZ(s) });
         if (--pending === 0) {
           const p = State.posters.find(x => x.id === State.activePosterId);
           if (p) p.updatedAt = new Date().toISOString();
@@ -1235,18 +1259,31 @@ function renderLayerList() {
   const s = _activeSlideForLayers();
   const layers = (s && Array.isArray(s.layers)) ? s.layers : [];
   if (!layers.length) {
-    host.innerHTML = '<div class="layers-empty">Nenhuma camada. Toque em “Adicionar” para sobrepor imagens ao cartaz.</div>';
+    host.innerHTML = '<div class="layers-empty">Nenhuma camada. Use “Recortar fundo” para transformar uma foto em recorte com fundo transparente — ele volta como camada livre — ou “Adicionar” para sobrepor uma imagem que já tenha.</div>';
     return;
   }
-  // Ordem visual: a última camada é a que fica por cima → lista de cima p/ baixo invertida
+  // Cada linha traz os controles NUMÉRICOS da camada (tamanho e giro) — o mesmo
+  // objeto também é manipulável direto no cartaz (arrastar/alça/pinça/rotação).
+  const selId = (typeof _peSelected !== 'undefined') ? _peSelected : null;
   host.innerHTML = layers.map((L, i) => `
-    <div class="layer-row" data-lid="${L.id}">
-      <div class="layer-thumb"><img src="${escapeHtml(L.src)}" alt=""></div>
+    <div class="layer-row${L.id === selId ? ' sel' : ''}" data-lid="${L.id}">
+      <div class="layer-thumb" data-lsel="${L.id}"><img src="${escapeHtml(L.src)}" alt=""></div>
       <div class="layer-info">
-        <div class="layer-name">Camada ${i + 1}</div>
-        <input type="range" class="layer-size" data-lid="${L.id}" min="15" max="300" value="${Math.round((L.scale || 1) * 100)}" title="Tamanho">
+        <div class="layer-name" data-lsel="${L.id}">Camada ${i + 1}</div>
+        <div class="layer-ctl">
+          <span class="layer-ctl-ico" title="Tamanho">⤢</span>
+          <input type="range" class="layer-size" data-lid="${L.id}" min="15" max="300" value="${Math.round((L.scale || 1) * 100)}" title="Tamanho">
+          <span class="layer-ctl-val">${Math.round((L.scale || 1) * 100)}%</span>
+        </div>
+        <div class="layer-ctl">
+          <span class="layer-ctl-ico" title="Girar">↻</span>
+          <input type="range" class="layer-rot" data-lid="${L.id}" min="0" max="359" value="${Math.round(L.rotation || 0)}" title="Girar">
+          <span class="layer-ctl-val">${Math.round(L.rotation || 0)}°</span>
+        </div>
       </div>
       <div class="layer-actions">
+        <button type="button" class="layer-btn" data-lrot90="${L.id}" title="Girar 90°">⟳</button>
+        <button type="button" class="layer-btn" data-ldup="${L.id}" title="Duplicar camada">⧉</button>
         <button type="button" class="layer-btn" data-lup="${L.id}" title="Trazer para frente">▲</button>
         <button type="button" class="layer-btn" data-ldown="${L.id}" title="Enviar para trás">▼</button>
         <button type="button" class="layer-btn danger" data-ldel="${L.id}" title="Excluir camada">×</button>
@@ -1260,14 +1297,68 @@ function renderLayerList() {
     _refreshPosterPreview();
     if (rerenderList) renderLayerList();
   };
+  // Enquanto o usuário arrasta o slider, atualiza SÓ o nó da camada no cartaz
+  // (sem repintar o editor inteiro) — resposta imediata, sem engasgo.
+  const liveNode = (lid) => {
+    const stage = $('#p-stage');
+    const root = stage && stage.querySelector('.poster-1440');
+    return root ? root.querySelector(`[data-pt="layer"][data-lid="${lid}"]`) : null;
+  };
 
   host.querySelectorAll('.layer-size').forEach(sl => {
     sl.oninput = () => {
       const L = layers.find(x => x.id === sl.dataset.lid);
       if (!L) return;
       L.scale = Math.max(0.15, Math.min(3, (parseInt(sl.value, 10) || 100) / 100));
-      commitAndRerender(false);
+      const val = sl.parentElement && sl.parentElement.querySelector('.layer-ctl-val');
+      if (val) val.textContent = Math.round(L.scale * 100) + '%';
+      const node = liveNode(L.id);
+      if (node) node.style.width = Math.round(LAYER_BASE_W * L.scale) + 'px';
+      else commitAndRerender(false);
     };
+    sl.onchange = () => commitAndRerender(false);
+  });
+  host.querySelectorAll('.layer-rot').forEach(sl => {
+    sl.oninput = () => {
+      const L = layers.find(x => x.id === sl.dataset.lid);
+      if (!L) return;
+      L.rotation = ((parseInt(sl.value, 10) || 0) % 360 + 360) % 360;
+      const val = sl.parentElement && sl.parentElement.querySelector('.layer-ctl-val');
+      if (val) val.textContent = Math.round(L.rotation) + '°';
+      const node = liveNode(L.id);
+      if (node) node.style.transform = `translate(-50%,-50%) rotate(${L.rotation}deg)`;
+      else commitAndRerender(false);
+    };
+    sl.onchange = () => commitAndRerender(false);
+  });
+  host.querySelectorAll('[data-lrot90]').forEach(b => {
+    b.onclick = () => {
+      const L = layers.find(x => x.id === b.dataset.lrot90);
+      if (!L) return;
+      L.rotation = (Math.round(L.rotation || 0) + 90) % 360;
+      commitAndRerender(true);
+    };
+  });
+  // Duplicar: cópia independente, deslocada 3% para não ficar exatamente atrás.
+  host.querySelectorAll('[data-ldup]').forEach(b => {
+    b.onclick = () => {
+      const idx = layers.findIndex(x => x.id === b.dataset.ldup);
+      if (idx < 0) return;
+      const L = layers[idx];
+      const copy = Object.assign({}, L, {
+        id: uuid(),
+        x: Math.min(96, (typeof L.x === 'number' ? L.x : 50) + 3),
+        y: Math.min(96, (typeof L.y === 'number' ? L.y : 50) + 3),
+        z: nextOverlayZ(s),
+      });
+      layers.splice(idx + 1, 0, copy);
+      if (typeof _peSelected !== 'undefined') _peSelected = copy.id;
+      commitAndRerender(true);
+    };
+  });
+  // Selecionar pela lista = selecionar no cartaz (mostra alças de giro/tamanho).
+  host.querySelectorAll('[data-lsel]').forEach(el => {
+    el.onclick = () => { if (typeof _peSelectOverlay === 'function') _peSelectOverlay(el.dataset.lsel); };
   });
   host.querySelectorAll('[data-ldel]').forEach(b => {
     b.onclick = () => {
@@ -2331,8 +2422,14 @@ function renderPosterTemplate(p) {
 /** Núcleo de ARRASTE de overlay (r107, compartilhado por avatar e camadas): mouse
  *  OU toque; converte o delta de tela → % do formato (÷ escala do stage); snap com
  *  LINHAS-GUIA (.pe-guides, escondidas no export) no centro (50%) e margens (8/92).
- *  getBase() → {x,y} iniciais; commit(x,y) persiste ao soltar. */
-function _overlayDrag(el, rootEl, fmt, getBase, commit) {
+ *  getBase() → {x,y} iniciais; commit(x,y) persiste ao soltar.
+ *  pinchOpts (opcional, r118): habilita PINÇA de 2 dedos p/ "zoom" (escala) direto
+ *  na camada, sem precisar tocar na alça — { min, max, getScale(), onScale(sc)
+ *  (visual, a cada movimento), onScaleCommit(sc) (persiste ao soltar) }. Rastreia
+ *  ponteiros por pointerId (Map) para não misturar coordenadas de dois dedos: com
+ *  1 ponteiro ativo é arraste normal; ao pousar o 2º (com pinchOpts), o gesto vira
+ *  pinça e o arraste em curso é cancelado sem persistir posição.*/
+function _overlayDrag(el, rootEl, fmt, getBase, commit, pinchOpts) {
   const SNAPS = [8, 50, 92];
   const TOL = 1.6;
   const mkGuide = (axis, pct) => {
@@ -2347,47 +2444,95 @@ function _overlayDrag(el, rootEl, fmt, getBase, commit) {
   let gv = null, gh = null;
   const clearGuides = () => { if (gv) gv.remove(); if (gh) gh.remove(); gv = gh = null; };
 
-  el.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('[data-lresize]')) return;   // a alça de redimensão cuida de si
-    e.preventDefault();
-    e.stopPropagation();                       // não aciona o pan das imagens do modelo
+  const pointers = new Map();   // pointerId -> {x,y} — todos os ponteiros ativos sobre o overlay
+  let moveState = null;         // arraste (mover) em curso
+  let pinchState = null;        // pinça (escala) em curso
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  const beginMove = (e) => {
     const stage = $('#p-stage');
     let scale = 1;
     try { scale = (new DOMMatrixReadOnly(getComputedStyle(stage).transform)).a || 1; } catch (_) {}
-    const startX = e.clientX, startY = e.clientY;
     const base = getBase();
-    let curX = base.x, curY = base.y;
+    // `pid`: o arraste pertence a UM ponteiro. Sem isso, um 2º dedo pousado num
+    // overlay sem pinça (o avatar) passaria a comandar o movimento com as SUAS
+    // coordenadas contra o ponto inicial do 1º dedo — e a peça daria um salto.
+    moveState = { pid: e.pointerId, scale, startX: e.clientX, startY: e.clientY, base, curX: base.x, curY: base.y };
     el.style.cursor = 'grabbing';
-    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+  };
+  const endMove = (doCommit) => {
+    if (!moveState) return;
+    el.style.cursor = 'grab';
+    clearGuides();
+    if (doCommit) commit(Math.round(moveState.curX * 10) / 10, Math.round(moveState.curY * 10) / 10);
+    moveState = null;
+  };
+  const beginPinch = () => {
+    const pts = Array.from(pointers.values());
+    if (pts.length < 2 || !pinchOpts) return;
+    const sc0 = pinchOpts.getScale ? pinchOpts.getScale() : 1;
+    pinchState = { startDist: dist(pts[0], pts[1]) || 1, startScale: sc0, curScale: sc0 };
+  };
+  const endPinch = (doCommit) => {
+    if (!pinchState) return;
+    if (doCommit && pinchOpts && pinchOpts.onScaleCommit) pinchOpts.onScaleCommit(pinchState.curScale);
+    pinchState = null;
+  };
 
-    const onMove = (ev) => {
-      let px = base.x + (((ev.clientX - startX) / scale) / fmt.w) * 100;
-      let py = base.y + (((ev.clientY - startY) / scale) / fmt.h) * 100;
-      px = Math.max(2, Math.min(98, px));
-      py = Math.max(2, Math.min(98, py));
-      let sx = null, sy = null;
-      SNAPS.forEach(t => { if (Math.abs(px - t) < TOL) sx = t; });
-      SNAPS.forEach(t => { if (Math.abs(py - t) < TOL) sy = t; });
-      if (sx != null) { px = sx; if (!gv) gv = mkGuide('v', sx); gv.style.left = sx + '%'; }
-      else if (gv) { gv.remove(); gv = null; }
-      if (sy != null) { py = sy; if (!gh) gh = mkGuide('h', sy); gh.style.top = sy + '%'; }
-      else if (gh) { gh.remove(); gh = null; }
-      curX = px; curY = py;
-      el.style.left = px + '%';
-      el.style.top = py + '%';
-    };
-    const onUp = () => {
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerup', onUp);
-      el.removeEventListener('pointercancel', onUp);
-      el.style.cursor = 'grab';
-      clearGuides();
-      commit(Math.round(curX * 10) / 10, Math.round(curY * 10) / 10);
-    };
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('pointercancel', onUp);
+  el.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('[data-lresize]') || e.target.closest('[data-lrotate]')) return;   // as alças cuidam de si
+    e.preventDefault();
+    e.stopPropagation();                       // não aciona o pan das imagens do modelo
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 1) {
+      beginMove(e);
+    } else if (pointers.size === 2 && pinchOpts) {
+      // 2º dedo pousou → o gesto vira pinça. PERSISTE o que já foi arrastado
+      // (senão o deslocamento ficaria só no visual e voltaria no próximo render).
+      endMove(true);
+      beginPinch();
+    }
   });
+  el.addEventListener('pointermove', (ev) => {
+    if (!pointers.has(ev.pointerId)) return;
+    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+
+    if (pinchState) {
+      const pts = Array.from(pointers.values());
+      if (pts.length < 2) return;
+      const ratio = dist(pts[0], pts[1]) / pinchState.startDist;
+      const min = (pinchOpts.min != null) ? pinchOpts.min : 0.15;
+      const max = (pinchOpts.max != null) ? pinchOpts.max : 3;
+      pinchState.curScale = Math.round(Math.max(min, Math.min(max, pinchState.startScale * ratio)) * 100) / 100;
+      if (pinchOpts.onScale) pinchOpts.onScale(pinchState.curScale);
+      return;
+    }
+    if (!moveState || ev.pointerId !== moveState.pid) return;
+    let px = moveState.base.x + (((ev.clientX - moveState.startX) / moveState.scale) / fmt.w) * 100;
+    let py = moveState.base.y + (((ev.clientY - moveState.startY) / moveState.scale) / fmt.h) * 100;
+    px = Math.max(2, Math.min(98, px));
+    py = Math.max(2, Math.min(98, py));
+    let sx = null, sy = null;
+    SNAPS.forEach(t => { if (Math.abs(px - t) < TOL) sx = t; });
+    SNAPS.forEach(t => { if (Math.abs(py - t) < TOL) sy = t; });
+    if (sx != null) { px = sx; if (!gv) gv = mkGuide('v', sx); gv.style.left = sx + '%'; }
+    else if (gv) { gv.remove(); gv = null; }
+    if (sy != null) { py = sy; if (!gh) gh = mkGuide('h', sy); gh.style.top = sy + '%'; }
+    else if (gh) { gh.remove(); gh = null; }
+    moveState.curX = px; moveState.curY = py;
+    el.style.left = px + '%';
+    el.style.top = py + '%';
+  });
+  const onUp = (ev) => {
+    if (!pointers.has(ev.pointerId)) return;
+    pointers.delete(ev.pointerId);
+    try { el.releasePointerCapture(ev.pointerId); } catch (_) {}
+    if (pinchState) { if (pointers.size < 2) endPinch(true); return; }
+    if (moveState && ev.pointerId === moveState.pid) endMove(true);
+  };
+  el.addEventListener('pointerup', onUp);
+  el.addEventListener('pointercancel', onUp);
 }
 
 /** AVATAR arrastável — persiste avatarX/avatarY no slide REAL. */
@@ -2432,23 +2577,83 @@ function _overlayDeleteBtn(onDel) {
   d.onclick = (ev) => { ev.stopPropagation(); onDel(); };
   return d;
 }
-/** Resize genérico de overlay pela alça (largura acompanha o cursor; escala = w/base).
+/** Alça de ROTAÇÃO (canto superior-esquerdo, espelhando o X do outro lado). r118.
+ *  `.pe-ov-chrome` = só visível quando o overlay está selecionado; some no export. */
+function _overlayRotateHandle() {
+  const h = document.createElement('div');
+  h.className = 'pe-rotate-handle pe-ov-chrome';
+  // NÃO define `display` inline: o inline venceria a regra `.pe-ov-chrome{display:none}`
+  // e a alça apareceria SEMPRE (inclusive no export). O `display:flex` de quando
+  // está selecionada mora no CSS (regra de `.pe-ov-sel > .pe-rotate-handle`).
+  h.style.cssText = 'position:absolute;left:-16px;top:-40px;width:32px;height:32px;' +
+    'border-radius:50%;background:#fff;border:2px solid var(--accent,#cf3418);' +
+    'box-shadow:0 2px 8px rgba(0,0,0,0.35);cursor:grab;touch-action:none;z-index:10;' +
+    'align-items:center;justify-content:center;color:var(--accent,#cf3418);';
+  h.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>';
+  return h;
+}
+
+/** ROTAÇÃO genérica de overlay pela alça (r118). O ângulo acompanha o dedo/cursor
+ *  de forma RELATIVA (a alça fica sempre sob o ponteiro) e faz snap de 15° perto
+ *  dos ângulos "redondos". A caixa gira em torno do PRÓPRIO CENTRO: o `left/top`
+ *  do overlay é o centro (translate(-50%,-50%)), e `rotate()` na mesma transform
+ *  usa o transform-origin padrão (50% 50%) — ou seja, gira sem sair do lugar.
+ *  opts: { getRotation(), onRotate(deg) (visual), commit(deg) (persiste). } */
+function _setupOverlayRotate(handle, box, opts) {
+  opts = opts || {};
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const r = box.getBoundingClientRect();          // o centro do retângulo envolvente
+    const cx = r.left + r.width / 2;               // continua sendo o centro real
+    const cy = r.top + r.height / 2;               // mesmo com a caixa já girada
+    const ang0 = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+    const rot0 = (opts.getRotation ? opts.getRotation() : 0) || 0;
+    let cur = rot0;
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    handle.style.cursor = 'grabbing';
+    const onMove = (ev) => {
+      const ang = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI;
+      let deg = Math.round(rot0 + (ang - ang0));
+      deg = ((deg % 360) + 360) % 360;
+      const off = deg % 15;                         // snap 15° (cobre 0/90/180/270)
+      if (off < 4) deg -= off; else if (off > 11) deg += (15 - off);
+      cur = ((deg % 360) + 360) % 360;
+      if (opts.onRotate) opts.onRotate(cur);
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      handle.style.cursor = 'grab';
+      if (opts.commit) opts.commit(cur);
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  });
+}
+
+/** Resize genérico de overlay pela alça. A escala segue a DISTÂNCIA do ponteiro
+ *  até o centro da caixa (razão distância-atual ÷ distância-inicial) — método
+ *  RADIAL, imune à rotação: com a caixa girada, o eixo X da tela não é mais o
+ *  eixo X do objeto, então o delta horizontal puro (antes de r118) redimensionava
+ *  para o lado errado. Afastar o dedo do centro aumenta; aproximar diminui.
  *  opts: { square, min, max, commit(scale) }. Usado por camadas e avatar. */
 function _setupOverlayResize(handle, box, baseW, opts) {
   opts = opts || {};
   handle.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const stage = $('#p-stage');
-    let scale = 1;
-    try { scale = (new DOMMatrixReadOnly(getComputedStyle(stage).transform)).a || 1; } catch (_) {}
-    const startX = e.clientX;
     const startW = parseFloat(box.style.width) || baseW;
+    const r = box.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const d0 = Math.hypot(e.clientX - cx, e.clientY - cy) || 1;
     let curScale = startW / baseW;
     try { handle.setPointerCapture(e.pointerId); } catch (_) {}
     const onMove = (ev) => {
-      const dw = ((ev.clientX - startX) / scale) * 2;   // *2: caixa centrada
-      const w = Math.max(baseW * (opts.min || 0.15), Math.min(baseW * (opts.max || 3), startW + dw));
+      const d = Math.hypot(ev.clientX - cx, ev.clientY - cy);
+      const w = Math.max(baseW * (opts.min || 0.15), Math.min(baseW * (opts.max || 3), startW * (d / d0)));
       curScale = Math.round((w / baseW) * 100) / 100;
       box.style.width = Math.round(w) + 'px';
       if (opts.square) box.style.height = Math.round(w) + 'px';
@@ -2587,16 +2792,23 @@ function buildAvatarOverlay(p, rootEl, fmt, zi) {
   return av;
 }
 
-/** Nó de uma CAMADA de imagem, com z-index dado. */
+/** Nó de uma CAMADA de imagem, com z-index dado.
+ *  A camada é um OBJETO INDEPENDENTE: move (arrastar), redimensiona (alça ou
+ *  pinça de 2 dedos), gira (alça de rotação) e empilha (z-order unificado) —
+ *  tudo sobre o PNG original com transparência intacta (o <img> carrega o data
+ *  URL do recorte como veio; nenhuma etapa rasteriza/achata a camada). */
 function buildLayerOverlay(p, layer, rootEl, fmt, zi) {
   const x = (typeof layer.x === 'number') ? layer.x : 50;
   const y = (typeof layer.y === 'number') ? layer.y : 50;
   const sc = (typeof layer.scale === 'number') ? layer.scale : 1;
+  const rot = (typeof layer.rotation === 'number') ? layer.rotation : 0;
   const w = Math.round(LAYER_BASE_W * sc);
   const box = document.createElement('div');
   box.setAttribute('data-pt', 'layer');
   box.dataset.lid = layer.id;
-  box.style.cssText = `position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);width:${w}px;z-index:${zi};cursor:grab;touch-action:none;`;
+  // translate(-50%,-50%) + rotate() na MESMA transform: o transform-origin padrão
+  // (centro da caixa) vale para a matriz composta → gira no lugar, sem deslocar.
+  box.style.cssText = `position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%) rotate(${rot}deg);width:${w}px;z-index:${zi};cursor:grab;touch-action:none;`;
   const img = document.createElement('img');
   img.src = layer.src; img.alt = ''; img.draggable = false;
   img.style.cssText = 'width:100%;height:auto;display:block;pointer-events:none;user-select:none;';
@@ -2604,16 +2816,36 @@ function buildLayerOverlay(p, layer, rootEl, fmt, zi) {
   const handle = _overlayResizeHandle();
   handle.dataset.lresize = layer.id;
   box.appendChild(handle);
+  const rotHandle = _overlayRotateHandle();
+  rotHandle.dataset.lrotate = layer.id;
+  box.appendChild(rotHandle);
   box.appendChild(_overlayDeleteBtn(() => _deleteLayer(layer.id)));
   rootEl.appendChild(box);
   if (typeof _peSelectOverlay === 'function') box.addEventListener('pointerdown', () => _peSelectOverlay(layer.id), true);
   if (typeof _peOpenEditorFor === 'function') box.addEventListener('dblclick', (e) => { e.stopPropagation(); _peOpenEditorFor('layer', layer.id); });
+  const setRot = (deg) => { box.style.transform = `translate(-50%,-50%) rotate(${deg}deg)`; };
+  const curRot = () => {
+    const m = /rotate\((-?[\d.]+)deg\)/.exec(box.style.transform || '');
+    return m ? parseFloat(m[1]) : 0;
+  };
   _overlayDrag(box, rootEl, fmt,
     () => ({ x: parseFloat(box.style.left) || 50, y: parseFloat(box.style.top) || 50 }),
-    (nx, ny) => _commitLayer(layer.id, { x: nx, y: ny }));
+    (nx, ny) => _commitLayer(layer.id, { x: nx, y: ny }),
+    // PINÇA (2 dedos) sobre a própria camada — "zoom" sem precisar mirar a alça.
+    {
+      min: 0.15, max: 3,
+      getScale: () => (parseFloat(box.style.width) || LAYER_BASE_W) / LAYER_BASE_W,
+      onScale: (s2) => { box.style.width = Math.round(LAYER_BASE_W * s2) + 'px'; },
+      onScaleCommit: (s2) => { _commitLayer(layer.id, { scale: s2 }); if (typeof renderLayerList === 'function') renderLayerList(); },
+    });
   _setupOverlayResize(handle, box, LAYER_BASE_W, {
     min: 0.15, max: 3,
     commit: (sc2) => { _commitLayer(layer.id, { scale: sc2 }); if (typeof renderLayerList === 'function') renderLayerList(); },
+  });
+  _setupOverlayRotate(rotHandle, box, {
+    getRotation: curRot,
+    onRotate: setRot,
+    commit: (deg) => { _commitLayer(layer.id, { rotation: deg }); if (typeof renderLayerList === 'function') renderLayerList(); },
   });
   return box;
 }

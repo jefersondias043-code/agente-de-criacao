@@ -76,7 +76,9 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .zoombar button:active { transform: scale(.92); }
 .zoombar button svg { width: 18px; height: 18px; }
 
-.drop { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; padding: 2rem; text-align: center; background: var(--paper); }
+/* overflow-y: em telas baixas (celular deitado) o cartão de projeto salvo
+   empurra o conteúdo — melhor rolar do que cortar o botão principal. */
+.drop { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; padding: 2rem; text-align: center; background: var(--paper); overflow-y: auto; }
 .drop.dragover { background: var(--accent-soft); }
 .drop .art { width: 76px; height: 76px; border-radius: 22px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-md); color: var(--accent); }
 .drop .art svg { width: 36px; height: 36px; }
@@ -90,6 +92,15 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .btn.ghost:hover:not(:disabled) { background: var(--paper-2); }
 .btn.sm { padding: .5rem .8rem; font-size: .82rem; }
 .drop .hint { font-size: .72rem; color: var(--ink-mute); }
+/* Cartão "Continuar de onde parou" (projeto salvo automaticamente) */
+.resume { display: flex; align-items: center; gap: .7rem; width: min(420px, 100%); margin-top: .9rem; padding: .6rem .7rem; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-md); text-align: left; }
+.resume img { width: 52px; height: 52px; flex: 0 0 auto; border-radius: 10px; object-fit: cover; background: var(--paper-2); border: 1px solid var(--line-soft); }
+.resume-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.resume-txt strong { font-size: .82rem; font-weight: 800; letter-spacing: -.01em; }
+.resume-txt span { font-size: .7rem; color: var(--ink-mute); }
+.resume-acts { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
+.resume-acts .btn { padding: .38rem .7rem; font-size: .74rem; }
+@media (max-width: 400px) { .resume { flex-wrap: wrap; } .resume-acts { flex-direction: row; width: 100%; } .resume-acts .btn { flex: 1; } }
 
 .loader { position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; background: rgba(247,246,242,.92); backdrop-filter: blur(3px); text-align: center; padding: 2rem; }
 .spinner { width: 46px; height: 46px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
@@ -100,11 +111,19 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 
 .panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: var(--surface); box-shadow: 0 -6px 20px rgba(25,23,18,.06); z-index: 5; padding: .7rem .8rem calc(.7rem + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: .7rem; }
-/* Barra de abas fixa no topo do painel que rola: o box-shadow em cor de
-   superfície tapa a faixa de padding, senão o conteúdo apareceria por trás. */
-.segmented { position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; background: var(--paper-2); border-radius: 12px; padding: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; box-shadow: 0 -.7rem 0 .7rem var(--surface); }
-.segmented::-webkit-scrollbar { display: none; }
-.segmented button { flex: 1 0 auto; min-width: 60px; padding: .5rem .5rem; border-radius: 9px; font-size: .72rem; font-weight: 700; color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 3px; transition: .15s; white-space: nowrap; }
+/* Barra de abas SEMPRE visível (r160). Dois problemas resolvidos aqui:
+   1. `flex-shrink` — o painel é um flex column; quando a aba tinha muito
+      conteúdo, TODOS os filhos eram espremidos e a barra de abas encolhia até
+      8px de altura (sumia na prática, deixando o usuário sem navegação).
+      `flex:0 0 auto` nos filhos impede o esmagamento: o excedente vira rolagem.
+   2. Rolagem horizontal — eram 9 abas em 625px numa faixa de 364px, e só 5
+      apareciam; as outras exigiam descobrir que dava para arrastar de lado.
+      Agora quebram em linhas e ficam todas à vista.
+   Fixa no topo do painel que rola; o box-shadow em cor de superfície tapa a
+   faixa de padding, senão o conteúdo apareceria por trás. */
+.panel > * { flex: 0 0 auto; }
+.segmented { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 4px; background: var(--paper-2); border-radius: 12px; padding: 4px; box-shadow: 0 -.7rem 0 .7rem var(--surface); }
+.segmented button { flex: 1 1 62px; min-width: 62px; padding: .5rem .3rem; border-radius: 9px; font-size: .72rem; font-weight: 700; color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 3px; transition: .15s; white-space: nowrap; }
 .segmented button svg { width: 18px; height: 18px; }
 .segmented button.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-sm); }
 .cat { display: none; flex-direction: column; gap: .6rem; }
@@ -259,6 +278,18 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       <p>Um editor completo — ajustes, filtros, cortar, efeitos e remoção de fundo automática. 100% no seu navegador, sem enviar nada para nenhum servidor.</p>
       <button class="btn" id="btnPick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 5v12"/></svg> Escolher imagem</button>
       <div class="hint">ou arraste uma imagem aqui · Ctrl+V para colar</div>
+      <!-- Projeto salvo automaticamente: aparece só quando existe um. -->
+      <div class="resume hidden" id="resume">
+        <img id="resumeThumb" alt="">
+        <div class="resume-txt">
+          <strong>Continuar de onde parou</strong>
+          <span id="resumeWhen"></span>
+        </div>
+        <div class="resume-acts">
+          <button class="btn sm" id="resumeGo">Continuar</button>
+          <button class="btn ghost sm" id="resumeDrop">Descartar</button>
+        </div>
+      </div>
     </div>
 
     <div class="loader hidden" id="loader">
@@ -997,7 +1028,8 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     S.bgKind = 'transparent';
     syncAllInputs(); setActiveChip('#filters', 'none'); setActiveChip('#aspects', 'free');
     S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true; S.dirtyFrame = true;
-    $('#drop').classList.add('hidden'); ['#btnCompare', '#btnRedo', '#btnNew'].forEach((id) => $(id).removeAttribute('disabled'));
+    $('#drop').classList.add('hidden'); $('#resume').classList.add('hidden');
+    ['#btnCompare', '#btnRedo', '#btnNew'].forEach((id) => $(id).removeAttribute('disabled'));
     try {
       S.maskGray = await segment(S.orig, w, h); buildAiAlpha(); S.ready = true;
       $('#panel').classList.remove('hidden'); $('#zoombar').classList.remove('hidden'); $('#badge').classList.remove('hidden');
@@ -1136,12 +1168,14 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     const CAP = 24; if (hist.length > CAP) { hist.shift(); histIdx--; }
     pruneCache(); updateUndoButtons();
   }
-  function commit() { pushHistory(); }
+  // Toda alteração confirmada entra no histórico E agenda a gravação do projeto.
+  function commit() { pushHistory(); saveProjectSoon(); }
   function pruneCache() { const live = new Set(); hist.forEach((s) => ['orig', 'maskGray', 'brushAdd', 'brushSub'].forEach((n) => live.add(n + '@' + s.ver[n]))); [...layerCache.keys()].forEach((k) => { if (!live.has(k)) layerCache.delete(k); }); }
   async function loadLayer(name, ver) { const key = name + '@' + ver; const blob = layerCache.get(key); if (!blob) return null; const bmp = await createImageBitmap(blob); const c = mkCanvas(bmp.width, bmp.height); c.getContext('2d').drawImage(bmp, 0, 0); return c; }
-  async function restoreState(s) {
-    histBusy = true;
-    for (const name of ['orig', 'maskGray', 'brushAdd', 'brushSub']) { if (layerVer[name] !== s.ver[name]) { S[name] = await loadLayer(name, s.ver[name]); layerVer[name] = s.ver[name]; } }
+  /** Aplica um pacote de CONFIGURAÇÕES (o mesmo formato de snapSettings) sobre
+   *  o estado atual. Compartilhado pelo desfazer/refazer e pela restauração do
+   *  projeto salvo — um único lugar para manter os dois em sincronia. */
+  function applySettings(s) {
     S.W = s.W; S.H = s.H; Object.assign(S.adj, s.adj); if (s.filterName != null) { S.filterName = s.filterName; S.filterIntensity = s.filterIntensity; } S.bgKind = s.bgKind; S.bgColor = s.bgColor; S.blurAmt = s.blurAmt; S.feather = s.feather; S.contract = s.contract;
     S.crop = s.crop ? Object.assign({}, s.crop) : null; S.cropAspect = s.cropAspect; Object.assign(S.shadow, s.shadow); Object.assign(S.border, s.border);
     if (s.bgGrad) { S.bgGrad.colors = s.bgGrad.colors.slice(); S.bgGrad.angle = s.bgGrad.angle; S.bgGrad.type = s.bgGrad.type; }
@@ -1152,11 +1186,130 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     S.adjOrig = null; S.aiAlpha = null; S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null;
     if (S.maskGray) buildAiAlpha();
     S.dirtyCut = true; S.dirtyBg = true; S.dirtyAdj = true; S.dirtyOut = true; S.dirtyFrame = true;
+  }
+  async function restoreState(s) {
+    histBusy = true;
+    for (const name of ['orig', 'maskGray', 'brushAdd', 'brushSub']) { if (layerVer[name] !== s.ver[name]) { S[name] = await loadLayer(name, s.ver[name]); layerVer[name] = s.ver[name]; } }
+    applySettings(s);
     syncAllInputs(); histBusy = false; updateBadge(); resizeView(); computeFit(); fitToScreen();
   }
   async function undo() { if (histIdx <= 0 || histBusy) return; histIdx--; await restoreState(hist[histIdx]); updateUndoButtons(); }
   async function redo() { if (histIdx >= hist.length - 1 || histBusy) return; histIdx++; await restoreState(hist[histIdx]); updateUndoButtons(); }
   function updateUndoButtons() { $('#btnUndo').disabled = histIdx <= 0; $('#btnRedoH').disabled = histIdx >= hist.length - 1; }
+
+  /* ============ PROJETO SALVO (continuar de onde parou) ============
+     Todo o projeto — imagem original, máscara da IA, pinceladas, fundo,
+     moldura, cores, transformação do objeto, corte — vai para o IndexedDB
+     (localStorage não serve: são megabytes de imagem). Salva sozinho, sem
+     botão: a cada alteração confirmada, com um respiro para não gravar a
+     cada mexida de slider. Ao reabrir, a tela inicial oferece continuar.
+
+     Custo quase zero: o histórico de desfazer JÁ codifica as camadas em PNG
+     e as guarda em layerCache; aqui só reaproveitamos esses blobs. */
+  const DB_NAME = 'agp-removedor', DB_STORE = 'projeto', DB_KEY = 'atual';
+  let saveTimer = null, saving = false, saveDisabled = false, savedProject = null;
+  function idbOpen() {
+    return new Promise((res, rej) => {
+      let r; try { r = indexedDB.open(DB_NAME, 1); } catch (e) { return rej(e); }
+      r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE); };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+  }
+  function idbRun(mode, fn) {
+    return idbOpen().then((db) => new Promise((res, rej) => {
+      const tx = db.transaction(DB_STORE, mode); const st = tx.objectStore(DB_STORE);
+      let out; try { out = fn(st); } catch (e) { return rej(e); }
+      tx.oncomplete = () => res(out && out.result !== undefined ? out.result : out);
+      tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+    }));
+  }
+  const canvasToBlob = (c, type, q) => new Promise((r) => { if (!c) return r(null); try { c.toBlob(r, type || 'image/png', q); } catch (_) { r(null); } });
+  async function blobToCanvas(b) {
+    if (!b) return null;
+    const bmp = await createImageBitmap(b);
+    const c = mkCanvas(bmp.width, bmp.height); c.getContext('2d').drawImage(bmp, 0, 0);
+    if (bmp.close) bmp.close();
+    return c;
+  }
+  /** Grava o projeto. As camadas vêm prontas do layerCache (o histórico já as
+   *  codificou); só a imagem de fundo e a miniatura são geradas aqui. */
+  async function saveProject() {
+    if (saveDisabled || saving || !S.ready || !S.orig) return;
+    saving = true;
+    try {
+      const cached = (n) => layerCache.get(n + '@' + layerVer[n]) || null;
+      // Se o cache ainda não tem a camada (ex.: gravação antes do 1º commit
+      // terminar), codifica na hora — melhor um custo pontual que perder tudo.
+      const need = ['orig', 'maskGray', 'brushAdd', 'brushSub'].filter((n) => S[n] && !cached(n));
+      if (need.length) await Promise.all(need.map(encodeLayer));
+      if (S.dirtyAdj) applyAdjustments(); if (S.dirtyOut) rebuildOutFull();
+      const thumb = await canvasToBlob(scaledCanvas(flatten(renderFinalCanvas(), '#ffffff'), 260), 'image/jpeg', 0.72);
+      const bgi = (S.bgKind === 'image' && S.bgImage) ? await canvasToBlob((() => { const c = mkCanvas(S.bgImage.width, S.bgImage.height); c.getContext('2d').drawImage(S.bgImage, 0, 0); return c; })()) : null;
+      const set = snapSettings(); delete set.ver;      // versões de camada não valem entre sessões
+      await idbRun('readwrite', (st) => st.put({
+        v: 1, at: Date.now(), W: S.W, H: S.H, set: set, thumb: thumb,
+        orig: cached('orig'), mask: cached('maskGray'), add: cached('brushAdd'), sub: cached('brushSub'), bgi: bgi,
+      }, DB_KEY));
+    } catch (e) {
+      // Sem espaço (ou modo privado): avisa UMA vez e para de tentar.
+      saveDisabled = true;
+      toast('Não foi possível salvar o projeto neste aparelho — o trabalho segue normal, mas não será restaurado depois.', true);
+      console.warn('saveProject', e);
+    } finally { saving = false; }
+  }
+  function saveProjectSoon() { if (saveDisabled) return; clearTimeout(saveTimer); saveTimer = setTimeout(saveProject, 1200); }
+  function clearProject() { savedProject = null; return idbRun('readwrite', (st) => st.delete(DB_KEY)).catch(() => {}); }
+
+  /** Cartão "Continuar de onde parou" na tela inicial. */
+  function relTime(ts) {
+    const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+    if (m < 1) return 'agora há pouco';
+    if (m < 60) return 'há ' + m + ' min';
+    const h = Math.round(m / 60); if (h < 24) return 'há ' + h + (h === 1 ? ' hora' : ' horas');
+    const d = Math.round(h / 24); return 'há ' + d + (d === 1 ? ' dia' : ' dias');
+  }
+  async function checkSavedProject() {
+    let p = null;
+    try { p = await idbRun('readonly', (st) => st.get(DB_KEY)); } catch (_) { return; }
+    if (!p || !p.orig) return;
+    savedProject = p;
+    const card = $('#resume'); if (!card) return;
+    if (p.thumb) { const u = URL.createObjectURL(p.thumb); $('#resumeThumb').src = u; $('#resumeThumb').onload = () => URL.revokeObjectURL(u); }
+    $('#resumeWhen').textContent = (p.W && p.H ? p.W + '×' + p.H + ' px · ' : '') + 'editado ' + relTime(p.at);
+    card.classList.remove('hidden');
+  }
+  async function resumeProject() {
+    const p = savedProject;
+    // Sem o pacote de configurações não dá para remontar o estado com segurança
+    // (meia restauração é pior que nenhuma): descarta e volta à tela inicial.
+    if (!p || !p.set) { if (p) { clearProject(); toast('O projeto salvo estava incompleto.', true); } return; }
+    setLoader(true, 'Restaurando seu projeto…', 'Imagens, recorte e ajustes');
+    try {
+      S.orig = await blobToCanvas(p.orig);
+      S.maskGray = await blobToCanvas(p.mask);
+      S.brushAdd = await blobToCanvas(p.add);
+      S.brushSub = await blobToCanvas(p.sub);
+      S.bgImage = p.bgi ? await blobToCanvas(p.bgi) : null;
+      applySettings(p.set);
+      // A aba ativa não entra no applySettings (desfazer não deve trocar de
+      // aba), mas ao REABRIR o projeto faz sentido voltar onde o usuário estava.
+      S.cat = p.set.cat || 'fundo';
+      S.W = p.W; S.H = p.H; S.ready = true;
+      setPicking(false);
+      $('#drop').classList.add('hidden');
+      ['#btnCompare', '#btnRedo', '#btnNew'].forEach((id) => $(id).removeAttribute('disabled'));
+      $('#panel').classList.remove('hidden'); $('#zoombar').classList.remove('hidden'); $('#badge').classList.remove('hidden');
+      $('#splitter').classList.remove('hidden'); $('#app').classList.add('split');
+      syncAllInputs(); setActiveChip('#filters', S.filterName); setActiveChip('#aspects', S.cropAspect ? aspectName(S.cropAspect) : 'free');
+      document.querySelectorAll('#segs button').forEach((x) => x.classList.toggle('active', x.dataset.cat === S.cat));
+      document.querySelectorAll('.cat').forEach((c) => c.classList.toggle('active', c.dataset.cat === S.cat));
+      updateBadge(); setLoader(false); resizeView(); computeFit(); fitToScreen();
+      resetHistory(); await pushHistory();
+      toast('Projeto restaurado ✓');
+    } catch (e) {
+      setLoader(false); toast('Não foi possível restaurar o projeto.', true); console.error(e);
+    }
+  }
 
   // ============ EXPORTAR ============
   function renderFinalCanvas() {
@@ -1272,9 +1425,14 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   function saveSavedGrads(list) { try { localStorage.setItem(GRAD_STORE, JSON.stringify(list.slice(0, 30))); } catch (_) { /* */ } }
   let savedGrads = loadSavedGrads();
 
-  function syncGradEditor(prefix, g) {
+  /** `redrawStops=false` atualiza tudo MENOS a lista de cores. É o que se usa
+   *  enquanto o usuário mexe no seletor de cor: recriar a lista (innerHTML)
+   *  destruiria o próprio <input type=color> aberto e o seletor nativo fechava
+   *  na hora — era impossível escolher uma cor. */
+  function syncGradEditor(prefix, g, redrawStops) {
     $('#' + prefix + 'GradPreview').style.background = gradCss(g);
-    renderGradStops(prefix, g); renderGradPresets(prefix);
+    if (redrawStops !== false) renderGradStops(prefix, g);
+    renderGradPresets(prefix);
     $('#' + prefix + 'GradAngle').value = g.angle; $('#' + prefix + 'GradAngleV').textContent = g.angle;
     if ($('#' + prefix + 'GradType')) document.querySelectorAll('#' + prefix + 'GradType button').forEach((x) => x.classList.toggle('active', x.dataset.gtype === g.type));
     if ($('#' + prefix + 'GradAngleRow')) $('#' + prefix + 'GradAngleRow').classList.toggle('hidden', g.type === 'radial');
@@ -1400,7 +1558,16 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   function wireGradEditor(prefix, specFn, onChange) {
     const upd = () => { syncGradEditor(prefix, specFn()); onChange(); };
     // stops: editar cor (input), remover (×) e adicionar (+) — via delegação (dinâmico)
-    $('#' + prefix + 'GradStops').addEventListener('input', (e) => { const inp = e.target.closest('input[data-i]'); if (!inp) return; specFn().colors[+inp.dataset.i] = inp.value; upd(); });
+    // Ao mexer no seletor de cor NÃO se redesenha a lista (o <input> aberto
+    // seria destruído e o seletor fecharia): atualiza-se só a bolinha e o
+    // restante do editor.
+    $('#' + prefix + 'GradStops').addEventListener('input', (e) => {
+      const inp = e.target.closest('input[data-i]'); if (!inp) return;
+      specFn().colors[+inp.dataset.i] = inp.value;
+      const dot = inp.parentElement && inp.parentElement.querySelector('.grad-dot');
+      if (dot) dot.style.background = inp.value;
+      syncGradEditor(prefix, specFn(), false); onChange();
+    });
     $('#' + prefix + 'GradStops').addEventListener('change', (e) => { if (e.target.closest('input[data-i]')) commit(); });
     $('#' + prefix + 'GradStops').addEventListener('click', (e) => {
       const rm = e.target.closest('[data-remove]'); const add = e.target.closest('[data-add]');
@@ -1514,6 +1681,18 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       resizeView();
     });
   })();
+
+  // ---- Projeto salvo: cartão da tela inicial + gravação ao sair ----
+  $('#resumeGo').onclick = () => { $('#resume').classList.add('hidden'); resumeProject(); };
+  $('#resumeDrop').onclick = () => { $('#resume').classList.add('hidden'); clearProject(); toast('Projeto descartado'); };
+  // Fechar/minimizar não pode custar o trabalho: grava na hora, sem esperar o
+  // respiro do autosave. `pagehide` cobre o fechamento; `visibilitychange`
+  // cobre o app indo para segundo plano no celular (que pode nem disparar
+  // pagehide antes de o sistema encerrar a aba).
+  const flushSave = () => { if (S.ready) { clearTimeout(saveTimer); saveProject(); } };
+  window.addEventListener('pagehide', flushSave);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
+  checkSavedProject();
 
   let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(resizeView, 120); });
   new ResizeObserver(() => resizeView()).observe(stage);

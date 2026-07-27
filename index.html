@@ -80,7 +80,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-25-r157" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-27-r158" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -753,19 +753,26 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                 </div>
 
                 <!-- CAMADAS (r107): imagens PNG/JPEG livres sobre o cartaz. Cada camada
-                     é independente — arrasta (como o avatar) e redimensiona pela alça.
+                     é um OBJETO INDEPENDENTE — arrasta, redimensiona (alça ou pinça),
+                     GIRA (alça de rotação, r118) e empilha na hierarquia unificada.
                      Ficam em s.layers[]; renderizadas por renderPosterLayers. -->
                 <div class="field" style="margin-top:.4rem;">
                   <div class="label-row" style="margin-bottom:.35rem;">
                     <label class="label">Camadas</label>
-                    <button type="button" class="btn btn-ghost btn-sm" id="p-layer-add">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      Adicionar
-                    </button>
+                    <div class="layer-head-actions">
+                      <button type="button" class="btn btn-ghost btn-sm" id="p-layer-cut">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+                        Recortar fundo
+                      </button>
+                      <button type="button" class="btn btn-ghost btn-sm" id="p-layer-add">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Adicionar
+                      </button>
+                    </div>
                     <input type="file" id="p-layer-file" accept="image/png,image/jpeg,image/webp,image/gif,image/*" multiple hidden />
                   </div>
                   <div id="p-layers-list"></div>
-                  <div class="input-helper">PNG, JPEG, WEBP… Arraste no cartaz para mover; use a alça para redimensionar.</div>
+                  <div class="input-helper">PNG com transparência, JPEG, WEBP… No cartaz: arraste para mover, pince com 2 dedos para o zoom, use a alça ↘ para redimensionar e a ↻ para girar.</div>
                 </div>
 
                 <!-- Disposição das imagens (mosaico) — mora AQUI: é ajuste de imagem.

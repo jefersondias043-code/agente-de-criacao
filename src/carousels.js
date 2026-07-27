@@ -450,7 +450,7 @@ async function exportCarousel(p, mode, scale, fileType) {
       const canvas = await captureStageCanvas(fmt, scale);
       if (canvas) files.push({ name: `carrossel-${String(idx + 1).padStart(2, '0')}.${ext}`, data: await _canvasToBytes(canvas, mime, jpg ? 0.92 : undefined) });
     }
-    if (!files.length) { toast('Não foi possível exportar o carrossel.', 'error'); return; }
+    if (!files.length) { toast(libReady('html2canvas') ? 'Não foi possível exportar o carrossel.' : libUnavailableMsg('html2canvas'), 'error', 6000); return; }
     const base = (slides[0].headline || 'carrossel').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'export';
 
     if (mode === 'images') {

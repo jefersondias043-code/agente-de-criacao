@@ -6,6 +6,10 @@
    ============================================================ */
 
 async function extractPdf(file) {
+  // Sem a biblioteca (CDN bloqueado/offline) o erro precisa ser explicável,
+  // não um ReferenceError cru que deixa o botão morto e o usuário sem pista.
+  if (!(await ensureLib('pdfjsLib'))) throw new Error(libUnavailableMsg('pdfjsLib'));
+  configurePdfWorker();
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const pages = [];
@@ -19,6 +23,7 @@ async function extractPdf(file) {
 }
 
 async function extractDocx(file) {
+  if (!(await ensureLib('mammoth'))) throw new Error(libUnavailableMsg('mammoth'));
   const arrayBuffer = await file.arrayBuffer();
   const result = await mammoth.extractRawText({ arrayBuffer });
   return (result.value || '').trim();
@@ -100,6 +105,7 @@ function _ocrPreprocessar(base) {
 
 // OCR de UM canvas → { text, conf }. Reporta o progresso como PORCENTAGEM.
 async function _ocrReconhecer(canvas, onProgress) {
+  if (!(await ensureLib('Tesseract'))) throw new Error(libUnavailableMsg('Tesseract'));
   const { data } = await Tesseract.recognize(canvas, 'por', {
     logger: (m) => {
       if (m.status === 'recognizing text' && onProgress) onProgress(Math.round((m.progress || 0) * 100));

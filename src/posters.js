@@ -553,10 +553,14 @@ function renderPosters() {
   document.body.classList.toggle('pe-full', editing);
 
   renderPostersList();
+  // O botão "Histórico" existe TAMBÉM na galeria, mas quem o ligava era o
+  // setupPostersChrome() lá embaixo — só alcançado no modo edição. Resultado:
+  // na galeria o botão não fazia absolutamente nada. Como a função é
+  // idempotente, ligá-la aqui cobre os dois modos.
+  setupPostersChrome();
   if (!editing) { renderPosterGallery(); return; }
 
   renderPosterEditor();
-  setupPostersChrome();
   setupEditorChrome();
   // Refit após o layout assentar (a troca p/ modo focado muda o container do canvas):
   // síncrono (leitura força reflow) + RAF de reforço (RAF pode não disparar em aba oculta).
@@ -3054,6 +3058,10 @@ function hideStageCaptureCover(force) {
 }
 
 async function captureStageCanvas(fmt, scale) {
+  // Sem o html2canvas (CDN bloqueado/offline) a exportação apenas "não
+  // acontecia": ReferenceError no console e botão sem reação nenhuma. Confere
+  // ANTES de preparar o palco — quem chamou avisa o usuário. Ver ensureLib().
+  if (!(await ensureLib('html2canvas'))) return null;
   const s = Math.max(1, scale || 1);   // 1× (padrão) ou 2× (alta resolução)
   const stage = $('#p-stage');
   const wrap = $('#p-stage-wrap');
@@ -3194,7 +3202,7 @@ async function exportPoster(p, scale, fileType) {
   const ext = jpg ? 'jpg' : 'png';
   try {
     const canvas = await captureStageCanvas(posterActiveFormat(), scale);
-    if (!canvas) { toast('Não foi possível exportar.', 'error'); return; }
+    if (!canvas) { toast(libReady('html2canvas') ? 'Não foi possível exportar.' : libUnavailableMsg('html2canvas'), 'error', 6000); return; }
     const name = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}.${ext}`;
     const blob = await canvasToBlob(canvas, mime, jpg ? 0.92 : undefined);
     // Mostra a PRÉVIA + botão salvar/compartilhar. O salvamento vira uma ação

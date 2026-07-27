@@ -37,20 +37,26 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
-body { font-family: var(--font); color: var(--ink); background: var(--paper); -webkit-font-smoothing: antialiased; overflow: hidden; padding-top: env(safe-area-inset-top, 0px); }
+body { font-family: var(--font); color: var(--ink); background: var(--paper); -webkit-font-smoothing: antialiased; overflow: hidden; }
+/* Recuo da ilha dinâmica/notch SÓ quando a ferramenta abre sozinha. Embutida no
+   app, quem já empurra o iframe para baixo da ilha é o pai (.view-fullbleed) —
+   repetir aqui somava dois recuos e comia uma faixa enorme da tela à toa.
+   A classe é posta no boot (`window.parent === window`), não por media query,
+   porque o valor de env() dentro de um iframe não é confiável. */
+html.standalone body { padding-top: env(safe-area-inset-top, 0px); }
 .hidden { display: none !important; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 button:disabled { opacity: .4; cursor: not-allowed; }
 
 .app { display: flex; flex-direction: column; height: 100%; }
-.topbar { flex: 0 0 auto; display: flex; align-items: center; gap: .5rem; padding: .55rem .8rem; background: var(--surface); border-bottom: 1px solid var(--line-soft); box-shadow: var(--shadow-sm); z-index: 5; }
-.topbar .title { font-size: .95rem; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: .5rem; }
+.topbar { flex: 0 0 auto; display: flex; align-items: center; gap: .4rem; padding: .42rem .7rem; background: var(--surface); border-bottom: 1px solid var(--line-soft); box-shadow: var(--shadow-sm); z-index: 5; }
+.topbar .title { font-size: .88rem; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: .5rem; }
 .topbar .title .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 .topbar .spacer { flex: 1; }
-.iconbtn { width: 38px; height: 38px; border-radius: var(--radius); display: grid; place-items: center; color: var(--ink-soft); border: 1px solid var(--line); background: var(--surface); transition: .15s; }
+.iconbtn { width: 34px; height: 34px; border-radius: var(--radius); display: grid; place-items: center; color: var(--ink-soft); border: 1px solid var(--line); background: var(--surface); transition: .15s; }
 .iconbtn:hover:not(:disabled) { background: var(--paper-2); color: var(--ink); }
 .iconbtn:active:not(:disabled) { transform: scale(.94); }
-.iconbtn svg { width: 19px; height: 19px; }
+.iconbtn svg { width: 18px; height: 18px; }
 .iconbtn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
 /* SPLIT (r159): no celular a tela é dividida entre PREVIEW e FERRAMENTAS.
@@ -65,7 +71,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 #view { display: block; width: 100%; height: 100%; }
 /* Barra de redimensionamento entre preview e ferramentas (arrastar p/ cima ou
    para baixo muda a divisão). Mesma ideia da alça do editor de cartazes. */
-.splitter { flex: 0 0 auto; height: 20px; background: var(--surface); border-top: 1px solid var(--line-soft); display: grid; place-items: center; cursor: row-resize; touch-action: none; z-index: 6; position: relative; }
+.splitter { flex: 0 0 auto; height: 15px; background: var(--surface); border-top: 1px solid var(--line-soft); display: grid; place-items: center; cursor: row-resize; touch-action: none; z-index: 6; position: relative; }
 .splitter::before { content: ''; width: 46px; height: 4px; border-radius: 999px; background: var(--line); transition: background .15s, width .15s; }
 .splitter:active::before, .splitter.dragging::before { background: var(--accent); width: 62px; }
 .splitter::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }  /* área de toque generosa */
@@ -90,7 +96,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .btn svg { width: 17px; height: 17px; }
 .btn.ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: none; }
 .btn.ghost:hover:not(:disabled) { background: var(--paper-2); }
-.btn.sm { padding: .5rem .8rem; font-size: .82rem; }
+.btn.sm { padding: .45rem .75rem; font-size: .8rem; }
 .drop .hint { font-size: .72rem; color: var(--ink-mute); }
 /* Cartão "Continuar de onde parou" (projeto salvo automaticamente) */
 .resume { display: flex; align-items: center; gap: .7rem; width: min(420px, 100%); margin-top: .9rem; padding: .6rem .7rem; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-md); text-align: left; }
@@ -110,34 +116,35 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .progress { width: min(240px, 70vw); height: 7px; border-radius: 999px; background: var(--paper-2); overflow: hidden; }
 .progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 
-.panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: var(--surface); box-shadow: 0 -6px 20px rgba(25,23,18,.06); z-index: 5; padding: .7rem .8rem calc(.7rem + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: .7rem; }
-/* Barra de abas SEMPRE visível (r160). Dois problemas resolvidos aqui:
-   1. `flex-shrink` — o painel é um flex column; quando a aba tinha muito
-      conteúdo, TODOS os filhos eram espremidos e a barra de abas encolhia até
-      8px de altura (sumia na prática, deixando o usuário sem navegação).
-      `flex:0 0 auto` nos filhos impede o esmagamento: o excedente vira rolagem.
-   2. Rolagem horizontal — eram 9 abas em 625px numa faixa de 364px, e só 5
-      apareciam; as outras exigiam descobrir que dava para arrastar de lado.
-      Agora quebram em linhas e ficam todas à vista.
-   Fixa no topo do painel que rola; o box-shadow em cor de superfície tapa a
-   faixa de padding, senão o conteúdo apareceria por trás. */
+.panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: var(--surface); box-shadow: 0 -6px 20px rgba(25,23,18,.06); z-index: 5; padding: .55rem .7rem calc(.55rem + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: .5rem; }
+/* Barra de abas: UMA linha, sempre visível, com rolagem horizontal (r161).
+   `flex:0 0 auto` nos filhos do painel é o que impede o esmagamento — o painel
+   é um flex column e, sem isso, uma aba com muito conteúdo espremia TODOS os
+   filhos e a barra encolhia até 8px (o usuário ficava sem navegação). Com a
+   barra travada em uma linha o excedente vira rolagem lateral, em vez de uma
+   segunda linha que roubava ~57px de altura útil da edição.
+   A aba ativa é trazida para a vista ao trocar (scrollIntoView), então as
+   vizinhas aparecem cortadas nas laterais — sinal de que dá para deslizar.
+   Fixa no topo do painel; o box-shadow em cor de superfície tapa a faixa de
+   padding, senão o conteúdo apareceria por trás ao rolar. */
 .panel > * { flex: 0 0 auto; }
-.segmented { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 4px; background: var(--paper-2); border-radius: 12px; padding: 4px; box-shadow: 0 -.7rem 0 .7rem var(--surface); }
-.segmented button { flex: 1 1 62px; min-width: 62px; padding: .5rem .3rem; border-radius: 9px; font-size: .72rem; font-weight: 700; color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 3px; transition: .15s; white-space: nowrap; }
+.segmented { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: nowrap; gap: 4px; background: var(--paper-2); border-radius: 12px; padding: 4px; box-shadow: 0 -.55rem 0 .55rem var(--surface); overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; scroll-padding: 0 26px; }
+.segmented::-webkit-scrollbar { display: none; }
+.segmented button { flex: 0 0 auto; min-width: 58px; padding: .42rem .34rem; border-radius: 9px; font-size: .68rem; font-weight: 700; color: var(--ink-soft); display: flex; flex-direction: column; align-items: center; gap: 2px; transition: .15s; white-space: nowrap; scroll-snap-align: center; }
 .segmented button svg { width: 18px; height: 18px; }
 .segmented button.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-sm); }
-.cat { display: none; flex-direction: column; gap: .6rem; }
+.cat { display: none; flex-direction: column; gap: .48rem; }
 .cat.active { display: flex; }
 
-.row { display: flex; align-items: center; gap: .6rem; }
-.row .lbl { font-size: .78rem; font-weight: 600; color: var(--ink-soft); min-width: 88px; }
+.row { display: flex; align-items: center; gap: .5rem; }
+.row .lbl { font-size: .76rem; font-weight: 600; color: var(--ink-soft); min-width: 76px; }
 .row .val { font-size: .74rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
 input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 5px; border-radius: 999px; background: var(--paper-2); outline: none; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: var(--shadow-sm); cursor: pointer; }
 input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; cursor: pointer; }
 
 .choices { display: flex; gap: 6px; flex-wrap: wrap; }
-.choice { flex: 1 1 auto; min-width: 66px; padding: .5rem .4rem; border-radius: 10px; font-size: .76rem; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); display: flex; align-items: center; justify-content: center; gap: 5px; transition: .15s; }
+.choice { flex: 1 1 auto; min-width: 62px; padding: .44rem .35rem; border-radius: 10px; font-size: .76rem; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft); display: flex; align-items: center; justify-content: center; gap: 5px; transition: .15s; }
 .choice svg { width: 16px; height: 16px; }
 .choice:active { transform: scale(.96); }
 .choice.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
@@ -156,7 +163,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 .swatch.pick input { position: absolute; opacity: 0; width: 0; height: 0; }
 
 .toolseg { display: flex; gap: 6px; }
-.toolseg button { flex: 1; padding: .55rem; border-radius: 10px; font-size: .8rem; font-weight: 700; border: 1px solid var(--line); color: var(--ink-soft); background: var(--surface); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.toolseg button { flex: 1; padding: .48rem; border-radius: 10px; font-size: .8rem; font-weight: 700; border: 1px solid var(--line); color: var(--ink-soft); background: var(--surface); display: flex; align-items: center; justify-content: center; gap: 6px; }
 .toolseg button svg { width: 16px; height: 16px; }
 .toolseg button.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
@@ -171,7 +178,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
 .miniactions .btn { flex: 1; }
 .actions { display: flex; gap: .5rem; }
 .actions .btn { flex: 1; }
-.note { font-size: .68rem; color: var(--ink-mute); text-align: center; line-height: 1.4; }
+.note { font-size: .67rem; color: var(--ink-mute); text-align: center; line-height: 1.35; }
 .sep { height: 1px; background: var(--line-soft); margin: .1rem 0; }
 .eff-body { display: flex; flex-direction: column; gap: .55rem; }
 
@@ -207,7 +214,26 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   .topbar { grid-row: 1; grid-column: 1 / -1; }
   .stage { grid-row: 2; grid-column: 1; }
   .splitter { display: none; }
-  .panel { grid-row: 2; grid-column: 2; border-left: 1px solid var(--line-soft); box-shadow: none; gap: 1rem; }
+  .panel { grid-row: 2; grid-column: 2; border-left: 1px solid var(--line-soft); box-shadow: none; gap: 1rem; padding: .8rem .9rem; }
+}
+/* CELULAR DEITADO (r161): dividir a altura seria péssimo — sobrariam duas
+   faixas minúsculas. Aqui a tela é larga e baixa, então o mesmo arranjo do
+   computador (lado a lado) aproveita muito melhor o espaço. */
+@media (max-width: 819px) and (orientation: landscape) and (max-height: 560px) {
+  .app { display: grid; grid-template-columns: 1fr minmax(250px, 40%); grid-template-rows: auto 1fr; }
+  .topbar { grid-row: 1; grid-column: 1 / -1; }
+  .stage { grid-row: 2; grid-column: 1; }
+  .splitter { display: none; }
+  .panel { grid-row: 2; grid-column: 2; border-left: 1px solid var(--line-soft); box-shadow: none; }
+  .drop { padding: 1rem; gap: .6rem; }
+  .drop h1 { font-size: 1rem; }
+  .drop p { display: none; }
+}
+/* Telas bem estreitas: aperta o que dá sem mexer no tamanho de leitura. */
+@media (max-width: 360px) {
+  .panel { padding: .5rem .55rem calc(.5rem + env(safe-area-inset-bottom, 0px)); }
+  .row .lbl { min-width: 68px; }
+  .segmented button { min-width: 54px; }
 }
 
 .toast { position: fixed; left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none; background: var(--ink); color: var(--paper); font-size: .82rem; font-weight: 600; padding: .65rem 1rem; border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 40; transition: .25s; max-width: 90vw; text-align: center; }
@@ -609,6 +635,8 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     exportFmt: 'png', exportRes: 'max',
   };
   const embedded = window.parent && window.parent !== window;
+  // Só a versão avulsa recua pela ilha/notch (ver comentário no CSS do body).
+  if (!embedded) document.documentElement.classList.add('standalone');
   function parentOrigin() { return location.protocol === 'file:' ? '*' : location.origin; }
 
   const checker = (function () { const c = document.createElement('canvas'); c.width = c.height = 20; const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, 20, 20); x.fillStyle = '#d9d5cc'; x.fillRect(0, 0, 10, 10); x.fillRect(10, 10, 10, 10); return c; })();
@@ -1303,6 +1331,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
       syncAllInputs(); setActiveChip('#filters', S.filterName); setActiveChip('#aspects', S.cropAspect ? aspectName(S.cropAspect) : 'free');
       document.querySelectorAll('#segs button').forEach((x) => x.classList.toggle('active', x.dataset.cat === S.cat));
       document.querySelectorAll('.cat').forEach((c) => c.classList.toggle('active', c.dataset.cat === S.cat));
+      revealTab(document.querySelector('#segs button.active'));
       updateBadge(); setLoader(false); resizeView(); computeFit(); fitToScreen();
       resetHistory(); await pushHistory();
       toast('Projeto restaurado ✓');
@@ -1464,6 +1493,13 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   stage.addEventListener('drop', (e) => { const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) startWith(f); });
   window.addEventListener('paste', (e) => { const items = e.clipboardData && e.clipboardData.items; if (!items) return; for (const it of items) { if (it.type && it.type.indexOf('image') === 0) { const f = it.getAsFile(); if (f) { startWith(f); break; } } } });
 
+  /** Traz a aba escolhida para dentro da faixa visível. Como a barra é uma
+   *  única linha rolável, isso garante que a aba ativa nunca fique escondida —
+   *  e deixa as vizinhas cortadas nas bordas, sinalizando que dá para deslizar. */
+  function revealTab(btn) {
+    if (!btn || !btn.scrollIntoView) return;
+    try { btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } catch (_) { btn.scrollIntoView(); }
+  }
   $('#segs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-cat]'); if (!b) return; const wasCrop = cropMode(); S.cat = b.dataset.cat;
     document.querySelectorAll('#segs button').forEach((x) => x.classList.toggle('active', x === b));
@@ -1471,6 +1507,7 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
     if (cropMode()) ensureCrop(); brushCursor.show = false;
     if (S.cat !== 'cor' && S.picking) setPicking(false);
     if (S.cat === 'objeto') syncObjInputs();
+    revealTab(b);
     S.dirtyFrame = true;
     if (cropMode() !== wasCrop) { updateBadge(); computeFit(); fitToScreen(); } else requestRender();
   });

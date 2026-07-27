@@ -1042,7 +1042,18 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   function updateBadge() { const r = activeRect(); $('#badge').textContent = Math.round(r.w) + ' × ' + Math.round(r.h) + ' px'; }
   async function loadImage(src) {
     let img;
-    try { img = await createImageBitmap(src); } catch (e) { img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = (typeof src === 'string') ? src : URL.createObjectURL(src); }); }
+    // O fallback cria uma object URL quando a origem é File/Blob — ela PRECISA
+    // ser liberada, senão o arquivo inteiro fica preso na memória até fechar a
+    // aba (e o usuário troca de imagem várias vezes por sessão).
+    let tmpUrl = null;
+    try { img = await createImageBitmap(src); } catch (e) {
+      img = await new Promise((res, rej) => {
+        const im = new Image();
+        im.onload = () => res(im); im.onerror = rej;
+        if (typeof src === 'string') im.src = src;
+        else { tmpUrl = URL.createObjectURL(src); im.src = tmpUrl; }
+      }).finally(() => { if (tmpUrl) { URL.revokeObjectURL(tmpUrl); tmpUrl = null; } });
+    }
     let w = img.width, h = img.height; const scale = Math.min(1, MAXSIDE / Math.max(w, h)); w = Math.round(w * scale); h = Math.round(h * scale);
     S.W = w; S.H = h; S.orig = mkCanvas(w, h); const oc = S.orig.getContext('2d'); oc.imageSmoothingQuality = 'high'; oc.drawImage(img, 0, 0, w, h);
     S.adjOrig = null; S.brushAdd = null; S.brushSub = null; S.aiAlpha = null; S.finalAlpha = null; S.cut = null; S.bg = null; S.outFull = null;
@@ -1576,7 +1587,16 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   $('#colorPick').addEventListener('input', (e) => { S.bgColor = e.target.value; S.bgKind = 'color'; document.querySelectorAll('#bgKind button').forEach((x) => x.classList.toggle('active', x.dataset.bg === 'color')); document.querySelectorAll('#swatches .swatch[data-color]').forEach((x) => x.classList.remove('active')); $('#swatches').classList.remove('hidden'); refreshEdgeControls(); S.dirtyBg = true; S.dirtyOut = true; requestRender(); });
   $('#colorPick').addEventListener('change', commit);
   $('#blurAmt').addEventListener('input', (e) => { S.blurAmt = +e.target.value; $('#blurVal').textContent = e.target.value; S.dirtyBg = true; S.dirtyOut = true; requestRender(); }); $('#blurAmt').addEventListener('change', commit);
-  $('#bgImgInput').onchange = (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return; const im = new Image(); im.onload = () => { S.bgImage = im; S.bgKind = 'image'; S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); }; im.src = URL.createObjectURL(f); };
+  // A object URL é liberada assim que a imagem decodifica (o <img> já guarda os
+  // pixels); sem isso cada fundo escolhido ficava preso na memória para sempre.
+  $('#bgImgInput').onchange = (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+    const im = new Image(); const url = URL.createObjectURL(f);
+    const done = () => URL.revokeObjectURL(url);
+    im.onload = () => { done(); S.bgImage = im; S.bgKind = 'image'; S.dirtyBg = true; S.dirtyOut = true; requestRender(); commit(); };
+    im.onerror = () => { done(); toast('Não foi possível abrir essa imagem de fundo.', true); };
+    im.src = url;
+  };
   $('#feather').addEventListener('input', (e) => { S.feather = +e.target.value; $('#featherVal').textContent = e.target.value; buildAiAlpha(); requestRender(); }); $('#feather').addEventListener('change', commit);
   $('#contract').addEventListener('input', (e) => { S.contract = +e.target.value; $('#contractVal').textContent = e.target.value; buildAiAlpha(); requestRender(); }); $('#contract').addEventListener('change', commit);
 

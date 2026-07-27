@@ -67,7 +67,7 @@ function renderSettings() {
       ${keyStatus}
     </div>
     <div class="field">
-      <label class="label">Chave de API · ${providerNames[provider]}</label>
+      <label class="label" for="s-apikey">Chave de API · ${providerNames[provider]}</label>
       <div class="flex gap-1">
         <input class="input flex-1" id="s-apikey" type="password" placeholder="${providerPlaceholders[provider]}" />
         <button class="btn btn-primary" id="s-apikey-save">Salvar</button>
@@ -77,7 +77,7 @@ function renderSettings() {
       </div>
     </div>
     <div class="field">
-      <label class="label">Modelo ${providerNames[provider]}</label>
+      <label class="label" for="s-model">Modelo ${providerNames[provider]}</label>
       <select class="select" id="s-model">
         ${modelOptions}
       </select>

@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<!-- `mobile-web-app-capable` é o nome padronizado; o `apple-` fica por
+     compatibilidade com iOS antigo (sozinho, os navegadores atuais alertam
+     que está obsoleto). -->
+<meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Agente" />
@@ -80,7 +84,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-27-r161" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-27-r162" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -402,7 +406,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
           <div class="portal-tab-active-badge" id="p-portal-active-badge">★ Ativo</div>
           <div class="grid-2" style="gap: 1rem; margin-top: 0.85rem;">
             <div class="field">
-              <label class="label">Nome</label>
+              <label class="label" for="s-portal-name">Nome</label>
               <input class="input" id="s-portal-name" />
             </div>
             <div class="field">
@@ -422,20 +426,20 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
               </div>
             </div>
             <div class="field">
-              <label class="label">Handle</label>
+              <label class="label" for="s-portal-handle">Handle</label>
               <input class="input" id="s-portal-handle" placeholder="@portal" />
             </div>
             <div class="field">
-              <label class="label">Localização padrão</label>
+              <label class="label" for="s-portal-location">Localização padrão</label>
               <input class="input" id="s-portal-location" />
             </div>
           </div>
           <div class="field mt-2">
-            <label class="label">Slogan</label>
+            <label class="label" for="s-portal-tagline">Slogan</label>
             <input class="input" id="s-portal-tagline" />
           </div>
           <div class="field mt-2">
-            <label class="label">Tema visual</label>
+            <label class="label" for="s-portal-theme">Tema visual</label>
             <select class="select" id="s-portal-theme">
               <option value="municipios-bahia">Portal — Institucional</option>
               <option value="municipios-bahia-blog">Portal — Editorial</option>
@@ -553,7 +557,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                     <div class="style-sub" data-sub="themes"><div class="picker-grid" id="p-sub-themes"></div></div>
                     <div class="style-sub" data-sub="manual" id="p-sub-manual">
                       <div class="field" style="margin:0 0 .6rem;">
-                      <label class="label">Meus presets</label>
+                      <label class="label" for="pp-list">Meus presets</label>
                       <div class="flex gap-1" style="align-items:center;">
                         <select class="select" id="pp-list" style="flex:1;"></select>
                         <button class="btn btn-ghost btn-sm" id="pp-save" type="button" title="Salvar combinação atual como preset">Salvar</button>
@@ -593,7 +597,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                       <summary><span>Gradiente</span><span class="chev">▾</span></summary>
                       <div class="editor-section-body">
                         <div class="field" style="margin:0 0 .5rem;">
-                          <label class="label">Pronto</label>
+                          <label class="label" for="pg-preset">Pronto</label>
                           <select class="select" id="pg-preset"></select>
                         </div>
                         <div class="flex gap-2" style="align-items:center;flex-wrap:wrap;font-size:.82rem;">
@@ -606,7 +610,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                     </details>
 
                     <div class="field" style="margin:.4rem 0 0;">
-                      <label class="label">Fundo do cartaz</label>
+                      <label class="label" for="pb-type">Fundo do cartaz</label>
                       <div class="flex gap-2" style="align-items:center;flex-wrap:wrap;">
                         <select class="select" id="pb-type" style="flex:1;min-width:130px;">
                           <option value="theme">Do modelo</option>
@@ -624,11 +628,11 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                           <label class="pc-row" style="display:flex;align-items:center;gap:.4rem;cursor:pointer;"><input type="checkbox" id="pat-c1-on"><input type="color" id="pat-c1" value="#FFFFFF" style="width:34px;height:24px;padding:0;border:none;background:none;cursor:pointer;flex-shrink:0;"><span>Cor</span></label>
                           <label class="pc-row" style="display:flex;align-items:center;gap:.4rem;cursor:pointer;"><input type="checkbox" id="pat-c2-on"><input type="color" id="pat-c2" value="#E30613" style="width:34px;height:24px;padding:0;border:none;background:none;cursor:pointer;flex-shrink:0;"><span>Cor 2</span></label>
                         </div>
-                        <label style="display:block;font-size:.78rem;color:var(--ink-soft);margin:.25rem 0 .05rem;">Intensidade / opacidade</label>
+                        <label style="display:block;font-size:.78rem;color:var(--ink-soft);margin:.25rem 0 .05rem;" for="pat-alpha">Intensidade / opacidade</label>
                         <input type="range" id="pat-alpha" min="0" max="100" value="-1" style="width:100%;">
-                        <label style="display:block;font-size:.78rem;color:var(--ink-soft);margin:.3rem 0 .05rem;">Tamanho / escala</label>
+                        <label style="display:block;font-size:.78rem;color:var(--ink-soft);margin:.3rem 0 .05rem;" for="pat-scale">Tamanho / escala</label>
                         <input type="range" id="pat-scale" min="40" max="260" value="100" style="width:100%;">
-                        <label style="display:block;font-size:.78rem;color:var(--ink-soft);margin:.3rem 0 .05rem;">Rotação</label>
+                        <label style="display:block;font-size:.78rem;color:var(--ink-soft);margin:.3rem 0 .05rem;" for="pat-angle">Rotação</label>
                         <input type="range" id="pat-angle" min="0" max="180" value="0" style="width:100%;">
                         <div style="display:flex;gap:.6rem;margin-top:.3rem;">
                           <label style="flex:1;font-size:.78rem;color:var(--ink-soft);">Posição X<input type="range" id="pat-px" min="-60" max="60" value="0" style="width:100%;"></label>
@@ -656,45 +660,45 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                 </button>
                 <div class="grid-2" style="gap: 0.6rem;">
                   <div class="field" id="p-pf-name-field" style="display:none;">
-                    <div class="label-row"><label class="label">Nome (pessoa)</label><button class="el-eye" data-el="personName" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+                    <div class="label-row"><label class="label" for="p-person-name">Nome (pessoa)</label><button class="el-eye" data-el="personName" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                     <input class="input" id="p-person-name" maxlength="40" placeholder="Ex.: Maria Silva" />
                   </div>
                   <div class="field" id="p-pf-role-field" style="display:none;">
-                    <div class="label-row"><label class="label">Cargo / função</label><button class="el-eye" data-el="personRole" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+                    <div class="label-row"><label class="label" for="p-person-role">Cargo / função</label><button class="el-eye" data-el="personRole" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                     <input class="input" id="p-person-role" maxlength="60" placeholder="Ex.: Prefeita de Salvador" />
                   </div>
                 </div>
                 <div class="field" id="p-pf-figure-field" style="display:none;">
-                  <div class="label-row"><label class="label">Número / dado em destaque</label><button class="el-eye" data-el="figure" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+                  <div class="label-row"><label class="label" for="p-figure">Número / dado em destaque</label><button class="el-eye" data-el="figure" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                   <input class="input" id="p-figure" maxlength="16" placeholder="Ex.: 47% · R$ 2,4 bi" />
                 </div>
                 <div class="grid-2" id="p-pf-labels-row" style="gap:0.75rem;display:none;">
                   <div class="field" style="margin:0;">
-                    <label class="label">Rótulo A</label>
+                    <label class="label" for="p-label-a">Rótulo A</label>
                     <input class="input" id="p-label-a" maxlength="24" placeholder="Ex.: Antes" />
                   </div>
                   <div class="field" style="margin:0;">
-                    <label class="label">Rótulo B</label>
+                    <label class="label" for="p-label-b">Rótulo B</label>
                     <input class="input" id="p-label-b" maxlength="24" placeholder="Ex.: Depois" />
                   </div>
                 </div>
                 <div class="field">
-                  <div class="label-row"><label class="label">Headline</label><button class="el-eye" data-el="headline" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+                  <div class="label-row"><label class="label" for="p-headline">Headline</label><button class="el-eye" data-el="headline" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                   <textarea class="textarea textarea-serif" id="p-headline" rows="2" maxlength="120" placeholder="Título principal"></textarea>
                   <span class="input-helper" id="p-headline-counter">0 / 120</span>
                 </div>
                 <div class="grid-2" style="gap: 0.75rem;">
                   <div class="field">
-                    <div class="label-row"><label class="label">Categoria</label><button class="el-eye" data-el="category" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+                    <div class="label-row"><label class="label" for="p-category">Categoria</label><button class="el-eye" data-el="category" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                     <input class="input" id="p-category" maxlength="20" placeholder="Ex.: Política, Esporte…" />
                   </div>
                   <div class="field">
-                    <div class="label-row"><label class="label">Localização</label><button class="el-eye" data-el="location" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+                    <div class="label-row"><label class="label" for="p-location">Localização</label><button class="el-eye" data-el="location" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                     <input class="input" id="p-location" maxlength="40" placeholder="Cidade, UF" />
                   </div>
                 </div>
                 <div class="field">
-                  <div class="label-row"><label class="label">Subtítulo</label><button class="el-eye" data-el="subtitle" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+                  <div class="label-row"><label class="label" for="p-subtitle">Subtítulo</label><button class="el-eye" data-el="subtitle" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                   <textarea class="textarea" id="p-subtitle" rows="2" maxlength="160" placeholder="Resumo em uma linha"></textarea>
                   <span class="input-helper" id="p-subtitle-counter">0 / 160</span>
                 </div>
@@ -712,7 +716,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                   <div class="input-helper" style="margin:0 0 .1rem;">Enquadre cada foto arrastando e usando o scroll/zoom diretamente sobre ela no preview.</div>
                 <!-- Mídias: 4 imagens + avatar -->
                 <div class="field" style="margin-top: 0.25rem;">
-                  <label class="label">Mídias</label>
+                  <label class="label" for="p-image1-file">Mídias</label>
                   <div class="media-uploads">
                     <div class="media-upload" id="p-image1-upload">
                       <input type="file" id="p-image1-file" accept="image/*" hidden />
@@ -778,7 +782,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                 <!-- Disposição das imagens (mosaico) — mora AQUI: é ajuste de imagem.
                      Visível só em modelos de foto com ≥2 imagens (updateMosaicControl). -->
                 <div class="field" id="p-mosaic-field" style="display:none;">
-                  <label class="label">Disposição das imagens</label>
+                  <label class="label" for="p-mosaic">Disposição das imagens</label>
                   <select class="select" id="p-mosaic"></select>
                 </div>
 

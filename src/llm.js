@@ -3,13 +3,6 @@
 
 const MAX_CONTENT_CHARS = 12000;
 
-function findCatalogItem(catalog, id) {
-  for (const g of catalog) {
-    const found = g.items.find(i => i.id === id);
-    if (found) return found;
-  }
-  return null;
-}
 
 function buildPrompt(style, tone, content) {
   let truncated = content;

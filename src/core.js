@@ -1,13 +1,78 @@
 'use strict';
 // Gerado pela refatoração (split do index.html monolítico). Código movido verbatim.
 
+/* ============================================================
+   BIBLIOTECAS EXTERNAS (CDN) — carregamento resiliente
+   Quatro recursos dependem de bibliotecas de CDN: exportar imagem
+   (html2canvas), ler PDF (pdf.js), ler DOCX (mammoth) e OCR (Tesseract).
+   Se o CDN estiver bloqueado (rede corporativa, bloqueador, queda, primeiro
+   acesso offline), a tag <script> do index falha em silêncio e o código
+   estourava um ReferenceError cru: o botão simplesmente não fazia nada e o
+   usuário não recebia explicação nenhuma.
+   `ensureLib` resolve isso: confere se a biblioteca está presente, tenta
+   recarregá-la UMA vez (a rede pode ter voltado) com o mesmo SRI do index —
+   sem afrouxar a proteção contra CDN comprometido — e devolve se deu certo,
+   para quem chamou avisar direito em vez de morrer calado.
+   ============================================================ */
+const EXTERNAL_LIBS = {
+  html2canvas: { global: 'html2canvas', label: 'exportação de imagens',
+    url: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+    sri: 'sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H' },
+  pdfjsLib: { global: 'pdfjsLib', label: 'leitura de PDF',
+    url: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+    sri: 'sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e' },
+  mammoth: { global: 'mammoth', label: 'leitura de DOCX',
+    url: 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
+    sri: 'sha384-nFoSjZIoH3CCp8W639jJyQkuPHinJ2NHe7on1xvlUA7SuGfJAfvMldrsoAVm6ECz' },
+  Tesseract: { global: 'Tesseract', label: 'reconhecimento de texto em imagem',
+    url: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js',
+    sri: 'sha384-Ptw8HCYAWF6vIop6WuGxfSCiDCIzUWqjrHYfx8Vd0S4CMBaicAdBh2y+Ufle664A' },
+};
+const _libLoads = {};
+function libReady(key) {
+  const spec = EXTERNAL_LIBS[key];
+  return !!(spec && typeof window !== 'undefined' && typeof window[spec.global] !== 'undefined');
+}
+/** true se a biblioteca está pronta para uso (recarregando-a se preciso). */
+function ensureLib(key) {
+  const spec = EXTERNAL_LIBS[key];
+  if (!spec) return Promise.resolve(false);
+  if (libReady(key)) return Promise.resolve(true);
+  if (typeof document === 'undefined') return Promise.resolve(false);
+  if (!_libLoads[key]) {
+    _libLoads[key] = new Promise((resolve) => {
+      const s = document.createElement('script');
+      // setAttribute (não a propriedade): o reflexo de `integrity` para o
+      // atributo não é universal, e sem o atributo o navegador NÃO valida o
+      // hash — a recarga perderia a proteção contra CDN comprometido.
+      s.setAttribute('src', spec.url);
+      s.setAttribute('integrity', spec.sri);
+      s.setAttribute('crossorigin', 'anonymous');
+      s.setAttribute('referrerpolicy', 'no-referrer');
+      s.async = true;
+      s.onload = () => resolve(libReady(key));
+      s.onerror = () => { _libLoads[key] = null; resolve(false); };   // permite nova tentativa depois
+      document.head.appendChild(s);
+    });
+  }
+  return _libLoads[key];
+}
+/** Mensagem única para quando a biblioteca não pôde ser carregada. */
+function libUnavailableMsg(key) {
+  const spec = EXTERNAL_LIBS[key];
+  return 'Recurso de ' + ((spec && spec.label) || key) + ' indisponível: não foi possível '
+    + 'carregar um componente externo. Verifique a conexão e tente de novo.';
+}
+
 // Configurar PDF.js worker (com fallback para sem worker)
-if (typeof pdfjsLib !== 'undefined') {
+function configurePdfWorker() {
+  if (typeof pdfjsLib === 'undefined' || !pdfjsLib.GlobalWorkerOptions) return;
   // Usa o worker do CDN. Em file://, o browser pode bloquear; nesse caso
   // o pdf.js faz fallback automático para fake worker (mais lento, mas funciona).
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
+configurePdfWorker();
 
 // ---------- Storage ----------
 const STORAGE_KEYS = {

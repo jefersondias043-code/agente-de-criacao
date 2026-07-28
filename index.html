@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-28-r164" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-28-r165" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -690,6 +690,12 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                   <div class="label-row"><label class="label" for="p-headline">Headline</label><button class="el-eye" data-el="headline" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                   <textarea class="textarea textarea-serif" id="p-headline" rows="2" maxlength="120" placeholder="Título principal"></textarea>
                   <span class="input-helper" id="p-headline-counter">0 / 120</span>
+                  <div class="fit-row">
+                    <label class="fit-label" for="p-fit-headline">Ajuste do texto</label>
+                    <input type="range" class="fit-range" id="p-fit-headline" min="0" max="100" value="72"
+                           title="Encaixa o título na área: tamanho da fonte e quebras de linha de uma vez">
+                    <span class="fit-val" id="p-fit-headline-val">72</span>
+                  </div>
                 </div>
                 <div class="grid-2" style="gap: 0.75rem;">
                   <div class="field">
@@ -705,6 +711,12 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                   <div class="label-row"><label class="label" for="p-subtitle">Subtítulo</label><button class="el-eye" data-el="subtitle" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                   <textarea class="textarea" id="p-subtitle" rows="2" maxlength="160" placeholder="Resumo em uma linha"></textarea>
                   <span class="input-helper" id="p-subtitle-counter">0 / 160</span>
+                  <div class="fit-row">
+                    <label class="fit-label" for="p-fit-subtitle">Ajuste do texto</label>
+                    <input type="range" class="fit-range" id="p-fit-subtitle" min="0" max="100" value="72"
+                           title="Encaixa o subtítulo na área: tamanho da fonte e quebras de linha de uma vez">
+                    <span class="fit-val" id="p-fit-subtitle-val">72</span>
+                  </div>
                 </div>
                 <details class="editor-section" id="p-text-section">
                   <summary><span>Texto longo <span class="editor-section-hint">— corpo / tópicos</span></span><span class="chev">▾</span></summary>
@@ -1118,6 +1130,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <script src="src/poster-templates.js"></script>
 <script src="src/carousels.js"></script>
 <script src="src/poster-elements.js"></script>
+<script src="src/poster-typeset.js"></script>
 <script src="src/poster-editor-pro.js"></script>
 <script src="src/history.js"></script>
 <script src="src/settings.js"></script>

@@ -2206,6 +2206,13 @@ h3 { font-size: 1.1rem; line-height: 1.3; }
 .pedit-panel .portal-block .portal-block-toggle { display: none; }
 .pedit-panel .portal-block .portal-block-form { margin-top: 0.6rem; padding-top: 0.6rem; }
 
+/* Controle ÚNICO de encaixe do texto (título/subtítulo). Um seletor só
+   governa corpo de fonte + quebras de linha — ver src/poster-typeset.js. */
+.fit-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+.fit-label { font-size: 0.7rem; font-weight: 600; color: var(--ink-mute); flex-shrink: 0; }
+.fit-range { flex: 1; min-width: 0; height: 18px; cursor: pointer; }
+.fit-val { font-size: 0.68rem; color: var(--ink-mute); width: 24px; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
 /* ---- Modo edição do cartaz (mobile) ----
    A barra de ferramentas DA PLATAFORMA continua visível (antes o editor a
    escondia): trocar de ferramenta durante a edição exigia voltar primeiro, e a

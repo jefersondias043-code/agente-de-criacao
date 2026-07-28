@@ -535,6 +535,9 @@ function closePosterEditor() {
 }
 
 function renderPosters() {
+  // O <select> de modelos é gerado do registro (fonte única) — precisa existir
+  // antes de qualquer leitura de valor.
+  if (typeof fillTemplateSelect === 'function') fillTemplateSelect();
   initPortalForm();
   const has = State.posters.length > 0;
   if (!has) _peOpen = false;
@@ -1649,6 +1652,59 @@ function openUnifiedThemePicker() {
  * ==========================================================================*/
 let _pStyleSub = 'model';
 
+/** Popula o <select> de modelos a partir do REGISTRO (fonte única). Chamado
+ *  no boot: acrescentar um modelo em POSTER_TEMPLATES basta para ele aparecer
+ *  no editor, sem tocar no HTML. Mantém a ordem do registro, que é a ordem
+ *  pensada de apresentação. */
+function fillTemplateSelect() {
+  const sel = $('#p-template');
+  if (!sel || typeof POSTER_TEMPLATES === 'undefined') return;
+  if (sel.options.length) return;                    // já preenchido
+  sel.innerHTML = Object.entries(POSTER_TEMPLATES)
+    .map(([id, t]) => `<option value="${escapeHtml(id)}" data-cat="${escapeHtml(t.cat || 'conteudo')}">${escapeHtml(t.label || id)}</option>`)
+    .join('');
+}
+
+/** Categoria ativa no seletor de modelos (só navegação; não persiste no cartaz). */
+let _pTplCat = 'todos';
+
+/** Abas de categoria + grade filtrada. A biblioteca passou de 32 para 44
+ *  modelos — uma lista corrida deixou de ser navegável. */
+function _renderTemplatePicker(grid, sel) {
+  if (!grid || !sel) return;
+  const cats = (typeof POSTER_CATEGORIES !== 'undefined') ? POSTER_CATEGORIES : [{ id: 'todos', label: 'Todos' }];
+  const catDe = (o) => o.dataset.cat || 'conteudo';
+  const opts = Array.from(sel.options);
+  // Só mostra abas que têm modelo (e "Todos" sempre).
+  const usadas = new Set(opts.map(catDe));
+  const abas = cats.filter((c) => c.id === 'todos' || usadas.has(c.id));
+  if (!abas.some((c) => c.id === _pTplCat)) _pTplCat = 'todos';
+  const visiveis = opts.filter((o) => _pTplCat === 'todos' || catDe(o) === _pTplCat);
+  // O próprio contêiner é .picker-grid; com as abas dentro ele precisa voltar a
+  // ser bloco e delegar a grade ao filho .tpl-grid.
+  grid.classList.add('tpl-picker');
+  grid.innerHTML =
+    `<div class="tpl-cats">${abas.map((c) => {
+      const n = c.id === 'todos' ? opts.length : opts.filter((o) => catDe(o) === c.id).length;
+      return `<button type="button" class="tpl-cat${c.id === _pTplCat ? ' active' : ''}" data-cat="${escapeHtml(c.id)}">${escapeHtml(c.label)}<span class="tpl-cat-n">${n}</span></button>`;
+    }).join('')}</div>` +
+    (visiveis.length
+      ? `<div class="picker-grid tpl-grid">${visiveis.map((o) =>
+          `<button type="button" class="pk-card ${o.value === sel.value ? 'active' : ''}" data-val="${escapeHtml(o.value)}">${_pickerSwatch(o.value, 'plain')}<span class="pk-card-label">${escapeHtml(o.textContent)}</span></button>`).join('')}</div>`
+      : '<p class="layers-empty">Nenhum modelo nesta categoria.</p>');
+  grid.querySelectorAll('.tpl-cat').forEach((b) => {
+    b.onclick = () => { _pTplCat = b.dataset.cat; _renderTemplatePicker(grid, sel); };
+  });
+  grid.querySelectorAll('.pk-card').forEach((card) => {
+    card.onclick = () => {
+      sel.value = card.dataset.val;
+      sel.dispatchEvent(new Event('change'));
+      grid.querySelectorAll('.pk-card').forEach((c) => c.classList.toggle('active', c === card));
+      if (typeof setupPosterPickers === 'function') setupPosterPickers();
+    };
+  });
+}
+
 /** Cards inline a partir das options de um <select> (Modelo/Formato). */
 function _renderSelectCards(grid, sel, kind) {
   if (!grid || !sel) return;
@@ -1670,7 +1726,7 @@ function activateStyleSub(key) {
   if (!panel) return;
   panel.querySelectorAll('.style-subnav button[data-sub]').forEach(b => b.classList.toggle('active', b.dataset.sub === key));
   panel.querySelectorAll('.style-sub[data-sub]').forEach(s => s.classList.toggle('active', s.dataset.sub === key));
-  if (key === 'model') _renderSelectCards($('#p-sub-model'), $('#p-template'), 'plain');
+  if (key === 'model') _renderTemplatePicker($('#p-sub-model'), $('#p-template'));
   else if (key === 'format') _renderSelectCards($('#p-sub-format'), $('#p-format'), 'format');
   else if (key === 'themes') _renderUnifiedThemeInto($('#p-sub-themes'));
 }

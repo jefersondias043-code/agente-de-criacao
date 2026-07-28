@@ -1,8 +1,7 @@
-// Fase 0 — rede de segurança: render headless de TODOS os modelos de cartaz.
-// Superfície enorme (33 modelos × 4 formatos) e hoje sem nenhum teste: um
-// template que quebre em um formato/tema fica invisível até um usuário esbarrar.
+// Rede de segurança: render headless de TODOS os modelos de cartaz.
+// A superfície é enorme (catálogo × 4 formatos) e um template que quebre em um
+// formato/tema fica invisível até um usuário esbarrar nele.
 // Cada modelo retorna string HTML com nó raiz .poster-1440 (contrato do catálogo).
-// (São 32 modelos no catálogo atual.)
 import { describe, it, expect, beforeAll } from 'vitest';
 import { loadModules, clearStorage } from './helpers/load.mjs';
 
@@ -37,26 +36,58 @@ function makePoster(template, format) {
 beforeAll(() => {
   clearStorage();
   P = loadModules(['catalogs.js', 'core.js', 'posters.js', 'poster-templates.js'], [
-    'POSTER_TEMPLATES', 'POSTER_FORMATS', 'applyTheme', 'PT_THEMES',
+    'POSTER_TEMPLATES', 'POSTER_CATEGORIES', 'POSTER_FORMATS', 'applyTheme', 'PT_THEMES',
   ]);
 });
 
 describe('render de todos os modelos × formatos', () => {
-  it('o catálogo tem os 32 modelos e 4 formatos esperados', () => {
-    expect(Object.keys(P.POSTER_TEMPLATES).length).toBe(32);
+  // Fixar o NÚMERO exato de modelos travava a biblioteca: crescer o acervo
+  // (que é justamente o objetivo) quebrava o teste sem nada estar errado. O que
+  // vale proteger é o contrato — piso de variedade e entradas bem formadas.
+  it('a biblioteca tem variedade e os 4 formatos esperados', () => {
+    expect(Object.keys(P.POSTER_TEMPLATES).length).toBeGreaterThanOrEqual(55);
     expect(Object.keys(P.POSTER_FORMATS)).toEqual(['3:4', '4:5', '1:1', '9:16']);
   });
 
-  it('renderiza sem lançar e produz nó .poster-1440', () => {
-    const templateIds = Object.keys(P.POSTER_TEMPLATES);
-    const formatKeys = Object.keys(P.POSTER_FORMATS);
+  it('todo modelo declara rótulo, categoria válida e render', () => {
+    const validas = new Set(P.POSTER_CATEGORIES.map((c) => c.id));
+    const problemas = [];
+    for (const [id, t] of Object.entries(P.POSTER_TEMPLATES)) {
+      if (!t.label) problemas.push(id + ': sem label');
+      if (typeof t.render !== 'function') problemas.push(id + ': sem render');
+      if (!t.cat) problemas.push(id + ': sem categoria');
+      else if (t.cat === 'todos' || !validas.has(t.cat)) problemas.push(id + ': categoria inválida (' + t.cat + ')');
+    }
+    expect(problemas).toEqual([]);
+  });
+
+  // Uma aba com um único modelo é pior que não ter aba: o usuário paga o clique
+  // da navegação para não ganhar escolha nenhuma. Piso de 2 por categoria.
+  it('nenhuma categoria anunciada fica vazia ou com um só modelo', () => {
+    const conta = {};
+    Object.values(P.POSTER_TEMPLATES).forEach((t) => { conta[t.cat] = (conta[t.cat] || 0) + 1; });
+    const rasas = P.POSTER_CATEGORIES
+      .filter((c) => c.id !== 'todos' && (conta[c.id] || 0) < 2)
+      .map((c) => `${c.id} (${conta[c.id] || 0})`);
+    expect(rasas).toEqual([]);
+  });
+
+  it('rótulos não se repetem (o usuário escolhe pelo nome)', () => {
+    const labels = Object.values(P.POSTER_TEMPLATES).map((t) => t.label);
+    expect(labels.length).toBe(new Set(labels).size);
+  });
+
+  // Dois cenários por modelo: SEM foto (placeholder/ramo ausente) e COM as 4
+  // fotos. Vários modelos trocam de composição conforme a imagem existe — o
+  // caminho não exercitado é justo o que quebra em produção.
+  const varrer = (mutar) => {
     const falhas = [];
-    for (const id of templateIds) {
-      for (const fk of formatKeys) {
+    for (const id of Object.keys(P.POSTER_TEMPLATES)) {
+      for (const fk of Object.keys(P.POSTER_FORMATS)) {
         P.applyTheme(portal.theme);
         let html;
         try {
-          html = P.POSTER_TEMPLATES[id].render(makePoster(id, fk), P.POSTER_FORMATS[fk], portal);
+          html = P.POSTER_TEMPLATES[id].render(mutar(makePoster(id, fk)), P.POSTER_FORMATS[fk], portal);
         } catch (e) {
           falhas.push(`${id} @ ${fk}: lançou ${e.message}`);
           continue;
@@ -67,7 +98,27 @@ describe('render de todos os modelos × formatos', () => {
         if (!div.querySelector('.poster-1440')) falhas.push(`${id} @ ${fk}: sem nó .poster-1440`);
       }
     }
-    expect(falhas).toEqual([]);
+    return falhas;
+  };
+
+  it('renderiza sem lançar e produz nó .poster-1440 (sem fotos)', () => {
+    expect(varrer((p) => p)).toEqual([]);
+  });
+
+  it('renderiza sem lançar e produz nó .poster-1440 (com as 4 fotos)', () => {
+    const PX = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    expect(varrer((p) => Object.assign(p, {
+      image1: PX, image2: PX, image3: PX, image4: PX, avatar: PX,
+    }))).toEqual([]);
+  });
+
+  // Campos vazios são o estado de um cartaz recém-criado: nenhum modelo pode
+  // depender de texto para existir.
+  it('renderiza com todos os campos de texto vazios', () => {
+    expect(varrer((p) => Object.assign(p, {
+      headline: '', subtitle: '', description: '', category: '', location: '',
+      figure: '', labelA: '', labelB: '', personName: '', personRole: '',
+    }))).toEqual([]);
   });
 });
 

@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-28-r165" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-28-r166" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -493,40 +493,10 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 
                     <!-- Selects-fonte (fonte da verdade do wiring): ocultos. -->
                     <div class="hidden" id="p-style-sources">
-                      <select class="select" id="p-template">
-                      <option value="manchete">Manchete</option>
-                      <option value="headline-premium">Manchete premium</option>
-                      <option value="breaking-alert">Plantão urgente</option>
-                      <option value="destaque-foto">Capa fotográfica</option>
-                      <option value="destaque-foto-2">Foto imersiva</option>
-                      <option value="destaque-foto-3">Foto com painel</option>
-                      <option value="destaque-foto-4">Foto emoldurada</option>
-                      <option value="destaque-foto-5">Foto com faixa</option>
-                      <option value="photo-story">Photo story</option>
-                      <option value="face-to-news">Rosto na notícia</option>
-                      <option value="quote-impact">Citação com foto</option>
-                      <option value="citacao">Citação</option>
-                      <option value="numbers-data">Números e dados</option>
-                      <option value="comparison">Comparação</option>
-                      <option value="topic-card">Card de tópico</option>
-                      <option value="topicos">Lista de tópicos</option>
-                      <option value="carousel-cover">Capa de carrossel</option>
-                      <option value="editorial-signature">Assinatura editorial</option>
-                      <option value="minimalista">Minimalista</option>
-                      <option value="texto">Texto / parágrafo</option>
-                      <option value="cor-solida">Cor sólida</option>
-                      <option value="mosaic-hero">Mosaico de fotos</option>
-                      <option value="revista-split">Revista</option>
-                      <option value="lower-third">Faixa inferior</option>
-                      <option value="diagonal-split">Corte diagonal</option>
-                      <option value="perfil-card">Perfil</option>
-                      <option value="timeline">Linha do tempo</option>
-                      <option value="evento">Evento / agenda</option>
-                      <option value="informe">Informe / serviço</option>
-                      <option value="fato">Você sabia?</option>
-                      <option value="dado-foto">Dado sobre foto</option>
-                      <option value="kpis">Indicadores</option>
-                    </select>
+                      <!-- Opções geradas de POSTER_TEMPLATES por fillTemplateSelect()
+                           (src/posters.js). O registro é a fonte única: um modelo
+                           novo aparece aqui sem tocar no HTML. -->
+                      <select class="select" id="p-template"></select>
                       <select class="select" id="p-format">
                       <option value="3:4">Retrato 3:4</option>
                       <option value="4:5">Vertical 4:5</option>

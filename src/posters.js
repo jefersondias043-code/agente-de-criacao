@@ -2292,10 +2292,12 @@ function tplManchete(p, fmt, portal) { return tplManchete2(p, fmt, portal); }
        </div>`
     : '';
 
-  // Avatar centralizado entre as imagens (overlay) — moldura creme premium
+  // Avatar centralizado entre as imagens (overlay) — moldura creme premium.
+  // SEM box-shadow: o html2canvas não a pinta (vira mancha cinza no PNG) e o
+  // avatar saía diferente do preview. A borda creme já o destaca do fundo.
   const avatarOverlayHtml = p.avatar
-    ? `<img src="${p.avatar}" style="width: 130px; height: 130px; border-radius: 50%; object-fit: cover; display: block; border: 5px solid #F5F0E7; box-shadow: 0 8px 24px rgba(0,0,0,0.28);" alt="" crossorigin="anonymous" />`
-    : `<div style="width: 130px; height: 130px; border-radius: 50%; background: #17130D; color: #F5F0E7; display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-weight: 900; font-size: 48px; border: 5px solid #F5F0E7; box-shadow: 0 8px 24px rgba(0,0,0,0.28);">
+    ? `<img src="${p.avatar}" style="width: 130px; height: 130px; border-radius: 50%; object-fit: cover; display: block; border: 5px solid #F5F0E7;" alt="" crossorigin="anonymous" />`
+    : `<div style="width: 130px; height: 130px; border-radius: 50%; background: #17130D; color: #F5F0E7; display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-weight: 900; font-size: 48px; border: 5px solid #F5F0E7;">
          ${escapeHtml(portal.acronym || 'PT')}
        </div>`;
 
@@ -3217,8 +3219,11 @@ async function captureStageCanvas(fmt, scale) {
     if (clipPts) {
       ctx.save();
       ctx.beginPath();
-      clipPts.split(',').forEach((s, i) => {
-        const xy = s.trim().split(/\s+/).map(Number);
+      // O parâmetro NÃO pode se chamar `s`: sombreava a escala do export e
+      // `W * s` virava `W * "0 0"` = NaN → polígono degenerado, ctx.clip()
+      // descartava tudo e a foto sumia do PNG (o preview ficava certo).
+      clipPts.split(',').forEach((pt, i) => {
+        const xy = pt.trim().split(/\s+/).map(Number);
         const X = (xy[0] / 100) * W * s, Y = (xy[1] / 100) * H * s;
         if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
       });

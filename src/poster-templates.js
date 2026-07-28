@@ -17,8 +17,21 @@
  *   (numerais/aspas gigantes, blocos sólidos), grid firme e respiro ativo. Três
  *   vozes: Fraunces (serifada de display), Oswald (condensada de impacto),
  *   IBM Plex (texto/rótulo). Tudo com técnicas seguras p/ html2canvas
- *   (blocos sólidos, gradientes lineares, bordas, SVG, tipografia) — sem
- *   blend-mode/filter/background-clip:text (não exportam).
+ *   (blocos sólidos, gradientes lineares, bordas, SVG, tipografia).
+ *
+ * FIDELIDADE PREVIEW ≡ EXPORTAÇÃO (regra dura, coberta por
+ * test/poster-export-fidelity.test.js): quem desenha o PNG é o html2canvas
+ * 1.4.1, e ele NÃO pinta parte do CSS — o preview fica bonito e o arquivo
+ * salvo sai diferente. É PROIBIDO nos modelos:
+ *   box-shadow e text-shadow ...... viram RETÂNGULO CINZA sólido no PNG
+ *   filter / backdrop-filter ...... ignorados
+ *   mix-/background-blend-mode .... ignorados
+ *   background-clip:text .......... ignorado
+ *   conic-gradient ................ não suportado
+ * Para dar profundidade, use bloco sólido deslocado, borda ou gradiente
+ * linear — todos exportam idênticos ao preview.
+ * clip-path só com o par `data-clip` (mesmos pontos %), que o achatamento do
+ * export reproduz no canvas; sozinho, o recorte existe no preview e some.
  *
  * Imagens arrastáveis: usar posterImageLayer() (mantém data-draggable /
  * data-zoomscale / object-position p/ pan + flatten do exportPoster()).
@@ -1256,7 +1269,7 @@ function tplDestaqueFoto2(p, fmt, portal) {
 
       <div style="position:absolute;left:54px;right:54px;bottom:54px;pointer-events:none;display:flex;flex-direction:column;gap:18px;">
         ${posterKicker(p.category, { color: PT.redOnDark })}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:#fff;margin:0;text-shadow:0 2px 24px rgba(0,0,0,0.55);overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.3;color:${PT.creamMute};margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('footer') ? `<div style="border-top:1.5px solid rgba(245,239,227,0.3);padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
           ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:22px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
@@ -1435,7 +1448,7 @@ function tplFaceToNews(p, fmt, portal) {
       </div>
       <div style="position:absolute;left:54px;right:54px;bottom:54px;pointer-events:none;display:flex;flex-direction:column;gap:16px;">
         ${posterKicker(p.category, { color: PT.redOnDark })}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;text-shadow:0 2px 24px rgba(0,0,0,0.5);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${(posterShow('personName') && name) || (posterShow('personRole') && role) ? `<div style="display:flex;align-items:center;gap:16px;margin-top:4px;">
           <span style="width:6px;height:${(posterShow('personRole') && role) ? 56 : 34}px;background:${PT.terra};display:inline-block;flex-shrink:0;border-radius:3px;"></span>
           <div style="min-width:0;">
@@ -1498,7 +1511,7 @@ function tplPhotoStory(p, fmt, portal) {
         ${p._total ? `<div style="background:rgba(15,12,8,0.44);border:1px solid rgba(245,239,227,0.22);border-radius:9px;padding:10px 14px;">${ptCounter(p, { onDark: true })}</div>` : (p.location ? posterLocationPill(p.location, true) : '')}
       </div>
       <div style="position:absolute;left:50px;right:50px;bottom:50px;pointer-events:none;display:flex;flex-direction:column;gap:18px;">
-        ${posterShow('headline') && headline ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;letter-spacing:0.004em;color:#fff;margin:0;text-shadow:0 2px 22px rgba(0,0,0,0.5);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') && headline ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 48, nameSize: 22 }) : ''}
       </div>
     </div>
@@ -1949,7 +1962,7 @@ function tplDadoFoto(p, fmt, portal) {
       </div>
       <div style="position:absolute;left:54px;right:54px;bottom:54px;pointer-events:none;display:flex;flex-direction:column;gap:8px;">
         ${posterShow('category') ? `<div style="margin-bottom:6px;">${posterKicker(p.category || 'Dados', { color: PT.redOnDark })}</div>` : ''}
-        ${posterShow('figure') ? `<div style="font-family:${PT.cond};font-weight:800;font-size:${fSize}px;line-height:0.84;letter-spacing:-0.02em;color:#fff;text-shadow:0 2px 24px rgba(0,0,0,0.45);">${escapeHtml(figure)}</div>` : ''}
+        ${posterShow('figure') ? `<div style="font-family:${PT.cond};font-weight:800;font-size:${fSize}px;line-height:0.84;letter-spacing:-0.02em;color:#fff;">${escapeHtml(figure)}</div>` : ''}
         ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;letter-spacing:0.004em;color:#fff;margin:6px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.92);margin:6px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
@@ -2035,7 +2048,7 @@ function tplOfertaPreco(p, fmt, portal) {
           ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
           ${posterShow('figure') ? `<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;">
             ${de ? `<span style="font-family:${PT.sans};font-size:34px;font-weight:500;color:rgba(255,255,255,0.6);text-decoration:line-through;padding-bottom:14px;">${escapeHtml(de)}</span>` : ''}
-            <span style="font-family:${PT.cond};font-weight:800;font-size:${pSize}px;line-height:0.88;letter-spacing:-0.02em;color:${PT.terra};text-shadow:0 3px 28px rgba(0,0,0,0.5);">${escapeHtml(preco)}</span>
+            <span style="font-family:${PT.cond};font-weight:800;font-size:${pSize}px;line-height:0.88;letter-spacing:-0.02em;color:${PT.terra};">${escapeHtml(preco)}</span>
           </div>` : ''}
           ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:27px;font-weight:500;line-height:1.4;color:rgba(255,255,255,0.9);margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         </div>
@@ -2056,7 +2069,7 @@ function tplPromoSplit(p, fmt, portal) {
         <div style="position:absolute;inset:0;">${posterImageLayer(p, posterImageKeys(p)[0])}</div>
       </div>
       <div style="flex:1 1 54%;min-height:0;background:${PT.gradSolid};display:flex;flex-direction:column;justify-content:center;gap:20px;padding:48px 52px;box-sizing:border-box;position:relative;">
-        ${posterShow('figure') ? `<div style="position:absolute;top:-46px;right:46px;transform:rotate(-8deg);background:${PT.paper};border:4px solid #fff;border-radius:18px;padding:14px 26px;box-shadow:0 10px 30px rgba(0,0,0,0.28);">
+        ${posterShow('figure') ? `<div style="position:absolute;top:-46px;right:46px;transform:rotate(-8deg);background:${PT.paper};border:4px solid #fff;border-radius:18px;padding:14px 26px;">
           <span style="font-family:${PT.cond};font-weight:800;font-size:${sSize}px;letter-spacing:0.02em;color:#fff;">${escapeHtml(selo)}</span>
         </div>` : ''}
         ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:20px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.85);">${escapeHtml(p.category || 'Oferta')}</span>` : ''}
@@ -2265,7 +2278,7 @@ function tplCapaRevista(p, fmt, portal) {
       </div>
       <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;padding:0 48px 46px;gap:18px;">
         ${posterShow('category') ? `<span style="align-self:flex-start;font-family:${PT.sans};font-size:19px;font-weight:800;letter-spacing:0.26em;text-transform:uppercase;color:${PT.terra};background:#fff;padding:8px 16px;border-radius:4px;">${escapeHtml(p.category || 'Especial')}</span>` : ''}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.96;letter-spacing:-0.01em;color:#fff;margin:0;text-shadow:0 3px 30px rgba(0,0,0,0.6);overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.96;letter-spacing:-0.01em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:28px;font-weight:500;line-height:1.32;color:rgba(255,255,255,0.94);margin:0;max-width:88%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('description') && chamadas.length ? `<div style="display:flex;flex-direction:column;gap:9px;margin-top:6px;">
           ${chamadas.map((c) => `<div style="display:flex;align-items:center;gap:12px;">
@@ -2348,11 +2361,11 @@ function tplEventoFoto(p, fmt, portal) {
         ${posterShow('category') ? posterBadge(p.category || 'AGENDA', PT.terra, '#fff') : ''}
       </div>
       <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;gap:22px;padding:0 48px 46px;">
-        ${posterShow('figure') ? `<div style="align-self:flex-start;display:flex;align-items:stretch;border-radius:16px;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,0.4);">
+        ${posterShow('figure') ? `<div style="align-self:flex-start;display:flex;align-items:stretch;border-radius:16px;overflow:hidden;">
           <span style="background:${PT.terra};width:12px;flex-shrink:0;"></span>
           <span style="background:rgba(255,255,255,0.96);color:${PT.ink};font-family:${PT.cond};font-weight:800;font-size:${dSize}px;line-height:0.94;letter-spacing:0.01em;padding:18px 30px;">${escapeHtml(data)}</span>
         </div>` : ''}
-        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.98;color:#fff;margin:0;text-shadow:0 3px 26px rgba(0,0,0,0.55);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.98;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:27px;font-weight:500;line-height:1.4;color:rgba(255,255,255,0.92);margin:0;max-width:90%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('location') && p.location ? `<div style="align-self:flex-start;">${posterLocationPill(p.location, true)}</div>` : ''}
       </div>
@@ -2372,7 +2385,7 @@ function tplContagem(p, fmt, portal) {
         ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:800;letter-spacing:0.26em;text-transform:uppercase;color:rgba(255,255,255,0.9);">${escapeHtml(p.category || 'Contagem')}</span>` : ''}
       </div>
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;">
-        ${posterShow('figure') ? `<span style="font-family:${PT.cond};font-weight:800;font-size:${nSize}px;line-height:0.8;letter-spacing:-0.04em;color:#fff;text-shadow:0 8px 40px rgba(0,0,0,0.28);">${escapeHtml(n)}</span>` : ''}
+        ${posterShow('figure') ? `<span style="font-family:${PT.cond};font-weight:800;font-size:${nSize}px;line-height:0.8;letter-spacing:-0.04em;color:#fff;">${escapeHtml(n)}</span>` : ''}
         ${posterShow('figure') && p.labelA ? `<span style="font-family:${PT.sans};font-size:30px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.88);margin-top:14px;">${escapeHtml(p.labelA)}</span>` : ''}
         ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.16;color:#fff;margin:26px 0 0;max-width:88%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.5;color:rgba(255,255,255,0.86);margin:12px 0 0;max-width:76%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
@@ -2513,7 +2526,7 @@ function tplCupom(p, fmt, portal) {
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:14px;">
         ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:1.0;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:500;line-height:1.45;color:rgba(255,255,255,0.9);margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
-        ${posterShow('figure') ? `<div style="margin-top:14px;background:#fff;border-radius:20px;padding:30px 26px;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,0.26);">
+        ${posterShow('figure') ? `<div style="margin-top:14px;background:#fff;border-radius:20px;padding:30px 26px;text-align:center;">
           <div style="font-family:${PT.sans};font-size:19px;font-weight:700;letter-spacing:0.28em;text-transform:uppercase;color:${PT.terra};">Use o código</div>
           <div style="margin-top:12px;padding:16px 10px;border:3px dashed ${PT.terra};border-radius:14px;font-family:${PT.cond};font-weight:800;font-size:${cSize}px;line-height:1;letter-spacing:0.08em;color:${PT.ink};word-break:break-all;">${escapeHtml(codigo)}</div>
           ${p.labelA ? `<div style="margin-top:14px;font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.inkSoft};">${escapeHtml(p.labelA)}</div>` : ''}
@@ -2721,7 +2734,7 @@ function tplHomenagem(p, fmt, portal) {
         ${posterShow('figure') && p.figure ? `<span style="font-family:${PT.cond};font-size:34px;font-weight:800;color:#fff;white-space:nowrap;">${escapeHtml(p.figure)}</span>` : ''}
       </div>
       <div style="flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
-        ${key ? `<div style="width:min(56%,440px);aspect-ratio:1/1;border-radius:50%;overflow:hidden;position:relative;flex-shrink:0;border:6px solid rgba(255,255,255,0.9);box-shadow:0 16px 44px rgba(0,0,0,0.3);">${posterImageLayer(p, key)}</div>` : ''}
+        ${key ? `<div style="width:min(56%,440px);aspect-ratio:1/1;border-radius:50%;overflow:hidden;position:relative;flex-shrink:0;border:6px solid rgba(255,255,255,0.9);">${posterImageLayer(p, key)}</div>` : ''}
         ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:800;letter-spacing:0.32em;text-transform:uppercase;color:rgba(255,255,255,0.9);">${escapeHtml(p.category || 'Homenagem')}</span>` : ''}
         ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:700;font-size:${hSize}px;line-height:1.08;letter-spacing:-0.02em;color:#fff;margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('personName') && p.personName ? `<div style="font-family:${PT.sans};font-size:27px;font-weight:700;letter-spacing:0.04em;color:rgba(255,255,255,0.95);">${escapeHtml(p.personName)}${posterShow('personRole') && p.personRole ? `<span style="display:block;font-size:21px;font-weight:500;color:rgba(255,255,255,0.78);margin-top:4px;">${escapeHtml(p.personRole)}</span>` : ''}</div>` : ''}
@@ -2742,8 +2755,13 @@ function tplPolaroid(p, fmt, portal) {
         ${posterShow('header') ? ptMasthead(portal, { size: 50, nameSize: 23 }) : '<span></span>'}
         ${p._total ? ptCounter(p, { size: 23 }) : ''}
       </div>
-      <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;">
-        <div style="width:100%;height:100%;min-height:0;background:#fdfdfb;border-radius:4px;box-shadow:0 18px 48px rgba(0,0,0,0.32);padding:22px 22px 0;box-sizing:border-box;display:flex;flex-direction:column;transform:rotate(-1.4deg);">
+      <div style="flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;">
+        <!-- Sombra desenhada como BLOCO SÓLIDO deslocado, não box-shadow: o
+             html2canvas não pinta box-shadow (vira mancha cinza no PNG) e o
+             cartaz salvo deixava de bater com o preview. Assim é idêntico nos
+             dois, e a sombra dura combina com a estética de foto impressa. -->
+        <div style="position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.34);border-radius:4px;transform:rotate(-1.4deg) translate(14px,18px);"></div>
+        <div style="position:relative;width:100%;height:100%;min-height:0;background:#fdfdfb;border-radius:4px;padding:22px 22px 0;box-sizing:border-box;display:flex;flex-direction:column;transform:rotate(-1.4deg);">
           <div style="flex:1;min-height:0;position:relative;overflow:hidden;background:#111;">
             ${key ? posterImageLayer(p, key) : posterPhotoPlaceholder()}
           </div>

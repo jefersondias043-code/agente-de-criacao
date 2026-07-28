@@ -1864,7 +1864,7 @@ function tplEvento(p, fmt, portal) {
         </div>` : ''}
         ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.32;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
-        ${posterShow('location') && p.location ? `<div style="align-self:flex-start;">${posterLocationPill(p.location, false)}</div>` : ''}
+        ${posterShow('location') && p.location ? `<div style="align-self:flex-start;">${posterLocationPill(p.location)}</div>` : ''}
       </div>
       ${posterMetaFooter(portal, {})}
     </div>
@@ -2004,45 +2004,876 @@ function tplKpis(p, fmt, portal) {
   `;
 }
 
+/* ==========================================================================
+   MODELOS ADICIONAIS (r166) — cobrindo os usos que a biblioteca não atendia.
+   O acervo era quase todo jornalístico: notícia, foto e dados. Quem precisava
+   anunciar uma oferta, abrir uma vaga, publicar um comunicado ou postar uma
+   frase tinha que adaptar um modelo feito para manchete — que é exatamente o
+   que se pedia para não acontecer.
+   Cada um traz uma COMPOSIÇÃO diferente (não só outra cor): hierarquias,
+   posições, proporções de imagem e famílias tipográficas distintas, para os
+   cartazes não saírem todos com a mesma cara.
+   ========================================================================== */
+
+/** PROMOÇÃO — Oferta com preço: preço é o herói, foto de apoio ao fundo. */
+function tplOfertaPreco(p, fmt, portal) {
+  const preco = ((p.figure && p.figure.trim()) || 'R$ 99').trim();
+  const pSize = posterPickSize(preco, [[6, 168], [10, 128], [16, 96]], 74);
+  const de = (p.labelA || '').trim();
+  const headline = p.headline || 'Nome do produto';
+  const hSize = posterPickSize(headline, [[30, 60], [60, 46]], 38);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.ink};color:${PT.cream};font-family:${PT.sans};position:relative;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;">
+      <div style="position:absolute;inset:0;">${posterImageLayer(p, posterImageKeys(p)[0])}</div>
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,10,10,0.35) 0%,rgba(10,10,10,0.82) 58%,rgba(10,10,10,0.94) 100%);"></div>
+      <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;padding:56px 52px;box-sizing:border-box;">
+        <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+          ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 56, nameSize: 25 }) : '<span></span>'}
+          ${posterShow('category') ? posterBadge(p.category || 'OFERTA', PT.terra, '#fff') : ''}
+        </div>
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;gap:16px;">
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('figure') ? `<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;">
+            ${de ? `<span style="font-family:${PT.sans};font-size:34px;font-weight:500;color:rgba(255,255,255,0.6);text-decoration:line-through;padding-bottom:14px;">${escapeHtml(de)}</span>` : ''}
+            <span style="font-family:${PT.cond};font-weight:800;font-size:${pSize}px;line-height:0.88;letter-spacing:-0.02em;color:${PT.terra};text-shadow:0 3px 28px rgba(0,0,0,0.5);">${escapeHtml(preco)}</span>
+          </div>` : ''}
+          ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:27px;font-weight:500;line-height:1.4;color:rgba(255,255,255,0.9);margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+        </div>
+      </div>
+      ${posterShow('graphics') ? `<div style="position:relative;flex-shrink:0;height:10px;background:${PT.gradSolid};"></div>` : ''}
+    </div>`;
+}
+
+/** PROMOÇÃO — Metade cor, metade foto, com selo de desconto girado. */
+function tplPromoSplit(p, fmt, portal) {
+  const headline = p.headline || 'Promoção da semana';
+  const hSize = posterPickSize(headline, [[28, 68], [55, 54], [90, 42]], 36);
+  const selo = ((p.figure && p.figure.trim()) || '50% OFF').trim();
+  const sSize = posterPickSize(selo, [[7, 46], [12, 34]], 26);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};position:relative;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;">
+      <div style="flex:1 1 46%;min-height:0;position:relative;overflow:hidden;">
+        <div style="position:absolute;inset:0;">${posterImageLayer(p, posterImageKeys(p)[0])}</div>
+      </div>
+      <div style="flex:1 1 54%;min-height:0;background:${PT.gradSolid};display:flex;flex-direction:column;justify-content:center;gap:20px;padding:48px 52px;box-sizing:border-box;position:relative;">
+        ${posterShow('figure') ? `<div style="position:absolute;top:-46px;right:46px;transform:rotate(-8deg);background:${PT.paper};border:4px solid #fff;border-radius:18px;padding:14px 26px;box-shadow:0 10px 30px rgba(0,0,0,0.28);">
+          <span style="font-family:${PT.cond};font-weight:800;font-size:${sSize}px;letter-spacing:0.02em;color:#fff;">${escapeHtml(selo)}</span>
+        </div>` : ''}
+        ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:20px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.85);">${escapeHtml(p.category || 'Oferta')}</span>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:26px;font-weight:400;line-height:1.45;color:rgba(255,255,255,0.92);margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+        <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:6px;">
+          ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 48, nameSize: 22 }) : '<span></span>'}
+          ${posterShow('location') && p.location ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:rgba(255,255,255,0.9);">${escapeHtml(p.location)}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+/** PROMOÇÃO — Lançamento: centrado, silencioso, muito ar. Luxo/minimal. */
+function tplLancamento(p, fmt, portal) {
+  const headline = p.headline || 'Novo lançamento';
+  const hSize = posterPickSize(headline, [[24, 96], [48, 72], [80, 54]], 44);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;align-items:center;text-align:center;padding:70px 60px;box-sizing:border-box;overflow:hidden;">
+      ${posterShow('header') ? ptMasthead(portal, { size: 54, nameSize: 24 }) : '<span></span>'}
+      <div style="flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;">
+        ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:700;letter-spacing:0.34em;text-transform:uppercase;color:${PT.terra};">${escapeHtml(p.category || 'Lançamento')}</span>` : ''}
+        ${posterShow('graphics') ? `<span style="width:54px;height:2px;background:${PT.creamLine};display:block;"></span>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.06;letter-spacing:-0.02em;color:${PT.cream};margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:26px;font-weight:400;line-height:1.55;color:${PT.creamMute};margin:0;max-width:76%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+        ${posterImageKeys(p).length ? `<div style="width:min(62%,520px);aspect-ratio:1/1;border-radius:50%;overflow:hidden;position:relative;flex-shrink:0;">${posterImageLayer(p, posterImageKeys(p)[0])}</div>` : ''}
+      </div>
+      ${posterShow('figure') && p.figure ? `<div style="flex-shrink:0;font-family:${PT.cond};font-weight:700;font-size:40px;letter-spacing:0.02em;color:${PT.terra};margin-bottom:10px;">${escapeHtml(p.figure)}</div>` : ''}
+      ${posterMetaFooter(portal, {})}
+    </div>`;
+}
+
+/** INSTITUCIONAL — Vaga de emprego: cargo em destaque + requisitos em lista. */
+function tplVaga(p, fmt, portal) {
+  const cargo = p.headline || 'Nome da vaga';
+  const cSize = posterPickSize(cargo, [[26, 76], [52, 58], [90, 46]], 38);
+  let itens = posterBullets(p, 4);
+  if (!itens.length) itens = ['Use o campo Texto para listar os requisitos.'];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;background:${PT.inkPanel};padding:44px 52px 38px;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;">
+          ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+          ${posterShow('category') ? posterBadge(p.category || 'VAGA ABERTA', PT.terra, '#fff') : ''}
+        </div>
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${cSize}px;font-weight:700;line-height:1.04;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(cargo)}</h1>` : ''}
+        ${posterShow('location') && p.location ? `<div style="align-self:flex-start;">${posterLocationPill(p.location)}</div>` : ''}
+      </div>
+      <div style="flex:1;min-height:0;padding:40px 52px;display:flex;flex-direction:column;gap:22px;box-sizing:border-box;">
+        ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:28px;font-weight:500;line-height:1.35;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+        ${posterShow('description') ? `<ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16px;">
+          ${itens.map((it) => `<li style="display:flex;align-items:flex-start;gap:14px;">
+            <span style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:${PT.terraSoft};color:${PT.terra};display:grid;place-items:center;font-size:17px;font-weight:800;margin-top:3px;">✓</span>
+            <span style="font-family:${PT.sans};font-size:25px;font-weight:500;line-height:1.4;color:${PT.cream};">${escapeHtml(it)}</span>
+          </li>`).join('')}
+        </ul>` : ''}
+      </div>
+      ${posterShow('figure') && p.figure ? `<div style="flex-shrink:0;background:${PT.gradSolid};padding:26px 52px;font-family:${PT.sans};font-size:26px;font-weight:700;color:#fff;text-align:center;">${escapeHtml(p.figure)}</div>` : ''}
+      ${posterMetaFooter(portal, {})}
+    </div>`;
+}
+
+/** INSTITUCIONAL — Comunicado oficial: moldura sóbria, hierarquia formal. */
+function tplComunicado(p, fmt, portal) {
+  const headline = p.headline || 'Comunicado oficial';
+  const hSize = posterPickSize(headline, [[34, 64], [70, 50], [120, 40]], 34);
+  const corpo = (p.description || p.subtitle || '').trim();
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};padding:44px;box-sizing:border-box;overflow:hidden;display:flex;">
+      <div style="flex:1;min-height:0;border:3px solid ${PT.creamLine};display:flex;flex-direction:column;padding:46px 46px 38px;box-sizing:border-box;">
+        <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding-bottom:26px;border-bottom:2px solid ${PT.creamLine};">
+          ${posterShow('header') ? ptMasthead(portal, { size: 58, nameSize: 26 }) : ''}
+          ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:18px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:${PT.terra};">${escapeHtml(p.category || 'Comunicado')}</span>` : ''}
+        </div>
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:24px;text-align:center;padding:30px 0;">
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.16;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('description') && corpo ? `<p style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.6;color:${PT.inkSoft};margin:0;max-width:88%;align-self:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">${escapeHtml(corpo)}</p>` : ''}
+        </div>
+        <div style="flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:18px;padding-top:22px;border-top:2px solid ${PT.creamLine};font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};">
+          ${posterShow('location') && p.location ? `<span>${escapeHtml(p.location)}</span>` : ''}
+          ${posterShow('figure') && p.figure ? `<span style="color:${PT.terra};">${escapeHtml(p.figure)}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+/** SOCIAL — Frase motivacional: só tipografia, sem foto, muito respiro. */
+function tplFrase(p, fmt, portal) {
+  const frase = p.headline || p.subtitle || 'A frase que você quer destacar';
+  const fSize = posterPickSize(frase, [[40, 92], [80, 70], [140, 54]], 42);
+  const autor = (p.personName || p.labelA || '').trim();
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.gradSolid};color:#fff;font-family:${PT.sans};display:flex;flex-direction:column;padding:64px 58px;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 54, nameSize: 24 }) : '<span></span>'}
+        ${p._total ? ptCounter(p, { onDark: true, size: 24 }) : ''}
+      </div>
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:26px;">
+        ${posterShow('graphics') ? `<span style="font-family:${PT.serif};font-size:150px;line-height:0.6;color:rgba(255,255,255,0.28);">&ldquo;</span>` : ''}
+        ${posterShow('headline') ? `<blockquote style="font-family:${PT.serif};font-weight:600;font-size:${fSize}px;line-height:1.16;letter-spacing:-0.02em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">${escapeHtml(frase)}</blockquote>` : ''}
+        ${autor ? `<div style="display:flex;align-items:center;gap:16px;">
+          <span style="width:52px;height:3px;background:rgba(255,255,255,0.7);display:inline-block;flex-shrink:0;"></span>
+          <span style="font-family:${PT.sans};font-size:26px;font-weight:700;letter-spacing:0.04em;color:rgba(255,255,255,0.94);">${escapeHtml(autor)}</span>
+        </div>` : ''}
+      </div>
+      ${posterShow('subtitle') && p.subtitle && p.subtitle !== frase ? `<p style="flex-shrink:0;font-family:${PT.sans};font-size:24px;font-weight:400;line-height:1.45;color:rgba(255,255,255,0.85);margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+    </div>`;
+}
+
+/** SOCIAL — Antes e depois: duas fotos com rótulos, divisor central. */
+function tplAntesDepois(p, fmt, portal) {
+  const keys = posterImageKeys(p);
+  const headline = p.headline || 'Antes e depois';
+  const hSize = posterPickSize(headline, [[28, 56], [55, 44]], 34);
+  const rotA = (p.labelA || 'ANTES').toUpperCase();
+  const rotB = (p.labelB || 'DEPOIS').toUpperCase();
+  const painel = (rot, key, cor) => `
+    <div style="flex:1;min-height:0;position:relative;overflow:hidden;">
+      ${key ? posterImageLayer(p, key) : posterPhotoPlaceholder()}
+      <div style="position:absolute;left:0;right:0;bottom:0;padding:18px 24px;background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,0.72) 100%);">
+        <span style="display:inline-block;background:${cor};color:#fff;font-family:${PT.sans};font-size:21px;font-weight:800;letter-spacing:0.16em;padding:8px 18px;border-radius:6px;">${escapeHtml(rot)}</span>
+      </div>
+    </div>`;
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.ink};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:36px 44px 24px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+        ${posterShow('category') ? posterBadge(p.category || 'COMPARATIVO', PT.terra, '#fff') : ''}
+      </div>
+      ${posterShow('headline') ? `<h1 style="flex-shrink:0;font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.06;color:${PT.cream};margin:0;padding:0 44px 22px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      <div style="flex:1;min-height:0;display:flex;gap:6px;">
+        ${painel(rotA, keys[0], PT.inkPanel)}
+        ${painel(rotB, keys[1], PT.terra)}
+      </div>
+      ${posterShow('subtitle') && p.subtitle ? `<p style="flex-shrink:0;font-family:${PT.sans};font-size:24px;font-weight:400;line-height:1.4;color:${PT.creamMute};margin:0;padding:22px 44px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      ${posterMetaFooter(portal, {})}
+    </div>`;
+}
+
+/** SOCIAL — Passo a passo: etapas numeradas em cartões. */
+function tplPassoAPasso(p, fmt, portal) {
+  const headline = p.headline || 'Passo a passo';
+  const hSize = posterPickSize(headline, [[28, 62], [55, 48]], 38);
+  let passos = posterBullets(p, 4);
+  if (!passos.length) passos = ['Use o campo Texto: cada frase vira um passo.'];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:52px 48px;box-sizing:border-box;overflow:hidden;gap:26px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+        ${p._total ? ptCounter(p, { size: 24 }) : ''}
+      </div>
+      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
+        ${posterShow('category') ? posterKicker(p.category || 'Tutorial') : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      </div>
+      ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;justify-content:center;">
+        ${passos.map((t, i) => `<div style="display:flex;align-items:center;gap:20px;background:${PT.inkPanel};border-radius:16px;padding:20px 24px;">
+          <span style="flex-shrink:0;width:52px;height:52px;border-radius:14px;background:${PT.gradSolid};color:#fff;display:grid;place-items:center;font-family:${PT.cond};font-size:30px;font-weight:800;">${i + 1}</span>
+          <span style="font-family:${PT.sans};font-size:25px;font-weight:500;line-height:1.36;color:${PT.cream};overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(t)}</span>
+        </div>`).join('')}
+      </div>` : ''}
+      ${posterMetaFooter(portal, {})}
+    </div>`;
+}
+
+/** SOCIAL — Enquete: pergunta + duas alternativas confrontadas. */
+function tplEnquete(p, fmt, portal) {
+  const pergunta = p.headline || 'Qual você prefere?';
+  const qSize = posterPickSize(pergunta, [[34, 66], [66, 52], [110, 42]], 34);
+  const a = (p.labelA || 'Opção A').trim();
+  const b = (p.labelB || 'Opção B').trim();
+  const opcao = (txt, bg, cor) => `
+    <div style="flex:1;min-height:0;background:${bg};display:flex;align-items:center;justify-content:center;padding:32px 26px;box-sizing:border-box;">
+      <span style="font-family:${PT.cond};text-transform:uppercase;font-size:${posterPickSize(txt, [[12, 54], [24, 40]], 30)}px;font-weight:700;line-height:1.08;color:${cor};text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(txt)}</span>
+    </div>`;
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:44px 48px 20px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+        ${posterShow('category') ? posterBadge(p.category || 'ENQUETE', PT.terra, '#fff') : ''}
+      </div>
+      <div style="flex-shrink:0;padding:0 48px 30px;">
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${qSize}px;line-height:1.14;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(pergunta)}</h1>` : ''}
+      </div>
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
+        ${opcao(a, PT.inkPanel, PT.cream)}
+        ${posterShow('graphics') ? `<div style="flex-shrink:0;height:0;position:relative;"><span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:${PT.paper};border:3px solid ${PT.terra};color:${PT.terra};font-family:${PT.cond};font-size:26px;font-weight:800;padding:10px 22px;border-radius:999px;z-index:2;">OU</span></div>` : ''}
+        ${opcao(b, PT.gradSolid, '#fff')}
+      </div>
+      ${posterShow('subtitle') && p.subtitle ? `<p style="flex-shrink:0;font-family:${PT.sans};font-size:23px;font-weight:500;line-height:1.4;color:${PT.creamMute};margin:0;padding:24px 48px;text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+    </div>`;
+}
+
+/** FOTO — Capa de revista: foto sangrando, marca por cima, chamadas laterais. */
+function tplCapaRevista(p, fmt, portal) {
+  const headline = p.headline || 'A grande reportagem';
+  const hSize = posterPickSize(headline, [[26, 92], [52, 70], [90, 54]], 42);
+  const chamadas = posterBullets(p, 3);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.ink};color:#fff;font-family:${PT.sans};position:relative;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;">
+      <div style="position:absolute;inset:0;">${posterImageLayer(p, posterImageKeys(p)[0])}</div>
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,8,8,0.72) 0%,rgba(8,8,8,0.18) 34%,rgba(8,8,8,0.16) 58%,rgba(8,8,8,0.88) 100%);"></div>
+      <div style="position:relative;flex-shrink:0;padding:44px 48px 0;text-align:center;">
+        ${posterShow('header') ? `<div style="display:flex;justify-content:center;">${ptMasthead(portal, { onDark: true, size: 74, nameSize: 42 })}</div>` : ''}
+        ${posterShow('graphics') ? `<div style="height:3px;background:rgba(255,255,255,0.5);margin-top:18px;"></div>` : ''}
+      </div>
+      <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;padding:0 48px 46px;gap:18px;">
+        ${posterShow('category') ? `<span style="align-self:flex-start;font-family:${PT.sans};font-size:19px;font-weight:800;letter-spacing:0.26em;text-transform:uppercase;color:${PT.terra};background:#fff;padding:8px 16px;border-radius:4px;">${escapeHtml(p.category || 'Especial')}</span>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.96;letter-spacing:-0.01em;color:#fff;margin:0;text-shadow:0 3px 30px rgba(0,0,0,0.6);overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:28px;font-weight:500;line-height:1.32;color:rgba(255,255,255,0.94);margin:0;max-width:88%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+        ${posterShow('description') && chamadas.length ? `<div style="display:flex;flex-direction:column;gap:9px;margin-top:6px;">
+          ${chamadas.map((c) => `<div style="display:flex;align-items:center;gap:12px;">
+            <span style="flex-shrink:0;width:9px;height:9px;background:${PT.terra};transform:rotate(45deg);"></span>
+            <span style="font-family:${PT.sans};font-size:23px;font-weight:600;color:rgba(255,255,255,0.92);overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;">${escapeHtml(c)}</span>
+          </div>`).join('')}
+        </div>` : ''}
+      </div>
+    </div>`;
+}
+
+/** CONTEÚDO — Cartaz tipográfico: a palavra é a imagem. Sem foto. */
+function tplTipografico(p, fmt, portal) {
+  const headline = p.headline || 'Palavra';
+  const hSize = posterPickSize(headline, [[12, 210], [22, 150], [40, 108], [70, 78]], 56);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};position:relative;display:flex;flex-direction:column;padding:56px 50px;box-sizing:border-box;overflow:hidden;">
+      <!-- A categoria na vertical fica FORA do fluxo: em writing-mode a altura do
+           span é o comprimento do texto e, como item flex, empurrava o rodapé
+           para fora do cartaz. -->
+      ${posterShow('category') ? `<span style="position:absolute;top:56px;right:50px;font-family:${PT.sans};font-size:19px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:${PT.terra};writing-mode:vertical-rl;max-height:38%;overflow:hidden;">${escapeHtml(p.category || 'Ensaio')}</span>` : ''}
+      <div style="flex-shrink:0;display:flex;align-items:flex-start;padding-right:44px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+      </div>
+      <div style="flex:1 1 0;min-height:0;overflow:hidden;display:flex;align-items:center;">
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.86;letter-spacing:-0.03em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      </div>
+      <div style="flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;gap:26px;border-top:3px solid ${PT.cream};padding-top:22px;">
+        ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:26px;font-weight:500;line-height:1.4;color:${PT.inkSoft};margin:0;max-width:70%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : '<span></span>'}
+        ${posterShow('figure') && p.figure ? `<span style="font-family:${PT.cond};font-size:64px;font-weight:800;line-height:0.9;color:${PT.terra};">${escapeHtml(p.figure)}</span>` : ''}
+      </div>
+    </div>`;
+}
+
+/** CONTEÚDO — Blocos de cor: composição geométrica, foto num quadrante. */
+function tplBlocosCor(p, fmt, portal) {
+  const headline = p.headline || 'Composição em blocos';
+  const hSize = posterPickSize(headline, [[26, 62], [52, 48], [90, 38]], 32);
+  const key = posterImageKeys(p)[0];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:38px 42px 26px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 50, nameSize: 23 }) : '<span></span>'}
+        ${p._total ? ptCounter(p, { size: 23 }) : ''}
+      </div>
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:0 42px 38px;box-sizing:border-box;">
+        <div style="flex:1 1 42%;min-height:0;display:flex;gap:10px;">
+          <div style="flex:1.4;min-width:0;background:${PT.gradSolid};border-radius:18px;display:flex;align-items:flex-end;padding:28px;box-sizing:border-box;">
+            ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          </div>
+          <div style="flex:1;min-width:0;border-radius:18px;overflow:hidden;position:relative;background:${PT.inkPanel};">
+            ${key ? posterImageLayer(p, key) : posterPhotoPlaceholder()}
+          </div>
+        </div>
+        <div style="flex:1 1 26%;min-height:0;display:flex;gap:10px;">
+          <div style="flex:1;min-width:0;background:${PT.inkPanel};border-radius:18px;display:flex;flex-direction:column;justify-content:center;padding:26px;box-sizing:border-box;gap:10px;">
+            ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:18px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:${PT.terra};">${escapeHtml(p.category || 'Destaque')}</span>` : ''}
+            ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:24px;font-weight:500;line-height:1.4;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+          </div>
+          ${posterShow('figure') && p.figure ? `<div style="flex:0 0 34%;background:${PT.cream};border-radius:18px;display:grid;place-items:center;padding:20px;box-sizing:border-box;">
+            <span style="font-family:${PT.cond};font-size:${posterPickSize(p.figure, [[5, 76], [9, 54]], 38)}px;font-weight:800;line-height:0.9;color:${PT.paper};text-align:center;">${escapeHtml(p.figure)}</span>
+          </div>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+/** EVENTO — Foto de fundo + bloco de data destacado. Anúncio "de cartaz". */
+function tplEventoFoto(p, fmt, portal) {
+  const headline = p.headline || 'Nome do evento';
+  const hSize = posterPickSize(headline, [[28, 82], [56, 62], [96, 48]], 40);
+  const data = ((p.figure && p.figure.trim()) || 'EM BREVE').toUpperCase();
+  const dSize = posterPickSize(data, [[6, 96], [12, 68], [20, 50]], 40);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.ink};color:#fff;font-family:${PT.sans};position:relative;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;">
+      <div style="position:absolute;inset:0;">${posterImageLayer(p, posterImageKeys(p)[0]) || posterPhotoPlaceholder()}</div>
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,8,12,0.62) 0%,rgba(6,8,12,0.24) 40%,rgba(6,8,12,0.9) 100%);"></div>
+      <div style="position:relative;flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:44px 48px 0;">
+        ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 54, nameSize: 24 }) : '<span></span>'}
+        ${posterShow('category') ? posterBadge(p.category || 'AGENDA', PT.terra, '#fff') : ''}
+      </div>
+      <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;gap:22px;padding:0 48px 46px;">
+        ${posterShow('figure') ? `<div style="align-self:flex-start;display:flex;align-items:stretch;border-radius:16px;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,0.4);">
+          <span style="background:${PT.terra};width:12px;flex-shrink:0;"></span>
+          <span style="background:rgba(255,255,255,0.96);color:${PT.ink};font-family:${PT.cond};font-weight:800;font-size:${dSize}px;line-height:0.94;letter-spacing:0.01em;padding:18px 30px;">${escapeHtml(data)}</span>
+        </div>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.98;color:#fff;margin:0;text-shadow:0 3px 26px rgba(0,0,0,0.55);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:27px;font-weight:500;line-height:1.4;color:rgba(255,255,255,0.92);margin:0;max-width:90%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+        ${posterShow('location') && p.location ? `<div style="align-self:flex-start;">${posterLocationPill(p.location, true)}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+/** EVENTO — Contagem regressiva: o número é o cartaz. */
+function tplContagem(p, fmt, portal) {
+  const n = ((p.figure && p.figure.trim()) || '10').trim();
+  const nSize = posterPickSize(n, [[2, 400], [3, 300], [5, 210]], 140);
+  const headline = p.headline || 'Faltam poucos dias';
+  const hSize = posterPickSize(headline, [[28, 62], [56, 48], [95, 38]], 32);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.gradSolid};color:#fff;font-family:${PT.sans};display:flex;flex-direction:column;padding:56px 50px;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 52, nameSize: 24 }) : '<span></span>'}
+        ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:800;letter-spacing:0.26em;text-transform:uppercase;color:rgba(255,255,255,0.9);">${escapeHtml(p.category || 'Contagem')}</span>` : ''}
+      </div>
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;">
+        ${posterShow('figure') ? `<span style="font-family:${PT.cond};font-weight:800;font-size:${nSize}px;line-height:0.8;letter-spacing:-0.04em;color:#fff;text-shadow:0 8px 40px rgba(0,0,0,0.28);">${escapeHtml(n)}</span>` : ''}
+        ${posterShow('figure') && p.labelA ? `<span style="font-family:${PT.sans};font-size:30px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.88);margin-top:14px;">${escapeHtml(p.labelA)}</span>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.16;color:#fff;margin:26px 0 0;max-width:88%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.5;color:rgba(255,255,255,0.86);margin:12px 0 0;max-width:76%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      </div>
+      ${posterShow('location') && p.location ? `<div style="flex-shrink:0;display:flex;justify-content:center;">${posterLocationPill(p.location, true)}</div>` : ''}
+    </div>`;
+}
+
+/** EVENTO — Programação: grade "horário → atração" (cada linha do Texto é um item). */
+function tplProgramacao(p, fmt, portal) {
+  const headline = p.headline || 'Programação';
+  const hSize = posterPickSize(headline, [[24, 66], [48, 52], [80, 42]], 34);
+  let linhas = posterBullets(p, 6);
+  if (!linhas.length) linhas = ['09h — Use o campo Texto: uma linha por atração.'];
+  // "09h — Abertura" / "09h: Abertura" → dois campos; sem separador, só o título.
+  const parse = (t) => {
+    const m = String(t).match(/^\s*([^—–\-:]{1,14}?)\s*[—–\-:]\s*(.+)$/);
+    return m ? { h: m[1].trim(), t: m[2].trim() } : { h: '', t: String(t).trim() };
+  };
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:52px 48px;box-sizing:border-box;overflow:hidden;gap:24px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+        ${posterShow('figure') && p.figure ? `<span style="font-family:${PT.cond};font-size:34px;font-weight:800;color:${PT.terra};white-space:nowrap;">${escapeHtml(p.figure)}</span>` : ''}
+      </div>
+      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
+        ${posterKicker(p.category || 'Agenda')}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      </div>
+      ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;">
+        ${linhas.map((l) => { const it = parse(l); return `<div style="display:flex;align-items:baseline;gap:20px;padding:16px 0;border-bottom:1.5px solid ${PT.creamLine};">
+          <span style="flex:0 0 auto;min-width:118px;font-family:${PT.cond};font-size:32px;font-weight:800;letter-spacing:0.01em;color:${PT.terra};">${escapeHtml(it.h || '•')}</span>
+          <span style="flex:1;min-width:0;font-family:${PT.sans};font-size:26px;font-weight:600;line-height:1.32;color:${PT.cream};overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(it.t)}</span>
+        </div>`; }).join('')}
+      </div>` : ''}
+      ${posterShow('location') && p.location ? `<div style="flex-shrink:0;align-self:flex-start;">${posterLocationPill(p.location)}</div>` : ''}
+      ${posterMetaFooter(portal, {})}
+    </div>`;
+}
+
+/** EVENTO — Convite: moldura dupla, serifada, centrada. Formal/cerimonial. */
+function tplConvite(p, fmt, portal) {
+  const headline = p.headline || 'Você está convidado';
+  const hSize = posterPickSize(headline, [[26, 78], [52, 58], [90, 46]], 36);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};padding:40px;box-sizing:border-box;overflow:hidden;display:flex;">
+      <div style="flex:1;min-height:0;border:2px solid ${PT.terra};padding:10px;box-sizing:border-box;display:flex;">
+        <div style="flex:1;min-height:0;border:1px solid ${PT.creamLine};display:flex;flex-direction:column;align-items:center;text-align:center;padding:50px 48px 40px;box-sizing:border-box;gap:22px;">
+          ${posterShow('header') ? ptMasthead(portal, { size: 56, nameSize: 25 }) : ''}
+          ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:18px;font-weight:700;letter-spacing:0.36em;text-transform:uppercase;color:${PT.terra};">${escapeHtml(p.category || 'Convite')}</span>` : ''}
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;width:100%;">
+            ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.1;letter-spacing:-0.02em;color:${PT.cream};margin:0;max-width:94%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+            ${posterShow('graphics') ? `<span style="display:block;width:72px;height:1.5px;background:${PT.terra};"></span>` : ''}
+            ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.6;color:${PT.inkSoft};margin:0;max-width:82%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+          </div>
+          ${posterShow('figure') && p.figure ? `<span style="font-family:${PT.cond};font-size:46px;font-weight:800;letter-spacing:0.04em;color:${PT.terra};">${escapeHtml(p.figure)}</span>` : ''}
+          ${posterShow('location') && p.location ? posterLocationPill(p.location) : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+/** CITAÇÃO — Depoimento: avatar, estrelas, fala e assinatura. Prova social. */
+function tplDepoimento(p, fmt, portal) {
+  const fala = p.subtitle || p.headline || 'O que disseram sobre o trabalho.';
+  const fSize = posterPickSize(fala, [[70, 44], [130, 36], [220, 30]], 25);
+  const nome = (p.personName || p.labelA || '').trim();
+  const cargo = (p.personRole || p.labelB || '').trim();
+  const estrelas = Math.max(1, Math.min(5, parseInt(p.figure, 10) || 5));
+  const key = posterImageKeys(p)[0];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:56px 50px;box-sizing:border-box;overflow:hidden;gap:26px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+        ${p._total ? ptCounter(p, { size: 24 }) : ''}
+      </div>
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:26px;background:${PT.inkPanel};border-radius:26px;padding:44px 40px;box-sizing:border-box;">
+        ${posterShow('figure') ? `<div style="display:flex;gap:8px;flex-shrink:0;">${Array.from({ length: estrelas }, () => `<span style="color:${PT.terra};font-size:36px;line-height:1;">★</span>`).join('')}</div>` : ''}
+        ${posterShow('headline') && p.headline && p.headline !== fala ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${posterPickSize(p.headline, [[24, 50], [48, 40]], 32)}px;font-weight:700;line-height:1.06;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.headline)}</h1>` : ''}
+        <blockquote data-fit="subtitle" style="font-family:${PT.serif};font-weight:500;font-size:${fSize}px;line-height:1.4;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;">${escapeHtml(fala)}</blockquote>
+        ${(nome || cargo || key) ? `<div style="flex-shrink:0;display:flex;align-items:center;gap:18px;padding-top:22px;border-top:1.5px solid ${PT.creamLine};">
+          ${key ? `<div style="flex-shrink:0;width:84px;height:84px;border-radius:50%;overflow:hidden;position:relative;border:3px solid ${PT.terra};">${posterImageLayer(p, key)}</div>` : ''}
+          <div style="min-width:0;">
+            ${posterShow('personName') && nome ? `<div style="font-family:${PT.serif};font-weight:800;font-size:30px;line-height:1.1;color:${PT.cream};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(nome)}</div>` : ''}
+            ${posterShow('personRole') && cargo ? `<div style="font-family:${PT.sans};font-weight:600;font-size:21px;letter-spacing:0.03em;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(cargo)}</div>` : ''}
+          </div>
+        </div>` : ''}
+      </div>
+      ${posterMetaFooter(portal, {})}
+    </div>`;
+}
+
+/** CITAÇÃO — Faixa de foto vertical à esquerda + citação editorial à direita. */
+function tplCitacaoLateral(p, fmt, portal) {
+  const frase = p.headline || 'A frase em destaque';
+  const fSize = posterPickSize(frase, [[46, 62], [90, 48], [150, 38]], 30);
+  const key = posterImageKeys(p)[0];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;box-sizing:border-box;overflow:hidden;">
+      <div style="flex:0 0 34%;min-width:0;position:relative;overflow:hidden;background:${PT.inkPanel};">
+        ${key ? posterImageLayer(p, key) : posterPhotoPlaceholder()}
+        ${posterShow('graphics') ? `<div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,0.2) 0%,rgba(0,0,0,0) 70%);"></div>` : ''}
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:52px 46px;box-sizing:border-box;gap:22px;">
+        <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:14px;">
+          ${posterShow('header') ? ptMasthead(portal, { size: 48, nameSize: 22 }) : '<span></span>'}
+          ${p._total ? ptCounter(p, { size: 22 }) : ''}
+        </div>
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:20px;">
+          ${posterShow('category') ? posterKicker(p.category || 'Entrevista', { rule: 32, size: 20 }) : ''}
+          ${posterShow('graphics') ? `<span style="font-family:${PT.serif};font-size:120px;line-height:0.5;color:${PT.terraSoft};">&ldquo;</span>` : ''}
+          ${posterShow('headline') ? `<blockquote data-fit="headline" style="font-family:${PT.serif};font-weight:600;font-size:${fSize}px;line-height:1.2;letter-spacing:-0.018em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;">${escapeHtml(frase)}</blockquote>` : ''}
+          ${posterShow('personName') && p.personName ? `<div style="display:flex;align-items:center;gap:14px;">
+            <span style="width:40px;height:3px;background:${PT.terra};display:inline-block;flex-shrink:0;"></span>
+            <div style="min-width:0;">
+              <div style="font-family:${PT.sans};font-size:25px;font-weight:800;color:${PT.cream};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.personName)}</div>
+              ${posterShow('personRole') && p.personRole ? `<div style="font-family:${PT.sans};font-size:20px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.personRole)}</div>` : ''}
+            </div>
+          </div>` : ''}
+        </div>
+        ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="flex-shrink:0;font-family:${PT.sans};font-size:23px;font-weight:400;line-height:1.45;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      </div>
+    </div>`;
+}
+
+/** PROMOÇÃO — Cupom: bilhete destacável com código em evidência. */
+function tplCupom(p, fmt, portal) {
+  const codigo = ((p.figure && p.figure.trim()) || 'CUPOM10').toUpperCase();
+  const cSize = posterPickSize(codigo, [[8, 82], [14, 60], [22, 44]], 34);
+  const headline = p.headline || 'Desconto exclusivo';
+  const hSize = posterPickSize(headline, [[26, 66], [52, 52], [90, 40]], 34);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.gradSolid};color:#fff;font-family:${PT.sans};display:flex;flex-direction:column;padding:48px 44px;box-sizing:border-box;overflow:hidden;gap:22px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 52, nameSize: 24 }) : '<span></span>'}
+        ${posterShow('category') ? posterBadge(p.category || 'CUPOM', 'rgba(255,255,255,0.18)', '#fff') : ''}
+      </div>
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:14px;">
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:1.0;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:500;line-height:1.45;color:rgba(255,255,255,0.9);margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+        ${posterShow('figure') ? `<div style="margin-top:14px;background:#fff;border-radius:20px;padding:30px 26px;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,0.26);">
+          <div style="font-family:${PT.sans};font-size:19px;font-weight:700;letter-spacing:0.28em;text-transform:uppercase;color:${PT.terra};">Use o código</div>
+          <div style="margin-top:12px;padding:16px 10px;border:3px dashed ${PT.terra};border-radius:14px;font-family:${PT.cond};font-weight:800;font-size:${cSize}px;line-height:1;letter-spacing:0.08em;color:${PT.ink};word-break:break-all;">${escapeHtml(codigo)}</div>
+          ${p.labelA ? `<div style="margin-top:14px;font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.inkSoft};">${escapeHtml(p.labelA)}</div>` : ''}
+        </div>` : ''}
+      </div>
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+        ${posterShow('location') && p.location ? posterLocationPill(p.location, true) : '<span></span>'}
+        ${posterShow('handle') && portal.handle ? `<span style="font-family:${PT.sans};font-size:22px;font-weight:700;color:rgba(255,255,255,0.9);">${escapeHtml(portal.handle)}</span>` : ''}
+      </div>
+    </div>`;
+}
+
+/** PROMOÇÃO — Catálogo: até 3 produtos em grade, com rótulos de preço. */
+function tplCatalogo(p, fmt, portal) {
+  const headline = p.headline || 'Novidades da semana';
+  const hSize = posterPickSize(headline, [[26, 58], [52, 46], [88, 36]], 30);
+  const keys = posterImageKeys(p).slice(0, 3);
+  const nomes = posterBullets(p, 3);
+  const precos = String(p.figure || '').split(/[|;]/).map((s) => s.trim()).filter(Boolean);
+  const n = Math.max(keys.length, nomes.length, 1);
+  const cel = (i) => `
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;">
+      <div style="flex:1;min-height:0;border-radius:16px;overflow:hidden;position:relative;background:${PT.inkPanel};">
+        ${keys[i] ? posterImageLayer(p, keys[i]) : posterPhotoPlaceholder()}
+        ${precos[i] ? `<span style="position:absolute;left:10px;bottom:10px;background:${PT.terra};color:#fff;font-family:${PT.cond};font-size:30px;font-weight:800;padding:7px 14px;border-radius:8px;">${escapeHtml(precos[i])}</span>` : ''}
+      </div>
+      ${nomes[i] ? `<span style="flex-shrink:0;font-family:${PT.sans};font-size:22px;font-weight:700;line-height:1.28;color:${PT.cream};text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(nomes[i])}</span>` : ''}
+    </div>`;
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:48px 42px;box-sizing:border-box;overflow:hidden;gap:22px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+        ${posterShow('category') ? posterBadge(p.category || 'CATÁLOGO', PT.terra, '#fff') : ''}
+      </div>
+      ${posterShow('headline') ? `<h1 data-fit="headline" style="flex-shrink:0;font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      <div style="flex:1;min-height:0;display:flex;gap:12px;">
+        ${Array.from({ length: n }, (_, i) => cel(i)).join('')}
+      </div>
+      ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="flex-shrink:0;font-family:${PT.sans};font-size:24px;font-weight:500;line-height:1.4;color:${PT.inkSoft};margin:0;text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      ${posterMetaFooter(portal, {})}
+    </div>`;
+}
+
+/** DADOS — Ranking: lista numerada com barra proporcional (posição = peso). */
+function tplRanking(p, fmt, portal) {
+  const headline = p.headline || 'Os mais procurados';
+  const hSize = posterPickSize(headline, [[26, 62], [52, 48], [88, 38]], 32);
+  let itens = posterBullets(p, 5);
+  if (!itens.length) itens = ['Use o campo Texto: uma linha por colocação.'];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:52px 46px;box-sizing:border-box;overflow:hidden;gap:24px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+        ${posterShow('figure') && p.figure ? `<span style="font-family:${PT.cond};font-size:32px;font-weight:800;color:${PT.terra};white-space:nowrap;">${escapeHtml(p.figure)}</span>` : ''}
+      </div>
+      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
+        ${posterKicker(p.category || 'Ranking')}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      </div>
+      ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;justify-content:center;">
+        ${itens.map((t, i) => `<div style="display:flex;align-items:center;gap:18px;">
+          <span style="flex-shrink:0;width:56px;font-family:${PT.cond};font-size:${i === 0 ? 60 : 46}px;font-weight:800;line-height:0.9;color:${i === 0 ? PT.terra : PT.creamMute};text-align:right;">${i + 1}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:${PT.sans};font-size:25px;font-weight:700;line-height:1.28;color:${PT.cream};overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(t)}</div>
+            <div style="margin-top:8px;height:10px;border-radius:999px;background:${PT.inkPanel};overflow:hidden;">
+              <span style="display:block;height:100%;width:${Math.round(100 - i * (60 / Math.max(1, itens.length)))}%;border-radius:999px;background:${i === 0 ? PT.gradSolid : PT.terra};${i ? 'opacity:0.72;' : ''}"></span>
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>` : ''}
+      ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="flex-shrink:0;font-family:${PT.sans};font-size:23px;font-weight:400;line-height:1.45;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      ${posterMetaFooter(portal, {})}
+    </div>`;
+}
+
+/** DADOS — Barras verticais: "Rótulo 42" por linha vira uma coluna do gráfico. */
+function tplBarras(p, fmt, portal) {
+  const headline = p.headline || 'Evolução dos números';
+  const hSize = posterPickSize(headline, [[26, 60], [52, 46], [88, 36]], 30);
+  const brutos = posterBullets(p, 5);
+  // "Rótulo 42" / "Rótulo: 42%" → {rot, val}; sem número, distribui em degrau.
+  const dados = brutos.map((t, i) => {
+    // exige DÍGITO no valor: "…texto." não pode virar o número "." da coluna
+    const m = String(t).match(/^(.*?)[\s:—–-]*(\d[\d.,]*)\s*%?\s*$/);
+    const val = m ? parseFloat(String(m[2]).replace(/\./g, '').replace(',', '.')) : NaN;
+    return { rot: (m && m[1].trim()) || String(t).trim(), val: isFinite(val) ? val : (brutos.length - i) * 10, txt: m ? m[2] : '' };
+  });
+  const lista = dados.length ? dados : [{ rot: 'Use o campo Texto: "Rótulo 42" por linha', val: 100, txt: '' }];
+  const max = Math.max(...lista.map((d) => d.val), 1);
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:52px 46px;box-sizing:border-box;overflow:hidden;gap:22px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+        ${p._total ? ptCounter(p, { size: 24 }) : ''}
+      </div>
+      <div style="flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
+        ${posterKicker(p.category || 'Dados')}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.03;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      </div>
+      ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;align-items:flex-end;gap:14px;border-bottom:3px solid ${PT.cream};padding-bottom:0;">
+        ${lista.map((d, i) => `<div style="flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:10px;">
+          <span style="flex-shrink:0;font-family:${PT.cond};font-size:26px;font-weight:800;color:${i === 0 ? PT.terra : PT.creamMute};">${escapeHtml(d.txt || String(Math.round(d.val)))}</span>
+          <span style="width:100%;height:${Math.max(6, Math.round((d.val / max) * 78))}%;border-radius:10px 10px 0 0;background:${i === 0 ? PT.gradSolid : PT.inkPanel};display:block;"></span>
+        </div>`).join('')}
+      </div>
+      <div style="flex-shrink:0;display:flex;gap:14px;">
+        ${lista.map((d) => `<span style="flex:1;min-width:0;font-family:${PT.sans};font-size:20px;font-weight:600;line-height:1.24;color:${PT.inkSoft};text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(d.rot)}</span>`).join('')}
+      </div>` : ''}
+      ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="flex-shrink:0;font-family:${PT.sans};font-size:23px;font-weight:400;line-height:1.45;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      ${posterMetaFooter(portal, {})}
+    </div>`;
+}
+
+/** NOTÍCIA — Tarja vertical: categoria girada na lateral, foto sangrando. */
+function tplMancheteTarja(p, fmt, portal) {
+  const headline = p.headline || 'A manchete principal';
+  const hSize = posterPickSize(headline, [[28, 76], [56, 58], [96, 46]], 38);
+  const key = posterImageKeys(p)[0];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.ink};color:#fff;font-family:${PT.sans};display:flex;box-sizing:border-box;overflow:hidden;">
+      <div style="flex:0 0 96px;background:${PT.gradSolid};display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:34px 0;box-sizing:border-box;">
+        ${posterShow('category') ? `<span style="writing-mode:vertical-rl;transform:rotate(180deg);font-family:${PT.sans};font-size:24px;font-weight:800;letter-spacing:0.3em;text-transform:uppercase;color:#fff;white-space:nowrap;overflow:hidden;">${escapeHtml(p.category || 'Notícia')}</span>` : '<span></span>'}
+        ${posterShow('graphics') ? `<span style="width:34px;height:3px;background:rgba(255,255,255,0.8);display:block;"></span>` : ''}
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative;">
+        <div style="flex:1 1 56%;min-height:0;position:relative;overflow:hidden;">
+          ${key ? posterImageLayer(p, key) : posterPhotoPlaceholder()}
+        </div>
+        <div style="flex:1 1 44%;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:36px 42px;box-sizing:border-box;background:${PT.ink};">
+          ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.99;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.34;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+          <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:16px;border-top:1.5px solid ${PT.creamLine};">
+            ${posterShow('header') ? ptMasthead(portal, { size: 48, nameSize: 23 }) : '<span></span>'}
+            ${posterShow('location') && p.location ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.location)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/** NOTÍCIA — Resumo do dia: chamada principal + manchetes numeradas. */
+function tplResumoDia(p, fmt, portal) {
+  const headline = p.headline || 'O resumo do dia';
+  const hSize = posterPickSize(headline, [[24, 68], [48, 54], [82, 42]], 34);
+  let manchetes = posterBullets(p, 4);
+  if (!manchetes.length) manchetes = ['Use o campo Texto: uma manchete por linha.'];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;">
+      <div style="flex-shrink:0;background:${PT.gradSolid};padding:42px 46px 34px;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;">
+          ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 52, nameSize: 24 }) : '<span></span>'}
+          ${posterShow('figure') && p.figure ? `<span style="font-family:${PT.cond};font-size:30px;font-weight:800;color:#fff;white-space:nowrap;">${escapeHtml(p.figure)}</span>` : ''}
+        </div>
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:1.0;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:24px;font-weight:500;line-height:1.4;color:rgba(255,255,255,0.9);margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      </div>
+      ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;padding:20px 46px;box-sizing:border-box;">
+        ${manchetes.map((t, i) => `<div style="display:flex;align-items:flex-start;gap:20px;padding:20px 0;${i ? `border-top:1.5px solid ${PT.creamLine};` : ''}">
+          <span style="flex-shrink:0;font-family:${PT.cond};font-size:40px;font-weight:800;line-height:1;color:${PT.terra};min-width:52px;">${num2(i + 1)}</span>
+          <span style="flex:1;min-width:0;font-family:${PT.serif};font-size:28px;font-weight:600;line-height:1.28;color:${PT.cream};overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(t)}</span>
+        </div>`).join('')}
+      </div>` : ''}
+      <div style="flex-shrink:0;padding:0 46px 40px;">${posterMetaFooter(portal, { right: posterShow('location') ? p.location : '' })}</div>
+    </div>`;
+}
+
+/** INSTITUCIONAL — Expediente: horários de atendimento em linhas legíveis. */
+function tplExpediente(p, fmt, portal) {
+  const headline = p.headline || 'Horário de atendimento';
+  const hSize = posterPickSize(headline, [[26, 62], [52, 48], [88, 38]], 32);
+  let linhas = posterBullets(p, 5);
+  if (!linhas.length) linhas = ['Segunda a sexta — 8h às 17h'];
+  const parse = (t) => {
+    const m = String(t).match(/^\s*(.+?)\s*[—–:]\s*(.+)$/);
+    return m ? { a: m[1].trim(), b: m[2].trim() } : { a: String(t).trim(), b: '' };
+  };
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:54px 48px;box-sizing:border-box;overflow:hidden;gap:24px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 54, nameSize: 25 }) : '<span></span>'}
+        ${posterShow('category') ? posterBadge(p.category || 'ATENDIMENTO', PT.terra, '#fff') : ''}
+      </div>
+      ${posterShow('headline') ? `<h1 data-fit="headline" style="flex-shrink:0;font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.03;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:12px;">
+        ${linhas.map((l) => { const it = parse(l); return `<div style="display:flex;align-items:center;justify-content:space-between;gap:18px;background:${PT.inkPanel};border-radius:14px;padding:20px 24px;">
+          <span style="flex:1;min-width:0;font-family:${PT.sans};font-size:25px;font-weight:600;line-height:1.3;color:${PT.cream};overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(it.a)}</span>
+          ${it.b ? `<span style="flex:0 1 auto;max-width:48%;font-family:${PT.cond};font-size:32px;font-weight:800;letter-spacing:0.01em;color:${PT.terra};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(it.b)}</span>` : ''}
+        </div>`; }).join('')}
+      </div>` : ''}
+      ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="flex-shrink:0;font-family:${PT.sans};font-size:24px;font-weight:400;line-height:1.45;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      ${posterShow('location') && p.location ? `<div style="flex-shrink:0;align-self:flex-start;">${posterLocationPill(p.location)}</div>` : ''}
+      ${posterMetaFooter(portal, {})}
+    </div>`;
+}
+
+/** INSTITUCIONAL — Homenagem: retrato circular sobre painel, tom celebrativo. */
+function tplHomenagem(p, fmt, portal) {
+  const headline = p.headline || 'Parabéns';
+  const hSize = posterPickSize(headline, [[18, 92], [38, 68], [70, 52]], 40);
+  const key = posterImageKeys(p)[0];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.gradSolid};color:#fff;font-family:${PT.sans};display:flex;flex-direction:column;align-items:center;text-align:center;padding:52px 48px;box-sizing:border-box;overflow:hidden;gap:22px;">
+      <div style="flex-shrink:0;width:100%;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 52, nameSize: 24 }) : '<span></span>'}
+        ${posterShow('figure') && p.figure ? `<span style="font-family:${PT.cond};font-size:34px;font-weight:800;color:#fff;white-space:nowrap;">${escapeHtml(p.figure)}</span>` : ''}
+      </div>
+      <div style="flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
+        ${key ? `<div style="width:min(56%,440px);aspect-ratio:1/1;border-radius:50%;overflow:hidden;position:relative;flex-shrink:0;border:6px solid rgba(255,255,255,0.9);box-shadow:0 16px 44px rgba(0,0,0,0.3);">${posterImageLayer(p, key)}</div>` : ''}
+        ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:800;letter-spacing:0.32em;text-transform:uppercase;color:rgba(255,255,255,0.9);">${escapeHtml(p.category || 'Homenagem')}</span>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:700;font-size:${hSize}px;line-height:1.08;letter-spacing:-0.02em;color:#fff;margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('personName') && p.personName ? `<div style="font-family:${PT.sans};font-size:27px;font-weight:700;letter-spacing:0.04em;color:rgba(255,255,255,0.95);">${escapeHtml(p.personName)}${posterShow('personRole') && p.personRole ? `<span style="display:block;font-size:21px;font-weight:500;color:rgba(255,255,255,0.78);margin-top:4px;">${escapeHtml(p.personRole)}</span>` : ''}</div>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.5;color:rgba(255,255,255,0.9);margin:0;max-width:80%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      </div>
+      ${posterShow('location') && p.location ? posterLocationPill(p.location, true) : ''}
+    </div>`;
+}
+
+/** FOTO — Polaroid: foto com margem larga e legenda manuscrita embaixo. */
+function tplPolaroid(p, fmt, portal) {
+  const headline = p.headline || 'Um instante';
+  const hSize = posterPickSize(headline, [[24, 54], [46, 42], [80, 34]], 28);
+  const key = posterImageKeys(p)[0];
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.inkPanel};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:44px 42px;box-sizing:border-box;overflow:hidden;gap:20px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;">
+        ${posterShow('header') ? ptMasthead(portal, { size: 50, nameSize: 23 }) : '<span></span>'}
+        ${p._total ? ptCounter(p, { size: 23 }) : ''}
+      </div>
+      <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;">
+        <div style="width:100%;height:100%;min-height:0;background:#fdfdfb;border-radius:4px;box-shadow:0 18px 48px rgba(0,0,0,0.32);padding:22px 22px 0;box-sizing:border-box;display:flex;flex-direction:column;transform:rotate(-1.4deg);">
+          <div style="flex:1;min-height:0;position:relative;overflow:hidden;background:#111;">
+            ${key ? posterImageLayer(p, key) : posterPhotoPlaceholder()}
+          </div>
+          <div style="flex-shrink:0;padding:22px 6px 26px;text-align:center;">
+            ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-style:italic;font-weight:600;font-size:${hSize}px;line-height:1.2;color:#1a1a1a;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+            ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:21px;font-weight:500;line-height:1.4;color:#5b5b5b;margin:10px 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+          </div>
+        </div>
+      </div>
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+        ${posterShow('location') && p.location ? posterLocationPill(p.location, true) : '<span></span>'}
+        ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:20px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:${PT.terra};">${escapeHtml(p.category || 'Registro')}</span>` : ''}
+      </div>
+    </div>`;
+}
+
+/** CONTEÚDO — Editorial em duas colunas com capitular. Leitura longa. */
+function tplDuasColunas(p, fmt, portal) {
+  const headline = p.headline || 'O título do ensaio';
+  const hSize = posterPickSize(headline, [[26, 64], [52, 50], [88, 40]], 32);
+  const corpo = (p.description || p.subtitle || '').trim();
+  const cap = corpo ? corpo.charAt(0) : '';
+  // As colunas precisam de parágrafos REAIS: um bloco único de texto com um
+  // float de capitular dentro delas quebra a composição.
+  const paras = corpo ? corpo.split(/\n+/).map((t) => t.trim()).filter(Boolean) : [];
+  // Texto curto não enche duas colunas nem sustenta capitular: uma coluna com
+  // corpo maior lê melhor do que uma segunda coluna vazia com um "O" solto.
+  const longo = corpo.length >= 260;
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:52px 46px;box-sizing:border-box;overflow:hidden;gap:22px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:18px;padding-bottom:20px;border-bottom:3px solid ${PT.cream};">
+        ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
+        ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:${PT.terra};">${escapeHtml(p.category || 'Ensaio')}</span>` : ''}
+      </div>
+      ${posterShow('headline') ? `<h1 data-fit="headline" style="flex-shrink:0;font-family:${PT.serif};font-weight:700;font-size:${hSize}px;line-height:1.1;letter-spacing:-0.02em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      ${posterShow('subtitle') && p.subtitle && p.subtitle !== corpo ? `<p data-fit="subtitle" style="flex-shrink:0;font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.34;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      ${posterShow('description') && corpo ? `<div style="flex:1 1 0;min-height:0;${longo ? `column-count:2;column-gap:34px;column-rule:1px solid ${PT.creamLine};` : ''}font-family:${PT.sans};font-size:${longo ? 23 : 27}px;font-weight:400;line-height:1.62;color:${PT.cream};overflow:hidden;">
+        ${paras.map((t, i) => `<p style="margin:0 0 0.9em;">${i === 0 && longo ? `<span style="float:left;font-family:${PT.serif};font-weight:800;font-size:88px;line-height:0.76;padding:4px 12px 0 0;color:${PT.terra};">${escapeHtml(cap)}</span>${escapeHtml(t.slice(1))}` : escapeHtml(t)}</p>`).join('')}
+      </div>` : '<div style="flex:1;min-height:0;"></div>'}
+      ${posterMetaFooter(portal, { right: posterShow('figure') ? p.figure : '' })}
+    </div>`;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Registro de modelos (a ordem define a aparição no seletor do editor).       */
 /* manchete delega a tplManchete() (definido em posters.js) via wrapper.       */
 /* -------------------------------------------------------------------------- */
-// LISTA ÚNICA (sem categorias). A ordem define a aparição no seletor. IDs são
-// estáveis (cartazes salvos dependem deles); só os LABELS são nomes próprios.
+/* Categorias da biblioteca: dão navegação ao seletor (antes era uma lista
+   corrida de 32 itens) e agrupam os modelos por FINALIDADE, não por estilo —
+   é assim que o usuário procura ("preciso anunciar uma vaga", não "preciso de
+   um layout com painel lateral"). A ordem aqui é a ordem das abas.
+   IDs são estáveis (cartazes salvos dependem deles); só os LABELS são nomes
+   próprios. A ordem do registro é a ordem dentro de cada aba. */
+const POSTER_CATEGORIES = [
+  { id: 'todos',         label: 'Todos' },
+  { id: 'noticia',       label: 'Notícia' },
+  { id: 'foto',          label: 'Foto' },
+  { id: 'citacao',       label: 'Citação' },
+  { id: 'dados',         label: 'Dados' },
+  { id: 'conteudo',      label: 'Conteúdo' },
+  { id: 'promo',         label: 'Promoção' },
+  { id: 'evento',        label: 'Evento' },
+  { id: 'institucional', label: 'Institucional' },
+  { id: 'social',        label: 'Social' },
+];
+
 const POSTER_TEMPLATES = {
-  manchete:             { label: 'Manchete',             usesImages: true,  render: (p, fmt, portal) => tplManchete(p, fmt, portal) },
-  'headline-premium':   { label: 'Manchete premium',     usesImages: true,  render: tplHeadlinePremium },
-  'breaking-alert':     { label: 'Plantão urgente',      usesImages: true,  render: tplBreakingAlert },
-  'destaque-foto':      { label: 'Capa fotográfica',     usesImages: true,  render: tplDestaqueFoto },
-  'destaque-foto-2':    { label: 'Foto imersiva',        usesImages: true,  render: tplDestaqueFoto2 },
-  'destaque-foto-3':    { label: 'Foto com painel',      usesImages: true,  render: tplDestaqueFoto3 },
-  'destaque-foto-4':    { label: 'Foto emoldurada',      usesImages: true,  render: tplDestaqueFoto4 },
-  'destaque-foto-5':    { label: 'Foto com faixa',       usesImages: true,  render: tplDestaqueFoto5 },
-  'photo-story':        { label: 'Photo story',          usesImages: true,  render: tplPhotoStory },
-  'face-to-news':       { label: 'Rosto na notícia',     usesImages: true,  render: tplFaceToNews },
-  'quote-impact':       { label: 'Citação com foto',     usesImages: true,  render: tplQuoteImpact },
-  citacao:              { label: 'Citação',              usesImages: false, render: tplCitacao },
-  'numbers-data':       { label: 'Números e dados',      usesImages: false, render: tplNumbersData },
-  comparison:           { label: 'Comparação',           usesImages: true,  render: tplComparison },
-  'topic-card':         { label: 'Card de tópico',       usesImages: true,  render: tplTopicCard },
-  topicos:              { label: 'Lista de tópicos',     usesImages: false, render: tplTopicos },
-  'carousel-cover':     { label: 'Capa de carrossel',    usesImages: true,  render: tplCarouselCover },
-  'editorial-signature':{ label: 'Assinatura editorial', usesImages: true,  render: tplEditorialSignature },
-  minimalista:          { label: 'Minimalista',          usesImages: false, render: tplMinimalista },
-  texto:                { label: 'Texto / parágrafo',    usesImages: false, render: tplTexto },
-  'cor-solida':         { label: 'Cor sólida',           usesImages: false, render: tplCorSolida },
+  manchete:              { label: 'Manchete',             cat: 'noticia',       usesImages: true,  render: (p, fmt, portal) => tplManchete(p, fmt, portal) },
+  'headline-premium':    { label: 'Manchete premium',     cat: 'noticia',       usesImages: true,  render: tplHeadlinePremium },
+  'breaking-alert':      { label: 'Plantão urgente',      cat: 'noticia',       usesImages: true,  render: tplBreakingAlert },
+  'destaque-foto':       { label: 'Capa fotográfica',     cat: 'foto',          usesImages: true,  render: tplDestaqueFoto },
+  'destaque-foto-2':     { label: 'Foto imersiva',        cat: 'foto',          usesImages: true,  render: tplDestaqueFoto2 },
+  'destaque-foto-3':     { label: 'Foto com painel',      cat: 'foto',          usesImages: true,  render: tplDestaqueFoto3 },
+  'destaque-foto-4':     { label: 'Foto emoldurada',      cat: 'foto',          usesImages: true,  render: tplDestaqueFoto4 },
+  'destaque-foto-5':     { label: 'Foto com faixa',       cat: 'foto',          usesImages: true,  render: tplDestaqueFoto5 },
+  'photo-story':         { label: 'Photo story',          cat: 'foto',          usesImages: true,  render: tplPhotoStory },
+  'face-to-news':        { label: 'Rosto na notícia',     cat: 'foto',          usesImages: true,  render: tplFaceToNews },
+  'quote-impact':        { label: 'Citação com foto',     cat: 'citacao',       usesImages: true,  render: tplQuoteImpact },
+  citacao:               { label: 'Citação',              cat: 'citacao',       usesImages: false, render: tplCitacao },
+  'numbers-data':        { label: 'Números e dados',      cat: 'dados',         usesImages: false, render: tplNumbersData },
+  comparison:            { label: 'Comparação',           cat: 'dados',         usesImages: true,  render: tplComparison },
+  'topic-card':          { label: 'Card de tópico',       cat: 'conteudo',      usesImages: true,  render: tplTopicCard },
+  topicos:               { label: 'Lista de tópicos',     cat: 'conteudo',      usesImages: false, render: tplTopicos },
+  'carousel-cover':      { label: 'Capa de carrossel',    cat: 'social',        usesImages: true,  render: tplCarouselCover },
+  'editorial-signature': { label: 'Assinatura editorial', cat: 'noticia',       usesImages: true,  render: tplEditorialSignature },
+  minimalista:           { label: 'Minimalista',          cat: 'conteudo',      usesImages: false, render: tplMinimalista },
+  texto:                 { label: 'Texto / parágrafo',    cat: 'conteudo',      usesImages: false, render: tplTexto },
+  'cor-solida':          { label: 'Cor sólida',           cat: 'conteudo',      usesImages: false, render: tplCorSolida },
   // --- Modelos adicionais (r58) ---
-  'mosaic-hero':        { label: 'Mosaico de fotos',     usesImages: true,  render: tplMosaicHero },
-  'revista-split':      { label: 'Revista',              usesImages: true,  render: tplRevistaSplit },
-  'lower-third':        { label: 'Faixa inferior',       usesImages: true,  render: tplLowerThird },
-  'diagonal-split':     { label: 'Corte diagonal',       usesImages: true,  render: tplDiagonalSplit },
-  'perfil-card':        { label: 'Perfil',               usesImages: true,  render: tplPerfilCard },
-  timeline:             { label: 'Linha do tempo',       usesImages: false, render: tplTimeline },
+  'mosaic-hero':         { label: 'Mosaico de fotos',     cat: 'foto',          usesImages: true,  render: tplMosaicHero },
+  'revista-split':       { label: 'Revista',              cat: 'foto',          usesImages: true,  render: tplRevistaSplit },
+  'lower-third':         { label: 'Faixa inferior',       cat: 'foto',          usesImages: true,  render: tplLowerThird },
+  'diagonal-split':      { label: 'Corte diagonal',       cat: 'foto',          usesImages: true,  render: tplDiagonalSplit },
+  'perfil-card':         { label: 'Perfil',               cat: 'institucional', usesImages: true,  render: tplPerfilCard },
+  timeline:              { label: 'Linha do tempo',       cat: 'dados',         usesImages: false, render: tplTimeline },
   // --- Modelos adicionais (r58b) ---
-  evento:               { label: 'Evento / agenda',      usesImages: false, render: tplEvento },
-  informe:              { label: 'Informe / serviço',    usesImages: false, render: tplInforme },
-  fato:                 { label: 'Você sabia?',          usesImages: false, render: tplFato },
-  'dado-foto':          { label: 'Dado sobre foto',      usesImages: true,  render: tplDadoFoto },
-  kpis:                 { label: 'Indicadores',          usesImages: false, render: tplKpis },
+  evento:                { label: 'Evento / agenda',      cat: 'evento',        usesImages: false, render: tplEvento },
+  informe:               { label: 'Informe / serviço',    cat: 'institucional', usesImages: false, render: tplInforme },
+  fato:                  { label: 'Você sabia?',          cat: 'conteudo',      usesImages: false, render: tplFato },
+  'dado-foto':           { label: 'Dado sobre foto',      cat: 'dados',         usesImages: true,  render: tplDadoFoto },
+  kpis:                  { label: 'Indicadores',          cat: 'dados',         usesImages: false, render: tplKpis },
+
+  // --- Ampliação da biblioteca (r166): os usos que faltavam ---
+  'oferta-preco':        { label: 'Oferta com preço',     cat: 'promo',         usesImages: true,  render: tplOfertaPreco },
+  'promo-split':         { label: 'Promoção dividida',    cat: 'promo',         usesImages: true,  render: tplPromoSplit },
+  lancamento:            { label: 'Lançamento',           cat: 'promo',         usesImages: true,  render: tplLancamento },
+  vaga:                  { label: 'Vaga de emprego',      cat: 'institucional', usesImages: false, render: tplVaga },
+  comunicado:            { label: 'Comunicado oficial',   cat: 'institucional', usesImages: false, render: tplComunicado },
+  frase:                 { label: 'Frase de impacto',     cat: 'social',        usesImages: false, render: tplFrase },
+  'antes-depois':        { label: 'Antes e depois',       cat: 'social',        usesImages: true,  render: tplAntesDepois },
+  'passo-a-passo':       { label: 'Passo a passo',        cat: 'social',        usesImages: false, render: tplPassoAPasso },
+  enquete:               { label: 'Enquete',              cat: 'social',        usesImages: false, render: tplEnquete },
+  'capa-revista':        { label: 'Capa de revista',      cat: 'foto',          usesImages: true,  render: tplCapaRevista },
+  tipografico:           { label: 'Tipográfico',          cat: 'conteudo',      usesImages: false, render: tplTipografico },
+  'blocos-cor':          { label: 'Blocos de cor',        cat: 'conteudo',      usesImages: true,  render: tplBlocosCor },
+  // --- Ampliação da biblioteca (r166): categorias antes rasas ---
+  'evento-foto':         { label: 'Evento com foto',      cat: 'evento',        usesImages: true,  render: tplEventoFoto },
+  contagem:              { label: 'Contagem regressiva',  cat: 'evento',        usesImages: false, render: tplContagem },
+  programacao:           { label: 'Programação',          cat: 'evento',        usesImages: false, render: tplProgramacao },
+  convite:               { label: 'Convite',              cat: 'evento',        usesImages: false, render: tplConvite },
+  depoimento:            { label: 'Depoimento',           cat: 'citacao',       usesImages: true,  render: tplDepoimento },
+  'citacao-lateral':     { label: 'Citação lateral',      cat: 'citacao',       usesImages: true,  render: tplCitacaoLateral },
+  cupom:                 { label: 'Cupom de desconto',    cat: 'promo',         usesImages: false, render: tplCupom },
+  catalogo:              { label: 'Catálogo',             cat: 'promo',         usesImages: true,  render: tplCatalogo },
+  ranking:               { label: 'Ranking',              cat: 'dados',         usesImages: false, render: tplRanking },
+  barras:                { label: 'Gráfico de barras',    cat: 'dados',         usesImages: false, render: tplBarras },
+  'manchete-tarja':      { label: 'Manchete com tarja',   cat: 'noticia',       usesImages: true,  render: tplMancheteTarja },
+  'resumo-dia':          { label: 'Resumo do dia',        cat: 'noticia',       usesImages: false, render: tplResumoDia },
+  expediente:            { label: 'Expediente',           cat: 'institucional', usesImages: false, render: tplExpediente },
+  homenagem:             { label: 'Homenagem',            cat: 'institucional', usesImages: true,  render: tplHomenagem },
+  polaroid:              { label: 'Polaroid',             cat: 'foto',          usesImages: true,  render: tplPolaroid },
+  'duas-colunas':        { label: 'Duas colunas',         cat: 'conteudo',      usesImages: false, render: tplDuasColunas },
 };

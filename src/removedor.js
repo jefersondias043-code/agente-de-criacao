@@ -10,14 +10,5 @@
    src/handoff.js → addImageAsLayer). Aqui só carregamos e revelamos o iframe.
    ============================================================ */
 function renderRemovedor() {
-  const f = $('#removedorFrame');
-  if (!f) return;
-  if (!f.dataset.loaded) {
-    f.addEventListener('load', () => {
-      f.dataset.ready = '1';
-      requestAnimationFrame(() => f.classList.add('themed'));
-    });
-    f.src = (typeof toolFrameSrc === 'function') ? toolFrameSrc('removedor.html') : 'removedor.html';
-    f.dataset.loaded = '1';
-  }
+  mountToolFrame('#removedorFrame', 'removedor.html', 'Removedor de Fundo');
 }

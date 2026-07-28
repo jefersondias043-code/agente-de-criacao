@@ -64,6 +64,43 @@ function libUnavailableMsg(key) {
     + 'carregar um componente externo. Verifique a conexão e tente de novo.';
 }
 
+/* ============================================================
+   FERRAMENTAS EMBUTIDAS — carregamento do iframe (r163)
+   As quatro ferramentas tinham CADA UMA a sua cópia deste mesmo bloco
+   (autopost.js, detector.js, removedor.js, replicador.js): mesmo listener,
+   mesma injeção de config, mesma revelação. Duplicação que só espalhava
+   correções por quatro arquivos — agora é uma função só.
+
+   O iframe começa com `opacity:0` e só aparece com a classe `.themed`, para o
+   usuário não ver o flash do tema cru da ferramenta. Só que isso dependia
+   EXCLUSIVAMENTE do evento `load` — e `load` espera as fontes externas. Com o
+   CDN de fontes lento ou bloqueado, a ferramenta ficava invisível por tempo
+   indeterminado: tela em branco no lugar do app. Agora há uma rede de
+   segurança por tempo: passado o limite, revela assim mesmo.
+   ============================================================ */
+const TOOL_REVEAL_MS = 1200;
+function mountToolFrame(selector, file, title) {
+  const f = (typeof $ === 'function') ? $(selector) : document.querySelector(selector);
+  if (!f || f.dataset.loaded) return f;
+  const reveal = () => {
+    if (f.classList.contains('themed')) return;
+    requestAnimationFrame(() => f.classList.add('themed'));
+  };
+  f.addEventListener('load', () => {
+    f.dataset.ready = '1';
+    if (typeof injectConfigInto === 'function') injectConfigInto(f);
+    if (typeof deliverPendingContent === 'function') deliverPendingContent();
+    reveal();
+  });
+  // Rede de segurança: uma fonte externa lenta não pode deixar a ferramenta
+  // invisível. O conteúdo já está pintado muito antes do `load`.
+  setTimeout(reveal, TOOL_REVEAL_MS);
+  f.src = (typeof toolFrameSrc === 'function') ? toolFrameSrc(file) : file;
+  f.dataset.loaded = '1';
+  if (title && !f.title) f.title = title;
+  return f;
+}
+
 // Configurar PDF.js worker (com fallback para sem worker)
 function configurePdfWorker() {
   if (typeof pdfjsLib === 'undefined' || !pdfjsLib.GlobalWorkerOptions) return;

@@ -28,9 +28,12 @@
     --text: #ebe7dd;
     --text-soft: #a8a39a;
     --text-mute: #6b6760;
-    --accent: #c9762f;
-    --accent-soft: #d68b48;
-    --accent-deep: #9c5a22;
+    /* Tema escuro ORIGINAL (hoje sempre sobreposto pelo bloco claro da
+       plataforma). Mantido na cor de marca para não reintroduzir o laranja
+       antigo caso ele volte a ser usado. */
+    --accent: var(--ds-accent-bright, #f4552e);
+    --accent-soft: var(--ds-accent-bright-hover, #ff6a45);
+    --accent-deep: var(--ds-accent, #cf3418);
     --good: #6b8e5a;
     --warn: #b89150;
     --bad: #a85a4f;
@@ -290,22 +293,35 @@
 </style>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0a0b">
+<link rel="stylesheet" href="design-system.css">
 <style id="agente-light-theme">
 
+  /* ALIASES → design-system.css. Antes esta ferramenta tinha marca própria
+     (#b8341c aqui, #c9762f no tema escuro) e vocabulário próprio; agora só
+     remapeia os nomes locais para os tokens canônicos da plataforma.
+     Atenção ao vocabulário INVERTIDO daqui: --ink é o FUNDO e --text é a
+     tinta (herança do tema escuro original). */
   :root {
-    --ink: #faf8f4;
-    --ink-2: #f3efe7;
-    --paper: #16140f;
-    --paper-soft: #2a2520;
-    --text: #16140f;
-    --text-soft: #5a544a;
-    --text-mute: #8a8378;
-    --accent: #b8341c;
-    --accent-soft: #d24c3c;
-    --accent-deep: #8a2510;
-    --rule: rgba(22, 20, 15, 0.10);
-    --rule-strong: rgba(22, 20, 15, 0.18);
+    --ink: var(--ds-paper);
+    --ink-2: var(--ds-paper-2);
+    --paper: var(--ds-ink);
+    --paper-soft: var(--ds-ink-2);
+    --text: var(--ds-ink);
+    --text-soft: var(--ds-ink-soft);
+    --text-mute: var(--ds-ink-mute);
+    --accent: var(--ds-accent);
+    --accent-soft: var(--ds-accent-hover);
+    --accent-deep: var(--ds-accent-ink);
+    --rule: var(--ds-line);
+    --rule-strong: var(--ds-line-soft);
+    --font-sans: var(--ds-font-sans);
+    --font-serif: var(--ds-font-display);
+    --font-mono: var(--ds-font-mono);
   }
+  /* Tipografia da plataforma (a ferramenta vinha com Inter Tight própria). */
+  body, button, input, select, textarea { font-family: var(--ds-font-sans); }
+  .font-serif, h1, h2, h3 { font-family: var(--ds-font-display); }
+  code, pre, .font-mono { font-family: var(--ds-font-mono); }
   body { background: var(--ink); color: var(--text); }
   /* Substituir rgba hardcoded (eram light-on-dark, viram dark-on-light) */
   .input-field { background: rgba(22, 20, 15, 0.02); }
@@ -319,7 +335,7 @@
   body::before { filter: invert(1); opacity: 0.025; }
   /* Vinheta: tom da accent vermelha do Agente */
   body::after {
-    background: radial-gradient(ellipse at 50% 0%, rgba(184, 52, 28, 0.05), transparent 50%);
+    background: radial-gradient(ellipse at 50% 0%, var(--ds-accent-glow), transparent 50%); opacity: .3;
   }
   /* Botão primário: texto claro sobre fundo accent */
   .btn-primary { color: #fff; }

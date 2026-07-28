@@ -1,0 +1,152 @@
+/* ==========================================================================
+   DESIGN SYSTEM DA PLATAFORMA — fonte única da identidade visual (r163)
+   ==========================================================================
+   PROBLEMA QUE ESTE ARQUIVO RESOLVE
+   Cada ferramenta nasceu como um app independente e trouxe a própria
+   identidade. Antes deste arquivo conviviam na plataforma:
+     · 4 vermelhos/laranjas de marca diferentes  (#cf3418, #ff5b1f, #c9762f,
+       #d4a574 — e ainda um #b8341c nos temas claros improvisados);
+     · 4 vocabulários de token para dizer a mesma coisa
+       (--paper/--surface/--line  vs  --bg/--bg-elev/--border  vs
+        --paper/--text/--rule);
+     · 3 famílias de texto (IBM Plex Sans, Inter Tight, system-ui) e 2 de
+       monoespaçada (IBM Plex Mono, JetBrains Mono);
+     · durações e curvas de animação escolhidas caso a caso.
+   Resultado: trocar de ferramenta parecia trocar de aplicativo.
+
+   COMO FUNCIONA
+   Aqui mora UMA paleta, UMA escala tipográfica, UM conjunto de raios, sombras,
+   espaçamentos e curvas de movimento. As ferramentas continuam com o CSS
+   delas — o que muda é que os tokens que elas já consomem passam a APONTAR
+   para os canônicos daqui (a seção "aliases" no fim de cada ferramenta).
+   Mudar a marca inteira da plataforma passa a ser mexer neste arquivo.
+
+   REGRA: nenhum valor cru de cor/raio/sombra em componente novo. Sempre token.
+   ========================================================================== */
+
+:root {
+  /* ---- SUPERFÍCIES · neutros quentes de papel -------------------------- */
+  --ds-paper: #f7f6f2;          /* fundo da aplicação                       */
+  --ds-paper-2: #eeece5;        /* fundo recuado (trilhos, faixas, campos)  */
+  --ds-surface: #ffffff;        /* cartões e painéis                        */
+  --ds-surface-deep: #fbfaf7;   /* superfície sutilmente destacada          */
+  --ds-workspace: #2a2723;      /* mesa de trabalho escura (canvas/preview) */
+
+  /* ---- TINTA · texto e traços ----------------------------------------- */
+  --ds-ink: #191712;            /* títulos e texto forte                    */
+  --ds-ink-2: #2b2822;          /* texto padrão                             */
+  --ds-ink-soft: #5c564b;       /* texto secundário                         */
+  --ds-ink-mute: #8f8879;       /* legendas, apoio, placeholder             */
+  --ds-line: #e3e0d6;           /* borda visível                            */
+  --ds-line-soft: #edeae1;      /* divisória sutil                          */
+
+  /* ---- MARCA · UM vermelho de jornal para toda a plataforma ------------ */
+  --ds-accent: #cf3418;
+  --ds-accent-hover: #b52c12;
+  --ds-accent-ink: #98220e;     /* texto da marca sobre fundo claro         */
+  --ds-accent-soft: #fae7e1;    /* preenchimento suave / estado ativo       */
+  --ds-accent-glow: rgba(207, 52, 24, 0.18);
+  --ds-on-accent: #ffffff;      /* texto sobre a cor de marca               */
+  /* Mesmo vermelho, clareado para fundos escuros (contraste legível sem
+     trocar de matiz — a marca continua reconhecível no tema escuro). */
+  --ds-accent-bright: #f4552e;
+  --ds-accent-bright-hover: #ff6a45;
+
+  /* ---- APOIO FUNCIONAL · significado, não decoração -------------------- */
+  --ds-success: #3f7c55;
+  --ds-success-soft: #e8f4ec;
+  --ds-warn: #c08427;
+  --ds-warn-soft: #fbf2dc;
+  --ds-danger: #cf3418;         /* perigo = a própria marca (jornal)        */
+  --ds-danger-soft: #f7e9e6;
+  --ds-gold: #b89968;           /* realce editorial discreto                */
+
+  /* ---- TIPOGRAFIA · display serifado + texto humanista ----------------- */
+  --ds-font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+  --ds-font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ds-font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Escala tipográfica (proporção ~1.2, arredondada para pixels inteiros) */
+  --ds-text-2xs: 0.66rem;
+  --ds-text-xs: 0.72rem;
+  --ds-text-sm: 0.82rem;
+  --ds-text-md: 0.9rem;
+  --ds-text-lg: 1.05rem;
+  --ds-text-xl: 1.3rem;
+  --ds-text-2xl: 1.7rem;
+  --ds-tracking-label: 0.1em;   /* rótulos em caixa alta                    */
+
+  /* ---- ESPAÇAMENTO · passo de 4px ------------------------------------- */
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.5rem;
+  --ds-space-6: 2rem;
+
+  /* ---- RAIOS · mais suaves por fora, mais justos por dentro ------------ */
+  --ds-radius-sm: 8px;
+  --ds-radius: 10px;
+  --ds-radius-lg: 16px;
+  --ds-radius-xl: 22px;
+  --ds-radius-pill: 999px;
+
+  /* ---- SOMBRAS · sempre tingidas com a tinta, nunca preto puro --------- */
+  --ds-shadow-sm: 0 1px 2px rgba(25, 23, 18, 0.05), 0 1px 1px rgba(25, 23, 18, 0.04);
+  --ds-shadow-md: 0 6px 16px rgba(25, 23, 18, 0.07), 0 2px 5px rgba(25, 23, 18, 0.05);
+  --ds-shadow-lg: 0 18px 44px rgba(25, 23, 18, 0.13), 0 6px 16px rgba(25, 23, 18, 0.06);
+  --ds-shadow-float: 0 -6px 28px rgba(25, 23, 18, 0.10);
+
+  /* ---- MOVIMENTO · uma curva só, três velocidades ---------------------- */
+  --ds-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ds-dur-1: 0.14s;            /* reação a toque/hover                     */
+  --ds-dur-2: 0.24s;            /* entrada/saída de painel                  */
+  --ds-dur-3: 0.36s;            /* transição de tela                        */
+
+  /* ---- CAMADAS · uma escala, para modais nunca brigarem com toasts ----- */
+  --ds-z-sticky: 20;
+  --ds-z-drawer: 210;
+  --ds-z-modal: 300;
+  --ds-z-toast: 400;
+}
+
+/* ==========================================================================
+   COMPORTAMENTOS UNIVERSAIS
+   Valem em TODA a plataforma (shell e ferramentas), porque são justamente os
+   detalhes que denunciavam "app diferente": a cor da seleção de texto, o anel
+   de foco, a barra de rolagem e o respeito a quem pediu menos animação.
+   ========================================================================== */
+
+::selection {
+  background: var(--ds-accent-soft);
+  color: var(--ds-accent-ink);
+}
+
+/* Anel de foco idêntico em todo lugar — teclado enxerga o mesmo desenho na
+   plataforma inteira. `:focus-visible` não atrapalha quem usa mouse/toque. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ds-accent);
+  outline-offset: 2px;
+  border-radius: var(--ds-radius-sm);
+}
+
+/* Barra de rolagem discreta e da mesma cor em todas as telas. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ds-line) transparent;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ds-line); border-radius: var(--ds-radius-pill); }
+::-webkit-scrollbar-thumb:hover { background: var(--ds-ink-mute); }
+
+/* Acessibilidade: quem reduz movimento no sistema recebe a interface sem
+   animação em QUALQUER ferramenta — antes só o shell respeitava. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

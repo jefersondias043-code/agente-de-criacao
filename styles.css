@@ -4,47 +4,51 @@
    Toda classe legada mantida (os módulos JS emitem este vocabulário).
    ============================================================ */
 :root {
-  /* Superfícies — neutros quentes, canvas claro e limpo */
-  --paper: #f7f6f2;
-  --paper-2: #eeece5;
-  --surface: #ffffff;
-  --ink: #191712;
-  --ink-2: #2b2822;
-  --ink-soft: #5c564b;
-  --ink-mute: #8f8879;
-  --line: #e3e0d6;
-  --line-soft: #edeae1;
+  /* ALIASES → design-system.css. O vocabulário histórico do shell continua
+     valendo (centenas de regras o consomem), mas os VALORES vêm todos da
+     fonte única da plataforma: mexer na marca é mexer lá, não aqui. */
 
-  /* Uma cor de marca (vermelho jornal, afinado p/ telas) + apoios funcionais */
-  --accent: #cf3418;
-  --accent-ink: #98220e;
-  --accent-soft: #fae7e1;
-  --gold: #b89968;
-  --green: #3f7c55;
-  --amber: #c08427;
+  /* Superfícies — neutros quentes, canvas claro e limpo */
+  --paper: var(--ds-paper);
+  --paper-2: var(--ds-paper-2);
+  --surface: var(--ds-surface);
+  --ink: var(--ds-ink);
+  --ink-2: var(--ds-ink-2);
+  --ink-soft: var(--ds-ink-soft);
+  --ink-mute: var(--ds-ink-mute);
+  --line: var(--ds-line);
+  --line-soft: var(--ds-line-soft);
+
+  /* Uma cor de marca (vermelho jornal) + apoios funcionais */
+  --accent: var(--ds-accent);
+  --accent-ink: var(--ds-accent-ink);
+  --accent-soft: var(--ds-accent-soft);
+  --gold: var(--ds-gold);
+  --green: var(--ds-success);
+  --amber: var(--ds-warn);
 
   /* Sombras tingidas com a tinta (nunca preto puro) */
-  --shadow-sm: 0 1px 2px rgba(25, 23, 18, 0.05), 0 1px 1px rgba(25, 23, 18, 0.04);
-  --shadow-md: 0 6px 16px rgba(25, 23, 18, 0.07), 0 2px 5px rgba(25, 23, 18, 0.05);
-  --shadow-lg: 0 18px 44px rgba(25, 23, 18, 0.13), 0 6px 16px rgba(25, 23, 18, 0.06);
-  --shadow-float: 0 -6px 28px rgba(25, 23, 18, 0.10);
+  --shadow-sm: var(--ds-shadow-sm);
+  --shadow-md: var(--ds-shadow-md);
+  --shadow-lg: var(--ds-shadow-lg);
+  --shadow-float: var(--ds-shadow-float);
 
   /* Raios: mais suaves nos containers, mais justos por dentro */
-  --radius: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
+  --radius: var(--ds-radius);
+  --radius-lg: var(--ds-radius-lg);
+  --radius-xl: var(--ds-radius-xl);
 
-  /* Movimento — GPU-friendly, com leve mola nos sheets */
-  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* Movimento — uma curva só; a mola fica para os sheets */
+  --ease: var(--ds-ease);
   --ease-spring: cubic-bezier(0.34, 1.26, 0.44, 1);
-  --dur-1: 160ms;
-  --dur-2: 260ms;
-  --dur-3: 380ms;
+  --dur-1: var(--ds-dur-1);
+  --dur-2: var(--ds-dur-2);
+  --dur-3: var(--ds-dur-3);
 
-  /* Tipografia — sans geométrica p/ UI; serif segue viva no conteúdo editorial */
-  --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
-  --sans: 'Plus Jakarta Sans', 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
-  --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+  /* Tipografia — a MESMA das ferramentas embutidas */
+  --serif: var(--ds-font-display);
+  --sans: var(--ds-font-sans);
+  --mono: var(--ds-font-mono);
 
   /* Métricas do shell mobile */
   --tabbar-h: 62px;

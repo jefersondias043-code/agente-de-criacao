@@ -40,11 +40,19 @@ function bake() {
     (_m, src) => `<script>\n${safeJs(readSrc(src))}\n</script>`
   );
 
-  // 3) Manifest é do app standalone (não existe na raiz e não faz sentido no
+  // 3) O design system é COMPARTILHADO: fica como <link> (um recurso só no
+  //    cache do SW, em vez de duplicado dentro de cada ferramenta). Só o
+  //    caminho muda — o standalone vive em autopost-ia/, o assado na raiz.
+  html = html.replace(
+    /(<link\s+rel="stylesheet"\s+href=")\.\.\/(design-system\.css"\s*\/?>)/i,
+    '$1$2'
+  );
+
+  // 4) Manifest é do app standalone (não existe na raiz e não faz sentido no
   //    iframe) — remove pra não dar 404. Ícones resolvem pra raiz e ficam.
   html = html.replace(/<link\s+rel="manifest"[^>]*>\s*/i, '');
 
-  // 4) Carimbo: arquivo GERADO, não editar à mão.
+  // 5) Carimbo: arquivo GERADO, não editar à mão.
   const banner = '<!-- GERADO por scripts/bake-autopost.mjs a partir de autopost-ia/ — NÃO EDITE À MÃO. -->\n';
   html = html.replace(/^<!DOCTYPE html>/i, '<!DOCTYPE html>\n' + banner.trim());
 

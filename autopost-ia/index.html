@@ -5,17 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="AutoPost IA — transforme áudio, vídeo ou texto em um pacote de publicação completo: título, legenda, hashtags e palavras-chave.">
 <meta name="theme-color" content="#0a0a0a">
-<!-- Aplica o tema ANTES da 1ª pintura (sem flash): padrão ESCURO; respeita a
-     escolha salva do usuário (Escuro/Claro/Sistema). Roda inline de propósito. -->
+<!-- Aplica o tema ANTES da 1ª pintura (sem flash). Roda inline de propósito.
+     EMBUTIDA na plataforma o padrão é CLARO: o app pai é claro, e abrir esta
+     ferramenta no escuro era a quebra mais visível da identidade — parecia
+     outro aplicativo. Avulsa, segue com o escuro original. Nos dois casos a
+     escolha explícita do usuário (Escuro/Claro/Sistema) continua mandando. -->
 <script>
   (function () {
+    var embutida = false;
+    try { embutida = window.parent && window.parent !== window; } catch (e) { embutida = true; }
+    var padrao = embutida ? 'light' : 'dark';
+    var t = padrao;
     try {
-      var t = localStorage.getItem('autopost:tema') || 'dark';
-      if (t !== 'dark' && t !== 'light' && t !== 'system') t = 'dark';
-      document.documentElement.setAttribute('data-theme', t);
-    } catch (e) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
+      t = localStorage.getItem('autopost:tema') || padrao;
+      if (t !== 'dark' && t !== 'light' && t !== 'system') t = padrao;
+    } catch (e) { t = padrao; }
+    document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
 <title>AutoPost IA · Áudio/Vídeo → Pacote de Publicação</title>
@@ -25,6 +30,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800;9..144,900&family=JetBrains+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Fonte única da identidade visual da plataforma. -->
+<link rel="stylesheet" href="../design-system.css">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -35,8 +42,8 @@
       <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="apGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#ff7a3d"/>
-            <stop offset="1" stop-color="#ff5b1f"/>
+            <stop stop-color="var(--ds-accent-bright, #f4552e)"/>
+            <stop offset="1" stop-color="var(--ds-accent, #cf3418)"/>
           </linearGradient>
         </defs>
         <rect x="1.5" y="1.5" width="41" height="41" rx="12" fill="url(#apGrad)"/>

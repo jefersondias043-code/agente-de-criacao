@@ -72,6 +72,10 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 }
 </script>
 
+<!-- Fonte única da identidade visual da plataforma. Vem ANTES de tudo:
+     o shell e as 4 ferramentas embutidas apontam os próprios tokens para os
+     canônicos daqui, então trocar de ferramenta não troca de aplicativo. -->
+<link rel="stylesheet" href="design-system.css" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -84,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-27-r162" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-27-r163" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>

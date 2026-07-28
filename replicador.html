@@ -15,7 +15,9 @@
   --ink: #f5f1e8;
   --ink-dim: #a8a298;
   --ink-faint: #6b665d;
-  --accent: #d4a574;
+  /* Tema escuro ORIGINAL (hoje sempre sobreposto pelo bloco claro da
+     plataforma). Na cor de marca, para o dourado antigo não voltar sem querer. */
+  --accent: var(--ds-accent-bright, #f4552e);
   --accent-soft: #2a221a;
   --danger: #c87b6b;
   --success: #8aa67a;
@@ -797,22 +799,33 @@ textarea::placeholder {
   .modal-title { font-size: 26px; }
 }
 </style>
+<link rel="stylesheet" href="design-system.css">
 <style id="agente-light-theme">
   /* Identidade visual da PLATAFORMA (tema claro "jornal") sobreposta ao tema
      escuro original do Replicador — só remapeia as CSS vars + alguns ajustes. */
+  /* ALIASES → design-system.css. A ferramenta tinha marca dourada própria
+     (#d4a574) e vocabulário próprio (--bg/--border); agora só remapeia. */
   :root {
-    --bg: #faf8f4;
-    --bg-elev: #ffffff;
-    --bg-elev-2: #f3efe7;
-    --ink: #16140f;
-    --ink-dim: #5a544a;
-    --ink-faint: #8a8378;
-    --accent: #b8341c;
-    --accent-soft: #f0d5cd;
-    --danger: #b8341c;
-    --success: #4a7c59;
-    --border: rgba(22, 20, 15, 0.10);
-    --border-strong: rgba(22, 20, 15, 0.18);
+    --bg: var(--ds-paper);
+    --bg-elev: var(--ds-surface);
+    --bg-elev-2: var(--ds-paper-2);
+    --ink: var(--ds-ink);
+    --ink-dim: var(--ds-ink-soft);
+    --ink-faint: var(--ds-ink-mute);
+    --accent: var(--ds-accent);
+    --accent-soft: var(--ds-accent-soft);
+    --danger: var(--ds-danger);
+    --success: var(--ds-success);
+    --border: var(--ds-line);
+    --border-strong: var(--ds-line-soft);
+    --serif: var(--ds-font-display);
+    --sans: var(--ds-font-sans);
+    --mono: var(--ds-font-mono);
+  }
+  /* Tipografia da plataforma (a ferramenta trazia Inter Tight própria). */
+  body, button, input, select, textarea { font-family: var(--ds-font-sans); }
+  h1, h2, h3 { font-family: var(--ds-font-display); }
+  :root {
   }
   body {
     background: var(--bg) !important;

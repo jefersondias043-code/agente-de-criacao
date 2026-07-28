@@ -6,17 +6,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="AutoPost IA — transforme áudio, vídeo ou texto em um pacote de publicação completo: título, legenda, hashtags e palavras-chave.">
 <meta name="theme-color" content="#0a0a0a">
-<!-- Aplica o tema ANTES da 1ª pintura (sem flash): padrão ESCURO; respeita a
-     escolha salva do usuário (Escuro/Claro/Sistema). Roda inline de propósito. -->
+<!-- Aplica o tema ANTES da 1ª pintura (sem flash). Roda inline de propósito.
+     EMBUTIDA na plataforma o padrão é CLARO: o app pai é claro, e abrir esta
+     ferramenta no escuro era a quebra mais visível da identidade — parecia
+     outro aplicativo. Avulsa, segue com o escuro original. Nos dois casos a
+     escolha explícita do usuário (Escuro/Claro/Sistema) continua mandando. -->
 <script>
   (function () {
+    var embutida = false;
+    try { embutida = window.parent && window.parent !== window; } catch (e) { embutida = true; }
+    var padrao = embutida ? 'light' : 'dark';
+    var t = padrao;
     try {
-      var t = localStorage.getItem('autopost:tema') || 'dark';
-      if (t !== 'dark' && t !== 'light' && t !== 'system') t = 'dark';
-      document.documentElement.setAttribute('data-theme', t);
-    } catch (e) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
+      t = localStorage.getItem('autopost:tema') || padrao;
+      if (t !== 'dark' && t !== 'light' && t !== 'system') t = padrao;
+    } catch (e) { t = padrao; }
+    document.documentElement.setAttribute('data-theme', t);
   })();
 </script>
 <title>AutoPost IA · Áudio/Vídeo → Pacote de Publicação</title>
@@ -25,6 +30,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800;9..144,900&family=JetBrains+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Fonte única da identidade visual da plataforma. -->
+<link rel="stylesheet" href="design-system.css">
 <style>
 /* ============================================================
    AutoPost IA — folha de estilos da aplicação independente.
@@ -52,9 +59,9 @@
   --ink: #f5f1e8;
   --ink-dim: #a8a39a;
   --ink-faded: #6b6760;
-  --accent: #ff5b1f;
-  --accent-hover: #ff6f3a;
-  --accent-glow: #ff5b1f33;
+  --accent: var(--ds-accent-bright);
+  --accent-hover: var(--ds-accent-bright-hover);
+  --accent-glow: rgba(244, 85, 46, 0.22);
   --on-accent: #0a0a0a;
   --line: #2a2824;
   --line-soft: #1f1d1a;
@@ -74,34 +81,46 @@
 }
 
 /* CLARO — escolha explícita, ou "Sistema" quando o dispositivo está claro */
+/* ALIASES → design-system.css. A ferramenta tinha laranja próprio (#ff5b1f);
+   o tema CLARO — o que roda embutido na plataforma — passa a usar exatamente
+   os tokens canônicos, para não parecer outro aplicativo. */
 :root[data-theme="light"],
 :root[data-theme="system"] {
-  --bg: #faf8f4;
-  --bg-elev: #f3efe7;
-  --bg-card: #ffffff;
-  --ink: #16140f;
-  --ink-dim: #5a544a;
-  --ink-faded: #8a8378;
-  --accent: #b8341c;
-  --accent-hover: #9e2c17;
-  --accent-glow: rgba(184, 52, 28, 0.18);
-  --on-accent: #ffffff;
-  --line: #d8d2c4;
-  --line-soft: #e8e3d6;
-  --pass: #4a7c59;
-  --pass-bg: #e8f4ec;
-  --fail: #b8341c;
-  --fail-bg: #f7e9e6;
-  --warn: #c98a2b;
-  --warn-bg: #fbf2dc;
-  --surface-deep: #ffffff;
+  --bg: var(--ds-paper);
+  --bg-elev: var(--ds-paper-2);
+  --bg-card: var(--ds-surface);
+  --ink: var(--ds-ink);
+  --ink-dim: var(--ds-ink-soft);
+  --ink-faded: var(--ds-ink-mute);
+  --accent: var(--ds-accent);
+  --accent-hover: var(--ds-accent-hover);
+  --accent-glow: var(--ds-accent-glow);
+  --on-accent: var(--ds-on-accent);
+  --line: var(--ds-line);
+  --line-soft: var(--ds-line-soft);
+  --pass: var(--ds-success);
+  --pass-bg: var(--ds-success-soft);
+  --fail: var(--ds-danger);
+  --fail-bg: var(--ds-danger-soft);
+  --warn: var(--ds-warn);
+  --warn-bg: var(--ds-warn-soft);
+  --surface-deep: var(--ds-surface);
   --bg-image:
-    radial-gradient(at 25% 10%, rgba(184, 52, 28, 0.04) 0%, transparent 45%),
+    radial-gradient(at 25% 10%, var(--ds-accent-glow) 0%, transparent 45%),
     radial-gradient(at 80% 90%, rgba(184, 153, 104, 0.06) 0%, transparent 50%);
   --grad-package: linear-gradient(90deg, var(--bg-card), var(--bg-card));
   --grad-final: var(--pass-bg);
   --grad-final-warn: var(--warn-bg);
 }
+/* Tipografia da plataforma no tema claro (a ferramenta trazia Inter Tight). */
+:root[data-theme="light"] body, :root[data-theme="system"] body,
+:root[data-theme="light"] button, :root[data-theme="system"] button,
+:root[data-theme="light"] input, :root[data-theme="system"] input,
+:root[data-theme="light"] select, :root[data-theme="system"] select,
+:root[data-theme="light"] textarea, :root[data-theme="system"] textarea { font-family: var(--ds-font-sans); }
+:root[data-theme="light"] h1, :root[data-theme="system"] h1,
+:root[data-theme="light"] h2, :root[data-theme="system"] h2,
+:root[data-theme="light"] h3, :root[data-theme="system"] h3 { font-family: var(--ds-font-display); }
 
 /* SISTEMA — quando o dispositivo está no modo escuro, volta ao escuro */
 @media (prefers-color-scheme: dark) {
@@ -112,9 +131,9 @@
     --ink: #f5f1e8;
     --ink-dim: #a8a39a;
     --ink-faded: #6b6760;
-    --accent: #ff5b1f;
-    --accent-hover: #ff6f3a;
-    --accent-glow: #ff5b1f33;
+    --accent: var(--ds-accent-bright);
+    --accent-hover: var(--ds-accent-bright-hover);
+    --accent-glow: rgba(244, 85, 46, 0.22);
     --on-accent: #0a0a0a;
     --line: #2a2824;
     --line-soft: #1f1d1a;
@@ -1117,8 +1136,8 @@ input:focus, select:focus, textarea:focus {
       <svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="apGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#ff7a3d"/>
-            <stop offset="1" stop-color="#ff5b1f"/>
+            <stop stop-color="var(--ds-accent-bright, #f4552e)"/>
+            <stop offset="1" stop-color="var(--ds-accent, #cf3418)"/>
           </linearGradient>
         </defs>
         <rect x="1.5" y="1.5" width="41" height="41" rx="12" fill="url(#apGrad)"/>

@@ -7,16 +7,5 @@
    Aqui só carregamos, mandamos a config (postMessage) e revelamos o iframe.
    ============================================================ */
 function renderAutopost() {
-  const f = $('#autopostFrame');
-  if (!f) return;
-  if (!f.dataset.loaded) {
-    f.addEventListener('load', () => {
-      f.dataset.ready = '1';
-      if (typeof injectConfigInto === 'function') injectConfigInto(f);
-      if (typeof deliverPendingContent === 'function') deliverPendingContent();
-      requestAnimationFrame(() => f.classList.add('themed'));
-    });
-    f.src = (typeof toolFrameSrc === 'function') ? toolFrameSrc('autopost-ia.html') : 'autopost-ia.html';
-    f.dataset.loaded = '1';
-  }
+  mountToolFrame('#autopostFrame', 'autopost-ia.html', 'AutoPost IA');
 }

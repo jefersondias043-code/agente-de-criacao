@@ -24,9 +24,9 @@
   --ink: #f5f1e8;
   --ink-dim: #a8a39a;
   --ink-faded: #6b6760;
-  --accent: #ff5b1f;
-  --accent-hover: #ff6f3a;
-  --accent-glow: #ff5b1f33;
+  --accent: var(--ds-accent-bright);
+  --accent-hover: var(--ds-accent-bright-hover);
+  --accent-glow: rgba(244, 85, 46, 0.22);
   --on-accent: #0a0a0a;
   --line: #2a2824;
   --line-soft: #1f1d1a;
@@ -46,34 +46,46 @@
 }
 
 /* CLARO — escolha explícita, ou "Sistema" quando o dispositivo está claro */
+/* ALIASES → design-system.css. A ferramenta tinha laranja próprio (#ff5b1f);
+   o tema CLARO — o que roda embutido na plataforma — passa a usar exatamente
+   os tokens canônicos, para não parecer outro aplicativo. */
 :root[data-theme="light"],
 :root[data-theme="system"] {
-  --bg: #faf8f4;
-  --bg-elev: #f3efe7;
-  --bg-card: #ffffff;
-  --ink: #16140f;
-  --ink-dim: #5a544a;
-  --ink-faded: #8a8378;
-  --accent: #b8341c;
-  --accent-hover: #9e2c17;
-  --accent-glow: rgba(184, 52, 28, 0.18);
-  --on-accent: #ffffff;
-  --line: #d8d2c4;
-  --line-soft: #e8e3d6;
-  --pass: #4a7c59;
-  --pass-bg: #e8f4ec;
-  --fail: #b8341c;
-  --fail-bg: #f7e9e6;
-  --warn: #c98a2b;
-  --warn-bg: #fbf2dc;
-  --surface-deep: #ffffff;
+  --bg: var(--ds-paper);
+  --bg-elev: var(--ds-paper-2);
+  --bg-card: var(--ds-surface);
+  --ink: var(--ds-ink);
+  --ink-dim: var(--ds-ink-soft);
+  --ink-faded: var(--ds-ink-mute);
+  --accent: var(--ds-accent);
+  --accent-hover: var(--ds-accent-hover);
+  --accent-glow: var(--ds-accent-glow);
+  --on-accent: var(--ds-on-accent);
+  --line: var(--ds-line);
+  --line-soft: var(--ds-line-soft);
+  --pass: var(--ds-success);
+  --pass-bg: var(--ds-success-soft);
+  --fail: var(--ds-danger);
+  --fail-bg: var(--ds-danger-soft);
+  --warn: var(--ds-warn);
+  --warn-bg: var(--ds-warn-soft);
+  --surface-deep: var(--ds-surface);
   --bg-image:
-    radial-gradient(at 25% 10%, rgba(184, 52, 28, 0.04) 0%, transparent 45%),
+    radial-gradient(at 25% 10%, var(--ds-accent-glow) 0%, transparent 45%),
     radial-gradient(at 80% 90%, rgba(184, 153, 104, 0.06) 0%, transparent 50%);
   --grad-package: linear-gradient(90deg, var(--bg-card), var(--bg-card));
   --grad-final: var(--pass-bg);
   --grad-final-warn: var(--warn-bg);
 }
+/* Tipografia da plataforma no tema claro (a ferramenta trazia Inter Tight). */
+:root[data-theme="light"] body, :root[data-theme="system"] body,
+:root[data-theme="light"] button, :root[data-theme="system"] button,
+:root[data-theme="light"] input, :root[data-theme="system"] input,
+:root[data-theme="light"] select, :root[data-theme="system"] select,
+:root[data-theme="light"] textarea, :root[data-theme="system"] textarea { font-family: var(--ds-font-sans); }
+:root[data-theme="light"] h1, :root[data-theme="system"] h1,
+:root[data-theme="light"] h2, :root[data-theme="system"] h2,
+:root[data-theme="light"] h3, :root[data-theme="system"] h3 { font-family: var(--ds-font-display); }
 
 /* SISTEMA — quando o dispositivo está no modo escuro, volta ao escuro */
 @media (prefers-color-scheme: dark) {
@@ -84,9 +96,9 @@
     --ink: #f5f1e8;
     --ink-dim: #a8a39a;
     --ink-faded: #6b6760;
-    --accent: #ff5b1f;
-    --accent-hover: #ff6f3a;
-    --accent-glow: #ff5b1f33;
+    --accent: var(--ds-accent-bright);
+    --accent-hover: var(--ds-accent-bright-hover);
+    --accent-glow: rgba(244, 85, 46, 0.22);
     --on-accent: #0a0a0a;
     --line: #2a2824;
     --line-soft: #1f1d1a;

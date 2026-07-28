@@ -907,6 +907,14 @@ function renderPosterEditor() {
   $('#p-category').value = s.category || '';
   $('#p-location').value = s.location || '';
   $('#p-subtitle').value = s.subtitle || '';
+  // Controle ÚNICO de encaixe do texto (r165): governa corpo de fonte E
+  // quebras de linha de uma vez. Ausente = padrão (ver TS_DEFAULT_FIT).
+  const _fitPad = (typeof TS_DEFAULT_FIT === 'number') ? TS_DEFAULT_FIT : 72;
+  [['p-fit-headline', s.fitHeadline], ['p-fit-subtitle', s.fitSubtitle]].forEach(([id, v]) => {
+    const el = $('#' + id); if (!el) return;
+    el.value = (typeof v === 'number') ? v : _fitPad;
+    const out = $('#' + id + '-val'); if (out) out.textContent = el.value;
+  });
   if ($('#p-description')) $('#p-description').value = s.description || '';
   if ($('#p-template')) $('#p-template').value = s.template || 'manchete';
   if ($('#p-format')) $('#p-format').value = s.format || '3:4';
@@ -975,6 +983,8 @@ function renderPosterEditor() {
       category: ($('#p-category').value || '').toUpperCase(),
       location: $('#p-location').value,
       subtitle: $('#p-subtitle').value,
+      fitHeadline: $('#p-fit-headline') ? +$('#p-fit-headline').value : s.fitHeadline,
+      fitSubtitle: $('#p-fit-subtitle') ? +$('#p-fit-subtitle').value : s.fitSubtitle,
       description: $('#p-description') ? $('#p-description').value : s.description,
       mosaic: $('#p-mosaic') ? $('#p-mosaic').value : s.mosaic,
       theme: $('#p-theme') ? $('#p-theme').value : p.theme,   // tema é do CARTAZ (não do slide)
@@ -1011,6 +1021,15 @@ function renderPosterEditor() {
    'p-person-name', 'p-person-role', 'p-figure', 'p-label-a', 'p-label-b'].forEach(id => {
     const el = $(`#${id}`);
     if (el) el.oninput = updatePreview;
+  });
+  // Encaixe do texto: recompõe ao arrastar (o número ao lado acompanha).
+  ['p-fit-headline', 'p-fit-subtitle'].forEach(id => {
+    const el = $(`#${id}`);
+    if (!el) return;
+    el.oninput = () => {
+      const out = $(`#${id}-val`); if (out) out.textContent = el.value;
+      updatePreview();
+    };
   });
 
   // Toggle ATIVAR/DESATIVAR de cada imagem (sem apagar do projeto). Alterna a
@@ -1158,6 +1177,8 @@ function renderPosterEditor() {
     t.category = ($('#p-category').value || '').toUpperCase();
     t.location = $('#p-location').value;
     t.subtitle = $('#p-subtitle').value;
+    if ($('#p-fit-headline')) t.fitHeadline = +$('#p-fit-headline').value;
+    if ($('#p-fit-subtitle')) t.fitSubtitle = +$('#p-fit-subtitle').value;
     if ($('#p-description')) t.description = $('#p-description').value;
     if ($('#p-template')) t.template = $('#p-template').value;
     if ($('#p-format')) t.format = $('#p-format').value;
@@ -2414,6 +2435,10 @@ function renderPosterTemplate(p) {
         : tpl.render(p, fmt, portal))
     : tplManchete(p, fmt, portal);
   if (typeof applyPosterRootBg === 'function') applyPosterRootBg(p.custom, $('#p-stage'), fmt);   // fundo custom (sólido/gradiente/padrão) no nó raiz
+  // COMPOSIÇÃO TIPOGRÁFICA (r165): mede o título/subtítulo no DOM já montado e
+  // acha o corpo de fonte que realmente cabe, com quebras equilibradas. Roda
+  // ANTES de escalar o preview — o fit precisa das medidas em escala 1:1.
+  if (typeof typesetPoster === 'function') typesetPoster(p, $('#p-stage'));
   fitPosterPreview();
   applyAllImageTransforms($('#p-stage'));
   // OVERLAYS unificados (r116): elementos livres + avatar + camadas de imagem numa

@@ -1,4 +1,4 @@
-const CACHE = 'agp-v164';
+const CACHE = 'agp-v165';
 const URLS = [
   './',
   './index.html',
@@ -32,6 +32,7 @@ const URLS = [
   './src/poster-templates.js',
   './src/carousels.js',
   './src/poster-elements.js',
+  './src/poster-typeset.js',
   './src/poster-editor-pro.js',
   './src/history.js',
   './src/settings.js',

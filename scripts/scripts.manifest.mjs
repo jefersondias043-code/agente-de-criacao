@@ -18,6 +18,7 @@ export const SCRIPTS = [
   'poster-templates.js',
   'carousels.js',
   'poster-elements.js',
+  'poster-typeset.js',
   'poster-editor-pro.js',
   'history.js',
   'settings.js',

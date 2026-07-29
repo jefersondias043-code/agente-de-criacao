@@ -511,6 +511,9 @@ function openPosterEditor(id) {
 }
 
 function closePosterEditor() {
+  // Descarrega qualquer edição ainda na janela de espera do auto-save.
+  if (typeof _posterCommitFields === 'function') { try { _posterCommitFields({ flush: true }); } catch (_) {} }
+  _posterCommitFields = null;   // o closure aponta para o cartaz que está saindo
   _peOpen = false;
   renderPosters();
   const main = document.querySelector('.main');
@@ -1003,10 +1006,49 @@ function renderPosterEditor() {
     updateOne('p-description', 900);
   }
 
+  // Aplica os valores atuais do editor a um alvo (cartaz ou slide).
+  const applyEditorTo = (t) => {
+    t.headline = $('#p-headline').value;
+    t.category = ($('#p-category').value || '').toUpperCase();
+    t.location = $('#p-location').value;
+    t.subtitle = $('#p-subtitle').value;
+    if ($('#p-fit-headline')) t.fitHeadline = +$('#p-fit-headline').value;
+    if ($('#p-fit-subtitle')) t.fitSubtitle = +$('#p-fit-subtitle').value;
+    if ($('#p-description')) t.description = $('#p-description').value;
+    if ($('#p-template')) t.template = $('#p-template').value;
+    if ($('#p-format')) t.format = $('#p-format').value;
+    if ($('#p-person-name')) t.personName = $('#p-person-name').value;
+    if ($('#p-person-role')) t.personRole = $('#p-person-role').value;
+    if ($('#p-figure')) t.figure = $('#p-figure').value;
+    if ($('#p-label-a')) t.labelA = $('#p-label-a').value;
+    if ($('#p-label-b')) t.labelB = $('#p-label-b').value;
+  };
+
+  // AUTO-SAVE dos campos de texto.
+  // Bug corrigido: estes campos só chamavam updatePreview(), que renderiza um
+  // objeto `draft` DESCARTÁVEL. O cartaz nunca era tocado, nada ia para o
+  // IndexedDB e toda edição manual se perdia ao sair do editor — enquanto
+  // modelo, formato, mosaico, imagens e visibilidade já salvavam normalmente.
+  // A gravação em memória é imediata (barato e resolve o "sair e voltar"); a
+  // escrita no IndexedDB é adiada para não acontecer a cada tecla.
+  let _pSaveT = null;
+  const commitFields = (opts) => {
+    applyEditorTo(s);
+    p.updatedAt = new Date().toISOString();
+    if (_pSaveT) { clearTimeout(_pSaveT); _pSaveT = null; }
+    if (opts && opts.flush) { savePosters(); return; }
+    _pSaveT = setTimeout(() => { _pSaveT = null; savePosters(); }, 400);
+  };
+  _posterCommitFields = commitFields;
+
   ['p-headline', 'p-category', 'p-location', 'p-subtitle', 'p-description',
    'p-person-name', 'p-person-role', 'p-figure', 'p-label-a', 'p-label-b'].forEach(id => {
     const el = $(`#${id}`);
-    if (el) el.oninput = updatePreview;
+    if (!el) return;
+    el.oninput = () => { commitFields(); updatePreview(); };
+    // Sair do campo grava na hora: fecha a janela em que a espera de 400ms
+    // poderia perder a edição (troca de aba, fechar o app).
+    el.onblur = () => commitFields({ flush: true });
   });
   // Encaixe do texto: recompõe ao arrastar (o número ao lado acompanha).
   ['p-fit-headline', 'p-fit-subtitle'].forEach(id => {
@@ -1014,8 +1056,10 @@ function renderPosterEditor() {
     if (!el) return;
     el.oninput = () => {
       const out = $(`#${id}-val`); if (out) out.textContent = el.value;
+      commitFields();
       updatePreview();
     };
+    el.onchange = () => commitFields({ flush: true });
   });
 
   // Toggle ATIVAR/DESATIVAR de cada imagem (sem apagar do projeto). Alterna a
@@ -1157,23 +1201,6 @@ function renderPosterEditor() {
   // Recursos pro do editor (desfazer/refazer, modo simples/pro, melhorar design).
   if (typeof setupPosterProUI === 'function') setupPosterProUI();
 
-  // Aplica os valores atuais do editor a um alvo (cartaz ou slide).
-  const applyEditorTo = (t) => {
-    t.headline = $('#p-headline').value;
-    t.category = ($('#p-category').value || '').toUpperCase();
-    t.location = $('#p-location').value;
-    t.subtitle = $('#p-subtitle').value;
-    if ($('#p-fit-headline')) t.fitHeadline = +$('#p-fit-headline').value;
-    if ($('#p-fit-subtitle')) t.fitSubtitle = +$('#p-fit-subtitle').value;
-    if ($('#p-description')) t.description = $('#p-description').value;
-    if ($('#p-template')) t.template = $('#p-template').value;
-    if ($('#p-format')) t.format = $('#p-format').value;
-    if ($('#p-person-name')) t.personName = $('#p-person-name').value;
-    if ($('#p-person-role')) t.personRole = $('#p-person-role').value;
-    if ($('#p-figure')) t.figure = $('#p-figure').value;
-    if ($('#p-label-a')) t.labelA = $('#p-label-a').value;
-    if ($('#p-label-b')) t.labelB = $('#p-label-b').value;
-  };
   const isCarousel = () => (typeof posterIsCarousel === 'function' && posterIsCarousel(p));
 
   // "Salvar" agora vive DENTRO da tela de exportação (openPosterExportSettings),
@@ -1208,6 +1235,11 @@ function renderPosterEditor() {
 /* ===== CAMADAS — controles na aba Imagens (r107) ===== */
 // Ponte para o updatePreview vivo do editor (setado por renderPosterEditor).
 let _posterUpdatePreview = null;
+/** Grava os campos do editor no cartaz REAL. Exposto no escopo global porque a
+ *  tela de exportação (fora do closure do editor) precisa dele — antes ela
+ *  chamava `applyEditorTo`, que é `const` de outra função e nunca esteve
+ *  visível ali: o "Salvar" silenciosamente não gravava os textos. */
+let _posterCommitFields = null;
 function _refreshPosterPreview() { if (typeof _posterUpdatePreview === 'function') _posterUpdatePreview(); }
 
 /** Realça na LISTA a camada selecionada no cartaz (e vice-versa) — só troca a
@@ -3288,8 +3320,7 @@ async function exportPoster(p, scale, fileType) {
 /** Salva o PROJETO do cartaz (mantém editável). Vive na tela de exportação. */
 function _savePosterProject(p) {
   if (!p) return;
-  const s = (typeof getSlide === 'function') ? getSlide(p) : p;
-  if (typeof applyEditorTo === 'function') applyEditorTo(s);
+  if (typeof _posterCommitFields === 'function') _posterCommitFields({ flush: true });
   if ($('#p-theme')) p.theme = $('#p-theme').value;
   if (typeof readPosterCustom === 'function') p.custom = readPosterCustom();
   p.updatedAt = new Date().toISOString();
@@ -3408,9 +3439,8 @@ function openPosterExportSettings(p) {
       if (typeof fsel.onchange === 'function') fsel.onchange();
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     }
-    const tgt = (typeof getSlide === 'function') ? getSlide(p) : p;
-    if (typeof applyEditorTo === 'function') applyEditorTo(tgt);
-    if (typeof savePosters === 'function') savePosters();
+    if (typeof _posterCommitFields === 'function') _posterCommitFields({ flush: true });
+    else if (typeof savePosters === 'function') savePosters();
     if (isCar) exportCarousel(p, selMode, selScale, selFile);
     else exportPoster(p, selScale, selFile);
   };

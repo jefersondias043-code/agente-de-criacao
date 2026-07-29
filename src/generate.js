@@ -261,6 +261,7 @@ function renderGenerate() {
           <div class="pipeline-steps" id="g-pipeline-steps">
             <span class="pipeline-step" data-step="interpret">Interpretação</span>
             <span class="pipeline-step" data-step="write">Redação</span>
+            <span class="pipeline-step" data-step="edit">Revisão</span>
             <span class="pipeline-step" data-step="design">Design</span>
           </div>
         </div>`;

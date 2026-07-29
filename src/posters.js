@@ -452,22 +452,6 @@ function parseArticle(content) {
   };
 }
 
-// Aplica o design escolhido pelo AGENTE DE DESIGN (modelo/formato/paleta) a um
-// cartaz/slide. Valida contra os catálogos reais; ignora o que for inválido para
-// não quebrar o render. Reaproveita o motor de identidade visual (`custom`).
-function applyDesignToPoster(target, design) {
-  if (!target || !design) return;
-  const templates = (typeof POSTER_TEMPLATES !== 'undefined') ? POSTER_TEMPLATES : null;
-  if (design.template && (!templates || templates[design.template])) target.template = design.template;
-  if (design.format) target.format = design.format;
-  const palettes = (typeof POSTER_PALETTES !== 'undefined') ? POSTER_PALETTES : null;
-  const fonts = (typeof POSTER_FONTS !== 'undefined') ? POSTER_FONTS : null;
-  const custom = {};
-  if (design.palette && (!palettes || palettes[design.palette])) { custom.palette = design.palette; custom.autoContrast = true; }
-  if (design.font && (!fonts || fonts[design.font])) custom.font = design.font;
-  if (Object.keys(custom).length) target.custom = Object.assign({}, target.custom, custom);
-}
-
 function createPosterFromGeneration(g) {
   // Regra ÚNICA de autopreenchimento: distribui TODO o conteúdo disponível.
   // Gerações do pipeline trazem campos estruturados (sem reparse com perda);
@@ -506,12 +490,11 @@ function createPosterFromGeneration(g) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  applyDesignToPoster(poster, g.design);   // agente de design escolhe modelo/formato/paleta
   State.posters.unshift(poster);
   savePosters();
   State.activePosterId = poster.id;
   _peOpen = true;                      // handoff (matéria → cartaz) abre o editor
-  toast(g.design ? 'Cartaz criado com o design sugerido.' : 'Cartaz criado.', 'success');
+  toast('Cartaz criado.', 'success');
   goTo('posters');
 }
 

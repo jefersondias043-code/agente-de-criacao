@@ -1,6 +1,6 @@
 // Pipeline de agentes (agents.js) — cobre as funções PURAS: parsing tolerante
-// de JSON, normalização de cada agente, validação do design contra os catálogos
-// reais e a montagem do texto plano retrocompatível. As chamadas de rede
+// de JSON, normalização de cada agente e a montagem do texto plano
+// retrocompatível. As chamadas de rede
 // (callLLM) NÃO são exercitadas aqui — só a lógica determinística.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { loadModules, clearStorage } from './helpers/load.mjs';
@@ -14,7 +14,6 @@ beforeAll(() => {
       'extractJSON', 'asList',
       'normalizeInterpretation', 'fallbackInterpretation',
       'normalizeArticle', 'articleFromPlainText',
-      'normalizeDesign', 'fallbackDesign', 'DESIGN_DEFAULT',
       'articleToPlainText', 'artFromPipeline', 'interpretationToBlock',
       'POSTER_TEMPLATES', 'POSTER_PALETTES', 'POSTER_FONTS',
     ]
@@ -97,58 +96,6 @@ describe('articleFromPlainText (fallback do redator)', () => {
     expect(a.titulo).toBe('Título aqui');
     expect(a._fallback).toBe(true);
     expect(a.corpo.length).toBeGreaterThan(0);
-  });
-});
-
-describe('normalizeDesign (validação contra catálogos reais)', () => {
-  it('aceita ids válidos e anexa rótulos', () => {
-    const d = A.normalizeDesign({ template: 'quote-impact', format: '1:1', palette: 'azul-institucional', font: 'fraunces', justificativa: 'porque sim' });
-    expect(d.template).toBe('quote-impact');
-    expect(d.format).toBe('1:1');
-    expect(d.palette).toBe('azul-institucional');
-    expect(d.font).toBe('fraunces');
-    expect(d.templateLabel).toBe(A.POSTER_TEMPLATES['quote-impact'].label);
-    expect(d.paletteLabel).toBe(A.POSTER_PALETTES['azul-institucional'].label);
-    expect(d.fontLabel).toBe(A.POSTER_FONTS['fraunces'].label);
-    expect(d.justificativa).toBe('porque sim');
-  });
-  it('corrige ids inválidos para o default seguro (inclui fonte)', () => {
-    const d = A.normalizeDesign({ template: 'modelo-inexistente', format: '99:1', palette: 'paleta-fake', font: 'fonte-fake' });
-    expect(d.template).toBe(A.DESIGN_DEFAULT.template);
-    expect(d.format).toBe(A.DESIGN_DEFAULT.format);
-    expect(d.palette).toBe(A.DESIGN_DEFAULT.palette);
-    expect(d.font).toBe(A.DESIGN_DEFAULT.font);
-    expect(A.POSTER_FONTS[d.font]).toBeTruthy();
-  });
-  it('data ausente → totalmente default', () => {
-    const d = A.normalizeDesign(null);
-    expect(d.template).toBe(A.DESIGN_DEFAULT.template);
-    expect(A.POSTER_TEMPLATES[d.template]).toBeTruthy();
-    expect(A.POSTER_PALETTES[d.palette]).toBeTruthy();
-  });
-});
-
-describe('fallbackDesign (heurística sem rede)', () => {
-  it('escolhe citação quando há citações', () => {
-    const d = A.fallbackDesign({ categoria: 'GERAL', citacoes: ['"algo"'], numeros: [] }, { titulo: 'T' });
-    expect(d.template).toBe('quote-impact');
-  });
-  it('escolhe números quando há 2+ números', () => {
-    const d = A.fallbackDesign({ categoria: 'ECONOMIA', citacoes: [], numeros: ['10', '20'] }, { titulo: 'T' });
-    expect(d.template).toBe('numbers-data');
-    expect(d.palette).toBe('tons-corporativos');
-  });
-  it('mapeia paleta por categoria', () => {
-    const d = A.fallbackDesign({ categoria: 'SAÚDE', citacoes: [], numeros: [] }, { titulo: 'T' });
-    expect(d.palette).toBe('verde-editorial');
-    // resultado sempre válido no catálogo
-    expect(A.POSTER_PALETTES[d.palette]).toBeTruthy();
-  });
-  it('mapeia tipografia por categoria e sempre entrega fonte válida', () => {
-    expect(A.fallbackDesign({ categoria: 'CULTURA', citacoes: [], numeros: [] }, { titulo: 'T' }).font).toBe('fraunces');
-    expect(A.fallbackDesign({ categoria: 'TECNOLOGIA', citacoes: [], numeros: [] }, { titulo: 'T' }).font).toBe('jakarta');
-    const d = A.fallbackDesign({ categoria: 'GERAL', citacoes: [], numeros: [] }, { titulo: 'T' });
-    expect(A.POSTER_FONTS[d.font]).toBeTruthy();
   });
 });
 

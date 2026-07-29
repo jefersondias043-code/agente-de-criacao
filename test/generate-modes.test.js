@@ -19,7 +19,6 @@ describe('assembleAgentsGeneration', () => {
     content: 'Título\n\nCorpo.',
     interpretation: { categoria: 'GERAL' },
     article: { titulo: 'Título', hashtags: ['#x'] },
-    design: { template: 'manchete' },
     agents: { interpreter: { ok: true } },
     model: 'stub-model',
     promptTokens: 10,
@@ -33,7 +32,6 @@ describe('assembleAgentsGeneration', () => {
     });
     expect(g.pipeline).toBe(true);
     expect(g.article).toBe(baseResult.article);
-    expect(g.design).toBe(baseResult.design);
     expect(g.interpretation).toBe(baseResult.interpretation);
     expect(g.agents).toBe(baseResult.agents);
     expect(g.content).toBe('Título\n\nCorpo.');
@@ -77,7 +75,6 @@ describe('assembleFastGeneration', () => {
     const g = G.assembleFastGeneration({ style: 'S', tone: 'T', manualText: 'x', extractionId: '', built, result, createdAt: 'now' });
     expect(g.pipeline).toBe(false);
     expect(g.article).toBeUndefined();
-    expect(g.design).toBeUndefined();
     expect(g.interpretation).toBeUndefined();
     expect(g.content).toBe('Matéria em texto corrido.');
   });

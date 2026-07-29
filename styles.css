@@ -2398,20 +2398,6 @@ body.pe-full #view-posters { animation: none; }
   50% { opacity: 0.55; }
 }
 
-/* Chip do design sugerido pelo agente */
-.design-suggest {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.4rem 0.7rem;
-  border-radius: var(--radius);
-  background: var(--paper-2);
-  border: 1px solid var(--line);
-  color: var(--ink-soft);
-}
-.design-suggest svg { color: var(--accent); flex-shrink: 0; }
-.design-suggest strong { color: var(--ink-2); }
-
 /* Bloco de hashtags */
 .hashtags-block {
   display: flex;

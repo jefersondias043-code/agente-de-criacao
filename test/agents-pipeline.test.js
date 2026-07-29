@@ -113,6 +113,16 @@ describe('runContentPipeline — caminho feliz', () => {
     expect(result.article.subtitulo).toBe('Entrega atendeu famílias do bairro nesta semana');
     expect(result.articleDraft.subtitulo).toBe('Ação da Prefeitura atende famílias do bairro nesta semana');
   });
+
+  // O pipeline REPUBLICA `conflitos` sob outro nome (`conflitosDeTom`) e mantém
+  // `repeticoes`. Quem ler a chave errada recebe [] — zero achados, nenhum erro.
+  // Já custou um relatório de auditoria que dizia "limpo" sobre texto sujo.
+  it('publica o diagnóstico do revisor com nomes estáveis', () => {
+    const ed = result.agents.editor;
+    ['conflitosDeTom', 'conflitosRestantes', 'repeticoes', 'repeticoesRestantes']
+      .forEach((k) => expect(Array.isArray(ed[k]), k).toBe(true));
+    expect(ed.conflitos).toBeUndefined();
+  });
 });
 
 describe('runContentPipeline — fallbacks resilientes', () => {

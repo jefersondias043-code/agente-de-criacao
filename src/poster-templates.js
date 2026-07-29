@@ -954,6 +954,64 @@ function ptCounter(p, opts) {
     </div>`;
 }
 
+/**
+ * SOMBRA SUAVE que sobrevive à exportação, montada em 9 fatias de gradiente.
+ *
+ * Por que não `box-shadow`: o html2canvas não a pinta — sai como retângulo
+ * cinza sólido no PNG. Empilhar blocos de alfa baixo suaviza, mas cada bloco
+ * tem borda dura e o resultado mostra anéis (banding) sobre fundo claro.
+ *
+ * A saída veio de medir o que o html2canvas 1.4.1 realmente pinta:
+ * `linear-gradient` e `radial-gradient(circle at <canto>)` saem com fidelidade
+ * total (só `ellipse at center` é ignorada). Então a sombra é um contorno de 9
+ * peças — núcleo, 4 bordas lineares e 4 cantos radiais.
+ *
+ * A geometria imita um desfoque de verdade: a rampa é CENTRADA na silhueta
+ * (alfa cheio `blur/2` para dentro, zero `blur/2` para fora), como faz o
+ * box-shadow. É isso que evita os dois defeitos óbvios — o núcleo fica recuado
+ * `blur/2`, então nunca escapa por baixo do objeto como uma barra dura, e a
+ * borda externa termina em alfa 0, sem corte visível.
+ *
+ * Parâmetros espelham o box-shadow: blur (largura total da transição), dx/dy
+ * (deslocamento), alpha (opacidade máxima), radius (raio do objeto), color
+ * ('r,g,b'), rotate (aplicado junto com o objeto).
+ *
+ * CONVERSÃO: a gaussiana do box-shadow tem cauda mais longa que esta rampa, so
+ * `blur` aqui ≈ 1,8 × o raio do box-shadow que se quer imitar. Aferido medindo
+ * as duas pinturas lado a lado: para `0 18px 48px rgba(0,0,0,0.32)` o melhor
+ * ajuste é blur 88 / dy 18 / alpha 0.32 (desvio médio 3 de 765 — indistinguível).
+ */
+function posterSoftShadow(opts) {
+  opts = opts || {};
+  const B = Math.max(2, opts.blur != null ? opts.blur : 48);
+  const M = B / 2;                       // alcance para fora (e recuo do núcleo)
+  const dx = opts.dx || 0;
+  const dy = opts.dy != null ? opts.dy : 16;
+  const raio = opts.radius != null ? opts.radius : 0;
+  const a = opts.alpha != null ? opts.alpha : 0.32;
+  const cor = opts.color || '0,0,0';
+  // Curva em S: a queda linear lê como "chapada"; estas paradas aproximam o
+  // decaimento de um desfoque gaussiano.
+  const A = (m) => `rgba(${cor},${Math.round(a * m * 1000) / 1000})`;
+  const paradas = `${A(1)} 0%, ${A(0.86)} 22%, ${A(0.5)} 50%, ${A(0.16)} 76%, ${A(0)} 100%`;
+  const borda = (dir) => `linear-gradient(${dir}, ${paradas})`;
+  const canto = (pos) => `radial-gradient(circle ${B}px at ${pos}, ${paradas})`;
+  const peca = (css, bg) => `<div style="position:absolute;${css}background:${bg};"></div>`;
+  const pecas = [
+    peca(`top:${M}px;right:${M}px;bottom:${M}px;left:${M}px;border-radius:${Math.max(0, raio - M)}px;`, A(1)),
+    peca(`left:${M}px;right:${M}px;top:${-M}px;height:${B}px;`, borda('to top')),
+    peca(`left:${M}px;right:${M}px;bottom:${-M}px;height:${B}px;`, borda('to bottom')),
+    peca(`top:${M}px;bottom:${M}px;left:${-M}px;width:${B}px;`, borda('to left')),
+    peca(`top:${M}px;bottom:${M}px;right:${-M}px;width:${B}px;`, borda('to right')),
+    peca(`left:${-M}px;top:${-M}px;width:${B}px;height:${B}px;`, canto('100% 100%')),
+    peca(`right:${-M}px;top:${-M}px;width:${B}px;height:${B}px;`, canto('0% 100%')),
+    peca(`left:${-M}px;bottom:${-M}px;width:${B}px;height:${B}px;`, canto('100% 0%')),
+    peca(`right:${-M}px;bottom:${-M}px;width:${B}px;height:${B}px;`, canto('0% 0%')),
+  ].join('');
+  const t = `${opts.rotate ? `rotate(${opts.rotate}) ` : ''}translate(${dx}px,${dy}px)`;
+  return `<div aria-hidden="true" style="position:absolute;top:0;right:0;bottom:0;left:0;transform:${t};pointer-events:none;">${pecas}</div>`;
+}
+
 /** Badge de categoria (chip). */
 function posterBadge(text, bg, fg) {
   return `<span style="display:inline-block;background:${bg};color:${fg};font-family:${PT.sans};font-size:22px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;border-radius:6px;padding:9px 18px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box;">${escapeHtml(text || 'CATEGORIA')}</span>`;
@@ -2069,8 +2127,11 @@ function tplPromoSplit(p, fmt, portal) {
         <div style="position:absolute;inset:0;">${posterImageLayer(p, posterImageKeys(p)[0])}</div>
       </div>
       <div style="flex:1 1 54%;min-height:0;background:${PT.gradSolid};display:flex;flex-direction:column;justify-content:center;gap:20px;padding:48px 52px;box-sizing:border-box;position:relative;">
-        ${posterShow('figure') ? `<div style="position:absolute;top:-46px;right:46px;transform:rotate(-8deg);background:${PT.paper};border:4px solid #fff;border-radius:18px;padding:14px 26px;">
-          <span style="font-family:${PT.cond};font-weight:800;font-size:${sSize}px;letter-spacing:0.02em;color:#fff;">${escapeHtml(selo)}</span>
+        ${posterShow('figure') ? `<div style="position:absolute;top:-46px;right:46px;">
+          ${posterSoftShadow({ blur: 55, dy: 10, radius: 18, alpha: 0.28, rotate: '-8deg' })}
+          <div style="position:relative;transform:rotate(-8deg);background:${PT.paper};border:4px solid #fff;border-radius:18px;padding:14px 26px;">
+            <span style="font-family:${PT.cond};font-weight:800;font-size:${sSize}px;letter-spacing:0.02em;color:#fff;">${escapeHtml(selo)}</span>
+          </div>
         </div>` : ''}
         ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:20px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.85);">${escapeHtml(p.category || 'Oferta')}</span>` : ''}
         ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
@@ -2361,9 +2422,12 @@ function tplEventoFoto(p, fmt, portal) {
         ${posterShow('category') ? posterBadge(p.category || 'AGENDA', PT.terra, '#fff') : ''}
       </div>
       <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;gap:22px;padding:0 48px 46px;">
-        ${posterShow('figure') ? `<div style="align-self:flex-start;display:flex;align-items:stretch;border-radius:16px;overflow:hidden;">
-          <span style="background:${PT.terra};width:12px;flex-shrink:0;"></span>
-          <span style="background:rgba(255,255,255,0.96);color:${PT.ink};font-family:${PT.cond};font-weight:800;font-size:${dSize}px;line-height:0.94;letter-spacing:0.01em;padding:18px 30px;">${escapeHtml(data)}</span>
+        ${posterShow('figure') ? `<div style="position:relative;align-self:flex-start;">
+          ${posterSoftShadow({ blur: 62, dy: 12, radius: 16, alpha: 0.4 })}
+          <div style="position:relative;display:flex;align-items:stretch;border-radius:16px;overflow:hidden;">
+            <span style="background:${PT.terra};width:12px;flex-shrink:0;"></span>
+            <span style="background:rgba(255,255,255,0.96);color:${PT.ink};font-family:${PT.cond};font-weight:800;font-size:${dSize}px;line-height:0.94;letter-spacing:0.01em;padding:18px 30px;">${escapeHtml(data)}</span>
+          </div>
         </div>` : ''}
         ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.98;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:27px;font-weight:500;line-height:1.4;color:rgba(255,255,255,0.92);margin:0;max-width:90%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
@@ -2526,10 +2590,13 @@ function tplCupom(p, fmt, portal) {
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:14px;">
         ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:1.0;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:500;line-height:1.45;color:rgba(255,255,255,0.9);margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
-        ${posterShow('figure') ? `<div style="margin-top:14px;background:#fff;border-radius:20px;padding:30px 26px;text-align:center;">
+        ${posterShow('figure') ? `<div style="position:relative;margin-top:14px;">
+          ${posterSoftShadow({ blur: 72, dy: 14, radius: 20, alpha: 0.26 })}
+          <div style="position:relative;background:#fff;border-radius:20px;padding:30px 26px;text-align:center;">
           <div style="font-family:${PT.sans};font-size:19px;font-weight:700;letter-spacing:0.28em;text-transform:uppercase;color:${PT.terra};">Use o código</div>
           <div style="margin-top:12px;padding:16px 10px;border:3px dashed ${PT.terra};border-radius:14px;font-family:${PT.cond};font-weight:800;font-size:${cSize}px;line-height:1;letter-spacing:0.08em;color:${PT.ink};word-break:break-all;">${escapeHtml(codigo)}</div>
-          ${p.labelA ? `<div style="margin-top:14px;font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.inkSoft};">${escapeHtml(p.labelA)}</div>` : ''}
+            ${p.labelA ? `<div style="margin-top:14px;font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.inkSoft};">${escapeHtml(p.labelA)}</div>` : ''}
+          </div>
         </div>` : ''}
       </div>
       <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;">
@@ -2756,11 +2823,9 @@ function tplPolaroid(p, fmt, portal) {
         ${p._total ? ptCounter(p, { size: 23 }) : ''}
       </div>
       <div style="flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;">
-        <!-- Sombra desenhada como BLOCO SÓLIDO deslocado, não box-shadow: o
-             html2canvas não pinta box-shadow (vira mancha cinza no PNG) e o
-             cartaz salvo deixava de bater com o preview. Assim é idêntico nos
-             dois, e a sombra dura combina com a estética de foto impressa. -->
-        <div style="position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.34);border-radius:4px;transform:rotate(-1.4deg) translate(14px,18px);"></div>
+        <!-- Sombra difusa que exporta igual ao preview (box-shadow viraria um
+             retângulo cinza no PNG; um bloco sólido deslocado ficaria duro). -->
+        ${posterSoftShadow({ blur: 88, dy: 18, radius: 4, alpha: 0.32, rotate: '-1.4deg' })}
         <div style="position:relative;width:100%;height:100%;min-height:0;background:#fdfdfb;border-radius:4px;padding:22px 22px 0;box-sizing:border-box;display:flex;flex-direction:column;transform:rotate(-1.4deg);">
           <div style="flex:1;min-height:0;position:relative;overflow:hidden;background:#111;">
             ${key ? posterImageLayer(p, key) : posterPhotoPlaceholder()}

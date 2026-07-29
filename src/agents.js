@@ -113,10 +113,16 @@ function buildInterpreterPrompt(content) {
     '  "citacoes": ["falas entre aspas atribuídas a alguém, se houver"],',
     '  "contexto": ["elementos de PANO DE FUNDO presentes no material: antecedentes, causas, motivações, reações, comparações e consequências que o próprio texto menciona"],',
     '  "angulos": ["2 a 4 leituras editoriais que os fatos acima SUSTENTAM — sem afirmar nenhuma como verdade; é o repertório do redator para argumentar"],',
+    '  "status_processual": "se houver acusação/crime/apuração, em que FASE o material coloca cada pessoa — ex.: \'X é suspeito\', \'Y foi denunciado pelo MP\', \'Z foi condenado em 1ª instância\'. String vazia se não se aplica",',
+    '  "contraditorio": ["a versão do acusado/investigado/empresa, se o material a traz — falas, notas, negativas"],',
+    '  "sensivel": ["marque os domínios de risco presentes: CRIMINAL, JUDICIAL, MENOR_DE_IDADE, SAUDE, FINANCEIRO, ELEITORAL — vazio se nenhum"],',
     '  "lacunas": ["informações que faltam ou estão ambíguas — para o redator NÃO inventar"]',
     '}',
     '',
     'Regras: mantenha nomes, números e datas EXATAMENTE como no texto. Não traduza. Não arredonde números. Arrays vazios são permitidos.',
+    '',
+    'Sobre "status_processual": copie a fase EXATA que o material afirma, sem promover ninguém de suspeito a culpado. Se o material diz apenas "preso em flagrante", é isso — não é condenação.',
+    'Sobre "contraditorio": recolha a defesa APENAS se ela estiver no material. Se não houver, deixe vazio — o redator vai registrar a ausência, e não inventar uma resposta.',
     '',
     'Sobre "contexto" e "angulos": eles NÃO são convite para inventar. "contexto" só recolhe o que o material já traz além do fato seco. "angulos" lista interpretações POSSÍVEIS a partir desses fatos (ex.: "o valor é alto para o porte do município", "o prazo foi cumprido") — o redator decide se usa e sob qual enquadramento.',
     '',
@@ -142,6 +148,9 @@ function fallbackInterpretation(content) {
     citacoes: [],
     contexto: [],
     angulos: [],
+    statusProcessual: '',
+    contraditorio: [],
+    sensivel: [],
     lacunas: [],
     _fallback: true,
   };
@@ -162,6 +171,9 @@ function normalizeInterpretation(data, content) {
     citacoes: asList(data.citacoes),
     contexto: asList(data.contexto),
     angulos: asList(data.angulos),
+    statusProcessual: asText(data.status_processual || data.statusProcessual),
+    contraditorio: asList(data.contraditorio),
+    sensivel: asList(data.sensivel).map((x) => String(x).toUpperCase()),
     lacunas: asList(data.lacunas),
   };
 }
@@ -199,6 +211,9 @@ function interpretationToBlock(interp) {
   bullets('Citações', interp.citacoes);
   bullets('Contexto presente no material', interp.contexto);
   bullets('Ângulos editoriais que os fatos sustentam', interp.angulos);
+  if (interp.statusProcessual) lines.push(`Fase processual (NÃO promova ninguém além dela): ${interp.statusProcessual}`);
+  bullets('Contraditório disponível no material (USE se houver)', interp.contraditorio);
+  if (interp.sensivel && interp.sensivel.length) lines.push(`Domínios sensíveis: ${interp.sensivel.join(', ')}`);
   bullets('Lacunas (NÃO preencher com invenção)', interp.lacunas);
   return lines.join('\n');
 }
@@ -246,6 +261,8 @@ function buildWriterPrompt(interp, style, tone) {
     'Teste prático: se um leitor perguntasse "de onde você tirou isso?", você conseguiria apontar o fato exato? Se sim, mesmo sendo uma INTERPRETAÇÃO dele, pode escrever. Se a resposta for "deduzi" ou "costuma ser assim", corte.',
     '',
     'Se um fato necessário estiver ausente (veja "Lacunas"), escreva sem ele — não preencha com suposição.',
+    '',
+    (typeof EDITORIAL_SAFETY !== 'undefined' ? EDITORIAL_SAFETY : ''),
     '',
     '═══ FATOS ISOLADOS (sua única fonte da verdade) ═══',
     interpretationToBlock(interp),
@@ -299,6 +316,8 @@ function buildWriterPrompt(interp, style, tone) {
     '4. Duas frases seguidas começam igual ou têm o mesmo comprimento? Se sim, varie.',
     '5. Trocando o tom por outro, quantas frases eu reescreveria? Se forem poucas, o tom está fraco — reforce.',
     '6. Eu me limitei a repetir os fatos, ou também os interpretei e argumentei a partir deles? Matéria sem leitura é boletim.',
+    '7. Há acusação, crime ou apuração no texto? Então: usei o termo da fase processual correta, atribuí a informação e registrei o outro lado (ou a ausência dele)?',
+    '8. Alguma frase afirma como PROVADO algo que o material não prova? Se sim, reescreva atribuindo ou recue para o que se sustenta.',
   ].join('\n');
 }
 
@@ -378,6 +397,7 @@ function buildEditorPrompt(article, interp, style, tone) {
     '6. RITMO: sequências de frases do mesmo comprimento e da mesma estrutura. Varie.',
     '7. ORDEM DENTRO DA FRASE: leve para a frente o que importa; subordine o acessório.',
     '8. AMBIGUIDADE: pronome sem referente claro, sujeito oculto trocado no meio do parágrafo.',
+    '9. RISCO JURÍDICO: informação sem dono; rótulo criminal definitivo antes de condenação ("o assassino", "o corrupto"); conclusão apresentada como fato provado; adjetivo que desqualifica a pessoa em vez de criticar o ato. Corrija SEM amolecer o texto — troque a acusação solta pela versão atribuída e precisa, que é mais forte, não mais fraca.',
     '',
     'Se um trecho já está bom, DEIXE COMO ESTÁ. Revisão não é reescrita gratuita.',
     '',
@@ -402,6 +422,7 @@ function buildEditorPrompt(article, interp, style, tone) {
     'VERIFICAÇÃO:',
     '1. Algum número, nome, data ou citação da sua versão está ausente da matéria original? Se sim, você inventou — desfaça.',
     '2. Sua versão ficou mais NEUTRA que a original? Se sim, você apagou o tom — devolva a intensidade.',
+    '3. Sobrou alguma afirmação que acusa alguém sem atribuição ou sem respaldo nos fatos? Reescreva atribuindo.',
   ].join('\n');
 }
 
@@ -632,6 +653,91 @@ function fallbackOptimization(interp, article) {
   return normalizeOptimization({ hashtags, palavras_chave: palavras });
 }
 
+/* -------------------------------------------------------------------------- */
+/* Auditoria determinística de RISCO JURÍDICO                                  */
+/*                                                                             */
+/* O prompt é a prevenção; isto é a rede embaixo. Diferente da trava de         */
+/* fidelidade — que DESCARTA a revisão quando ela inventa —, aqui nada é        */
+/* reescrito: um alerta é devolvido para o usuário decidir. Software não        */
+/* substitui revisão jurídica, e fingir que substitui seria pior do que não     */
+/* avisar. O que dá para fazer com segurança é apontar os padrões que as        */
+/* redações tratam como sinal amarelo.                                         */
+/* -------------------------------------------------------------------------- */
+
+function _temAlgum(texto, termos) {
+  const t = String(texto || '').toLowerCase();
+  return (termos || []).some((x) => t.includes(String(x).toLowerCase()));
+}
+
+/**
+ * Aponta padrões de risco no texto final. Devolve [{ tipo, aviso }] — lista
+ * vazia quando nada chamou atenção. É conservador de propósito: prefere não
+ * avisar a encher a tela de alarme falso, porque aviso que sempre aparece é
+ * aviso que ninguém lê.
+ */
+function auditarRiscoJuridico(article, interp) {
+  const texto = articleAllText(article);
+  const t = texto.toLowerCase();
+  const i = interp || {};
+  const avisos = [];
+  const rotulos = (typeof SAFETY_ROTULOS_CRIMINAIS !== 'undefined') ? SAFETY_ROTULOS_CRIMINAIS : [];
+  const atribuicao = (typeof SAFETY_MARCADORES_ATRIBUICAO !== 'undefined') ? SAFETY_MARCADORES_ATRIBUICAO : [];
+  const criminais = (typeof SAFETY_TERMOS_CRIMINAIS !== 'undefined') ? SAFETY_TERMOS_CRIMINAIS : [];
+  const contraditorio = (typeof SAFETY_MARCADORES_CONTRADITORIO !== 'undefined') ? SAFETY_MARCADORES_CONTRADITORIO : [];
+
+  const status = String(i.statusProcessual || '').toLowerCase();
+  const houveCondenacao = /conden/.test(status) || /conden/.test(t);
+
+  // 1) Rótulo definitivo antes de condenação — o risco clássico de difamação.
+  const achados = rotulos.filter((r) => new RegExp(`\\b(o|a|os|as)\\s+${r}\\b`, 'i').test(texto));
+  if (achados.length && !houveCondenacao) {
+    avisos.push({
+      tipo: 'rotulo-sem-condenacao',
+      aviso: `O texto trata alguém como "${achados[0]}" e o material não registra condenação. Use o termo da fase processual (suspeito, investigado, denunciado, réu).`,
+    });
+  }
+
+  const assuntoCriminal = _temAlgum(texto, criminais) || (i.sensivel || []).includes('CRIMINAL');
+
+  // 2) Assunto criminal sem nenhuma marca de atribuição no texto inteiro.
+  if (assuntoCriminal && !_temAlgum(texto, atribuicao)) {
+    avisos.push({
+      tipo: 'sem-atribuicao',
+      aviso: 'A matéria trata de crime ou apuração sem nenhuma atribuição visível ("segundo…", "de acordo com…"). Toda informação assim precisa de fonte explícita.',
+    });
+  }
+
+  // 3) Acusação sem o outro lado — nem a versão, nem o registro da ausência.
+  if (assuntoCriminal && (i.entidades || []).length && !_temAlgum(texto, contraditorio)) {
+    avisos.push({
+      tipo: 'sem-contraditorio',
+      aviso: 'Há acusação e pessoas/órgãos nomeados, mas o texto não traz a versão deles nem registra a tentativa de contato. Inclua a defesa (se o material tiver) ou registre a ausência.',
+    });
+  }
+
+  // 4) Menor de idade identificado. A checagem parte das ENTIDADES já isoladas,
+  //    não de varrer a prosa atrás de maiúsculas: procurar "duas palavras
+  //    capitalizadas" casava título + subtítulo através da quebra de linha e
+  //    alertava em matéria que não tinha nome nenhum.
+  const envolveMenor = (i.sensivel || []).includes('MENOR_DE_IDADE')
+    || /\b(adolescente|menor de idade)\b/i.test(texto);
+  if (envolveMenor) {
+    const nomePessoa = (i.entidades || []).find((e) => {
+      const nome = String(e).trim();
+      return /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ][^\s]+(\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇa-z][^\s]*)+$/.test(nome)
+        && nome.split(/\s+/).length >= 2
+        && t.includes(nome.toLowerCase());
+    });
+    if (nomePessoa) {
+      avisos.push({
+        tipo: 'menor-identificado',
+        aviso: `A matéria envolve adolescente e cita "${nomePessoa}". Confirme que o menor não está sendo identificado.`,
+      });
+    }
+  }
+  return avisos;
+}
+
 async function runOptimizerAgent(interp, article, call = callLLM, hoje) {
   try {
     const r = await callLLMJson(buildOptimizerPrompt(interp, article, hoje), call);
@@ -737,6 +843,10 @@ async function runContentPipeline({ content, style, tone, onStage, call = callLL
   // As hashtags vivem no article (consumidores antigos já leem article.hashtags).
   articleFinal.hashtags = optimization.hashtags.map((h) => '#' + h.tag);
 
+  // Auditoria de risco jurídico sobre o texto FINAL — não reescreve nada,
+  // devolve pontos para o usuário conferir antes de publicar.
+  const riscos = auditarRiscoJuridico(articleFinal, interpretation);
+
   const contentText = articleToPlainText(articleFinal);
 
   return {
@@ -744,6 +854,7 @@ async function runContentPipeline({ content, style, tone, onStage, call = callLL
     article: articleFinal,
     articleDraft: article,        // rascunho pré-revisão (auditoria/diagnóstico)
     optimization,                 // hashtags tipadas + palavras-chave
+    riscos,                       // pontos de atenção jurídica (não bloqueiam)
     content: contentText,
     agents,
     // Modelo "principal" (redator) para exibir de forma compacta como antes.

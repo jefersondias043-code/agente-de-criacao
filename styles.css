@@ -2398,6 +2398,41 @@ body.pe-full #view-posters { animation: none; }
   50% { opacity: 0.55; }
 }
 
+/* Pontos de atenção jurídica — aviso, não bloqueio. Âmbar em vez de vermelho:
+   é algo para conferir antes de publicar, não um erro do sistema. */
+.legal-risks {
+  border: 1px solid var(--amber, #d9a441);
+  background: #fdf6e7;
+  border-radius: var(--radius);
+  padding: 0.65rem 0.8rem;
+}
+.legal-risks-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #8a6212;
+}
+.legal-risks-head svg { flex-shrink: 0; }
+.legal-risks-list {
+  margin: 0.45rem 0 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #6b4d10;
+}
+@media (prefers-color-scheme: dark) {
+  .legal-risks { background: rgba(217, 164, 65, 0.1); }
+  .legal-risks-head { color: #e6b95c; }
+  .legal-risks-list { color: #d8c9a4; }
+}
+
 /* Bloco de hashtags */
 .hashtags-block {
   display: flex;

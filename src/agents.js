@@ -14,10 +14,14 @@
 //                                 Como os fatos já vêm separados, é muito mais
 //                                 difícil alucinar (o redator não vê "texto
 //                                 solto" para preencher lacunas por conta).
-//   3) Agente de Design         → dado o assunto e a forma da matéria, ESCOLHE
-//                                 modelo + formato + paleta do catálogo já
-//                                 existente (posters/carousels). É a peça nova:
-//                                 antes a escolha visual era 100% manual.
+//   3) Agente Editor            → copidesque sobre o rascunho: coesão, ritmo,
+//                                 transições e economia. Só FORMA — uma trava
+//                                 determinística descarta a revisão se ela
+//                                 introduzir número ou citação que não existia.
+//
+// (Houve um 4º agente, de DESIGN, que escolhia modelo/paleta/formato do cartaz.
+//  Foi removido: na prática a sugestão quase nunca servia e o usuário refazia a
+//  escolha à mão — a etapa custava uma chamada de IA e não poupava trabalho.)
 //
 // FILOSOFIA DE ROBUSTEZ: cada agente tem um FALLBACK. Se um agente não devolver
 // JSON válido (modelos menores às vezes escapam do formato), o pipeline degrada
@@ -450,168 +454,6 @@ async function runEditorAgent(article, interp, style, tone, call = callLLM) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 4) Agente de Design                                                         */
-/* -------------------------------------------------------------------------- */
-
-// Cardápio CURADO que o agente de design enxerga. Os ids são validados contra
-// os catálogos reais (POSTER_TEMPLATES / POSTER_PALETTES) na saída — se o modelo
-// inventar um id, caímos no default. Manter esta lista enxuta melhora a escolha.
-const DESIGN_TEMPLATE_MENU = [
-  ['manchete', 'notícia padrão com foto (uso geral)'],
-  ['headline-premium', 'manchete sofisticada com foto, para destaque'],
-  ['breaking-alert', 'plantão / urgente / alerta'],
-  ['destaque-foto', 'capa com foto dominante e pouco texto'],
-  ['quote-impact', 'citação forte acompanhada de foto'],
-  ['citacao', 'citação forte sem foto'],
-  ['numbers-data', 'o fato central é um número ou dado'],
-  ['kpis', 'vários indicadores numéricos'],
-  ['topicos', 'lista de pontos / tópicos'],
-  ['minimalista', 'texto limpo e elegante, sem foto'],
-  ['editorial-signature', 'opinião / editorial assinado'],
-];
-
-const DESIGN_PALETTE_MENU = [
-  ['vermelho-noticia', 'notícia geral, urgência, política — fundo escuro'],
-  ['vermelho-premium', 'jornalístico elegante — fundo claro'],
-  ['azul-institucional', 'governo, serviço público, institucional — escuro'],
-  ['azul-editorial', 'economia, análise — fundo claro'],
-  ['verde-editorial', 'saúde, meio ambiente, agro, notícia positiva — claro'],
-  ['roxo-premium', 'cultura, tecnologia, criativo — escuro'],
-  ['dourado-premium', 'especial, premiação, celebração — escuro'],
-  ['preto-elegante', 'editorial sóbrio, luto, esporte premium — escuro'],
-  ['cinza-corporativo', 'corporativo, neutro — escuro'],
-  ['laranja-criativo', 'entretenimento, esporte, energia — escuro'],
-  ['tons-tecnologicos', 'tecnologia, ciência, inovação — escuro'],
-  ['tons-corporativos', 'negócios, economia — fundo claro'],
-];
-
-const DESIGN_FORMATS = [
-  ['4:5', 'feed do Instagram (recomendado padrão)'],
-  ['1:1', 'feed quadrado'],
-  ['3:4', 'retrato para feed'],
-  ['9:16', 'stories / reels'],
-];
-
-const DESIGN_FONT_MENU = [
-  ['poppins', 'moderno e versátil — uso geral, institucional'],
-  ['fraunces', 'editorial serifado — cultura, análise, matéria sofisticada'],
-  ['oswald', 'impacto condensado — urgência, esporte, plantão'],
-  ['jakarta', 'geométrico limpo — tecnologia, negócios, corporativo'],
-];
-
-const DESIGN_DEFAULT = { template: 'manchete', format: '4:5', palette: 'vermelho-noticia', font: 'poppins' };
-
-function buildDesignPrompt(interp, article) {
-  const menu = (rows) => rows.map(([id, hint]) => `  - ${id}: ${hint}`).join('\n');
-  const hasQuote = interp.citacoes && interp.citacoes.length > 0;
-  const hasNumbers = interp.numeros && interp.numeros.length > 0;
-  return [
-    'Você é um AGENTE DE DESIGN editorial. Escolha a melhor combinação visual para publicar esta matéria em rede social. Você NÃO reescreve o texto — só decide a apresentação.',
-    '',
-    'Contexto da matéria:',
-    `- Assunto: ${interp.assunto || article.titulo}`,
-    `- Categoria: ${interp.categoria || 'GERAL'}`,
-    `- Local: ${interp.local || '—'}`,
-    `- Título: ${article.titulo}`,
-    `- Tem citação forte: ${hasQuote ? 'sim' : 'não'}`,
-    `- Tem número/dado central: ${hasNumbers ? 'sim' : 'não'}`,
-    '',
-    'MODELOS disponíveis (escolha um id):',
-    menu(DESIGN_TEMPLATE_MENU),
-    '',
-    'PALETAS disponíveis (escolha um id, combine com a categoria/tom):',
-    menu(DESIGN_PALETTE_MENU),
-    '',
-    'FORMATOS disponíveis (escolha um id):',
-    menu(DESIGN_FORMATS),
-    '',
-    'TIPOGRAFIA disponível (escolha um id, combine com o assunto/tom):',
-    menu(DESIGN_FONT_MENU),
-    '',
-    'Responda APENAS com um objeto JSON válido, sem cercas de código:',
-    '{ "template": "id", "format": "id", "palette": "id", "font": "id", "justificativa": "1 frase curta" }',
-    '',
-    'Coerência: use "quote-impact"/"citacao" só quando há citação forte; "numbers-data"/"kpis" só quando o número é o centro; "breaking-alert" só em urgência real. Na dúvida, prefira "manchete" com fonte "poppins".',
-  ].join('\n');
-}
-
-/** Valida a escolha do design contra os catálogos reais; corrige o que for
- *  inválido para um default seguro. Roda no clique, então os catálogos já
- *  existem no escopo global (poster-templates.js carregado). */
-function normalizeDesign(data) {
-  const out = Object.assign({}, DESIGN_DEFAULT);
-  if (data && typeof data === 'object') {
-    const t = asText(data.template);
-    const f = asText(data.format);
-    const p = asText(data.palette);
-    const fo = asText(data.font);
-    const templates = (typeof POSTER_TEMPLATES !== 'undefined') ? POSTER_TEMPLATES : null;
-    const palettes = (typeof POSTER_PALETTES !== 'undefined') ? POSTER_PALETTES : null;
-    const fonts = (typeof POSTER_FONTS !== 'undefined') ? POSTER_FONTS : null;
-    const formats = DESIGN_FORMATS.map((x) => x[0]);
-    if (t && (!templates || templates[t])) out.template = t;
-    if (formats.includes(f)) out.format = f;
-    if (p && (!palettes || palettes[p])) out.palette = p;
-    if (fo && (!fonts || fonts[fo])) out.font = fo;
-    out.justificativa = asText(data.justificativa);
-  }
-  // Rótulo amigável da paleta (para exibir no resultado)
-  if (typeof POSTER_PALETTES !== 'undefined' && POSTER_PALETTES[out.palette]) {
-    out.paletteLabel = POSTER_PALETTES[out.palette].label || out.palette;
-  } else {
-    out.paletteLabel = out.palette;
-  }
-  if (typeof POSTER_TEMPLATES !== 'undefined' && POSTER_TEMPLATES[out.template]) {
-    out.templateLabel = POSTER_TEMPLATES[out.template].label || out.template;
-  } else {
-    out.templateLabel = out.template;
-  }
-  if (typeof POSTER_FONTS !== 'undefined' && POSTER_FONTS[out.font]) {
-    out.fontLabel = POSTER_FONTS[out.font].label || out.font;
-  } else {
-    out.fontLabel = out.font;
-  }
-  return out;
-}
-
-/** Heurística de reserva quando o agente de design falha: escolhe pela
- *  categoria/estrutura sem custo de rede. */
-function fallbackDesign(interp, article) {
-  const cat = (interp.categoria || '').toUpperCase();
-  const d = Object.assign({}, DESIGN_DEFAULT);
-  if (interp.citacoes && interp.citacoes.length) d.template = 'quote-impact';
-  else if (interp.numeros && interp.numeros.length >= 2) d.template = 'numbers-data';
-  const byCat = {
-    'ECONOMIA': 'tons-corporativos', 'NEGÓCIOS': 'tons-corporativos',
-    'SAÚDE': 'verde-editorial', 'MEIO AMBIENTE': 'verde-editorial',
-    'CULTURA': 'roxo-premium', 'TECNOLOGIA': 'tons-tecnologicos',
-    'ESPORTE': 'laranja-criativo', 'POLÍTICA': 'azul-institucional',
-    'EDUCAÇÃO': 'azul-editorial', 'SEGURANÇA': 'preto-elegante',
-  };
-  if (byCat[cat]) d.palette = byCat[cat];
-  // Tipografia por categoria: serifada em cultura/análise, condensada em urgência,
-  // geométrica em tecnologia/negócios; padrão Poppins nas demais.
-  const fontByCat = {
-    'CULTURA': 'fraunces', 'EDUCAÇÃO': 'fraunces',
-    'ESPORTE': 'oswald', 'SEGURANÇA': 'oswald',
-    'TECNOLOGIA': 'jakarta', 'ECONOMIA': 'jakarta', 'NEGÓCIOS': 'jakarta',
-  };
-  if (fontByCat[cat]) d.font = fontByCat[cat];
-  return normalizeDesign(d);
-}
-
-async function runDesignAgent(interp, article, call = callLLM) {
-  try {
-    const r = await callLLMJson(buildDesignPrompt(interp, article), call);
-    const design = r.data ? normalizeDesign(r.data) : fallbackDesign(interp, article);
-    return { design, model: r.model, promptTokens: r.promptTokens, completionTokens: r.completionTokens, ok: !!r.data };
-  } catch (_) {
-    // Design é a etapa menos crítica: qualquer falha vira heurística local.
-    return { design: fallbackDesign(interp, article), model: null, ok: false, _error: true };
-  }
-}
-
-/* -------------------------------------------------------------------------- */
 /* Orquestrador                                                                */
 /* -------------------------------------------------------------------------- */
 
@@ -661,7 +503,7 @@ function artFromPipeline(g) {
  * Roda o pipeline completo de agentes.
  * @param {object} opts { content, style, tone, onStage? }
  *   onStage(key, title, desc) é chamado antes de cada etapa (UI de progresso).
- * @returns {Promise<object>} resultado com interpretation, article, design,
+ * @returns {Promise<object>} resultado com interpretation, article,
  *   content (texto plano), e metadados por agente.
  */
 async function runContentPipeline({ content, style, tone, onStage, call = callLLM } = {}) {
@@ -691,23 +533,16 @@ async function runContentPipeline({ content, style, tone, onStage, call = callLL
   };
   const articleFinal = eRes.article;
 
-  // 4) Design — escolha visual (degrada para heurística local se falhar).
-  stage('design', 'Agente de design…', 'Escolhendo modelo, formato e paleta.');
-  const dRes = await runDesignAgent(interpretation, articleFinal, call);
-  agents.design = { model: dRes.model, ok: dRes.ok };
-  const design = dRes.design;
-
   const contentText = articleToPlainText(articleFinal);
 
   return {
     interpretation,
     article: articleFinal,
     articleDraft: article,        // rascunho pré-revisão (auditoria/diagnóstico)
-    design,
     content: contentText,
     agents,
     // Modelo "principal" (redator) para exibir de forma compacta como antes.
-    model: wRes.model || iRes.model || (agents.design && agents.design.model) || '',
+    model: wRes.model || iRes.model || '',
     promptTokens: (iRes.promptTokens || 0) + (wRes.promptTokens || 0) + (eRes.promptTokens || 0) || null,
     completionTokens: (iRes.completionTokens || 0) + (wRes.completionTokens || 0) + (eRes.completionTokens || 0) || null,
   };

@@ -1,5 +1,5 @@
 // Orquestração do pipeline (runContentPipeline) com callLLM STUBADO — exercita
-// a linha de montagem real: interpretação → redação → design, incluindo as
+// a linha de montagem real: interpretação → redação → revisão, incluindo as
 // etapas de progresso (onStage) e os caminhos de FALLBACK quando um agente não
 // devolve JSON. Nenhuma rede é tocada: substituímos o callLLM global.
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
@@ -23,7 +23,6 @@ function role(prompt) {
   if (prompt.includes('AGENTE DE INTERPRETAÇÃO')) return 'interpret';
   if (prompt.includes('AGENTE REDATOR')) return 'write';
   if (prompt.includes('AGENTE EDITOR')) return 'edit';
-  if (prompt.includes('AGENTE DE DESIGN')) return 'design';
   return 'unknown';
 }
 
@@ -50,9 +49,6 @@ const goodEdit = JSON.stringify({
   corpo: ['A distribuição integra a assistência social do município.', 'As cestas chegaram às famílias do bairro.'],
   resumo: 'Prefeitura entrega 50 cestas no Calabar.',
 });
-const goodDesign = JSON.stringify({
-  template: 'manchete', format: '4:5', palette: 'azul-institucional', justificativa: 'notícia institucional de cidade',
-});
 
 describe('runContentPipeline — caminho feliz', () => {
   let result; let stages;
@@ -60,7 +56,7 @@ describe('runContentPipeline — caminho feliz', () => {
     stages = [];
     installLLM((p) => {
       const r = role(p);
-      const body = { interpret: goodInterp, write: goodArticle, edit: goodEdit, design: goodDesign }[r] || '{}';
+      const body = { interpret: goodInterp, write: goodArticle, edit: goodEdit }[r] || '{}';
       return { content: body, model: 'stub-model', promptTokens: 10, completionTokens: 20 };
     });
     result = await A.runContentPipeline({
@@ -71,8 +67,8 @@ describe('runContentPipeline — caminho feliz', () => {
     });
   });
 
-  it('chama os 4 agentes em ordem (progresso)', () => {
-    expect(stages).toEqual(['interpret', 'write', 'edit', 'design']);
+  it('chama os 3 agentes em ordem (progresso)', () => {
+    expect(stages).toEqual(['interpret', 'write', 'edit']);
   });
   it('produz interpretação estruturada com categoria em maiúsculas', () => {
     expect(result.interpretation.categoria).toBe('CIDADE');
@@ -82,11 +78,6 @@ describe('runContentPipeline — caminho feliz', () => {
     expect(result.article.titulo).toContain('Calabar');
     expect(result.article.corpo.length).toBe(2);
     expect(result.article.hashtags).toContain('#salvador');
-  });
-  it('produz design VÁLIDO nos catálogos', () => {
-    expect(A.POSTER_TEMPLATES[result.design.template]).toBeTruthy();
-    expect(A.POSTER_PALETTES[result.design.palette]).toBeTruthy();
-    expect(result.design.format).toBe('4:5');
   });
   it('monta content em texto plano retrocompatível', () => {
     expect(typeof result.content).toBe('string');
@@ -111,8 +102,7 @@ describe('runContentPipeline — fallbacks resilientes', () => {
       const r = role(p);
       if (r === 'interpret') return { content: goodInterp, model: 'm' };
       if (r === 'write') return { content: 'Título solto\nPrimeiro parágrafo do corpo.\nSegundo parágrafo.', model: 'm' };
-      if (r === 'edit') return { content: 'sem json', model: 'm' };
-      return { content: goodDesign, model: 'm' };
+      return { content: 'sem json', model: 'm' };
     });
     const res = await A.runContentPipeline({ call: stubCall, content: 'texto', style: 'Jornalístico', tone: 'Neutro' });
     expect(res.article.titulo).toBe('Título solto');
@@ -120,42 +110,17 @@ describe('runContentPipeline — fallbacks resilientes', () => {
     expect(res.content).toContain('parágrafo');
   });
 
-  it('design sem JSON: cai na heurística e ainda entrega design válido', async () => {
-    installLLM((p) => {
-      const r = role(p);
-      if (r === 'interpret') return { content: goodInterp, model: 'm' };
-      if (r === 'write') return { content: goodArticle, model: 'm' };
-      if (r === 'edit') return { content: goodEdit, model: 'm' };
-      return { content: 'desculpe, não sei responder em JSON', model: 'm' };
-    });
-    const res = await A.runContentPipeline({ call: stubCall, content: 'texto', style: 'Jornalístico', tone: 'Neutro' });
-    expect(A.POSTER_TEMPLATES[res.design.template]).toBeTruthy();
-    expect(A.POSTER_PALETTES[res.design.palette]).toBeTruthy();
-  });
 
   it('interpretador sem JSON: embrulha o texto bruto e o pipeline segue', async () => {
     installLLM((p) => {
       const r = role(p);
       if (r === 'interpret') return { content: 'não consigo', model: 'm' };
       if (r === 'write') return { content: goodArticle, model: 'm' };
-      if (r === 'edit') return { content: goodEdit, model: 'm' };
-      return { content: goodDesign, model: 'm' };
+      return { content: goodEdit, model: 'm' };
     });
     const res = await A.runContentPipeline({ call: stubCall, content: 'Conteúdo bruto da pauta.', style: 'Jornalístico', tone: 'Neutro' });
     expect(res.interpretation.categoria).toBe('GERAL');
     expect(res.article.titulo).toBeTruthy();
-    expect(A.POSTER_TEMPLATES[res.design.template]).toBeTruthy();
   });
 
-  it('design nunca derruba o pipeline se callLLM lançar na etapa de design', async () => {
-    installLLM((p) => {
-      const r = role(p);
-      if (r === 'design') throw new Error('rede caiu no design');
-      const body = { interpret: goodInterp, write: goodArticle, edit: goodEdit }[r] || goodArticle;
-      return { content: body, model: 'm' };
-    });
-    const res = await A.runContentPipeline({ call: stubCall, content: 'texto', style: 'Jornalístico', tone: 'Neutro' });
-    expect(res.article.titulo).toBeTruthy();
-    expect(A.POSTER_PALETTES[res.design.palette]).toBeTruthy(); // heurística
-  });
 });

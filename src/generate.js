@@ -20,7 +20,6 @@ function assembleAgentsGeneration({ style, tone, manualText, extractionId, combi
     // Saída estruturada do pipeline de agentes:
     interpretation: result.interpretation,
     article: result.article,
-    design: result.design,
     agents: result.agents,
     pipeline: true,
     model: result.model,
@@ -55,7 +54,8 @@ function assembleFastGeneration({ style, tone, manualText, extractionId, built, 
 
 /** Liga o toggle "Modo de geração" (Agentes vs Rápido) e restaura a preferência
  *  salva. 'agents' = pipeline de 3 agentes (padrão); 'fast' = 1 chamada de IA,
- *  igual ao comportamento anterior ao pipeline — sem design automático. */
+ *  igual ao comportamento anterior ao pipeline (sem isolamento de fatos nem
+ *  revisão, mais barato e mais rápido). */
 function setGenMode(mode) {
   State.genMode = (mode === 'fast') ? 'fast' : 'agents';
   try { localStorage.setItem(STORAGE_KEYS.genMode, State.genMode); } catch {}
@@ -262,7 +262,6 @@ function renderGenerate() {
             <span class="pipeline-step" data-step="interpret">Interpretação</span>
             <span class="pipeline-step" data-step="write">Redação</span>
             <span class="pipeline-step" data-step="edit">Revisão</span>
-            <span class="pipeline-step" data-step="design">Design</span>
           </div>
         </div>`;
 
@@ -313,7 +312,7 @@ function generationActionsHtml() {
     <div class="flex gap-1 flex-wrap mt-2">
       <button class="btn btn-ghost btn-sm" data-gen-copy>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        Copiar
+        Copiar tudo
       </button>
       <button class="btn btn-ghost btn-sm" data-gen-poster>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -330,49 +329,43 @@ function generationActionsHtml() {
 function wireGenerationActions(rootEl, g) {
   if (!rootEl) return;
   const c = rootEl.querySelector('[data-gen-copy]');
-  if (c) c.onclick = () => { navigator.clipboard.writeText(g.content); toast('Texto copiado.', 'success'); };
+  if (c) c.onclick = () => {
+    const temTags = !!(g.article && g.article.hashtags && g.article.hashtags.length);
+    navigator.clipboard.writeText(generationFullText(g));
+    toast(temTags ? 'Matéria e hashtags copiadas.' : 'Matéria copiada.', 'success');
+  };
   const p = rootEl.querySelector('[data-gen-poster]');
   if (p) p.onclick = () => createPosterFromGeneration(g);
   const car = rootEl.querySelector('[data-gen-carousel]');
   if (car && typeof createCarouselFromGeneration === 'function') car.onclick = () => createCarouselFromGeneration(g);
-  const tagsBtn = rootEl.querySelector('[data-gen-hashtags]');
-  if (tagsBtn) tagsBtn.onclick = () => {
-    const tags = (g.article && g.article.hashtags) || [];
-    navigator.clipboard.writeText(tags.join(' '));
-    toast('Hashtags copiadas.', 'success');
-  };
   if (typeof wireSendTo === 'function') wireSendTo(rootEl, () => g.content || '');
 }
 
-// Bloco do PIPELINE: hashtags copiáveis + o design sugerido pelo agente.
-// Só aparece para gerações do pipeline (retrocompatível: gerações antigas não
-// têm `article`/`design`, então o bloco é vazio).
+/** Texto COMPLETO da matéria: corpo + hashtags, num bloco só.
+ *
+ *  As hashtags ficam fora de `g.content` de propósito — cartaz e carrossel
+ *  consomem esse campo e não devem receber "#salvador" no meio do texto. Mas o
+ *  usuário que vai PUBLICAR quer tudo de uma vez, então a junção acontece na
+ *  hora de copiar. Mesmo padrão do AutoPost IA, onde "Copiar tudo" reúne
+ *  título, legenda e hashtags num único bloco. */
+function generationFullText(g) {
+  const base = (g && g.content) || '';
+  const tags = (g && g.article && g.article.hashtags) || [];
+  return tags.length ? `${base}\n\n${tags.join(' ')}` : base;
+}
+
+// Bloco do PIPELINE: as hashtags geradas, exibidas como referência visual. A
+// CÓPIA delas não tem botão próprio — vai junto no "Copiar tudo", para o
+// usuário não precisar de duas operações para publicar.
 function pipelineExtrasHtml(g) {
   if (!g || !g.pipeline) return '';
   const tags = (g.article && g.article.hashtags) || [];
-  const design = g.design;
-  let html = '';
-  if (design && design.templateLabel) {
-    const paletteLabel = design.paletteLabel || design.palette || '';
-    const fontLabel = design.fontLabel || design.font || '';
-    const fontBit = fontLabel ? ` · ${escapeHtml(String(fontLabel).split(' — ')[0])}` : '';
-    html += `
-      <div class="design-suggest mt-2" title="${escapeHtml(design.justificativa || 'Sugestão do agente de design')}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
-        <span class="text-xs">Design sugerido: <strong>${escapeHtml(design.templateLabel)}</strong> · ${escapeHtml(paletteLabel)} · ${escapeHtml(design.format || '')}${fontBit}</span>
-      </div>`;
-  }
-  if (tags.length) {
-    html += `
+  if (!tags.length) return '';
+  return `
       <div class="hashtags-block mt-2">
         <div class="hashtags-list">${tags.map((t) => `<span class="hashtag-chip">${escapeHtml(t)}</span>`).join('')}</div>
-        <button class="btn btn-ghost btn-sm" data-gen-hashtags>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          Copiar hashtags
-        </button>
+        <span class="text-xs text-mute">Incluídas ao copiar</span>
       </div>`;
-  }
-  return html;
 }
 
 function renderGenerationResult(g) {
@@ -417,7 +410,7 @@ function renderGenerationResult(g) {
       g.content = taEl.value;
       // O usuário reescreveu a matéria como texto livre: o `article` estruturado
       // do pipeline ficou obsoleto. Invalida-o para que cartaz/carrossel voltem a
-      // ler o texto EDITADO (via parseArticle). O design sugerido segue válido.
+      // ler o texto EDITADO (via parseArticle).
       if (g.article) g.article = null;
       saveGenerations();
       renderGenerationResult(g);

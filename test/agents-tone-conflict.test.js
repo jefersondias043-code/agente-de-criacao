@@ -15,7 +15,7 @@ beforeAll(() => {
   clearStorage();
   A = loadModules(
     ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js'],
-    ['detectarConflitosDeTom', 'semCitacoes', 'toneValence', 'buildEditorPrompt',
+    ['detectarConflitosDeTom', 'detectarRepeticoes', 'semCitacoes', 'toneValence', 'buildEditorPrompt',
       'runEditorAgent', 'buildWriterPrompt', 'buildInterpreterPrompt',
       'normalizeInterpretation', 'interpretationToBlock', 'buildPrompt', 'TONES']
   );
@@ -180,5 +180,120 @@ describe('a regra de prioridade chega a quem escreve', () => {
   it('o modo rápido recebe a mesma regra', () => {
     expect(A.buildPrompt('Jornalístico', 'Pessimista', 'conteúdo').prompt)
       .toContain('QUEM MANDA NO TOM É A ESCOLHA DO USUÁRIO');
+  });
+});
+
+/* ==========================================================================
+ * CASO REAL — saída reportada pelo usuário (estilo Noticioso, tom Pessimista).
+ * Serve de piso: o que passou batido uma vez não pode voltar a passar.
+ * ======================================================================== */
+const CASO_REAL = {
+  titulo: 'Corrida de Rua em Cajutiba: Expectativas Altas, mas Resultados Limitados',
+  subtitulo: 'Apenas 2 mil atletas participam do evento, que faz parte do projeto Take 3 Room',
+  lead: 'A corrida de rua em Cajutiba, que faz parte do projeto Take 3 Room, contou com a participação de apenas 2 mil atletas, um número que pode ser considerado limitado em comparação com outras corridas da região. O evento, que já passou por Aporá e vai passar por Esplanada e Iambupe, é visto como uma celebração da saúde e da superação, mas também levanta questionamentos sobre a eficácia do projeto em atrair participantes.',
+  corpo: [
+    'A corrida de rua em Cajutiba é um exemplo de como os eventos esportivos podem ser organizados de forma a promover a saúde e a qualidade de vida, mas também destaca a necessidade de uma melhor estrutura e divulgação para atrair mais participantes.',
+    'O projeto Take 3 Room tem como objetivo promover a saúde e a superação em várias cidades da região, mas a corrida de rua em Cajutiba pode ser vista como um exemplo de como os resultados podem ser limitados.',
+    'A corrida de rua em Cajutiba também levanta questionamentos sobre a eficácia do projeto em atrair participantes e promover a saúde e a superação.',
+  ],
+  resumo: '', hashtags: [],
+};
+const INTERP_REAL = {
+  cargaOriginal: ['sucesso absoluto', 'celebra saúde, superação e qualidade de vida', 'grande festa do esporte'],
+  viesDaFonte: 'POSITIVO',
+};
+
+describe('caso real reportado: elogios sobreviveram ao tom pessimista', () => {
+  it('pega os elogios que o léxico antigo deixava passar', () => {
+    const c = A.detectarConflitosDeTom(CASO_REAL, 'Pessimista', INTERP_REAL);
+    expect(c).toContain('superação');
+    expect(c).toContain('qualidade de vida');
+    expect(c.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('a carga da própria fonte é conferida, não só o léxico fixo', () => {
+    const artigo = Object.assign({}, CASO_REAL, {
+      lead: 'O evento foi um sucesso absoluto, com 2 mil atletas.', corpo: [],
+    });
+    const c = A.detectarConflitosDeTom(artigo, 'Pessimista', INTERP_REAL);
+    expect(c).toContain('sucesso absoluto');
+  });
+
+  it('sem interpretação, o léxico fixo ainda funciona', () => {
+    expect(A.detectarConflitosDeTom(CASO_REAL, 'Pessimista')).toContain('superação');
+  });
+
+  it('expressão curta demais da fonte não vira ruído', () => {
+    const c = A.detectarConflitosDeTom(
+      { titulo: 'a', subtitulo: '', lead: 'A obra atendeu famílias.', corpo: [] },
+      'Pessimista', { cargaOriginal: ['boa'], viesDaFonte: 'POSITIVO' });
+    expect(c).toEqual([]);
+  });
+});
+
+describe('caso real reportado: a mesma crítica em todos os parágrafos', () => {
+  it('acusa os parágrafos que abrem igual', () => {
+    const r = A.detectarRepeticoes(CASO_REAL);
+    expect(r.some((x) => /3 parágrafos abrem/.test(x))).toBe(true);
+  });
+
+  it('acusa o argumento repetido entre parágrafos', () => {
+    const r = A.detectarRepeticoes(CASO_REAL);
+    expect(r.some((x) => x.includes('levanta questionamentos sobre a eficácia'))).toBe(true);
+    expect(r.some((x) => x.includes('promover a saúde e a'))).toBe(true);
+  });
+
+  it('texto bem construído não acusa repetição', () => {
+    const bom = {
+      titulo: 'T', subtitulo: 'S',
+      lead: 'Apenas 2 mil atletas correram em Cajutiba neste domingo.',
+      corpo: [
+        'O percurso passou pelo centro da cidade, com apoio médico e massagem.',
+        'Segundo os organizadores, novas etapas estão previstas para Esplanada e Entre Rios.',
+      ], resumo: '', hashtags: [],
+    };
+    expect(A.detectarRepeticoes(bom)).toEqual([]);
+  });
+
+  it('matéria de um parágrafo só não tem o que repetir', () => {
+    expect(A.detectarRepeticoes({ lead: 'Uma frase.', corpo: [] })).toEqual([]);
+  });
+
+  it('o revisor recebe as repetições com a ordem de fundir parágrafos', () => {
+    const p = A.buildEditorPrompt(CASO_REAL, INTERP_REAL, 'Noticioso', 'Pessimista', [], A.detectarRepeticoes(CASO_REAL));
+    expect(p).toContain('REPETIÇÃO DETECTADA');
+    expect(p).toContain('funda-os num só');
+    expect(p).toContain('entregue menos parágrafos');
+  });
+});
+
+describe('caso real reportado: o tom fabricou premissa', () => {
+  it('o redator é proibido de inventar comparação para sustentar o tom', () => {
+    const p = A.buildWriterPrompt({ fatos: ['f'] }, 'Noticioso', 'Pessimista');
+    expect(p).toContain('NÃO FABRICA FATO NOVO');
+    expect(p).toContain('criar COMPARAÇÃO que o material não faz');
+  });
+
+  it('avaliação sem dono é tratada como fato inventado', () => {
+    const p = A.buildWriterPrompt({ fatos: ['f'] }, 'Noticioso', 'Pessimista');
+    expect(p).toContain('Avaliação sem dono é fato inventado');
+  });
+
+  it('mas a palavra-pivô continua permitida', () => {
+    const p = A.buildWriterPrompt({ fatos: ['f'] }, 'Noticioso', 'Pessimista');
+    expect(p).toContain('apenas 2 mil atletas');
+    expect(p).toContain('PODE (é enquadramento)');
+  });
+
+  it('o redator é mandado avançar um argumento por parágrafo', () => {
+    const p = A.buildWriterPrompt({ fatos: ['f'] }, 'Noticioso', 'Pessimista');
+    expect(p).toContain('CADA PARÁGRAFO AVANÇA');
+    expect(p).toContain('entregue MENOS parágrafos');
+  });
+
+  it('o modo rápido recebe as duas regras', () => {
+    const p = A.buildPrompt('Noticioso', 'Pessimista', 'conteúdo').prompt;
+    expect(p).toContain('NÃO FABRICA FATO NOVO');
+    expect(p).toContain('CADA PARÁGRAFO AVANÇA');
   });
 });

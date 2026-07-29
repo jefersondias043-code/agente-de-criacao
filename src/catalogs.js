@@ -612,13 +612,22 @@ const TOM_LEXICO_POSITIVO = [
   'exemplar', 'fortalece', 'moderniza', 'premiado', 'elogiad', 'orgulho',
   'esperança', 'esperanca', 'vitória', 'vitoria', 'triunfo', 'extraordinári',
   'notável', 'notavel', 'impecável', 'impecavel', 'promissor',
+  // Vazamentos vistos em produção: elogio que não usa a palavra "bom" — vem
+  // como virtude atribuída ao evento ("celebra saúde, superação e qualidade
+  // de vida"). Sem estes termos a varredura passava batido.
+  'superação', 'superacao', 'qualidade de vida', 'celebração', 'celebracao',
+  'festa do esporte', 'grande festa', 'inspirador', 'emocionante', 'histórica',
+  'historica', 'consagr', 'brilhante', 'maravilhos', 'espetacular', 'incrível',
+  'incrivel', 'referência', 'referencia', 'marco', 'valoriza', 'engrandece',
 ];
 const TOM_LEXICO_NEGATIVO = [
   'fracasso', 'caos', 'caótic', 'caotic', 'precári', 'precari', 'abandono',
   'descaso', 'sucateamento', 'colapso', 'desastre', 'desastros', 'lamentável',
   'lamentavel', 'péssim', 'pessim', 'insuficiente', 'deficiente', 'revolta',
   'indignação', 'indignacao', 'vergonhos', 'calamidade', 'ineficaz', 'ineficiente',
-  'fiasco', 'retrocesso',
+  'fiasco', 'retrocesso', 'fracassad', 'decepcion', 'frustr', 'negligência',
+  'negligencia', 'caótico', 'desorganiz', 'improvis', 'mediocr', 'tímido',
+  'timido', 'aquém', 'aquem', 'esvaziad',
 ];
 
 /** Valência do tom, derivada do GRUPO do catálogo — assim todo tom novo já

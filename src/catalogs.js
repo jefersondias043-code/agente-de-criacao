@@ -593,6 +593,47 @@ const SAFETY_MARCADORES_CONTRADITORIO = [
   'em nota', 'contatad', 'não comentou', 'nao comentou',
 ];
 
+/* ============================================================================
+ * COERÊNCIA DE TOM — léxicos de valência.
+ *
+ * Servem à varredura determinística que encontra, no rascunho, expressões de
+ * juízo puxando para o lado CONTRÁRIO ao tom escolhido. É o vazamento clássico:
+ * a fonte diz "sucesso extraordinário", o usuário pede tom pessimista e a
+ * palavra atravessa para a matéria, que passa a se contradizer.
+ *
+ * Só entram palavras claramente AVALIATIVAS. Termos ambíguos que também podem
+ * ser factuais ("queda", "denúncia", "problema") ficam de fora de propósito —
+ * o resultado alimenta o revisor, e apontar demais faria o revisor mexer no
+ * que estava certo.
+ * ========================================================================== */
+const TOM_LEXICO_POSITIVO = [
+  'sucesso', 'êxito', 'exito', 'conquista', 'avanço', 'avanco', 'melhoria',
+  'benefício', 'beneficio', 'celebra', 'comemora', 'excelente', 'ótimo', 'otimo',
+  'exemplar', 'fortalece', 'moderniza', 'premiado', 'elogiad', 'orgulho',
+  'esperança', 'esperanca', 'vitória', 'vitoria', 'triunfo', 'extraordinári',
+  'notável', 'notavel', 'impecável', 'impecavel', 'promissor',
+];
+const TOM_LEXICO_NEGATIVO = [
+  'fracasso', 'caos', 'caótic', 'caotic', 'precári', 'precari', 'abandono',
+  'descaso', 'sucateamento', 'colapso', 'desastre', 'desastros', 'lamentável',
+  'lamentavel', 'péssim', 'pessim', 'insuficiente', 'deficiente', 'revolta',
+  'indignação', 'indignacao', 'vergonhos', 'calamidade', 'ineficaz', 'ineficiente',
+  'fiasco', 'retrocesso',
+];
+
+/** Valência do tom, derivada do GRUPO do catálogo — assim todo tom novo já
+ *  nasce classificado, sem lista paralela para manter. 0 = sem verificação
+ *  (tons neutros e emocionais não têm lado a defender). */
+function toneValence(tone) {
+  for (const g of TONES) {
+    if (!g.items.some((i) => i.id === tone)) continue;
+    if (g.group === 'Positivos') return 1;
+    if (g.group === 'Negativos') return -1;
+    return 0;
+  }
+  return 0;
+}
+
 /** Catálogo de modelos disponíveis por provedor */
 const PROVIDER_MODELS = {
   groq: [

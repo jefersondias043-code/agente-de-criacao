@@ -106,7 +106,7 @@ function buildInterpreterPrompt(content) {
     '  "categoria": "uma categoria jornalística em MAIÚSCULAS (ex.: POLÍTICA, ECONOMIA, SAÚDE, EDUCAÇÃO, SEGURANÇA, ESPORTE, CULTURA, CIDADE, GERAL)",',
     '  "local": "cidade/UF ou lugar citado, ou string vazia se não houver",',
     '  "resumo_factual": "1 a 2 frases neutras contendo só os fatos, sem adjetivos",',
-    '  "fatos": ["cada fato atômico como uma frase curta e literal"],',
+    '  "fatos": ["cada fato atômico em linguagem NEUTRA: preserve o acontecimento, os nomes, os números e as datas, mas retire adjetivo e advérbio de valor do texto de origem. \'A obra foi um sucesso extraordinário e atendeu 500 famílias\' vira \'A obra atendeu 500 famílias\'"],',
     '  "entidades": ["pessoas, órgãos, empresas citados"],',
     '  "datas": ["datas/prazos citados"],',
     '  "numeros": ["números, valores, quantidades citados com sua unidade"],',
@@ -116,10 +116,15 @@ function buildInterpreterPrompt(content) {
     '  "status_processual": "se houver acusação/crime/apuração, em que FASE o material coloca cada pessoa — ex.: \'X é suspeito\', \'Y foi denunciado pelo MP\', \'Z foi condenado em 1ª instância\'. String vazia se não se aplica",',
     '  "contraditorio": ["a versão do acusado/investigado/empresa, se o material a traz — falas, notas, negativas"],',
     '  "sensivel": ["marque os domínios de risco presentes: CRIMINAL, JUDICIAL, MENOR_DE_IDADE, SAUDE, FINANCEIRO, ELEITORAL — vazio se nenhum"],',
+    '  "carga_original": ["as expressões de JUÍZO que você retirou dos fatos — os adjetivos, advérbios e construções com que a FONTE avaliou os acontecimentos (ex.: \'sucesso extraordinário\', \'situação caótica\', \'apenas\', \'finalmente\')"],',
+    '  "viés_da_fonte": "para que lado o texto de origem pende: POSITIVO, NEGATIVO ou NEUTRO",',
     '  "lacunas": ["informações que faltam ou estão ambíguas — para o redator NÃO inventar"]',
     '}',
     '',
     'Regras: mantenha nomes, números e datas EXATAMENTE como no texto. Não traduza. Não arredonde números. Arrays vazios são permitidos.',
+    '',
+    'SEPARE O FATO DO JUÍZO. Este é o ponto mais importante do seu trabalho: o que aconteceu é FATO e vai para "fatos"; como a fonte avaliou o que aconteceu é OPINIÃO DELA e vai para "carga_original". Quem escreve a matéria vai aplicar um tom possivelmente OPOSTO ao da fonte — se o juízo vier grudado no fato, a matéria sai contraditória, elogiando e criticando o mesmo acontecimento.',
+    'As CITAÇÕES são exceção: fala entre aspas é reproduzida literalmente, com o juízo de quem falou, porque o fato ali é "fulano disse isso".',
     '',
     'Sobre "status_processual": copie a fase EXATA que o material afirma, sem promover ninguém de suspeito a culpado. Se o material diz apenas "preso em flagrante", é isso — não é condenação.',
     'Sobre "contraditorio": recolha a defesa APENAS se ela estiver no material. Se não houver, deixe vazio — o redator vai registrar a ausência, e não inventar uma resposta.',
@@ -148,6 +153,8 @@ function fallbackInterpretation(content) {
     citacoes: [],
     contexto: [],
     angulos: [],
+    cargaOriginal: [],
+    viesDaFonte: 'NEUTRO',
     statusProcessual: '',
     contraditorio: [],
     sensivel: [],
@@ -171,6 +178,8 @@ function normalizeInterpretation(data, content) {
     citacoes: asList(data.citacoes),
     contexto: asList(data.contexto),
     angulos: asList(data.angulos),
+    cargaOriginal: asList(data.carga_original || data.cargaOriginal),
+    viesDaFonte: (asText(data['viés_da_fonte'] || data.vies_da_fonte || data.viesDaFonte) || 'NEUTRO').toUpperCase(),
     statusProcessual: asText(data.status_processual || data.statusProcessual),
     contraditorio: asList(data.contraditorio),
     sensivel: asList(data.sensivel).map((x) => String(x).toUpperCase()),
@@ -213,6 +222,13 @@ function interpretationToBlock(interp) {
   bullets('Ângulos editoriais que os fatos sustentam', interp.angulos);
   if (interp.statusProcessual) lines.push(`Fase processual (NÃO promova ninguém além dela): ${interp.statusProcessual}`);
   bullets('Contraditório disponível no material (USE se houver)', interp.contraditorio);
+  if (interp.cargaOriginal && interp.cargaOriginal.length) {
+    lines.push('Juízo DA FONTE (não é fato — NÃO herde estas expressões):',
+      ...interp.cargaOriginal.map((x) => `  - ${x}`));
+  }
+  if (interp.viesDaFonte && interp.viesDaFonte !== 'NEUTRO') {
+    lines.push(`Viés do texto de origem: ${interp.viesDaFonte}`);
+  }
   if (interp.sensivel && interp.sensivel.length) lines.push(`Domínios sensíveis: ${interp.sensivel.join(', ')}`);
   bullets('Lacunas (NÃO preencher com invenção)', interp.lacunas);
   return lines.join('\n');
@@ -261,6 +277,20 @@ function buildWriterPrompt(interp, style, tone) {
     'Teste prático: se um leitor perguntasse "de onde você tirou isso?", você conseguiria apontar o fato exato? Se sim, mesmo sendo uma INTERPRETAÇÃO dele, pode escrever. Se a resposta for "deduzi" ou "costuma ser assim", corte.',
     '',
     'Se um fato necessário estiver ausente (veja "Lacunas"), escreva sem ele — não preencha com suposição.',
+    '',
+    '═══ QUEM MANDA NO TOM É A ESCOLHA DO USUÁRIO, NÃO O TEXTO DE ORIGEM ═══',
+    'O material de entrada tem um tom próprio — e ele pode ser o OPOSTO do que foi pedido. Nesse caso o tom da fonte NÃO tem autoridade nenhuma: quem manda é o tom selecionado, do começo ao fim da matéria.',
+    '',
+    'O erro a evitar: aproveitar um trecho do original junto com a avaliação que vinha nele. Isso produz uma matéria que se contradiz — elogia e critica o mesmo acontecimento em parágrafos diferentes.',
+    '',
+    'Adjetivo, advérbio e construção de juízo que vieram da fonte NÃO são fatos: são a opinião dela. Você pode e DEVE trocá-los, removê-los ou invertê-los para servir ao tom pedido. O que não pode mudar é o acontecimento.',
+    '• A fonte diz "a obra foi um sucesso e atendeu 500 famílias" e o tom pedido é pessimista → o fato é "atendeu 500 famílias"; "sucesso" é juízo da fonte e sai. Você pode escrever "atendeu 500 famílias — número que o próprio material não compara com a fila de espera".',
+    '• A fonte diz "o caos no trânsito piorou com a obra" e o tom pedido é otimista → o fato é "a obra alterou o trânsito"; "caos" é juízo da fonte e sai.',
+    '• Em nenhum dos dois casos o acontecimento mudou. Mudou de quem é a avaliação.',
+    '',
+    'ÚNICA EXCEÇÃO: fala entre aspas. Citação é reproduzida LITERALMENTE, mesmo carregando juízo contrário ao seu tom — o fato ali é "fulano disse isso". O que é seu é o enquadramento: apresente, contextualize e responda à fala ("o secretário classificou a obra como \'um sucesso\'; os números do próprio material mostram…").',
+    '',
+    'UNIDADE: ao terminar, a matéria inteira precisa soar como UMA voz. Nenhum parágrafo pode puxar para o lado contrário ao tom escolhido.',
     '',
     (typeof EDITORIAL_SAFETY !== 'undefined' ? EDITORIAL_SAFETY : ''),
     '',
@@ -318,6 +348,7 @@ function buildWriterPrompt(interp, style, tone) {
     '6. Eu me limitei a repetir os fatos, ou também os interpretei e argumentei a partir deles? Matéria sem leitura é boletim.',
     '7. Há acusação, crime ou apuração no texto? Então: usei o termo da fase processual correta, atribuí a informação e registrei o outro lado (ou a ausência dele)?',
     '8. Alguma frase afirma como PROVADO algo que o material não prova? Se sim, reescreva atribuindo ou recue para o que se sustenta.',
+    '9. Sobrou alguma palavra de juízo herdada da fonte que puxa para o lado CONTRÁRIO ao tom pedido? Fora dela — sem tirar o acontecimento.',
   ].join('\n');
 }
 
@@ -379,8 +410,17 @@ async function runWriterAgent(interp, style, tone, call = callLLM) {
 /* ou citação que não existiam, a revisão é DESCARTADA e fica o rascunho.      */
 /* -------------------------------------------------------------------------- */
 
-function buildEditorPrompt(article, interp, style, tone) {
+function buildEditorPrompt(article, interp, style, tone, conflitos) {
   const corpo = (article.corpo || []).map((p, i) => `  P${i + 1}: ${p}`).join('\n');
+  const listaConflito = (conflitos && conflitos.length)
+    ? [
+      '',
+      `═══ CONFLITO DE TOM DETECTADO — resolva ANTES de qualquer outra coisa ═══`,
+      `Estas expressões de juízo estão no texto e puxam para o lado CONTRÁRIO ao tom "${tone}": ${conflitos.join(', ')}.`,
+      'Elas vieram do material de origem, não do tom pedido. Reescreva cada trecho preservando o ACONTECIMENTO e trocando a avaliação — ou simplesmente retire o adjetivo, se ele não carregar fato nenhum.',
+      'Se a expressão estiver dentro de uma CITAÇÃO entre aspas, deixe como está: fala é reproduzida literalmente. Nesse caso ajuste o enquadramento em volta dela.',
+    ].join('\n')
+    : '';
   return [
     'Você é um AGENTE EDITOR de texto jornalístico. Recebe uma matéria já escrita e a revisa como um copidesque profissional faria.',
     '',
@@ -401,6 +441,7 @@ function buildEditorPrompt(article, interp, style, tone) {
     '',
     'Se um trecho já está bom, DEIXE COMO ESTÁ. Revisão não é reescrita gratuita.',
     '',
+    listaConflito,
     `═══ ESTILO "${style}" / TOM "${tone}" — preservar e, se der, REFORÇAR ═══`,
     'Atenção: ao cortar redundância e frase morta, é fácil neutralizar o texto sem querer. NÃO faça isso. Se uma palavra carrega o tom, ela fica — mesmo que "mais enxuto" fosse possível. Onde a revisão puder tornar o tom MAIS nítido sem inventar fato, torne.',
     'Nunca troque uma formulação assumidamente interpretativa por uma neutra: a leitura editorial é intencional, não é defeito de escrita.',
@@ -423,7 +464,34 @@ function buildEditorPrompt(article, interp, style, tone) {
     '1. Algum número, nome, data ou citação da sua versão está ausente da matéria original? Se sim, você inventou — desfaça.',
     '2. Sua versão ficou mais NEUTRA que a original? Se sim, você apagou o tom — devolva a intensidade.',
     '3. Sobrou alguma afirmação que acusa alguém sem atribuição ou sem respaldo nos fatos? Reescreva atribuindo.',
+    '4. Restou alguma expressão de juízo puxando para o lado contrário ao tom? A matéria tem que soar como UMA voz do início ao fim.',
   ].join('\n');
+}
+
+/** Remove os trechos entre aspas — citação é reproduzida literalmente e pode
+ *  carregar juízo contrário ao tom sem que isso seja incoerência da matéria. */
+function semCitacoes(texto) {
+  return String(texto || '').replace(/[""«"][^""»"]*[""»"]/g, ' ');
+}
+
+/**
+ * Acha, no texto, expressões de juízo que puxam para o lado CONTRÁRIO ao tom
+ * escolhido — o vazamento que faz a matéria se contradizer.
+ *
+ * Devolve as expressões encontradas (lista vazia = coerente). Tom sem lado
+ * definido (neutros e emocionais) não é verificado: não há contrário a apontar.
+ * O resultado ALIMENTA O REVISOR com os trechos exatos a reescrever, em vez de
+ * virar aviso na tela — o conserto é automático e o usuário não precisa saber
+ * que houve conflito.
+ */
+function detectarConflitosDeTom(article, tone) {
+  const valencia = (typeof toneValence === 'function') ? toneValence(tone) : 0;
+  if (!valencia) return [];
+  const contrarios = valencia > 0
+    ? ((typeof TOM_LEXICO_NEGATIVO !== 'undefined') ? TOM_LEXICO_NEGATIVO : [])
+    : ((typeof TOM_LEXICO_POSITIVO !== 'undefined') ? TOM_LEXICO_POSITIVO : []);
+  const texto = semCitacoes(articleAllText(article)).toLowerCase();
+  return contrarios.filter((termo) => texto.includes(termo));
 }
 
 /** Todo o texto visível de uma matéria, para as conferências determinísticas. */
@@ -494,21 +562,23 @@ function mergeEditedArticle(rascunho, data) {
 }
 
 async function runEditorAgent(article, interp, style, tone, call = callLLM) {
+  const conflitos = detectarConflitosDeTom(article, tone);
   try {
-    const r = await callLLMJson(buildEditorPrompt(article, interp, style, tone), call);
-    if (!r.data) return { article, ok: false, motivo: 'sem-json', model: r.model };
+    const r = await callLLMJson(buildEditorPrompt(article, interp, style, tone, conflitos), call);
+    if (!r.data) return { article, ok: false, motivo: 'sem-json', model: r.model, conflitos };
     const revisado = mergeEditedArticle(article, r.data);
     const inventado = editorIntroduziuFato(article, revisado, interp);
     if (inventado.length) {
       // Fidelidade vence polimento: descarta a revisão inteira.
-      return { article, ok: false, motivo: 'introduziu-fato', inventado, model: r.model,
+      return { article, ok: false, motivo: 'introduziu-fato', inventado, model: r.model, conflitos,
         promptTokens: r.promptTokens, completionTokens: r.completionTokens };
     }
-    return { article: revisado, ok: true, model: r.model,
+    return { article: revisado, ok: true, model: r.model, conflitos,
+      conflitosRestantes: detectarConflitosDeTom(revisado, tone),
       promptTokens: r.promptTokens, completionTokens: r.completionTokens };
   } catch (_) {
     // Revisão é opcional: qualquer falha mantém o rascunho.
-    return { article, ok: false, motivo: 'erro' };
+    return { article, ok: false, motivo: 'erro', conflitos };
   }
 }
 
@@ -827,6 +897,8 @@ async function runContentPipeline({ content, style, tone, onStage, call = callLL
   agents.editor = {
     model: eRes.model || null, ok: eRes.ok, motivo: eRes.motivo || null,
     inventado: eRes.inventado || null,
+    conflitosDeTom: eRes.conflitos || [],
+    conflitosRestantes: eRes.conflitosRestantes || [],
     promptTokens: eRes.promptTokens || null, completionTokens: eRes.completionTokens || null,
   };
   const articleFinal = eRes.article;

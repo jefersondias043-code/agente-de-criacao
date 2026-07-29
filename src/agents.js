@@ -292,6 +292,20 @@ function buildWriterPrompt(interp, style, tone) {
     '',
     'UNIDADE: ao terminar, a matéria inteira precisa soar como UMA voz. Nenhum parágrafo pode puxar para o lado contrário ao tom escolhido.',
     '',
+    '═══ O TOM ENQUADRA O FATO — NÃO FABRICA FATO NOVO ═══',
+    'Ao aplicar um tom forte existe uma tentação perigosa: inventar a premissa que justifica o tom. Isso é alucinação, não estilo.',
+    'PODE (é enquadramento): escolher a palavra-pivô — "apenas 2 mil atletas", "somente três cidades", "já são 2 mil atletas". O número é o mesmo; a leitura é sua.',
+    'NÃO PODE (é fato inventado):',
+    '• criar COMPARAÇÃO que o material não faz — "número baixo em relação a outras corridas da região" quando o material não traz nenhuma outra corrida para comparar;',
+    '• apresentar a sua avaliação como consenso alheio — "foi considerado baixo", "é visto como insuficiente" sem dizer POR QUEM. Avaliação sem dono é fato inventado disfarçado de reportagem;',
+    '• deduzir causa ou consequência que o material não afirma — "a falta de participantes afetou a competitividade".',
+    'Se você quer sustentar a crítica (ou o elogio), use o que EXISTE: o próprio material, ou a ausência dele — "o material não informa quantas pessoas eram esperadas" é uma frase forte, honesta e do seu lado.',
+    '',
+    '═══ CADA PARÁGRAFO AVANÇA — UM ARGUMENTO, UMA VEZ ═══',
+    'Tom forte não se constrói repetindo a mesma crítica (ou o mesmo elogio) em todos os parágrafos. Isso não intensifica: cansa, e denuncia que faltou o que dizer.',
+    'Cada parágrafo do corpo trata de um ASPECTO DIFERENTE do assunto. Se você já disse que o público foi pequeno, o parágrafo seguinte fala de outra coisa — estrutura, custo, agenda, quem organiza, o que falta — e não reformula a mesma frase.',
+    'Se o material só sustenta UM argumento, entregue MENOS parágrafos. Matéria curta e densa vale mais que matéria longa e circular.',
+    '',
     (typeof EDITORIAL_SAFETY !== 'undefined' ? EDITORIAL_SAFETY : ''),
     '',
     '═══ FATOS ISOLADOS (sua única fonte da verdade) ═══',
@@ -349,6 +363,8 @@ function buildWriterPrompt(interp, style, tone) {
     '7. Há acusação, crime ou apuração no texto? Então: usei o termo da fase processual correta, atribuí a informação e registrei o outro lado (ou a ausência dele)?',
     '8. Alguma frase afirma como PROVADO algo que o material não prova? Se sim, reescreva atribuindo ou recue para o que se sustenta.',
     '9. Sobrou alguma palavra de juízo herdada da fonte que puxa para o lado CONTRÁRIO ao tom pedido? Fora dela — sem tirar o acontecimento.',
+    '10. Inventei alguma comparação, avaliação sem dono ("foi considerado…") ou consequência para sustentar o tom? Se sim, troque pelo que o material realmente traz.',
+    '11. Dois parágrafos fazem a mesma crítica ou o mesmo elogio com outras palavras? Funda-os e traga um aspecto novo — ou entregue um parágrafo a menos.',
   ].join('\n');
 }
 
@@ -410,7 +426,7 @@ async function runWriterAgent(interp, style, tone, call = callLLM) {
 /* ou citação que não existiam, a revisão é DESCARTADA e fica o rascunho.      */
 /* -------------------------------------------------------------------------- */
 
-function buildEditorPrompt(article, interp, style, tone, conflitos) {
+function buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes) {
   const corpo = (article.corpo || []).map((p, i) => `  P${i + 1}: ${p}`).join('\n');
   const listaConflito = (conflitos && conflitos.length)
     ? [
@@ -419,6 +435,15 @@ function buildEditorPrompt(article, interp, style, tone, conflitos) {
       `Estas expressões de juízo estão no texto e puxam para o lado CONTRÁRIO ao tom "${tone}": ${conflitos.join(', ')}.`,
       'Elas vieram do material de origem, não do tom pedido. Reescreva cada trecho preservando o ACONTECIMENTO e trocando a avaliação — ou simplesmente retire o adjetivo, se ele não carregar fato nenhum.',
       'Se a expressão estiver dentro de uma CITAÇÃO entre aspas, deixe como está: fala é reproduzida literalmente. Nesse caso ajuste o enquadramento em volta dela.',
+    ].join('\n')
+    : '';
+  const listaRepeticao = (repeticoes && repeticoes.length)
+    ? [
+      '',
+      '═══ REPETIÇÃO DETECTADA — o texto está girando em falso ═══',
+      ...repeticoes.map((r) => `• ${r}`),
+      'Cada parágrafo tem que AVANÇAR: trazer um aspecto novo do assunto, não reformular o anterior. Se dois parágrafos fazem a mesma crítica (ou o mesmo elogio) com outras palavras, funda-os num só e use o espaço liberado para um ângulo ainda não explorado — ou entregue menos parágrafos. Matéria curta e densa é melhor que matéria longa e circular.',
+      'Varie também as aberturas: nenhum parágrafo deve começar com o mesmo sujeito ou a mesma construção do anterior.',
     ].join('\n')
     : '';
   return [
@@ -442,6 +467,7 @@ function buildEditorPrompt(article, interp, style, tone, conflitos) {
     'Se um trecho já está bom, DEIXE COMO ESTÁ. Revisão não é reescrita gratuita.',
     '',
     listaConflito,
+    listaRepeticao,
     `═══ ESTILO "${style}" / TOM "${tone}" — preservar e, se der, REFORÇAR ═══`,
     'Atenção: ao cortar redundância e frase morta, é fácil neutralizar o texto sem querer. NÃO faça isso. Se uma palavra carrega o tom, ela fica — mesmo que "mais enxuto" fosse possível. Onde a revisão puder tornar o tom MAIS nítido sem inventar fato, torne.',
     'Nunca troque uma formulação assumidamente interpretativa por uma neutra: a leitura editorial é intencional, não é defeito de escrita.',
@@ -465,6 +491,7 @@ function buildEditorPrompt(article, interp, style, tone, conflitos) {
     '2. Sua versão ficou mais NEUTRA que a original? Se sim, você apagou o tom — devolva a intensidade.',
     '3. Sobrou alguma afirmação que acusa alguém sem atribuição ou sem respaldo nos fatos? Reescreva atribuindo.',
     '4. Restou alguma expressão de juízo puxando para o lado contrário ao tom? A matéria tem que soar como UMA voz do início ao fim.',
+    '5. Dois parágrafos dizem a mesma coisa com outras palavras? Funda-os — repetir argumento não reforça, cansa.',
   ].join('\n');
 }
 
@@ -484,14 +511,81 @@ function semCitacoes(texto) {
  * virar aviso na tela — o conserto é automático e o usuário não precisa saber
  * que houve conflito.
  */
-function detectarConflitosDeTom(article, tone) {
-  const valencia = (typeof toneValence === 'function') ? toneValence(tone) : 0;
-  if (!valencia) return [];
-  const contrarios = valencia > 0
-    ? ((typeof TOM_LEXICO_NEGATIVO !== 'undefined') ? TOM_LEXICO_NEGATIVO : [])
-    : ((typeof TOM_LEXICO_POSITIVO !== 'undefined') ? TOM_LEXICO_POSITIVO : []);
+function detectarConflitosDeTom(article, tone, interp) {
   const texto = semCitacoes(articleAllText(article)).toLowerCase();
-  return contrarios.filter((termo) => texto.includes(termo));
+  const achados = [];
+
+  // (a) Léxico fixo — pega o vazamento clássico.
+  const valencia = (typeof toneValence === 'function') ? toneValence(tone) : 0;
+  if (valencia) {
+    const contrarios = valencia > 0
+      ? ((typeof TOM_LEXICO_NEGATIVO !== 'undefined') ? TOM_LEXICO_NEGATIVO : [])
+      : ((typeof TOM_LEXICO_POSITIVO !== 'undefined') ? TOM_LEXICO_POSITIVO : []);
+    contrarios.forEach((termo) => { if (texto.includes(termo)) achados.push(termo); });
+  }
+
+  // (b) Carga da PRÓPRIA fonte que vazou. Lista fixa nunca fica completa —
+  //     um caso real trouxe "superação" e "qualidade de vida", que nenhum
+  //     léxico genérico previa. Como o interpretador já isola as expressões
+  //     avaliativas daquele texto, conferir se elas reapareceram é adaptativo:
+  //     vale para qualquer pauta, sem depender do meu vocabulário.
+  const carga = (interp && interp.cargaOriginal) || [];
+  const viesFonte = String((interp && interp.viesDaFonte) || 'NEUTRO').toUpperCase();
+  const fonteContraria = (valencia > 0 && viesFonte === 'NEGATIVO')
+    || (valencia < 0 && viesFonte === 'POSITIVO');
+  if (fonteContraria || !valencia) {
+    carga.forEach((expr) => {
+      const e = String(expr).trim().toLowerCase();
+      // Expressão curta demais vira ruído (bate com qualquer coisa).
+      if (e.length >= 5 && texto.includes(e)) achados.push(expr);
+    });
+  }
+  return Array.from(new Set(achados));
+}
+
+/**
+ * Acha REPETIÇÃO estrutural: parágrafos que abrem igual e trechos longos
+ * repetidos entre parágrafos.
+ *
+ * Um caso real saiu com quatro parágrafos fazendo a MESMA crítica — três deles
+ * abrindo com "A corrida de rua em Cajutiba". A instrução de não repetir já
+ * existia no prompt e não bastou: repetição é fácil de medir e cara de deixar
+ * passar, então passa a ser verificada e devolvida ao revisor.
+ */
+function detectarRepeticoes(article) {
+  const paras = [article && article.lead, ...((article && article.corpo) || [])]
+    .map((x) => String(x || '').trim()).filter(Boolean);
+  if (paras.length < 2) return [];
+  const achados = [];
+
+  // Aberturas iguais (3 primeiras palavras).
+  const aberturas = {};
+  paras.forEach((p) => {
+    const chave = p.toLowerCase().replace(/[^\wáéíóúâêôãõçà\s]/g, '').split(/\s+/).slice(0, 3).join(' ');
+    if (chave) (aberturas[chave] = aberturas[chave] || []).push(p);
+  });
+  Object.entries(aberturas).forEach(([chave, lista]) => {
+    if (lista.length > 1) achados.push(`${lista.length} parágrafos abrem com "${chave}…"`);
+  });
+
+  // Trechos de 5+ palavras repetidos entre parágrafos diferentes.
+  const norm = (p) => p.toLowerCase().replace(/[^\wáéíóúâêôãõçà\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const vistos = new Map();
+  paras.forEach((p, idx) => {
+    const w = norm(p);
+    const nesteParagrafo = new Set();
+    for (let i = 0; i + 5 <= w.length; i++) {
+      const gram = w.slice(i, i + 5).join(' ');
+      if (nesteParagrafo.has(gram)) continue;
+      nesteParagrafo.add(gram);
+      if (vistos.has(gram) && vistos.get(gram) !== idx) {
+        achados.push(`trecho repetido entre parágrafos: "${gram}"`);
+      } else if (!vistos.has(gram)) {
+        vistos.set(gram, idx);
+      }
+    }
+  });
+  return Array.from(new Set(achados)).slice(0, 8);
 }
 
 /** Todo o texto visível de uma matéria, para as conferências determinísticas. */
@@ -562,23 +656,25 @@ function mergeEditedArticle(rascunho, data) {
 }
 
 async function runEditorAgent(article, interp, style, tone, call = callLLM) {
-  const conflitos = detectarConflitosDeTom(article, tone);
+  const conflitos = detectarConflitosDeTom(article, tone, interp);
+  const repeticoes = detectarRepeticoes(article);
   try {
-    const r = await callLLMJson(buildEditorPrompt(article, interp, style, tone, conflitos), call);
-    if (!r.data) return { article, ok: false, motivo: 'sem-json', model: r.model, conflitos };
+    const r = await callLLMJson(buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes), call);
+    if (!r.data) return { article, ok: false, motivo: 'sem-json', model: r.model, conflitos, repeticoes };
     const revisado = mergeEditedArticle(article, r.data);
     const inventado = editorIntroduziuFato(article, revisado, interp);
     if (inventado.length) {
       // Fidelidade vence polimento: descarta a revisão inteira.
-      return { article, ok: false, motivo: 'introduziu-fato', inventado, model: r.model, conflitos,
+      return { article, ok: false, motivo: 'introduziu-fato', inventado, model: r.model, conflitos, repeticoes,
         promptTokens: r.promptTokens, completionTokens: r.completionTokens };
     }
-    return { article: revisado, ok: true, model: r.model, conflitos,
-      conflitosRestantes: detectarConflitosDeTom(revisado, tone),
+    return { article: revisado, ok: true, model: r.model, conflitos, repeticoes,
+      conflitosRestantes: detectarConflitosDeTom(revisado, tone, interp),
+      repeticoesRestantes: detectarRepeticoes(revisado),
       promptTokens: r.promptTokens, completionTokens: r.completionTokens };
   } catch (_) {
     // Revisão é opcional: qualquer falha mantém o rascunho.
-    return { article, ok: false, motivo: 'erro', conflitos };
+    return { article, ok: false, motivo: 'erro', conflitos, repeticoes };
   }
 }
 
@@ -899,6 +995,8 @@ async function runContentPipeline({ content, style, tone, onStage, call = callLL
     inventado: eRes.inventado || null,
     conflitosDeTom: eRes.conflitos || [],
     conflitosRestantes: eRes.conflitosRestantes || [],
+    repeticoes: eRes.repeticoes || [],
+    repeticoesRestantes: eRes.repeticoesRestantes || [],
     promptTokens: eRes.promptTokens || null, completionTokens: eRes.completionTokens || null,
   };
   const articleFinal = eRes.article;

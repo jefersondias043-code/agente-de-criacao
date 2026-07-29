@@ -22,6 +22,7 @@ function installLLM(responder) { _responder = responder; }
 function role(prompt) {
   if (prompt.includes('AGENTE DE INTERPRETAÇÃO')) return 'interpret';
   if (prompt.includes('AGENTE REDATOR')) return 'write';
+  if (prompt.includes('AGENTE EDITOR')) return 'edit';
   if (prompt.includes('AGENTE DE DESIGN')) return 'design';
   return 'unknown';
 }
@@ -42,6 +43,13 @@ const goodArticle = JSON.stringify({
   resumo: 'Prefeitura entrega 50 cestas no Calabar.',
   hashtags: ['#calabar', '#salvador', '#assistencia'],
 });
+const goodEdit = JSON.stringify({
+  titulo: 'Calabar recebe 50 cestas básicas da Prefeitura',
+  subtitulo: 'Entrega atendeu famílias do bairro nesta semana',
+  lead: 'A Prefeitura entregou 50 cestas básicas a moradores do Calabar nesta semana.',
+  corpo: ['A distribuição integra a assistência social do município.', 'As cestas chegaram às famílias do bairro.'],
+  resumo: 'Prefeitura entrega 50 cestas no Calabar.',
+});
 const goodDesign = JSON.stringify({
   template: 'manchete', format: '4:5', palette: 'azul-institucional', justificativa: 'notícia institucional de cidade',
 });
@@ -52,7 +60,7 @@ describe('runContentPipeline — caminho feliz', () => {
     stages = [];
     installLLM((p) => {
       const r = role(p);
-      const body = { interpret: goodInterp, write: goodArticle, design: goodDesign }[r] || '{}';
+      const body = { interpret: goodInterp, write: goodArticle, edit: goodEdit, design: goodDesign }[r] || '{}';
       return { content: body, model: 'stub-model', promptTokens: 10, completionTokens: 20 };
     });
     result = await A.runContentPipeline({
@@ -63,8 +71,8 @@ describe('runContentPipeline — caminho feliz', () => {
     });
   });
 
-  it('chama os 3 agentes em ordem (progresso)', () => {
-    expect(stages).toEqual(['interpret', 'write', 'design']);
+  it('chama os 4 agentes em ordem (progresso)', () => {
+    expect(stages).toEqual(['interpret', 'write', 'edit', 'design']);
   });
   it('produz interpretação estruturada com categoria em maiúsculas', () => {
     expect(result.interpretation.categoria).toBe('CIDADE');
@@ -87,8 +95,13 @@ describe('runContentPipeline — caminho feliz', () => {
     expect(result.content.split('\n\n').length).toBeGreaterThanOrEqual(4);
   });
   it('soma tokens dos agentes', () => {
-    expect(result.promptTokens).toBe(20);       // 10 (interp) + 10 (write)
-    expect(result.completionTokens).toBe(40);   // 20 + 20
+    expect(result.promptTokens).toBe(30);       // interp + write + edit
+    expect(result.completionTokens).toBe(60);
+  });
+  it('a revisão entra no resultado e o rascunho fica guardado', () => {
+    expect(result.agents.editor.ok).toBe(true);
+    expect(result.article.subtitulo).toBe('Entrega atendeu famílias do bairro nesta semana');
+    expect(result.articleDraft.subtitulo).toBe('Ação da Prefeitura atende famílias do bairro nesta semana');
   });
 });
 
@@ -98,6 +111,7 @@ describe('runContentPipeline — fallbacks resilientes', () => {
       const r = role(p);
       if (r === 'interpret') return { content: goodInterp, model: 'm' };
       if (r === 'write') return { content: 'Título solto\nPrimeiro parágrafo do corpo.\nSegundo parágrafo.', model: 'm' };
+      if (r === 'edit') return { content: 'sem json', model: 'm' };
       return { content: goodDesign, model: 'm' };
     });
     const res = await A.runContentPipeline({ call: stubCall, content: 'texto', style: 'Jornalístico', tone: 'Neutro' });
@@ -111,6 +125,7 @@ describe('runContentPipeline — fallbacks resilientes', () => {
       const r = role(p);
       if (r === 'interpret') return { content: goodInterp, model: 'm' };
       if (r === 'write') return { content: goodArticle, model: 'm' };
+      if (r === 'edit') return { content: goodEdit, model: 'm' };
       return { content: 'desculpe, não sei responder em JSON', model: 'm' };
     });
     const res = await A.runContentPipeline({ call: stubCall, content: 'texto', style: 'Jornalístico', tone: 'Neutro' });
@@ -123,6 +138,7 @@ describe('runContentPipeline — fallbacks resilientes', () => {
       const r = role(p);
       if (r === 'interpret') return { content: 'não consigo', model: 'm' };
       if (r === 'write') return { content: goodArticle, model: 'm' };
+      if (r === 'edit') return { content: goodEdit, model: 'm' };
       return { content: goodDesign, model: 'm' };
     });
     const res = await A.runContentPipeline({ call: stubCall, content: 'Conteúdo bruto da pauta.', style: 'Jornalístico', tone: 'Neutro' });
@@ -135,7 +151,7 @@ describe('runContentPipeline — fallbacks resilientes', () => {
     installLLM((p) => {
       const r = role(p);
       if (r === 'design') throw new Error('rede caiu no design');
-      const body = r === 'interpret' ? goodInterp : goodArticle;
+      const body = { interpret: goodInterp, write: goodArticle, edit: goodEdit }[r] || goodArticle;
       return { content: body, model: 'm' };
     });
     const res = await A.runContentPipeline({ call: stubCall, content: 'texto', style: 'Jornalístico', tone: 'Neutro' });

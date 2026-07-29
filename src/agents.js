@@ -189,10 +189,28 @@ function interpretationToBlock(interp) {
   return lines.join('\n');
 }
 
+/** Quantos parágrafos de corpo o material comporta. Fixar 2 fazia toda matéria
+ *  ter a mesma forma: pauta rica saía espremida, pauta magra saía inflada com
+ *  repetição. A extensão passa a acompanhar a quantidade de material. */
+function suggestBodyLength(interp) {
+  const i = interp || {};
+  const peso = (i.fatos || []).length
+    + (i.citacoes || []).length
+    + Math.ceil(((i.numeros || []).length + (i.datas || []).length) / 2);
+  if (peso <= 3) return { min: 2, max: 2 };
+  if (peso <= 7) return { min: 2, max: 3 };
+  if (peso <= 12) return { min: 3, max: 4 };
+  return { min: 4, max: 5 };
+}
+
 function buildWriterPrompt(interp, style, tone) {
   const tonePrompt = (typeof TONE_PROMPTS !== 'undefined' && (TONE_PROMPTS[tone] || TONE_PROMPTS['Neutro'])) || `Tom: ${tone}`;
+  const stylePrompt_ = (typeof stylePrompt === 'function') ? stylePrompt(style) : `Estilo: ${style}`;
+  const len = suggestBodyLength(interp);
+  const faixa = len.min === len.max ? `${len.min}` : `${len.min} a ${len.max}`;
+  const temCitacao = (interp.citacoes || []).length > 0;
   return [
-    'Você é um AGENTE REDATOR jornalístico. Recebe FATOS JÁ ISOLADOS por outro agente e escreve a matéria. Você NÃO tem acesso ao texto original — só aos fatos abaixo.',
+    'Você é um AGENTE REDATOR jornalístico profissional. Recebe FATOS JÁ ISOLADOS por outro agente e escreve a matéria. Você NÃO tem acesso ao texto original — só aos fatos abaixo.',
     '',
     'PRINCÍPIO CENTRAL: estilo e tom se aplicam por MICROINTERVENÇÕES INTERPRETATIVAS (escolha de vocabulário, palavras-pivô, ordem de apresentação e ritmo) — NUNCA inventando fatos. Todo nome, número, data, local e citação DEVE vir da lista de fatos. Não use nada que não esteja lá.',
     '',
@@ -201,23 +219,48 @@ function buildWriterPrompt(interp, style, tone) {
     '═══ FATOS ISOLADOS (sua única fonte da verdade) ═══',
     interpretationToBlock(interp),
     '',
-    `═══ ESTILO: ${style} ═══`,
-    `═══ INSTRUÇÕES DE TOM "${tone}" ═══`,
+    '═══ COMO USAR ESTA LISTA ═══',
+    'A lista acima é MATÉRIA-PRIMA, não roteiro. O erro mais comum é transformá-la em texto na ordem em que aparece, um fato por frase — isso produz uma matéria travada, que soa como legenda de planilha.',
+    'Em vez disso:',
+    '• AGRUPE os fatos que pertencem à mesma ideia e escreva-os num mesmo parágrafo, numa frase só quando couber;',
+    '• REORDENE conforme a arquitetura do estilo, não conforme a ordem da lista;',
+    '• SUBORDINE o secundário ao principal ("A obra, orçada em R$ 2 milhões, foi entregue…" em vez de duas frases soltas);',
+    '• Um fato pode aparecer implícito no encadeamento — não precisa ser reafirmado literalmente.',
+    '',
+    '═══ OFÍCIO EDITORIAL (é aqui que a matéria fica boa) ═══',
+    'COESÃO: cada parágrafo puxa o anterior. Use retomada por elipse, pronome ou sinônimo em vez de repetir o mesmo sujeito ("A Prefeitura… O órgão… A gestão municipal…").',
+    'TRANSIÇÕES: conecte por sentido, não por muleta. Prefira a relação lógica explícita ("com a entrega", "desde então", "o mesmo levantamento") a conectivos genéricos ("além disso", "vale ressaltar", "é importante destacar").',
+    'RITMO: varie o comprimento das frases. Três frases seguidas do mesmo tamanho e da mesma estrutura deixam o texto monótono.',
+    'ABERTURAS: nenhum parágrafo pode começar com a mesma palavra ou a mesma estrutura do anterior.',
+    'ECONOMIA: corte redundância e perífrase ("realizou a entrega de" → "entregou"; "por meio da utilização de" → "com"). Nada de frase que não acrescenta ("A notícia repercutiu", "Confira os detalhes").',
+    'HIERARQUIA: título, subtítulo e lead informam coisas DIFERENTES. Se o subtítulo é o título reescrito, refaça — use-o para o ângulo secundário.',
+    temCitacao
+      ? 'CITAÇÃO: use pelo menos uma das falas disponíveis, integrada ao texto (apresente quem fala antes de citar). Reproduza a fala LITERALMENTE, sem editar palavras.'
+      : 'CITAÇÃO: não há falas no material — não crie nenhuma, nem em discurso indireto atribuído.',
+    '',
+    `═══ ESTILO "${style}" — arquitetura do texto ═══`,
+    stylePrompt_,
+    '',
+    `═══ TOM "${tone}" — voz do texto ═══`,
     tonePrompt,
     '',
     'Responda APENAS com um objeto JSON válido, sem cercas de código, com EXATAMENTE estas chaves:',
     '{',
     '  "titulo": "chamativo e informativo, JÁ refletindo o tom",',
-    '  "subtitulo": "resumo dos pontos principais, com palavras-pivô do tom",',
-    '  "lead": "primeiro parágrafo com o essencial, ordem alinhada ao tom",',
-    '  "corpo": ["parágrafo de desenvolvimento 1", "parágrafo de desenvolvimento 2"],',
+    '  "subtitulo": "ângulo COMPLEMENTAR ao título, com palavras-pivô do tom",',
+    '  "lead": "primeiro parágrafo com o essencial, ordem alinhada ao estilo e ao tom",',
+    `  "corpo": ["parágrafos de desenvolvimento — ${faixa} no total, conforme o material comporta"],`,
     '  "resumo": "1 frase para legenda de rede social",',
     '  "hashtags": ["#semEspaços", "3 a 6 hashtags relevantes ao assunto e ao local"]',
     '}',
     '',
-    'Regras: título sem prefixo "Título:". Corpo com 2 parágrafos. Hashtags em minúsculas, sem acento, sem espaço, começando com #. Não repita o título inteiro no subtítulo.',
+    `Regras: título sem prefixo "Título:". Corpo com ${faixa} parágrafo(s) — não encha linguiça para atingir o número; se o material só dá para ${len.min}, entregue ${len.min}. Hashtags em minúsculas, sem acento, sem espaço, começando com #.`,
     '',
-    'VERIFICAÇÃO antes de responder: cada elemento das suas frases é sustentado por um fato da lista? Se algum não for, REESCREVA sem ele.',
+    'VERIFICAÇÃO antes de responder:',
+    '1. Cada nome, número, data, local e citação está na lista de fatos?',
+    '2. Algum parágrafo é uma transcrição da lista em ordem, um fato por frase? Se sim, reescreva agrupando.',
+    '3. O subtítulo diz algo que o título já disse? Se sim, troque o ângulo.',
+    '4. Duas frases seguidas começam igual ou têm o mesmo comprimento? Se sim, varie.',
   ].join('\n');
 }
 
@@ -266,7 +309,148 @@ async function runWriterAgent(interp, style, tone, call = callLLM) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 3) Agente de Design                                                         */
+/* 3) Agente Editor — a passada de revisão                                     */
+/*                                                                             */
+/* Um redator entrega PRIMEIRA VERSÃO. O que separa um texto publicável de um  */
+/* texto profissional é a revisão: cortar redundância, desfazer repetição de   */
+/* estrutura, ajustar transição e ritmo. Nenhum modelo faz isso bem enquanto   */
+/* ainda está ocupado decidindo O QUE dizer — por isso vira uma etapa própria, */
+/* que já recebe o conteúdo resolvido e só cuida da forma.                     */
+/*                                                                             */
+/* O risco óbvio é a revisão introduzir fato. Além da instrução, há uma trava  */
+/* DETERMINÍSTICA (editorIntroduziuFato): se o texto revisado trouxer número   */
+/* ou citação que não existiam, a revisão é DESCARTADA e fica o rascunho.      */
+/* -------------------------------------------------------------------------- */
+
+function buildEditorPrompt(article, interp, style, tone) {
+  const corpo = (article.corpo || []).map((p, i) => `  P${i + 1}: ${p}`).join('\n');
+  return [
+    'Você é um AGENTE EDITOR de texto jornalístico. Recebe uma matéria já escrita e a revisa como um copidesque profissional faria.',
+    '',
+    'SEU TRABALHO É A FORMA, NÃO O CONTEÚDO.',
+    'É TERMINANTEMENTE PROIBIDO: acrescentar qualquer informação; remover um fato; alterar número, nome, data, local ou o texto de uma citação. Se a matéria não menciona algo, a revisão também não menciona.',
+    'Você não "melhora" a matéria acrescentando contexto — melhora reescrevendo melhor o que já está lá.',
+    '',
+    '═══ O QUE CORRIGIR ═══',
+    '1. REPETIÇÃO: mesma palavra ou raiz reaparecendo perto; parágrafos que abrem com a mesma palavra ou a mesma estrutura; o mesmo sujeito repetido em vez de retomado.',
+    '2. REDUNDÂNCIA: informação repetida entre título, subtítulo, lead e corpo. Cada um deve acrescentar algo.',
+    '3. PERÍFRASE: "realizou a entrega de" → "entregou"; "por meio da utilização de" → "com"; "no dia de hoje" → "hoje".',
+    '4. FRASE MORTA: sentença que não afirma nada ("A notícia repercutiu", "Vale destacar a importância") — corte.',
+    '5. TRANSIÇÃO: parágrafos justapostos sem ligação lógica. Costure pelo sentido, não com muleta ("além disso", "ademais").',
+    '6. RITMO: sequências de frases do mesmo comprimento e da mesma estrutura. Varie.',
+    '7. ORDEM DENTRO DA FRASE: leve para a frente o que importa; subordine o acessório.',
+    '8. AMBIGUIDADE: pronome sem referente claro, sujeito oculto trocado no meio do parágrafo.',
+    '',
+    'Se um trecho já está bom, DEIXE COMO ESTÁ. Revisão não é reescrita gratuita.',
+    '',
+    `═══ ESTILO "${style}" / TOM "${tone}" — devem ser PRESERVADOS ═══`,
+    '',
+    '═══ FATOS PERMITIDOS (o universo fechado do que pode aparecer) ═══',
+    interpretationToBlock(interp),
+    '',
+    '═══ MATÉRIA A REVISAR ═══',
+    `TÍTULO: ${article.titulo || ''}`,
+    `SUBTÍTULO: ${article.subtitulo || ''}`,
+    `LEAD: ${article.lead || ''}`,
+    'CORPO:',
+    corpo || '  (vazio)',
+    `RESUMO: ${article.resumo || ''}`,
+    '',
+    'Responda APENAS com o JSON da matéria revisada, mesmas chaves e mesma quantidade de parágrafos de corpo:',
+    '{ "titulo": "", "subtitulo": "", "lead": "", "corpo": ["…"], "resumo": "" }',
+    '',
+    'VERIFICAÇÃO: algum número, nome, data ou citação da sua versão está ausente da matéria original? Se sim, você inventou — desfaça.',
+  ].join('\n');
+}
+
+/** Todo o texto visível de uma matéria, para as conferências determinísticas. */
+function articleAllText(a) {
+  if (!a) return '';
+  return [a.titulo, a.subtitulo, a.lead, ...(a.corpo || []), a.resumo].filter(Boolean).join('\n');
+}
+
+/** Números de um texto, reduzidos aos dígitos (para "1.500" ≡ "1500"). */
+function numericTokens(text) {
+  const brutos = String(text || '').match(/\d[\d.,]*/g) || [];
+  return brutos.map((n) => n.replace(/\D/g, '')).filter(Boolean);
+}
+
+/** Falas entre aspas (retas ou tipográficas). */
+function quotedTokens(text) {
+  const out = [];
+  const re = /[""«"]([^""»"]{8,})[""»"]/g;
+  let m;
+  while ((m = re.exec(String(text || '')))) out.push(m[1].trim().toLowerCase());
+  return out;
+}
+
+/**
+ * A revisão introduziu conteúdo novo? Compara o texto revisado com o rascunho
+ * MAIS o universo de fatos. Devolve a lista do que apareceu do nada (vazia =
+ * revisão limpa). Falso positivo aqui só custa a perda do polimento — o
+ * rascunho é mantido —, então a checagem pode ser rigorosa sem risco.
+ */
+function editorIntroduziuFato(rascunho, revisado, interp) {
+  const permitido = [
+    articleAllText(rascunho),
+    (interp && interpretationToBlock(interp)) || '',
+  ].join('\n');
+  const numsOk = new Set(numericTokens(permitido));
+  const quotesOk = new Set(quotedTokens(permitido).concat(
+    ((interp && interp.citacoes) || []).map((c) => String(c).trim().toLowerCase())
+  ));
+  const achados = [];
+  numericTokens(articleAllText(revisado)).forEach((n) => {
+    if (!numsOk.has(n)) achados.push(`número ${n}`);
+  });
+  quotedTokens(articleAllText(revisado)).forEach((q) => {
+    const conhecida = quotesOk.has(q) || [...quotesOk].some((k) => k.includes(q) || q.includes(k));
+    if (!conhecida) achados.push(`citação "${q.slice(0, 40)}…"`);
+  });
+  return Array.from(new Set(achados));
+}
+
+/** Aplica a revisão preservando o que ela não deve mexer (hashtags) e mantendo
+ *  o mesmo formato normalizado do redator. */
+function mergeEditedArticle(rascunho, data) {
+  const revisado = normalizeArticle(data, { assunto: rascunho.titulo, resumo_factual: rascunho.resumo });
+  const saida = {
+    titulo: revisado.titulo || rascunho.titulo,
+    subtitulo: revisado.subtitulo || rascunho.subtitulo,
+    lead: revisado.lead || rascunho.lead,
+    corpo: revisado.corpo.length ? revisado.corpo : rascunho.corpo,
+    resumo: revisado.resumo || rascunho.resumo,
+    hashtags: rascunho.hashtags,     // a revisão não mexe em hashtags
+  };
+  // `_fallback` diz que a matéria veio de texto corrido (o redator não deu
+  // JSON). É um sinal de PROCEDÊNCIA: a revisão melhora a forma, não muda de
+  // onde o texto veio — perder a marca aqui escondia o fallback de quem lê o
+  // resultado depois.
+  if (rascunho._fallback) saida._fallback = true;
+  return saida;
+}
+
+async function runEditorAgent(article, interp, style, tone, call = callLLM) {
+  try {
+    const r = await callLLMJson(buildEditorPrompt(article, interp, style, tone), call);
+    if (!r.data) return { article, ok: false, motivo: 'sem-json', model: r.model };
+    const revisado = mergeEditedArticle(article, r.data);
+    const inventado = editorIntroduziuFato(article, revisado, interp);
+    if (inventado.length) {
+      // Fidelidade vence polimento: descarta a revisão inteira.
+      return { article, ok: false, motivo: 'introduziu-fato', inventado, model: r.model,
+        promptTokens: r.promptTokens, completionTokens: r.completionTokens };
+    }
+    return { article: revisado, ok: true, model: r.model,
+      promptTokens: r.promptTokens, completionTokens: r.completionTokens };
+  } catch (_) {
+    // Revisão é opcional: qualquer falha mantém o rascunho.
+    return { article, ok: false, motivo: 'erro' };
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 4) Agente de Design                                                         */
 /* -------------------------------------------------------------------------- */
 
 // Cardápio CURADO que o agente de design enxerga. Os ids são validados contra
@@ -496,23 +680,35 @@ async function runContentPipeline({ content, style, tone, onStage, call = callLL
   agents.writer = { model: wRes.model, promptTokens: wRes.promptTokens, completionTokens: wRes.completionTokens, ok: wRes.ok };
   const article = wRes.article;
 
-  // 3) Design — escolha visual (degrada para heurística local se falhar).
+  // 3) Revisão — copidesque sobre o rascunho. Só forma; se tentar mexer no
+  //    conteúdo, a trava determinística descarta e fica o rascunho.
+  stage('edit', 'Agente editor…', 'Revisando coesão, ritmo e transições.');
+  const eRes = await runEditorAgent(article, interpretation, style, tone, call);
+  agents.editor = {
+    model: eRes.model || null, ok: eRes.ok, motivo: eRes.motivo || null,
+    inventado: eRes.inventado || null,
+    promptTokens: eRes.promptTokens || null, completionTokens: eRes.completionTokens || null,
+  };
+  const articleFinal = eRes.article;
+
+  // 4) Design — escolha visual (degrada para heurística local se falhar).
   stage('design', 'Agente de design…', 'Escolhendo modelo, formato e paleta.');
-  const dRes = await runDesignAgent(interpretation, article, call);
+  const dRes = await runDesignAgent(interpretation, articleFinal, call);
   agents.design = { model: dRes.model, ok: dRes.ok };
   const design = dRes.design;
 
-  const contentText = articleToPlainText(article);
+  const contentText = articleToPlainText(articleFinal);
 
   return {
     interpretation,
-    article,
+    article: articleFinal,
+    articleDraft: article,        // rascunho pré-revisão (auditoria/diagnóstico)
     design,
     content: contentText,
     agents,
     // Modelo "principal" (redator) para exibir de forma compacta como antes.
     model: wRes.model || iRes.model || (agents.design && agents.design.model) || '',
-    promptTokens: (iRes.promptTokens || 0) + (wRes.promptTokens || 0) || null,
-    completionTokens: (iRes.completionTokens || 0) + (wRes.completionTokens || 0) || null,
+    promptTokens: (iRes.promptTokens || 0) + (wRes.promptTokens || 0) + (eRes.promptTokens || 0) || null,
+    completionTokens: (iRes.completionTokens || 0) + (wRes.completionTokens || 0) + (eRes.completionTokens || 0) || null,
   };
 }

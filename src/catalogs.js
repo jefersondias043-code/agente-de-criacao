@@ -391,6 +391,124 @@ const TONE_PROMPTS = {
   ].join('\n'),
 };
 
+/* ============================================================================
+ * STYLE_PROMPTS — o ESTILO define a ARQUITETURA do texto.
+ *
+ * Divisão de trabalho com TONE_PROMPTS: o TOM cuida da VOZ (vocabulário,
+ * palavras-pivô, postura); o ESTILO cuida da FORMA (ordem da informação,
+ * tamanho de parágrafo, ritmo de frase, atribuição).
+ *
+ * Antes o redator recebia só o rótulo do estilo ("Jornalístico") e nenhuma
+ * instrução — escrevia sempre a mesma matéria genérica, qualquer que fosse a
+ * escolha do usuário. Daqui sai a diferença editorial real entre um texto
+ * noticioso, uma reportagem, um editorial e um material didático.
+ * ========================================================================== */
+const STYLE_PROMPTS = {
+  'Jornalístico': [
+    'ARQUITETURA: pirâmide invertida. A primeira frase do lead entrega o fato central (o quê + quem); a circunstância (quando/onde) vem depois. Cada parágrafo seguinte acrescenta uma camada de menor urgência.',
+    'PARÁGRAFO: uma ideia por parágrafo, 2 a 4 frases.',
+    'FRASE: ordem direta predominante, 18 a 25 palavras em média. A cada três frases longas, uma curta para dar respiro.',
+    'ATRIBUIÇÃO: toda declaração e todo dado que não seja consenso vem com fonte explícita ("segundo a Prefeitura", "de acordo com o relatório").',
+    'ARMADILHAS: não abrir pela circunstância ("Na manhã desta terça-feira…") — o fato vem antes da moldura. Não reescrever o título como lead.',
+  ].join('\n'),
+
+  'Noticioso': [
+    'ARQUITETURA: pirâmide invertida estrita. O lead responde o quê, quem, quando e onde, sem rodeio.',
+    'PARÁGRAFO: curtos, 2 a 3 frases. O texto deve poder ser cortado do fim para cima sem perder o essencial.',
+    'FRASE: curtas e diretas, 15 a 22 palavras, voz ativa.',
+    'ATRIBUIÇÃO: sempre — cada informação tem dono.',
+    'ARMADILHAS: sem adjetivação valorativa e sem suspense. Notícia não guarda informação para o final.',
+  ].join('\n'),
+
+  'Reportagem': [
+    'ARQUITETURA: abertura por um detalhe concreto que ESTEJA nos fatos (uma cena, um número, uma fala), depois contexto e desdobramento. O fato central aparece até o segundo parágrafo.',
+    'PARÁGRAFO: 3 a 5 frases, com respiro entre blocos temáticos.',
+    'FRASE: alterne longas (contexto) e curtas (impacto) — o contraste de ritmo é a assinatura do estilo.',
+    'ATRIBUIÇÃO: as falas são costuradas ao texto, não empilhadas; apresente quem fala antes de citar.',
+    'ARMADILHAS: sem detalhe concreto disponível, abra pelo fato central — não invente ambientação.',
+  ].join('\n'),
+
+  'Expositivo': [
+    'ARQUITETURA: do geral ao específico. Apresente o objeto e destrinche suas partes numa ordem que o leitor consiga acompanhar.',
+    'PARÁGRAFO: um conceito por parágrafo, concluído antes de passar ao próximo.',
+    'FRASE: clareza acima de elegância. Evite subordinadas encaixadas; prefira duas frases a uma confusa.',
+    'ATRIBUIÇÃO: deixe claro o que é dado do material e o que é decorrência dele.',
+    'ARMADILHAS: explicar não é encher de definição — só defina o que o leitor precisa para entender o fato.',
+  ].join('\n'),
+
+  'Analítico': [
+    'ARQUITETURA: fato → recorte → implicação. Estabeleça o que aconteceu, isole o aspecto que merece exame e mostre o que dele decorre.',
+    'PARÁGRAFO: 3 a 5 frases, cada um sustentando um passo do raciocínio.',
+    'FRASE: mais longas e articuladas, com conectivos de causa e contraste ("porque", "embora", "por outro lado").',
+    'ATRIBUIÇÃO: separe com nitidez o que é dado do que é leitura do dado.',
+    'ARMADILHAS: análise não é projeção. Toda inferência precisa de um fato que a ancore; sem isso, não escreva.',
+  ].join('\n'),
+
+  'Editorial': [
+    'ARQUITETURA: tese no início, sustentação no meio, fecho que retoma a tese sem repeti-la literalmente.',
+    'PARÁGRAFO: encadeados por argumento, cada um avançando a defesa.',
+    'FRASE: firmes e assertivas; evite hedging excessivo ("talvez", "de certa forma").',
+    'ATRIBUIÇÃO: a opinião é do veículo; os fatos que a sustentam continuam atribuídos.',
+    'ARMADILHAS: posição não autoriza fato novo. Argumente com o que está no material.',
+  ].join('\n'),
+
+  'Documental': [
+    'ARQUITETURA: cronológica ou por eixo de evidência — o leitor deve conseguir reconstituir o caso.',
+    'PARÁGRAFO: densos mas organizados, um elo da cadeia por vez.',
+    'FRASE: precisas, sem ornamento. Datas e números no corpo da frase, não em aposto.',
+    'ATRIBUIÇÃO: rigorosa e nominal; a força do estilo está na rastreabilidade.',
+    'ARMADILHAS: registrar a lacuna é legítimo e melhor que preenchê-la ("o material não informa o prazo").',
+  ].join('\n'),
+
+  'Técnico': [
+    'ARQUITETURA: objeto, especificação, condição de aplicação — ordem previsível.',
+    'PARÁGRAFO: blocos temáticos fechados; cada um responde uma pergunta técnica.',
+    'FRASE: exatas, sem ambiguidade referencial. Repetir o termo correto é melhor que buscar sinônimo.',
+    'ATRIBUIÇÃO: norma, fonte ou responsável técnico sempre que houver no material.',
+    'ARMADILHAS: não simplifique a ponto de perder precisão, nem empilhe jargão sem necessidade.',
+  ].join('\n'),
+
+  'Didático': [
+    'ARQUITETURA: do conhecido ao novo — ancore no que o leitor já sabe antes de introduzir o termo técnico.',
+    'PARÁGRAFO: curtos, um passo de compreensão por vez.',
+    'FRASE: 12 a 20 palavras, voz ativa e sujeito explícito.',
+    'ATRIBUIÇÃO: distinga o que é fato do material e o que é explicação.',
+    'ARMADILHAS: analogia só quando esclarece de fato — e sem introduzir informação que não esteja no material.',
+  ].join('\n'),
+
+  'Crônica': [
+    'ARQUITETURA: um detalhe pequeno abre o texto e, ao fim, ganha sentido maior — do particular ao geral.',
+    'PARÁGRAFO: livres e respirados, variando de tamanho conforme o ritmo.',
+    'FRASE: musicais, com variação forte de extensão; aqui o ritmo importa tanto quanto a informação.',
+    'ATRIBUIÇÃO: leve, integrada à narrativa.',
+    'ARMADILHAS: a subjetividade está no olhar sobre o fato, nunca em fato inventado.',
+  ].join('\n'),
+};
+
+/* Guia por GRUPO — usado nos estilos sem prompt dedicado, para que nenhuma
+   escolha do usuário chegue ao redator sem orientação de forma. */
+const STYLE_GROUP_PROMPTS = {
+  'Jornalismo / Informação': 'ARQUITETURA: informação essencial primeiro, desdobramentos depois.\nPARÁGRAFO: 2 a 4 frases, uma ideia cada.\nATRIBUIÇÃO: toda afirmação relevante tem fonte.',
+  'Acadêmico / Científico': 'ARQUITETURA: objeto, evidência, decorrência — nessa ordem.\nPARÁGRAFO: um argumento por parágrafo, concluído.\nFRASE: precisão acima de fluência; termos consistentes do início ao fim.\nARMADILHAS: nenhuma conclusão além do que a evidência do material sustenta.',
+  'Marketing / Propaganda': 'ARQUITETURA: benefício concreto na frente, sustentação depois, fecho com direção clara.\nPARÁGRAFO: curtos e escaneáveis.\nFRASE: diretas, voz ativa, sem subordinada longa.\nARMADILHAS: persuasão vive de fato verificável — promessa sem lastro no material está proibida.',
+  'Criativo / Artístico': 'ARQUITETURA: uma imagem ou detalhe conduz o texto do início ao fim.\nFRASE: variação de ritmo é o recurso principal.\nARMADILHAS: a licença é de linguagem, nunca de conteúdo — cenário, sensação e personagem precisam estar no material.',
+  'Corporativo / Profissional': 'ARQUITETURA: assunto, posição da organização, providência.\nPARÁGRAFO: objetivos, sem preâmbulo.\nFRASE: ordem direta, impessoalidade sem burocratês.\nARMADILHAS: institucional não é vago — evite frase que não afirma nada.',
+};
+
+/** Orientação de FORMA para um estilo: prompt dedicado quando existe; senão o
+ *  guia do grupo somado à descrição do próprio estilo. Nenhum estilo do
+ *  catálogo chega ao redator sem instrução. */
+function stylePrompt(styleId) {
+  if (STYLE_PROMPTS[styleId]) return STYLE_PROMPTS[styleId];
+  let grupo = '', desc = '';
+  for (const g of STYLES) {
+    const achado = g.items.find((i) => i.id === styleId);
+    if (achado) { grupo = g.group; desc = achado.desc || ''; break; }
+  }
+  const base = STYLE_GROUP_PROMPTS[grupo] || STYLE_GROUP_PROMPTS['Jornalismo / Informação'];
+  return desc ? `${base}\nCARÁTER DO ESTILO: ${desc}` : base;
+}
+
 /** Catálogo de modelos disponíveis por provedor */
 const PROVIDER_MODELS = {
   groq: [

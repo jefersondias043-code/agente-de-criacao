@@ -21,6 +21,7 @@ function assembleAgentsGeneration({ style, tone, manualText, extractionId, combi
     interpretation: result.interpretation,
     article: result.article,
     optimization: result.optimization,
+    riscos: result.riscos || [],
     agents: result.agents,
     pipeline: true,
     model: result.model,
@@ -391,6 +392,27 @@ function pipelineExtrasHtml(g) {
       </div>`;
 }
 
+/** Pontos de atenção jurídica apurados sobre o texto final.
+ *
+ *  É AVISO, não bloqueio: o texto sai igual e a decisão é do usuário. Software
+ *  não substitui revisão jurídica, e um alerta que reescrevesse sozinho daria
+ *  a falsa sensação de que o risco foi resolvido. O que dá para fazer com
+ *  honestidade é mostrar o que uma redação olharia antes de publicar. */
+function legalRisksHtml(g) {
+  const riscos = (g && Array.isArray(g.riscos)) ? g.riscos : [];
+  if (!riscos.length) return '';
+  return `
+    <div class="legal-risks mt-2" role="note">
+      <div class="legal-risks-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+        <span>Antes de publicar, confira</span>
+      </div>
+      <ul class="legal-risks-list">
+        ${riscos.map((r) => `<li>${escapeHtml(r.aviso || '')}</li>`).join('')}
+      </ul>
+    </div>`;
+}
+
 function renderGenerationResult(g) {
   setMtab('#view-generate', 'b'); // no mobile, leva direto ao resultado
   $('#g-result-badge').innerHTML = `<span class="badge success">Gerado</span>`;
@@ -401,6 +423,7 @@ function renderGenerationResult(g) {
   $('#g-result-area').innerHTML = `
     ${warnHtml}
     <div class="article-preview" id="g-result-content">${escapeHtml(g.content)}</div>
+    ${legalRisksHtml(g)}
     ${pipelineExtrasHtml(g)}
     ${generationActionsHtml()}
     <div class="flex gap-1 flex-wrap mt-2">

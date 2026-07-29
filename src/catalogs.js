@@ -509,6 +509,90 @@ function stylePrompt(styleId) {
   return desc ? `${base}\nCARÁTER DO ESTILO: ${desc}` : base;
 }
 
+/* ============================================================================
+ * EDITORIAL_SAFETY — práticas de redação que reduzem risco jurídico.
+ *
+ * Vale para TODO estilo e TODO tom. Não é censura de opinião: é a diferença
+ * entre uma crítica que se sustenta e uma acusação que expõe quem publica.
+ * As técnicas abaixo são as que redações profissionais usam há décadas —
+ * atribuição, vocabulário processual correto, separação entre fato e leitura,
+ * e registro do contraditório.
+ *
+ * O erro que este bloco PRECISA evitar é o oposto: virar desculpa para um
+ * texto covarde, cheio de "talvez" e sem afirmar nada. Segurança jurídica se
+ * conquista com PRECISÃO e ATRIBUIÇÃO, não com hesitação — por isso o bloco
+ * termina com o contraste dos três textos.
+ * ========================================================================== */
+const EDITORIAL_SAFETY = [
+  '═══ REDAÇÃO JURIDICAMENTE RESPONSÁVEL (vale para qualquer estilo e qualquer tom) ═══',
+  '',
+  '1. ATRIBUIÇÃO — informação tem dono',
+  '• Tudo que não é fato notório vem com fonte explícita: "segundo a Prefeitura", "de acordo com o relatório", "a empresa informou".',
+  '• Use verbos NEUTROS de atribuição: disse, afirmou, declarou, informou, apontou.',
+  '• Evite verbos que já julgam: "admitiu" e "confessou" pressupõem culpa; "alegou" insinua descrédito; "revelou" pressupõe que era verdade oculta. Só use se for exatamente o caso.',
+  '• Se o material não diz de onde vem a informação, ou você a atribui corretamente, ou não a escreve.',
+  '',
+  '2. PRESUNÇÃO DE INOCÊNCIA — quando houver apuração, acusação ou crime',
+  '• Ninguém é culpado antes da condenação. NUNCA use o rótulo definitivo: "o criminoso", "o assassino", "o ladrão", "o corrupto", "o traficante".',
+  '• Use o termo da FASE PROCESSUAL em que a pessoa está, e só até onde o material comprova: suspeito → investigado → indiciado → denunciado → réu → condenado (em 1ª instância / com trânsito em julgado).',
+  '• Não afirme autoria: "é acusado de", "é suspeito de", "segundo a denúncia", "teria" — nunca "fulano desviou o dinheiro" quando não há condenação.',
+  '• Inquérito não é processo; denúncia não é condenação; prisão não é culpa formada. Não troque um pelo outro.',
+  '• Adolescente em conflito com a lei não é identificado: use "adolescente de 16 anos", sem nome.',
+  '',
+  '3. FATO × INTERPRETAÇÃO — a fronteira precisa ficar visível ao leitor',
+  '• O fato entra afirmado; a leitura entra marcada como leitura ("o valor chama atenção", "o prazo é apertado", "a explicação não convence").',
+  '• Não apresente conclusão como fato provado. Argumento é bem-vindo; veredito disfarçado de notícia, não.',
+  '',
+  '4. AFIRMAÇÃO CATEGÓRICA — só até onde o material sustenta',
+  '• Sem prova no material, não afirme causa, culpa ou resultado como certos.',
+  '• Prefira o específico ao generalizante: critique o ato e o dado, não a categoria inteira nem o caráter da pessoa.',
+  '',
+  '5. CONTRADITÓRIO — o outro lado',
+  '• Se o material traz a versão do acusado, ela ENTRA na matéria. Suprimir defesa existente é o erro mais caro.',
+  '• Se o material não traz, registre a ausência ("a reportagem não teve acesso à manifestação da empresa") em vez de fingir que ela não existe.',
+  '• Nunca invente a resposta do outro lado.',
+  '',
+  '6. LINGUAGEM — crítica sim, ofensa não',
+  '• Sem adjetivo desqualificador sobre pessoas ("incompetente", "picareta", "mentiroso").',
+  '• A dureza do texto vem do fato exposto, não do xingamento.',
+  '',
+  '═══ ISTO NÃO É PEDIDO DE NEUTRALIDADE ═══',
+  'Cuidado jurídico NÃO significa texto morno. Um texto covarde é tão ruim quanto um texto temerário. Compare:',
+  '',
+  '✗ COVARDE (não afirma nada, não informa): "A obra talvez possa ter enfrentado algum tipo de problema."',
+  '✗ TEMERÁRIO (acusa sem respaldo): "A empreiteira roubou o dinheiro da obra."',
+  '✓ FORTE E SEGURO: "Dois anos depois do prazo, a obra segue inacabada. Segundo o relatório do TCE, R$ 2 milhões já foram pagos à empreiteira — que, procurada, não se manifestou."',
+  '',
+  'A terceira é a mais dura das três: ela informa, cobra e se sustenta. É esse o alvo — a força vem da precisão e da atribuição, nunca da hesitação nem do adjetivo.',
+].join('\n');
+
+/* Termos de alto risco usados pela auditoria determinística de risco jurídico
+   (agents.js). Rótulos definitivos condenam antes do juiz. */
+const SAFETY_ROTULOS_CRIMINAIS = [
+  'criminoso', 'criminosa', 'assassino', 'assassina', 'ladrão', 'ladra', 'ladrao',
+  'bandido', 'bandida', 'corrupto', 'corrupta', 'estuprador', 'traficante',
+  'golpista', 'fraudador', 'pedófilo', 'pedofilo', 'terrorista',
+];
+/* Marcadores de que a informação foi atribuída a alguém. */
+const SAFETY_MARCADORES_ATRIBUICAO = [
+  'segundo', 'de acordo com', 'conforme', 'afirmou', 'disse', 'declarou',
+  'informou', 'apontou', 'denúncia', 'denuncia', 'acusado', 'suspeito',
+  'investigado', 'indiciado', 'réu', 'apurou', 'relatou',
+];
+/* Vocabulário que indica assunto criminal/judicial em pauta. */
+const SAFETY_TERMOS_CRIMINAIS = [
+  'crime', 'roubo', 'furto', 'homicídio', 'homicidio', 'assassinato', 'corrupção',
+  'corrupcao', 'fraude', 'desvio', 'propina', 'lavagem de dinheiro', 'tráfico',
+  'trafico', 'estupro', 'abuso', 'prisão', 'prisao', 'preso', 'detido',
+  'operação policial', 'operacao policial', 'inquérito', 'inquerito', 'denúncia',
+];
+/* Marcadores de que o contraditório foi registrado. */
+const SAFETY_MARCADORES_CONTRADITORIO = [
+  'procurad', 'não se manifest', 'nao se manifest', 'defesa', 'não respondeu',
+  'nao respondeu', 'não foi localizad', 'nao foi localizad', 'negou', 'nega ',
+  'em nota', 'contatad', 'não comentou', 'nao comentou',
+];
+
 /** Catálogo de modelos disponíveis por provedor */
 const PROVIDER_MODELS = {
   groq: [

@@ -2411,6 +2411,9 @@ body.pe-full #view-posters { animation: none; }
   gap: 0.35rem;
 }
 .hashtag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
   font-size: 0.72rem;
@@ -2419,6 +2422,35 @@ body.pe-full #view-posters { animation: none; }
   color: var(--accent-ink);
   border: 1px solid var(--line);
 }
+/* Estrato de segmentação da hashtag (ampla · assunto · nicho · local ·
+   intenção) — deixa visível que a escolha foi estratégica. */
+.hashtag-chip .tag-type {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  background: var(--paper-2);
+  border-radius: 999px;
+  padding: 0.08rem 0.34rem;
+}
+/* Termos de busca (SEO) — linha discreta abaixo das hashtags. */
+.keywords-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+.keywords-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.keywords-text { color: var(--ink-soft); }
 
 /* Toggle "Modo de geração" — Agentes vs Rápido (segmented, visível em qualquer largura). */
 .genmode-toggle {

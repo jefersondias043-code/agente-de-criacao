@@ -10,7 +10,7 @@
 //                                 (assunto, categoria, entidades, números,
 //                                 datas, citações). Nenhuma redação ainda.
 //   2) Agente Redator           → recebe SÓ os fatos isolados + estilo + tom e
-//                                 escreve título/subtítulo/lead/corpo/hashtags.
+//                                 escreve título/subtítulo/lead/corpo.
 //                                 Como os fatos já vêm separados, é muito mais
 //                                 difícil alucinar (o redator não vê "texto
 //                                 solto" para preencher lacunas por conta).
@@ -111,10 +111,14 @@ function buildInterpreterPrompt(content) {
     '  "datas": ["datas/prazos citados"],',
     '  "numeros": ["números, valores, quantidades citados com sua unidade"],',
     '  "citacoes": ["falas entre aspas atribuídas a alguém, se houver"],',
+    '  "contexto": ["elementos de PANO DE FUNDO presentes no material: antecedentes, causas, motivações, reações, comparações e consequências que o próprio texto menciona"],',
+    '  "angulos": ["2 a 4 leituras editoriais que os fatos acima SUSTENTAM — sem afirmar nenhuma como verdade; é o repertório do redator para argumentar"],',
     '  "lacunas": ["informações que faltam ou estão ambíguas — para o redator NÃO inventar"]',
     '}',
     '',
     'Regras: mantenha nomes, números e datas EXATAMENTE como no texto. Não traduza. Não arredonde números. Arrays vazios são permitidos.',
+    '',
+    'Sobre "contexto" e "angulos": eles NÃO são convite para inventar. "contexto" só recolhe o que o material já traz além do fato seco. "angulos" lista interpretações POSSÍVEIS a partir desses fatos (ex.: "o valor é alto para o porte do município", "o prazo foi cumprido") — o redator decide se usa e sob qual enquadramento.',
     '',
     'CONTEÚDO DA PAUTA:',
     truncated,
@@ -136,6 +140,8 @@ function fallbackInterpretation(content) {
     datas: [],
     numeros: [],
     citacoes: [],
+    contexto: [],
+    angulos: [],
     lacunas: [],
     _fallback: true,
   };
@@ -154,6 +160,8 @@ function normalizeInterpretation(data, content) {
     datas: asList(data.datas),
     numeros: asList(data.numeros),
     citacoes: asList(data.citacoes),
+    contexto: asList(data.contexto),
+    angulos: asList(data.angulos),
     lacunas: asList(data.lacunas),
   };
 }
@@ -189,6 +197,8 @@ function interpretationToBlock(interp) {
   bullets('Datas', interp.datas);
   bullets('Números', interp.numeros);
   bullets('Citações', interp.citacoes);
+  bullets('Contexto presente no material', interp.contexto);
+  bullets('Ângulos editoriais que os fatos sustentam', interp.angulos);
   bullets('Lacunas (NÃO preencher com invenção)', interp.lacunas);
   return lines.join('\n');
 }
@@ -216,7 +226,24 @@ function buildWriterPrompt(interp, style, tone) {
   return [
     'Você é um AGENTE REDATOR jornalístico profissional. Recebe FATOS JÁ ISOLADOS por outro agente e escreve a matéria. Você NÃO tem acesso ao texto original — só aos fatos abaixo.',
     '',
-    'PRINCÍPIO CENTRAL: estilo e tom se aplicam por MICROINTERVENÇÕES INTERPRETATIVAS (escolha de vocabulário, palavras-pivô, ordem de apresentação e ritmo) — NUNCA inventando fatos. Todo nome, número, data, local e citação DEVE vir da lista de fatos. Não use nada que não esteja lá.',
+    '═══ A LINHA QUE VOCÊ NÃO CRUZA — E A LIBERDADE QUE VOCÊ TEM ═══',
+    'Existe uma diferença decisiva entre INVENTAR FATO e DESENVOLVER ARGUMENTO. Confundir as duas coisas produz ou uma matéria mentirosa ou uma matéria sem vida. Você não pode a primeira; você DEVE a segunda.',
+    '',
+    'PROIBIDO (é invenção de fato):',
+    '• nome, número, data, valor, local, cargo ou instituição que não esteja nos fatos;',
+    '• declaração, citação ou opinião atribuída a alguém que não esteja nos fatos;',
+    '• acontecimento, medida, causa ou consequência apresentada como OCORRIDA sem estar nos fatos;',
+    '• dado de fora do material (conhecimento geral, histórico, comparação com outros casos).',
+    '',
+    'PERMITIDO E ESPERADO (é trabalho editorial, não invenção):',
+    '• INTERPRETAR o que os fatos significam e dizer isso com todas as letras;',
+    '• ARGUMENTAR a partir deles — sustentar uma leitura, mostrar tensão, contrapor um dado a outro;',
+    '• ENQUADRAR: decidir o que vem primeiro, o que ganha parágrafo próprio, o que fica subordinado;',
+    '• DESENVOLVER o que o material já traz em "Contexto" e "Ângulos" — é para isso que estão ali;',
+    '• QUALIFICAR com juízo assumido como leitura ("o valor chama atenção", "o prazo é apertado"), desde que o fato que sustenta esteja na lista;',
+    '• usar recursos retóricos: pergunta, contraste, repetição deliberada, frase curta de impacto.',
+    '',
+    'Teste prático: se um leitor perguntasse "de onde você tirou isso?", você conseguiria apontar o fato exato? Se sim, mesmo sendo uma INTERPRETAÇÃO dele, pode escrever. Se a resposta for "deduzi" ou "costuma ser assim", corte.',
     '',
     'Se um fato necessário estiver ausente (veja "Lacunas"), escreva sem ele — não preencha com suposição.',
     '',
@@ -248,23 +275,30 @@ function buildWriterPrompt(interp, style, tone) {
     `═══ TOM "${tone}" — voz do texto ═══`,
     tonePrompt,
     '',
+    `═══ INTENSIDADE: o tom "${tone}" precisa ser INEQUÍVOCO ═══`,
+    'O defeito mais comum é aplicar o tom só no verniz — uma palavra-pivô no lead e o resto neutro. O resultado é uma matéria que fica igual em qualquer tom, e a escolha do usuário vira decorativa.',
+    'O tom deve estar presente em TODOS os níveis: no título, no subtítulo, no lead, em CADA parágrafo do corpo e no fecho. Escolha de verbo, adjetivação, ordem dos fatos, o que ganha destaque e o que é subordinado, ritmo das frases — tudo carrega o tom.',
+    'TESTE ANTES DE ENTREGAR: se você trocasse o tom por outro, quantas frases precisaria reescrever? Se a resposta for "poucas", o tom NÃO está aplicado — refaça com mais convicção.',
+    'A intensidade não afrouxa a fidelidade: um tom forte se constrói com ênfase, enquadramento e argumento sobre os fatos que existem, nunca com fato novo.',
+    '',
     'Responda APENAS com um objeto JSON válido, sem cercas de código, com EXATAMENTE estas chaves:',
     '{',
     '  "titulo": "chamativo e informativo, JÁ refletindo o tom",',
     '  "subtitulo": "ângulo COMPLEMENTAR ao título, com palavras-pivô do tom",',
     '  "lead": "primeiro parágrafo com o essencial, ordem alinhada ao estilo e ao tom",',
     `  "corpo": ["parágrafos de desenvolvimento — ${faixa} no total, conforme o material comporta"],`,
-    '  "resumo": "1 frase para legenda de rede social",',
-    '  "hashtags": ["#semEspaços", "3 a 6 hashtags relevantes ao assunto e ao local"]',
+    '  "resumo": "1 frase para legenda de rede social"',
     '}',
     '',
-    `Regras: título sem prefixo "Título:". Corpo com ${faixa} parágrafo(s) — não encha linguiça para atingir o número; se o material só dá para ${len.min}, entregue ${len.min}. Hashtags em minúsculas, sem acento, sem espaço, começando com #.`,
+    `Regras: título sem prefixo "Título:". Corpo com ${faixa} parágrafo(s) — não encha linguiça para atingir o número; se o material só dá para ${len.min}, entregue ${len.min}.`,
     '',
     'VERIFICAÇÃO antes de responder:',
     '1. Cada nome, número, data, local e citação está na lista de fatos?',
     '2. Algum parágrafo é uma transcrição da lista em ordem, um fato por frase? Se sim, reescreva agrupando.',
     '3. O subtítulo diz algo que o título já disse? Se sim, troque o ângulo.',
     '4. Duas frases seguidas começam igual ou têm o mesmo comprimento? Se sim, varie.',
+    '5. Trocando o tom por outro, quantas frases eu reescreveria? Se forem poucas, o tom está fraco — reforce.',
+    '6. Eu me limitei a repetir os fatos, ou também os interpretei e argumentei a partir deles? Matéria sem leitura é boletim.',
   ].join('\n');
 }
 
@@ -347,7 +381,9 @@ function buildEditorPrompt(article, interp, style, tone) {
     '',
     'Se um trecho já está bom, DEIXE COMO ESTÁ. Revisão não é reescrita gratuita.',
     '',
-    `═══ ESTILO "${style}" / TOM "${tone}" — devem ser PRESERVADOS ═══`,
+    `═══ ESTILO "${style}" / TOM "${tone}" — preservar e, se der, REFORÇAR ═══`,
+    'Atenção: ao cortar redundância e frase morta, é fácil neutralizar o texto sem querer. NÃO faça isso. Se uma palavra carrega o tom, ela fica — mesmo que "mais enxuto" fosse possível. Onde a revisão puder tornar o tom MAIS nítido sem inventar fato, torne.',
+    'Nunca troque uma formulação assumidamente interpretativa por uma neutra: a leitura editorial é intencional, não é defeito de escrita.',
     '',
     '═══ FATOS PERMITIDOS (o universo fechado do que pode aparecer) ═══',
     interpretationToBlock(interp),
@@ -363,7 +399,9 @@ function buildEditorPrompt(article, interp, style, tone) {
     'Responda APENAS com o JSON da matéria revisada, mesmas chaves e mesma quantidade de parágrafos de corpo:',
     '{ "titulo": "", "subtitulo": "", "lead": "", "corpo": ["…"], "resumo": "" }',
     '',
-    'VERIFICAÇÃO: algum número, nome, data ou citação da sua versão está ausente da matéria original? Se sim, você inventou — desfaça.',
+    'VERIFICAÇÃO:',
+    '1. Algum número, nome, data ou citação da sua versão está ausente da matéria original? Se sim, você inventou — desfaça.',
+    '2. Sua versão ficou mais NEUTRA que a original? Se sim, você apagou o tom — devolva a intensidade.',
   ].join('\n');
 }
 
@@ -454,6 +492,160 @@ async function runEditorAgent(article, interp, style, tone, call = callLLM) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* 4) Agente de Otimização — hashtags estratificadas + palavras-chave          */
+/*                                                                             */
+/* Mesma FILOSOFIA do AutoPost IA (autopost-ia/js/api.js): hashtag não é       */
+/* enfeite tirado do texto — é distribuição. Cada uma ocupa um NÍVEL DE        */
+/* SEGMENTAÇÃO diferente, do alcance amplo ao público qualificado, e o         */
+/* conjunto cobre a escada inteira. As palavras-chave são termos de BUSCA,     */
+/* não sinônimos do título.                                                    */
+/*                                                                             */
+/* Os estratos do AutoPost (ampla · assunto · nicho×2 · intenção) foram        */
+/* adaptados ao jornalismo com um nível a mais: LOCAL. Em notícia, a           */
+/* geografia é a maior alavanca de indexação — quem busca "obra Calabar" está  */
+/* mais perto de ler do que quem busca "obras". Por isso vira estrato próprio  */
+/* quando a matéria tem lugar.                                                 */
+/* -------------------------------------------------------------------------- */
+
+const OPT_TIPOS = ['ampla', 'assunto', 'nicho', 'local', 'intencao'];
+const OPT_TIPO_LABEL = {
+  ampla: 'Ampla', assunto: 'Assunto', nicho: 'Nicho', local: 'Local', intencao: 'Intenção',
+};
+
+/** Contexto temporal — hashtag e termo de busca envelhecem. Mesmo recurso que
+ *  o AutoPost usa para não sugerir tag que já perdeu alcance. */
+function optContextoTemporal(hoje) {
+  const d = hoje || new Date();
+  const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  return `Estamos em ${meses[d.getMonth()]} de ${d.getFullYear()}. Priorize hashtags e termos de busca com alcance HOJE; evite tags datadas ou saturadas.`;
+}
+
+function buildOptimizerPrompt(interp, article, hoje) {
+  const temLocal = !!(interp && interp.local);
+  return [
+    'Você é um AGENTE DE OTIMIZAÇÃO de conteúdo jornalístico para redes sociais e busca. Você NÃO reescreve a matéria — só produz a camada de distribuição.',
+    '',
+    optContextoTemporal(hoje),
+    '',
+    '═══ MATÉRIA ═══',
+    `Título: ${article.titulo || ''}`,
+    `Subtítulo: ${article.subtitulo || ''}`,
+    `Lead: ${article.lead || ''}`,
+    `Categoria: ${(interp && interp.categoria) || 'GERAL'}`,
+    `Local: ${(interp && interp.local) || '(sem local)'}`,
+    `Entidades citadas: ${((interp && interp.entidades) || []).join(', ') || '(nenhuma)'}`,
+    '',
+    `═══ REGRAS DAS ${temLocal ? '6' : '5'} HASHTAGS (estratificadas por nível de segmentação) ═══`,
+    'Hashtag não é palavra bonita tirada do texto: cada uma tem uma FUNÇÃO na distribuição. Devolva exatamente esta composição:',
+    '',
+    '1. UMA hashtag AMPLA (tipo "ampla"): alcance grande E coerente com a editoria — #noticias, #politica, #economia, #saude, #educacao, #seguranca, #esporte, #cultura. Escolha pela categoria da matéria, não por moda.',
+    '2. UMA hashtag de ASSUNTO (tipo "assunto"): o tema literal da matéria, como o leitor o nomearia — #obras, #concursopublico, #vacinacao, #transporte.',
+    '3. DUAS hashtags de NICHO (tipo "nicho"): o recorte específico — subtema, órgão, setor ou programa citado. Volume menor, público qualificado (#mobilidadeurbana, #assistenciasocial, #saudepublica).',
+    temLocal
+      ? '4. UMA hashtag LOCAL (tipo "local"): a geografia da matéria — cidade, bairro ou estado. Em notícia local é o filtro que mais entrega leitor certo (#salvador, #bahia, #calabar).'
+      : '4. (sem hashtag local: a matéria não tem lugar definido — pule este estrato)',
+    '5. UMA hashtag de INTENÇÃO (tipo "intencao"): o que o leitor procura ou sente diante do assunto — #servico, #utilidadepublica, #denuncia, #transparencia, #meudinheiro.',
+    '',
+    'REGRAS DE FORMA: minúsculas, sem "#", sem espaços, sem acentos e sem caracteres especiais ("ação" → "acao"). Devem ser BUSCÁVEIS — alguém digita aquilo na barra de busca. Não repita a mesma tag em dois estratos.',
+    'REGRA DE CONTEÚDO: extraia do que a matéria realmente diz. Não crie hashtag sobre assunto que não está lá.',
+    '',
+    '═══ REGRAS DAS ~10 PALAVRAS-CHAVE ═══',
+    '- Devolva de 8 a 12 (idealmente ~10)',
+    '- São TERMOS DE BUSCA: o que alguém digitaria no Google para chegar nesta matéria',
+    '- Podem ter mais de uma palavra ("obras no centro", "cestas básicas Salvador")',
+    '- Em português, minúsculas, COM acentuação normal (são palavras-chave, não hashtags)',
+    '- Sem "#" e sem repetir literalmente as hashtags',
+    '- Variadas: misture termo amplo do tema, termo de nicho, nome próprio citado e a variação com o local',
+    '- Relacionadas ao conteúdo da matéria; não invente assunto que não esteja nela',
+    '',
+    '═══ FORMATO ═══',
+    'Responda APENAS com JSON válido, sem cercas de código:',
+    '{',
+    '  "hashtags": [{"tag": "noticias", "tipo": "ampla"}, {"tag": "obras", "tipo": "assunto"}],',
+    '  "palavras_chave": ["termo um", "termo dois"]',
+    '}',
+    `Os tipos válidos são EXATAMENTE: ${OPT_TIPOS.map((t) => `"${t}"`).join(', ')}.`,
+  ].join('\n');
+}
+
+/** Tira acento, "#", espaço e caractere especial — a tag precisa ser digitável
+ *  na busca da plataforma. */
+function sanitizeHashtag(tag) {
+  return String(tag || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // remove diacríticos
+    .replace(/^#+/, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toLowerCase();
+}
+
+/** Normaliza a saída do otimizador: tipos válidos, tags saneadas e sem
+ *  repetição, palavras-chave limpas. */
+function normalizeOptimization(data) {
+  const brutas = (data && Array.isArray(data.hashtags)) ? data.hashtags : [];
+  const vistas = new Set();
+  const hashtags = [];
+  brutas.forEach((h) => {
+    const obj = (h && typeof h === 'object') ? h : { tag: h, tipo: '' };
+    const tag = sanitizeHashtag(obj.tag);
+    if (!tag || vistas.has(tag)) return;
+    vistas.add(tag);
+    const tipo = OPT_TIPOS.includes(String(obj.tipo || '').toLowerCase())
+      ? String(obj.tipo).toLowerCase() : 'assunto';
+    hashtags.push({ tag, tipo });
+  });
+  const palavras = asList(data && (data.palavras_chave || data.palavrasChave || data.keywords))
+    .map((k) => String(k).replace(/^#/, '').trim().toLowerCase())
+    .filter((k) => k.length > 1);
+  return {
+    hashtags: hashtags.slice(0, 8),
+    palavrasChave: Array.from(new Set(palavras)).slice(0, 12),
+  };
+}
+
+/** Reserva determinística: monta a escada a partir do que a interpretação já
+ *  isolou, sem custo de rede. Pior que a versão do modelo, mas mantém a
+ *  ESTRUTURA — nunca devolve um punhado de tags soltas. */
+function fallbackOptimization(interp, article) {
+  const i = interp || {};
+  const cat = String(i.categoria || 'GERAL').toLowerCase();
+  const porCategoria = {
+    'política': 'politica', politica: 'politica', economia: 'economia', saúde: 'saude',
+    saude: 'saude', educação: 'educacao', educacao: 'educacao', segurança: 'seguranca',
+    seguranca: 'seguranca', esporte: 'esporte', cultura: 'cultura', cidade: 'cidades',
+  };
+  const hashtags = [{ tag: porCategoria[cat] || 'noticias', tipo: 'ampla' }];
+  const doAssunto = sanitizeHashtag((i.assunto || article.titulo || '').split(/\s+/).slice(0, 2).join(''));
+  if (doAssunto) hashtags.push({ tag: doAssunto, tipo: 'assunto' });
+  (i.entidades || []).slice(0, 2).forEach((e) => {
+    const t = sanitizeHashtag(String(e).split(/\s+/).slice(0, 2).join(''));
+    if (t) hashtags.push({ tag: t, tipo: 'nicho' });
+  });
+  const loc = sanitizeHashtag(String(i.local || '').split(/[,/]/)[0]);
+  if (loc) hashtags.push({ tag: loc, tipo: 'local' });
+  hashtags.push({ tag: 'utilidadepublica', tipo: 'intencao' });
+  const palavras = [];
+  if (i.assunto) palavras.push(String(i.assunto).toLowerCase());
+  if (i.local) palavras.push(String(i.local).toLowerCase());
+  if (i.assunto && i.local) palavras.push(`${String(i.assunto).toLowerCase()} ${String(i.local).toLowerCase()}`);
+  (i.entidades || []).forEach((e) => palavras.push(String(e).toLowerCase()));
+  return normalizeOptimization({ hashtags, palavras_chave: palavras });
+}
+
+async function runOptimizerAgent(interp, article, call = callLLM, hoje) {
+  try {
+    const r = await callLLMJson(buildOptimizerPrompt(interp, article, hoje), call);
+    const opt = r.data ? normalizeOptimization(r.data) : fallbackOptimization(interp, article);
+    // Modelo que devolve JSON válido mas vazio não pode zerar a distribuição.
+    const final = opt.hashtags.length ? opt : fallbackOptimization(interp, article);
+    return { optimization: final, ok: !!r.data && !!opt.hashtags.length, model: r.model,
+      promptTokens: r.promptTokens, completionTokens: r.completionTokens };
+  } catch (_) {
+    return { optimization: fallbackOptimization(interp, article), ok: false };
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /* Orquestrador                                                                */
 /* -------------------------------------------------------------------------- */
 
@@ -517,7 +709,7 @@ async function runContentPipeline({ content, style, tone, onStage, call = callLL
   const interpretation = iRes.interpretation;
 
   // 2) Redação — a partir SÓ dos fatos isolados.
-  stage('write', 'Agente redator…', 'Escrevendo título, lead, corpo e hashtags.');
+  stage('write', 'Agente redator…', 'Escrevendo título, lead e corpo.');
   const wRes = await runWriterAgent(interpretation, style, tone, call);
   agents.writer = { model: wRes.model, promptTokens: wRes.promptTokens, completionTokens: wRes.completionTokens, ok: wRes.ok };
   const article = wRes.article;
@@ -533,17 +725,30 @@ async function runContentPipeline({ content, style, tone, onStage, call = callLL
   };
   const articleFinal = eRes.article;
 
+  // 4) Otimização — camada de distribuição (hashtags estratificadas + termos de
+  //    busca). Vem depois da revisão para ler o texto FINAL.
+  stage('optimize', 'Agente de otimização…', 'Montando hashtags e palavras-chave.');
+  const oRes = await runOptimizerAgent(interpretation, articleFinal, call);
+  agents.optimizer = {
+    model: oRes.model || null, ok: oRes.ok,
+    promptTokens: oRes.promptTokens || null, completionTokens: oRes.completionTokens || null,
+  };
+  const optimization = oRes.optimization;
+  // As hashtags vivem no article (consumidores antigos já leem article.hashtags).
+  articleFinal.hashtags = optimization.hashtags.map((h) => '#' + h.tag);
+
   const contentText = articleToPlainText(articleFinal);
 
   return {
     interpretation,
     article: articleFinal,
     articleDraft: article,        // rascunho pré-revisão (auditoria/diagnóstico)
+    optimization,                 // hashtags tipadas + palavras-chave
     content: contentText,
     agents,
     // Modelo "principal" (redator) para exibir de forma compacta como antes.
     model: wRes.model || iRes.model || '',
-    promptTokens: (iRes.promptTokens || 0) + (wRes.promptTokens || 0) + (eRes.promptTokens || 0) || null,
-    completionTokens: (iRes.completionTokens || 0) + (wRes.completionTokens || 0) + (eRes.completionTokens || 0) || null,
+    promptTokens: (iRes.promptTokens || 0) + (wRes.promptTokens || 0) + (eRes.promptTokens || 0) + (oRes.promptTokens || 0) || null,
+    completionTokens: (iRes.completionTokens || 0) + (wRes.completionTokens || 0) + (eRes.completionTokens || 0) + (oRes.completionTokens || 0) || null,
   };
 }

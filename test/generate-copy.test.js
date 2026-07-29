@@ -12,7 +12,7 @@ let G;
 beforeAll(() => {
   clearStorage();
   G = loadModules(
-    ['catalogs.js', 'core.js', 'llm.js', 'handoff.js', 'generate.js'],
+    ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js', 'handoff.js', 'generate.js'],
     ['generationFullText', 'pipelineExtrasHtml']
   );
 });
@@ -44,11 +44,47 @@ describe('generationFullText', () => {
   });
 });
 
+describe('cópia inclui a camada de otimização inteira', () => {
+  it('junta matéria, hashtags e palavras-chave — como o AutoPost IA', () => {
+    const g = {
+      content: 'Título\n\nCorpo.',
+      article: { hashtags: ['#cidades', '#salvador'] },
+      optimization: { hashtags: [], palavrasChave: ['cestas básicas', 'assistência social'] },
+    };
+    expect(G.generationFullText(g)).toBe(
+      'Título\n\nCorpo.\n\n#cidades #salvador\n\ncestas básicas, assistência social'
+    );
+  });
+  it('sem palavras-chave, não deixa bloco vazio', () => {
+    const g = { content: 'Corpo.', article: { hashtags: ['#x'] }, optimization: { palavrasChave: [] } };
+    expect(G.generationFullText(g)).toBe('Corpo.\n\n#x');
+  });
+});
+
 describe('bloco de hashtags no resultado', () => {
   it('mostra as hashtags e avisa que já vão na cópia', () => {
     const html = G.pipelineExtrasHtml({ pipeline: true, article: { hashtags: ['#x', '#y'] } });
     expect(html).toContain('#x');
     expect(html).toContain('Incluídas ao copiar');
+  });
+
+  it('exibe o ESTRATO de cada hashtag — a escolha é estratégica, não decorativa', () => {
+    const html = G.pipelineExtrasHtml({
+      pipeline: true,
+      optimization: {
+        hashtags: [{ tag: 'cidades', tipo: 'ampla' }, { tag: 'salvador', tipo: 'local' }],
+        palavrasChave: ['cestas básicas'],
+      },
+    });
+    expect(html).toContain('Ampla');
+    expect(html).toContain('Local');
+    expect(html).toContain('#salvador');
+    expect(html).toContain('cestas básicas');
+  });
+
+  it('geração antiga (sem camada de otimização) ainda mostra as tags', () => {
+    const html = G.pipelineExtrasHtml({ pipeline: true, article: { hashtags: ['#antiga'] } });
+    expect(html).toContain('#antiga');
   });
 
   it('não oferece mais um botão separado de copiar hashtags', () => {

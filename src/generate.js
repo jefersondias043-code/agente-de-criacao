@@ -20,6 +20,7 @@ function assembleAgentsGeneration({ style, tone, manualText, extractionId, combi
     // Saída estruturada do pipeline de agentes:
     interpretation: result.interpretation,
     article: result.article,
+    optimization: result.optimization,
     agents: result.agents,
     pipeline: true,
     model: result.model,
@@ -262,6 +263,7 @@ function renderGenerate() {
             <span class="pipeline-step" data-step="interpret">Interpretação</span>
             <span class="pipeline-step" data-step="write">Redação</span>
             <span class="pipeline-step" data-step="edit">Revisão</span>
+            <span class="pipeline-step" data-step="optimize">Otimização</span>
           </div>
         </div>`;
 
@@ -349,21 +351,42 @@ function wireGenerationActions(rootEl, g) {
  *  hora de copiar. Mesmo padrão do AutoPost IA, onde "Copiar tudo" reúne
  *  título, legenda e hashtags num único bloco. */
 function generationFullText(g) {
-  const base = (g && g.content) || '';
+  const partes = [(g && g.content) || ''];
   const tags = (g && g.article && g.article.hashtags) || [];
-  return tags.length ? `${base}\n\n${tags.join(' ')}` : base;
+  if (tags.length) partes.push(tags.join(' '));
+  const chaves = (g && g.optimization && g.optimization.palavrasChave) || [];
+  if (chaves.length) partes.push(chaves.join(', '));
+  return partes.filter(Boolean).join('\n\n');
 }
 
-// Bloco do PIPELINE: as hashtags geradas, exibidas como referência visual. A
-// CÓPIA delas não tem botão próprio — vai junto no "Copiar tudo", para o
-// usuário não precisar de duas operações para publicar.
+// Bloco do PIPELINE: a camada de DISTRIBUIÇÃO da matéria — hashtags com o
+// estrato de segmentação que cada uma ocupa (ampla · assunto · nicho · local ·
+// intenção) e os termos de busca. Mostrar o estrato não é enfeite: é o que
+// deixa visível que a escolha foi estratégica, e não uma palavra qualquer
+// tirada do texto. Tudo já vai junto no "Copiar tudo".
 function pipelineExtrasHtml(g) {
   if (!g || !g.pipeline) return '';
-  const tags = (g.article && g.article.hashtags) || [];
-  if (!tags.length) return '';
+  const opt = g.optimization || {};
+  const tipadas = Array.isArray(opt.hashtags) ? opt.hashtags : [];
+  const chaves = Array.isArray(opt.palavrasChave) ? opt.palavrasChave : [];
+  // Gerações anteriores à camada de otimização só têm as tags sem tipo.
+  const simples = (!tipadas.length && g.article && g.article.hashtags) || [];
+  if (!tipadas.length && !simples.length && !chaves.length) return '';
+
+  const rotulo = (typeof OPT_TIPO_LABEL !== 'undefined') ? OPT_TIPO_LABEL : {};
+  const chips = tipadas.length
+    ? tipadas.map((h) => `<span class="hashtag-chip">${
+        rotulo[h.tipo] ? `<span class="tag-type">${escapeHtml(rotulo[h.tipo])}</span>` : ''
+      }#${escapeHtml(h.tag)}</span>`).join('')
+    : simples.map((t) => `<span class="hashtag-chip">${escapeHtml(t)}</span>`).join('');
+
   return `
       <div class="hashtags-block mt-2">
-        <div class="hashtags-list">${tags.map((t) => `<span class="hashtag-chip">${escapeHtml(t)}</span>`).join('')}</div>
+        <div class="hashtags-list">${chips}</div>
+        ${chaves.length ? `<div class="keywords-line">
+          <span class="keywords-label">Palavras-chave</span>
+          <span class="keywords-text">${escapeHtml(chaves.join(', '))}</span>
+        </div>` : ''}
         <span class="text-xs text-mute">Incluídas ao copiar</span>
       </div>`;
 }

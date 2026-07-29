@@ -23,8 +23,18 @@ function role(prompt) {
   if (prompt.includes('AGENTE DE INTERPRETAÇÃO')) return 'interpret';
   if (prompt.includes('AGENTE REDATOR')) return 'write';
   if (prompt.includes('AGENTE EDITOR')) return 'edit';
+  if (prompt.includes('AGENTE DE OTIMIZAÇÃO')) return 'optimize';
   return 'unknown';
 }
+
+const goodOpt = JSON.stringify({
+  hashtags: [
+    { tag: 'cidades', tipo: 'ampla' }, { tag: 'cestasbasicas', tipo: 'assunto' },
+    { tag: 'assistenciasocial', tipo: 'nicho' }, { tag: 'prefeitura', tipo: 'nicho' },
+    { tag: 'salvador', tipo: 'local' }, { tag: 'utilidadepublica', tipo: 'intencao' },
+  ],
+  palavras_chave: ['cestas básicas salvador', 'assistência social', 'calabar'],
+});
 
 const goodInterp = JSON.stringify({
   assunto: 'Prefeitura entrega cestas no Calabar',
@@ -56,7 +66,7 @@ describe('runContentPipeline — caminho feliz', () => {
     stages = [];
     installLLM((p) => {
       const r = role(p);
-      const body = { interpret: goodInterp, write: goodArticle, edit: goodEdit }[r] || '{}';
+      const body = { interpret: goodInterp, write: goodArticle, edit: goodEdit, optimize: goodOpt }[r] || '{}';
       return { content: body, model: 'stub-model', promptTokens: 10, completionTokens: 20 };
     });
     result = await A.runContentPipeline({
@@ -67,8 +77,8 @@ describe('runContentPipeline — caminho feliz', () => {
     });
   });
 
-  it('chama os 3 agentes em ordem (progresso)', () => {
-    expect(stages).toEqual(['interpret', 'write', 'edit']);
+  it('chama os 4 agentes em ordem (progresso)', () => {
+    expect(stages).toEqual(['interpret', 'write', 'edit', 'optimize']);
   });
   it('produz interpretação estruturada com categoria em maiúsculas', () => {
     expect(result.interpretation.categoria).toBe('CIDADE');
@@ -86,8 +96,17 @@ describe('runContentPipeline — caminho feliz', () => {
     expect(result.content.split('\n\n').length).toBeGreaterThanOrEqual(4);
   });
   it('soma tokens dos agentes', () => {
-    expect(result.promptTokens).toBe(30);       // interp + write + edit
-    expect(result.completionTokens).toBe(60);
+    expect(result.promptTokens).toBe(40);       // interp + write + edit + optimize
+    expect(result.completionTokens).toBe(80);
+  });
+  it('entrega a camada de distribuição com estratos', () => {
+    const tipos = result.optimization.hashtags.map((h) => h.tipo);
+    expect(tipos).toContain('ampla');
+    expect(tipos).toContain('local');
+    expect(tipos).toContain('intencao');
+    expect(result.optimization.palavrasChave.length).toBeGreaterThan(0);
+    // as tags também chegam no article, para os consumidores antigos
+    expect(result.article.hashtags).toContain('#salvador');
   });
   it('a revisão entra no resultado e o rascunho fica guardado', () => {
     expect(result.agents.editor.ok).toBe(true);

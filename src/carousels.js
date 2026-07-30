@@ -71,12 +71,20 @@ function posterDisplayCategory(p) {
 /* Auto-organização de conteúdo em slides                                      */
 /* -------------------------------------------------------------------------- */
 
+/** Máximo de slides de CORPO no carrossel automático. Um carrossel de 40 telas
+ *  não se publica em rede nenhuma, então o teto existe de propósito — o que não
+ *  pode é o texto que sobra sumir sem o usuário saber. */
+const CAROUSEL_MAX_BODY_SLIDES = 10;
+
 /**
  * ESTRUTURA PADRÃO do carrossel automático (usuário pode editar tudo depois):
  *   • 1º slide  → "Foto em destaque" (capa, destaque visual)
  *   • intermediários → "Texto / parágrafo" (corpo COMPLETO, agrupado por orçamento)
  *   • último slide → "Cor sólida" (encerramento / CTA)
  * Formato inicial padrão = 1:1 (quadrado) em todos os slides.
+ *
+ * O array devolvido carrega `slidesOmitidos` (não-enumerável): quantos grupos de
+ * corpo o teto deixou de fora, para quem chamou poder avisar.
  */
 function splitIntoSlides(art, portal, fmt) {
   fmt = fmt || '1:1';
@@ -112,7 +120,13 @@ function splitIntoSlides(art, portal, fmt) {
     }
   }
   flush();
-  const limited = groups.slice(0, 10); // teto de slides de corpo
+  // Teto de slides de corpo: um carrossel de 40 telas não se publica. O teto é
+  // decisão de desenho e fica — mas o que sobra NÃO pode desaparecer calado.
+  // Matéria de 60 parágrafos perdia 2/3 do texto sem uma linha de aviso; quem
+  // exportava só descobria contando os slides. `slidesOmitidos` leva o número
+  // para quem chamou avisar o usuário (ver createCarouselFromGeneration).
+  const limited = groups.slice(0, CAROUSEL_MAX_BODY_SLIDES);
+  const omitidos = groups.length - limited.length;
   limited.forEach(g => slides.push(makeSlide({ template: 'texto', format: fmt, category, headline: '', description: g })));
   if (!limited.length && subtitle) {
     slides.push(makeSlide({ template: 'texto', format: fmt, category, headline: '', description: subtitle }));
@@ -125,6 +139,10 @@ function splitIntoSlides(art, portal, fmt) {
     subtitle: art.cta || ('Siga ' + ((portal && portal.handle) || '@portal') + ' para mais.'),
   }));
 
+  // Propriedade NÃO-ENUMERÁVEL: o array de slides é serializado para o
+  // IndexedDB e percorrido em vários lugares; um índice extra visível viraria
+  // slide fantasma. Assim o dado viaja até quem avisa e desaparece do JSON.
+  Object.defineProperty(slides, 'slidesOmitidos', { value: omitidos, enumerable: false });
   return slides;
 }
 
@@ -157,7 +175,17 @@ function createCarouselFromGeneration(g) {
   savePosters();   // usa o offload de imagens (Blob) — consistente com o cartaz
   State.activePosterId = poster.id;
   _peOpen = true;  // handoff (matéria → carrossel) abre direto o editor
-  toast('Carrossel criado.', 'success');
+  // Matéria comprida não cabe em 10 slides de corpo. O texto completo continua
+  // no campo "Texto longo" da peça, então nada se perde do projeto — mas o
+  // usuário precisa saber que os slides não trazem a matéria inteira.
+  const omitidos = slides.slidesOmitidos || 0;
+  if (omitidos > 0) {
+    toast(`Carrossel criado com ${CAROUSEL_MAX_BODY_SLIDES} slides de texto — a matéria é longa e ` +
+      `${omitidos} bloco${omitidos > 1 ? 's' : ''} de texto ${omitidos > 1 ? 'ficaram' : 'ficou'} de fora. ` +
+      'O texto completo está em "Texto longo", na aba Texto.', 'info', 9000);
+  } else {
+    toast('Carrossel criado.', 'success');
+  }
   goTo('posters');
 }
 
@@ -428,6 +456,7 @@ async function exportCarousel(p, mode, scale, fileType) {
   setProg(0);
   const prevIndex = p.slideIndex || 0;
   const files = [];
+  const naoCapturados = [];   // slides que o html2canvas não conseguiu desenhar
   // Cobre a prévia durante TODO o loop — sem isso o palco pisca a cada slide
   // (troca de slide + zoom da captura). (ref-count: as capturas internas somam.)
   if (typeof showStageCaptureCover === 'function') showStageCaptureCover();
@@ -442,8 +471,17 @@ async function exportCarousel(p, mode, scale, fileType) {
       await waitForStageImages();
       const canvas = await captureStageCanvas(fmt, scale);
       if (canvas) files.push({ name: `carrossel-${String(idx + 1).padStart(2, '0')}.${ext}`, data: await _canvasToBytes(canvas, mime, jpg ? 0.92 : undefined) });
+      else naoCapturados.push(idx + 1);
     }
     if (!files.length) { toast(libReady('html2canvas') ? 'Não foi possível exportar o carrossel.' : libUnavailableMsg('html2canvas'), 'error', 6000); return; }
+    // Um slide que não captura era simplesmente PULADO: o usuário recebia um
+    // carrossel de 10 imagens quando pediu 11 e nada dizia qual faltou. Se o
+    // conjunto saiu incompleto, ele precisa saber ANTES de publicar.
+    if (naoCapturados.length) {
+      toast(`Atenção: ${naoCapturados.length} de ${slides.length} slides não foram gerados ` +
+        `(slide ${naoCapturados.join(', ')}). O arquivo saiu incompleto — reabra o carrossel e exporte de novo.`,
+      'error', 9000);
+    }
     const base = (slides[0].headline || 'carrossel').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'export';
 
     if (mode === 'images') {

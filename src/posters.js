@@ -3165,6 +3165,17 @@ async function captureStageCanvas(fmt, scale) {
   const wrap = $('#p-stage-wrap');
   const target = stage && stage.querySelector('.poster-1440');
   if (!stage || !wrap || !target) return null;
+  // Alvo com 0 de largura/altura (palco numa view oculta, render abortado): o
+  // html2canvas não devolve erro tratável — ele estoura lá dentro com
+  // "addColorStop: The provided double value is non-finite", porque a linha do
+  // gradiente mede zero e a parada vira NaN. Quem chamou mostrava esse texto
+  // cru ao usuário. Detecta antes e devolve null, que é o contrato já
+  // existente para "não deu para capturar".
+  const medida = target.getBoundingClientRect();
+  if (medida.width < 1 || medida.height < 1) {
+    console.warn('[cartaz] exportação abortada: alvo sem dimensão', medida.width, '×', medida.height);
+    return null;
+  }
   showStageCaptureCover();   // esconde o zoom/piscada da captura
   if (typeof stage.__exitReframe === 'function') stage.__exitReframe();   // sai do reframe se ativo
   // Garante as fontes carregadas antes de exportar — com a fonte ainda baixando o

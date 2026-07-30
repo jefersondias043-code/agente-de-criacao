@@ -24,12 +24,22 @@ const TEXT_CONSUMERS = [
 ];
 
 /** Entrega o conteúdo pendente ao iframe embutido (se já carregado). Chamado
- *  logo após enviar (iframe já aberto) e no evento load de cada iframe. */
+ *  logo após enviar (iframe já aberto) e no evento load de cada iframe.
+ *
+ *  A guarda é `dataset.ready`, NÃO `dataset.loaded`: os dois existem e querem
+ *  dizer coisas diferentes (ver mountToolFrame em core.js).
+ *    loaded → o src já foi atribuído; marcado NA HORA, o iframe pode nem ter
+ *             começado a carregar. Serve de trava anti-remontagem.
+ *    ready  → o evento load disparou; aí sim existe contentWindow ouvindo.
+ *  Postar mensagem para um iframe apenas `loaded` manda o texto para o vazio E
+ *  limpa State.pendingContent, então a reentrega no load nunca acontece — o
+ *  conteúdo do usuário desaparece sem erro. Hoje as duas chamadas são seguras
+ *  por acidente do fluxo; a guarda certa impede que a terceira não seja. */
 function deliverPendingContent() {
   const p = State.pendingContent;
   if (!p) return;
   const f = $(p.frame);
-  if (!f || !f.dataset.loaded) return; // será entregue quando o iframe carregar
+  if (!f || !f.dataset.ready) return; // será entregue quando o iframe carregar
   try {
     f.contentWindow.postMessage({ type: 'agente:content', target: p.target, text: p.text },
       typeof toolTargetOrigin === 'function' ? toolTargetOrigin() : '*');

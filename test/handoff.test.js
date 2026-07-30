@@ -71,3 +71,69 @@ describe('sendTextTo', () => {
     vi.useRealTimers();
   });
 });
+
+/* ==========================================================================
+ * ENTREGA ao iframe embutido — `loaded` vs `ready`.
+ *
+ * mountToolFrame (core.js) marca DOIS estados diferentes no mesmo elemento:
+ *   loaded → o src acabou de ser atribuído; marcado NA HORA, o iframe pode nem
+ *            ter começado a carregar. É trava anti-remontagem.
+ *   ready  → o evento load disparou; só aqui existe contentWindow escutando.
+ * A entrega checava `loaded`. Postar para um iframe que só está `loaded` manda
+ * o texto para o vazio E limpa pendingContent — então a reentrega no load nunca
+ * acontece e o conteúdo do usuário desaparece sem nenhum erro.
+ * ======================================================================== */
+describe('deliverPendingContent exige o iframe REALMENTE carregado', () => {
+  let D;
+  beforeEach(() => {
+    D = loadModules(['core.js', 'handoff.js'], ['deliverPendingContent', 'State']);
+    globalThis.goTo = vi.fn();
+  });
+
+  /** Monta um iframe de teste com os flags pedidos e espiona o postMessage. */
+  function frameFalso({ loaded, ready }) {
+    document.body.innerHTML = '<div id="toast-stack"></div><iframe id="autopostFrame"></iframe>';
+    const f = document.querySelector('#autopostFrame');
+    if (loaded) f.dataset.loaded = '1';
+    if (ready) f.dataset.ready = '1';
+    const enviados = [];
+    Object.defineProperty(f, 'contentWindow', {
+      configurable: true,
+      value: { postMessage: (msg) => enviados.push(msg) },
+    });
+    return { f, enviados };
+  }
+
+  it('iframe só "loaded" (ainda carregando): NÃO entrega e mantém pendente', () => {
+    const { enviados } = frameFalso({ loaded: true, ready: false });
+    D.State.pendingContent = { frame: '#autopostFrame', target: 'novopacote', text: 'matéria' };
+    D.deliverPendingContent();
+    expect(enviados).toEqual([]);
+    // o essencial: o conteúdo continua na fila para o load reentregar
+    expect(D.State.pendingContent).not.toBeNull();
+    expect(D.State.pendingContent.text).toBe('matéria');
+  });
+
+  it('iframe "ready": entrega e limpa a fila', () => {
+    const { enviados } = frameFalso({ loaded: true, ready: true });
+    D.State.pendingContent = { frame: '#autopostFrame', target: 'novopacote', text: 'matéria' };
+    D.deliverPendingContent();
+    expect(enviados.length).toBe(1);
+    expect(enviados[0]).toMatchObject({ type: 'agente:content', target: 'novopacote', text: 'matéria' });
+    expect(D.State.pendingContent).toBeNull();
+  });
+
+  it('sem nada pendente, não faz nada', () => {
+    const { enviados } = frameFalso({ loaded: true, ready: true });
+    D.State.pendingContent = null;
+    expect(() => D.deliverPendingContent()).not.toThrow();
+    expect(enviados).toEqual([]);
+  });
+
+  it('iframe inexistente não quebra nem descarta o conteúdo', () => {
+    document.body.innerHTML = '<div id="toast-stack"></div>';
+    D.State.pendingContent = { frame: '#naoExiste', target: 'x', text: 'matéria' };
+    expect(() => D.deliverPendingContent()).not.toThrow();
+    expect(D.State.pendingContent).not.toBeNull();
+  });
+});

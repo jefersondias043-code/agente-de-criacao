@@ -33,6 +33,23 @@
  * clip-path só com o par `data-clip` (mesmos pontos %), que o achatamento do
  * export reproduz no canvas; sozinho, o recorte existe no preview e some.
  *
+ * TEXTO CLAMPADO NÃO CORTA ACENTO/DESCENDENTE (regra dura, coberta por
+ * test/poster-accent-clip.test.js): medido com fonte real (Poppins — a que a
+ * maioria dos usuários vê; Oswald/Fraunces só entram por voz tipográfica
+ * custom) que overflow:hidden + -webkit-line-clamp cortam o acento (Á Ã Ç É
+ * Í Ó...) quando o line-height é apertado. Título CAIXA ALTA (PT.cond) perde
+ * o acento no TOPO; título/citação em caixa normal (PT.serif, tem g/j/p/q/y)
+ * perde o DESCENDENTE na BASE — são lados opostos, técnicas diferentes:
+ *   topo ....... padding-top (seguro: cria espaço em branco de verdade, não
+ *                existe "linha -1" acima da 1ª pra vazar)
+ *   base ....... NUNCA padding-bottom — num elemento clampado ele não abre
+ *                espaço, empurra o limite de corte pra baixo e vaza um
+ *                pedaço da linha SEGUINTE (a que devia ser truncada). Em vez
+ *                disso, aumente o próprio line-height (piso medido: 1.22).
+ * Todo font-family:${PT.cond} + text-transform:uppercase clampado leva
+ * padding-top:0.28em; todo font-family:${PT.serif} clampado (itálico ou não)
+ * mantém line-height ≥ 1.22.
+ *
  * Imagens arrastáveis: usar posterImageLayer() (mantém data-draggable /
  * data-zoomscale / object-position p/ pan + flatten do exportPoster()).
  * ==========================================================================*/
@@ -1105,7 +1122,7 @@ function tplDestaqueFoto(p, fmt, portal) {
       <!-- Bloco editorial -->
       <div style="flex:1;min-height:0;background:${PT.ink};padding:38px 52px 40px;display:flex;flex-direction:column;justify-content:center;gap:18px;box-sizing:border-box;">
         ${posterKicker(p.category, { color: PT.redOnDark })}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;padding-top:0.28em;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.3;color:${PT.creamMute};margin:0;max-width:94%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('location') && p.location && !p._total ? `<div style="font-family:${PT.sans};font-size:20px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${PT.creamMute};">${escapeHtml(p.location)}</div>` : ''}
       </div>
@@ -1142,7 +1159,7 @@ function tplManchete2(p, fmt, portal) {
       <!-- Conteúdo -->
       <div style="flex-shrink:0;padding:34px 52px 30px;">
         ${posterKicker(p.category)}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:0.98;letter-spacing:-0.005em;color:${PT.cream};margin:22px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:0.98;padding-top:0.28em;letter-spacing:-0.005em;color:${PT.cream};margin:22px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:32px;font-weight:500;line-height:1.3;color:${PT.inkSoft};margin:22px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
 
@@ -1172,7 +1189,7 @@ function tplCitacao(p, fmt, portal) {
 
       <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;z-index:2;">
         ${posterShow('graphics') ? `<div style="font-family:${PT.serif};font-weight:900;font-size:150px;line-height:1;height:94px;overflow:hidden;color:${PT.terra};margin-bottom:14px;">&ldquo;</div>` : ''}
-        ${posterShow('headline') ? `<blockquote style="font-family:${PT.serif};font-style:italic;font-weight:600;font-size:${qSize}px;line-height:1.13;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;">${escapeHtml(quote)}</blockquote>` : ''}
+        ${posterShow('headline') ? `<blockquote style="font-family:${PT.serif};font-style:italic;font-weight:600;font-size:${qSize}px;line-height:1.22;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;">${escapeHtml(quote)}</blockquote>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<div style="margin-top:40px;display:flex;align-items:center;gap:18px;"><span style="width:60px;height:4px;background:${PT.terra};display:inline-block;flex-shrink:0;"></span><span style="font-family:${PT.sans};font-size:29px;font-weight:700;letter-spacing:0.02em;color:${PT.cream};overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</span></div>` : ''}
       </div>
 
@@ -1203,7 +1220,7 @@ function tplTopicos(p, fmt, portal) {
       <div style="flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;">
         <div style="min-width:0;">
           ${posterKicker(p.category)}
-          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:-0.005em;margin:18px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.headline || 'Título da lista')}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:-0.005em;margin:18px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.headline || 'Título da lista')}</h1>` : ''}
         </div>
         ${ptCounter(p)}
       </div>
@@ -1230,7 +1247,7 @@ function tplMinimalista(p, fmt, portal) {
 
       <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;">
         ${posterShow('graphics') ? `<div style="width:84px;height:8px;background:${PT.terra};margin-bottom:34px;flex-shrink:0;"></div>` : ''}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.02;letter-spacing:-0.03em;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.22;letter-spacing:-0.03em;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:32px;font-weight:400;line-height:1.45;color:${PT.muted};margin:36px 0 0 0;max-width:88%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
 
@@ -1249,7 +1266,7 @@ function tplTexto(p, fmt, portal) {
       <div style="flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:20px;">
         <div style="min-width:0;flex:1;">
           ${posterKicker(p.category || 'Conteúdo')}
-          ${posterShow('headline') && heading ? `<h2 style="font-family:${PT.cond};text-transform:uppercase;font-size:54px;font-weight:700;line-height:1.02;letter-spacing:-0.005em;margin:16px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(heading)}</h2>` : ''}
+          ${posterShow('headline') && heading ? `<h2 style="font-family:${PT.cond};text-transform:uppercase;font-size:54px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:-0.005em;margin:16px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(heading)}</h2>` : ''}
         </div>
         ${posterShow('counter') && p._total ? `<div style="font-family:${PT.serif};font-weight:900;font-size:90px;line-height:0.8;color:${PT.terra};flex-shrink:0;">${num2(p._idx)}</div>` : ''}
       </div>
@@ -1281,7 +1298,7 @@ function tplCorSolida(p, fmt, portal) {
       </div>
 
       <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;z-index:2;">
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:0.98;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:0.98;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:32px;font-weight:500;line-height:1.34;color:rgba(255,255,255,0.95);margin:30px 0 0 0;max-width:90%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
 
@@ -1327,7 +1344,7 @@ function tplDestaqueFoto2(p, fmt, portal) {
 
       <div style="position:absolute;left:54px;right:54px;bottom:54px;pointer-events:none;display:flex;flex-direction:column;gap:18px;">
         ${posterKicker(p.category, { color: PT.redOnDark })}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.3;color:${PT.creamMute};margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('footer') ? `<div style="border-top:1.5px solid rgba(245,239,227,0.3);padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
           ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:22px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
@@ -1353,7 +1370,7 @@ function tplDestaqueFoto3(p, fmt, portal) {
         ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 56, nameSize: 24 }) : ''}
         <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;">
           ${posterKicker(p.category, { color: PT.redOnDark })}
-          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;letter-spacing:0.004em;color:${PT.cream};margin:20px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;padding-top:0.28em;letter-spacing:0.004em;color:${PT.cream};margin:20px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
           ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:25px;font-weight:500;line-height:1.32;color:${PT.creamMute};margin:24px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         </div>
         ${posterShow('footer') ? `<div style="flex-shrink:0;border-top:1.5px solid ${PT.creamLine};padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
@@ -1383,7 +1400,7 @@ function tplDestaqueFoto4(p, fmt, portal) {
       </div>
       <div style="flex-shrink:0;">
         <div style="margin-bottom:16px;">${posterKicker(p.category)}</div>
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:-0.005em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:-0.005em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.3;color:${PT.inkSoft};margin:14px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
     </div>
@@ -1411,7 +1428,7 @@ function tplDestaqueFoto5(p, fmt, portal) {
 
       <!-- Faixa de impacto (texto) — separada, não sobrepõe a foto -->
       <div style="flex:1;min-height:0;background:${PT.terra};padding:30px 54px;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;">
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.96);margin:14px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('footer') ? `<div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
           ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:21px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
@@ -1445,7 +1462,7 @@ function tplHeadlinePremium(p, fmt, portal) {
       </div>
       <div style="position:absolute;left:46px;right:46px;bottom:46px;background:${PT.ink};border-radius:22px;border:1px solid ${PT.line};padding:42px 46px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px;">
         ${posterKicker(p.category)}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.3;color:${PT.creamMute};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('footer') && (posterShow('header') || (posterShow('location') && p.location)) ? `<div style="border-top:1.5px solid ${PT.creamLine};padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
           ${posterShow('header') ? ptMasthead(portal, { size: 50, nameSize: 24 }) : '<span></span>'}
@@ -1475,7 +1492,7 @@ function tplBreakingAlert(p, fmt, portal) {
         ${posterShow('category') && p.category ? `<span style="font-family:${PT.sans};font-weight:700;font-size:22px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.9);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.category)}</span>` : ''}
       </div>
       <div style="flex:1;min-height:0;padding:28px 56px;display:flex;flex-direction:column;justify-content:center;">
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:0.98;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:0.98;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.95);margin:24px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
       ${hasImg ? `<div style="flex:0 0 36%;min-height:0;position:relative;overflow:hidden;border-top:6px solid ${PT.orange};">
@@ -1506,7 +1523,7 @@ function tplFaceToNews(p, fmt, portal) {
       </div>
       <div style="position:absolute;left:54px;right:54px;bottom:54px;pointer-events:none;display:flex;flex-direction:column;gap:16px;">
         ${posterKicker(p.category, { color: PT.redOnDark })}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${(posterShow('personName') && name) || (posterShow('personRole') && role) ? `<div style="display:flex;align-items:center;gap:16px;margin-top:4px;">
           <span style="width:6px;height:${(posterShow('personRole') && role) ? 56 : 34}px;background:${PT.terra};display:inline-block;flex-shrink:0;border-radius:3px;"></span>
           <div style="min-width:0;">
@@ -1539,7 +1556,7 @@ function tplQuoteImpact(p, fmt, portal) {
       <div style="flex:1.25;min-height:0;position:relative;padding:46px 56px 50px;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;">
         ${posterShow('graphics') ? `<div style="position:absolute;right:30px;bottom:-70px;font-family:${PT.serif};font-weight:900;font-size:360px;line-height:1;color:rgba(227,6,19,0.12);pointer-events:none;">&rdquo;</div>` : ''}
         ${posterShow('graphics') ? `<div style="position:relative;font-family:${PT.serif};font-weight:900;font-size:120px;line-height:1;height:72px;overflow:hidden;color:${PT.terra};margin-bottom:10px;">&ldquo;</div>` : ''}
-        ${posterShow('headline') ? `<blockquote style="position:relative;font-family:${PT.serif};font-style:italic;font-weight:600;font-size:${qSize}px;line-height:1.16;letter-spacing:-0.01em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(quote)}</blockquote>` : ''}
+        ${posterShow('headline') ? `<blockquote style="position:relative;font-family:${PT.serif};font-style:italic;font-weight:600;font-size:${qSize}px;line-height:1.22;letter-spacing:-0.01em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(quote)}</blockquote>` : ''}
         <div style="position:relative;margin-top:30px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
           ${(posterShow('personName') && name) || (posterShow('personRole') && role) ? `<div style="display:flex;align-items:center;gap:14px;min-width:0;">
             <span style="width:50px;height:4px;background:${PT.terra};display:inline-block;flex-shrink:0;"></span>
@@ -1569,7 +1586,7 @@ function tplPhotoStory(p, fmt, portal) {
         ${p._total ? `<div style="background:rgba(15,12,8,0.44);border:1px solid rgba(245,239,227,0.22);border-radius:9px;padding:10px 14px;">${ptCounter(p, { onDark: true })}</div>` : (p.location ? posterLocationPill(p.location, true) : '')}
       </div>
       <div style="position:absolute;left:50px;right:50px;bottom:50px;pointer-events:none;display:flex;flex-direction:column;gap:18px;">
-        ${posterShow('headline') && headline ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') && headline ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 48, nameSize: 22 }) : ''}
       </div>
     </div>
@@ -1596,7 +1613,7 @@ function tplNumbersData(p, fmt, portal) {
           <div style="font-family:${PT.cond};font-weight:800;font-size:${fSize}px;line-height:0.84;letter-spacing:-0.02em;color:${PT.terra};">${escapeHtml(figure)}</div>
           <div style="display:flex;align-items:center;gap:8px;background:${PT.terraSoft};color:${PT.terra};border-radius:9px;padding:9px 15px;margin-top:14px;font-family:${PT.sans};font-weight:800;font-size:26px;line-height:1;">▲</div>
         </div>` : ''}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;letter-spacing:-0.005em;color:${PT.cream};margin:28px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;padding-top:0.28em;letter-spacing:-0.005em;color:${PT.cream};margin:28px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && summary ? `<p style="font-family:${PT.sans};font-size:26px;font-weight:400;line-height:1.45;color:${PT.muted};margin:18px 0 0 0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(summary)}</p>` : ''}
         ${posterShow('graphics') ? `<div style="display:flex;align-items:flex-end;gap:12px;height:128px;margin-top:34px;">${chart}</div>` : ''}
       </div>
@@ -1630,7 +1647,7 @@ function tplComparison(p, fmt, portal) {
         ${half(keys[1], labelB, PT.redOnDark)}
         ${posterShow('headline') ? `<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;max-width:84%;">
           <div style="background:${PT.ink};border:2px solid ${PT.terra};border-radius:12px;padding:18px 28px;">
-            <div style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.06;letter-spacing:0.004em;color:${PT.cream};text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</div>
+            <div style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.06;padding-top:0.28em;letter-spacing:0.004em;color:${PT.cream};text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</div>
           </div>
         </div>` : ''}
       </div>
@@ -1656,7 +1673,7 @@ function tplTopicCard(p, fmt, portal) {
       <div style="flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:24px;">
         <div style="min-width:0;flex:1;">
           ${posterKicker(p.category || 'Entenda')}
-          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:-0.005em;margin:18px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:-0.005em;margin:18px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         </div>
         ${(() => { const k = posterImageKeys(p)[0]; return k ? `<div style="flex-shrink:0;width:196px;height:196px;border-radius:16px;overflow:hidden;position:relative;background:${PT.inkPanel};"><div style="position:absolute;inset:0;">${posterImageLayer(p, k)}</div></div>` : ''; })()}
       </div>
@@ -1689,7 +1706,7 @@ function tplCarouselCover(p, fmt, portal) {
         ${PT.symbol === 'mb' && posterShow('graphics') ? `<div style="position:absolute;right:-46px;top:-46px;opacity:0.16;pointer-events:none;">${MB_SYMBOL({ size: 280, onSquare: false })}</div>` : ''}
         <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;">
           ${posterKicker(p.category, { color: '#fff' })}
-          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:#fff;margin:18px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:18px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         </div>
         ${posterShow('graphics') ? `<div style="position:relative;padding-top:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0;">
           <div style="display:flex;align-items:center;gap:10px;">${dots}</div>
@@ -1716,7 +1733,7 @@ function tplEditorialSignature(p, fmt, portal) {
       </div>
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:2;">
         ${posterKicker(p.category)}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.02;letter-spacing:-0.025em;color:${PT.cream};margin:26px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.22;letter-spacing:-0.025em;color:${PT.cream};margin:26px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:28px;font-weight:400;line-height:1.5;color:${PT.muted};margin:30px 0 0 0;max-width:80%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
       ${hasImg ? `<div style="flex:0 0 30%;min-height:0;position:relative;overflow:hidden;border-radius:16px;z-index:2;">
@@ -1753,7 +1770,7 @@ function tplMosaicHero(p, fmt, portal) {
       ${posterShow('graphics') ? `<div style="height:8px;background:${PT.terra};flex-shrink:0;"></div>` : ''}
       <div style="flex:1;min-height:0;background:${PT.ink};padding:36px 50px;display:flex;flex-direction:column;justify-content:center;gap:16px;box-sizing:border-box;">
         ${posterKicker(p.category, { color: PT.redOnDark })}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;padding-top:0.28em;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('footer') ? `<div style="border-top:1.5px solid ${PT.creamLine};padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
           ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 48, nameSize: 22 }) : '<span></span>'}
           ${posterShow('location') && p.location ? `<span style="font-family:${PT.sans};font-size:20px;font-weight:600;color:${PT.creamMute};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46%;">${escapeHtml(p.location)}</span>` : ''}
@@ -1774,7 +1791,7 @@ function tplRevistaSplit(p, fmt, portal) {
         ${posterShow('header') ? ptMasthead(portal, { size: 56, nameSize: 25 }) : ''}
         <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;">
           ${posterKicker(p.category)}
-          ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.04;letter-spacing:-0.02em;color:${PT.cream};margin:22px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.22;letter-spacing:-0.02em;color:${PT.cream};margin:22px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
           ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.5;color:${PT.muted};margin:24px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         </div>
         ${posterShow('footer') ? `<div style="flex-shrink:0;border-top:1.5px solid ${PT.creamLine};padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
@@ -1807,7 +1824,7 @@ function tplLowerThird(p, fmt, portal) {
       <div style="position:absolute;left:0;right:0;bottom:54px;pointer-events:none;">
         ${posterShow('category') ? `<div style="display:inline-block;background:${PT.terra};color:#fff;font-family:${PT.cond};font-weight:800;font-size:26px;letter-spacing:0.16em;text-transform:uppercase;padding:12px 28px 12px 52px;">${escapeHtml(p.category || 'Ao vivo')}</div>` : ''}
         <div style="background:linear-gradient(to right, rgba(11,20,33,0.86) 0%, rgba(11,20,33,0.62) 100%);border-left:8px solid ${PT.terra};padding:26px 52px;">
-          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
           ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.95);margin:12px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
           ${posterShow('footer') && posterHandleOnce() ? `<div style="margin-top:16px;font-family:${PT.sans};font-size:21px;font-weight:700;letter-spacing:0.02em;color:rgba(255,255,255,0.9);">${escapeHtml(portal.handle || '@portal')}</div>` : ''}
         </div>
@@ -1836,7 +1853,7 @@ function tplDiagonalSplit(p, fmt, portal) {
       </div>
       <div style="position:absolute;left:52px;right:52px;bottom:54px;z-index:2;display:flex;flex-direction:column;gap:18px;">
         ${posterShow('category') && p.category ? posterBadge(p.category, '#fff', PT.terraDeep) : ''}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.95);margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('footer') ? `<div style="border-top:1.5px solid rgba(255,255,255,0.32);padding-top:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
           ${posterHandleOnce() ? `<span style="font-family:${PT.sans};font-size:22px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>'}
@@ -1866,7 +1883,7 @@ function tplPerfilCard(p, fmt, portal) {
           ${k0 ? `<div style="position:absolute;inset:0;">${posterImageLayer(p, k0)}</div>` : posterPhotoPlaceholder()}
         </div>
         ${posterShow('category') && p.category ? `<div style="margin-top:30px;">${posterBadge(p.category, PT.terra, '#fff')}</div>` : ''}
-        ${posterShow('personName') && name ? `<h1 style="font-family:${PT.serif};font-weight:800;font-size:54px;line-height:1.05;letter-spacing:-0.01em;color:${PT.cream};margin:26px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(name)}</h1>` : ''}
+        ${posterShow('personName') && name ? `<h1 style="font-family:${PT.serif};font-weight:800;font-size:54px;line-height:1.22;letter-spacing:-0.01em;color:${PT.cream};margin:26px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(name)}</h1>` : ''}
         ${posterShow('personRole') && role ? `<div style="font-family:${PT.sans};font-weight:600;font-size:26px;letter-spacing:0.04em;color:${PT.terra};margin-top:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">${escapeHtml(role)}</div>` : ''}
         ${posterShow('subtitle') && quote ? `<p style="font-family:${PT.serif};font-style:italic;font-size:${qSize}px;font-weight:500;line-height:1.4;color:${PT.creamMute};margin:28px 0 0 0;max-width:84%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(quote)}</p>` : ''}
       </div>
@@ -1899,7 +1916,7 @@ function tplTimeline(p, fmt, portal) {
       <div style="flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;">
         <div style="min-width:0;">
           ${posterKicker(p.category || 'Passo a passo')}
-          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:-0.005em;margin:18px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.headline || 'Linha do tempo')}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:-0.005em;margin:18px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.headline || 'Linha do tempo')}</h1>` : ''}
         </div>
         ${ptCounter(p)}
       </div>
@@ -1933,7 +1950,7 @@ function tplEvento(p, fmt, portal) {
           <span style="font-family:${PT.sans};font-weight:700;font-size:19px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.85);">Data</span>
           <span style="font-family:${PT.cond};font-weight:800;font-size:${dSize}px;line-height:0.92;letter-spacing:0.01em;color:#fff;margin-top:6px;">${escapeHtml(date)}</span>
         </div>` : ''}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.0;padding-top:0.28em;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:30px;font-weight:500;line-height:1.32;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('location') && p.location ? `<div style="align-self:flex-start;">${posterLocationPill(p.location)}</div>` : ''}
       </div>
@@ -1967,7 +1984,7 @@ function tplInforme(p, fmt, portal) {
     <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;padding:58px 54px;box-sizing:border-box;overflow:hidden;">
       <div style="flex-shrink:0;">
         ${posterKicker(p.category || 'Informe')}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:-0.005em;margin:16px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:-0.005em;margin:16px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
       </div>
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:24px 0;">
         ${items}
@@ -1992,7 +2009,7 @@ function tplFato(p, fmt, portal) {
       </div>
       <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;z-index:2;">
         <div style="margin-bottom:18px;">${posterKicker(p.category || 'Você sabia?', { color: PT.redOnDark })}</div>
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:700;font-size:${hSize}px;line-height:1.06;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:700;font-size:${hSize}px;line-height:1.22;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && body ? `<p style="font-family:${PT.sans};font-size:${bSize}px;font-weight:400;line-height:1.5;color:${PT.creamMute};margin:28px 0 0 0;max-width:90%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(body)}</p>` : ''}
       </div>
       ${posterShow('footer') ? `<div style="position:relative;z-index:2;border-top:1.5px solid ${PT.creamLine};padding-top:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
@@ -2021,7 +2038,7 @@ function tplDadoFoto(p, fmt, portal) {
       <div style="position:absolute;left:54px;right:54px;bottom:54px;pointer-events:none;display:flex;flex-direction:column;gap:8px;">
         ${posterShow('category') ? `<div style="margin-bottom:6px;">${posterKicker(p.category || 'Dados', { color: PT.redOnDark })}</div>` : ''}
         ${posterShow('figure') ? `<div style="font-family:${PT.cond};font-weight:800;font-size:${fSize}px;line-height:0.84;letter-spacing:-0.02em;color:#fff;">${escapeHtml(figure)}</div>` : ''}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;letter-spacing:0.004em;color:#fff;margin:6px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:6px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.3;color:rgba(255,255,255,0.92);margin:6px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
     </div>
@@ -2062,7 +2079,7 @@ function tplKpis(p, fmt, portal) {
       <div style="flex-shrink:0;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;">
         <div style="min-width:0;">
           ${posterKicker(p.category || 'Balanço')}
-          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:-0.005em;margin:16px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:-0.005em;margin:16px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         </div>
         ${p._total ? ptCounter(p, { size: 24 }) : ''}
       </div>
@@ -2103,7 +2120,7 @@ function tplOfertaPreco(p, fmt, portal) {
           ${posterShow('category') ? posterBadge(p.category || 'OFERTA', PT.terra, '#fff') : ''}
         </div>
         <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;gap:16px;">
-          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
           ${posterShow('figure') ? `<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;">
             ${de ? `<span style="font-family:${PT.sans};font-size:34px;font-weight:500;color:rgba(255,255,255,0.6);text-decoration:line-through;padding-bottom:14px;">${escapeHtml(de)}</span>` : ''}
             <span style="font-family:${PT.cond};font-weight:800;font-size:${pSize}px;line-height:0.88;letter-spacing:-0.02em;color:${PT.terra};">${escapeHtml(preco)}</span>
@@ -2134,7 +2151,7 @@ function tplPromoSplit(p, fmt, portal) {
           </div>
         </div>` : ''}
         ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:20px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.85);">${escapeHtml(p.category || 'Oferta')}</span>` : ''}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;padding-top:0.28em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:26px;font-weight:400;line-height:1.45;color:rgba(255,255,255,0.92);margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:6px;">
           ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 48, nameSize: 22 }) : '<span></span>'}
@@ -2154,7 +2171,7 @@ function tplLancamento(p, fmt, portal) {
       <div style="flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;">
         ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:700;letter-spacing:0.34em;text-transform:uppercase;color:${PT.terra};">${escapeHtml(p.category || 'Lançamento')}</span>` : ''}
         ${posterShow('graphics') ? `<span style="width:54px;height:2px;background:${PT.creamLine};display:block;"></span>` : ''}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.06;letter-spacing:-0.02em;color:${PT.cream};margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.22;letter-spacing:-0.02em;color:${PT.cream};margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:26px;font-weight:400;line-height:1.55;color:${PT.creamMute};margin:0;max-width:76%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterImageKeys(p).length ? `<div style="width:min(62%,520px);aspect-ratio:1/1;border-radius:50%;overflow:hidden;position:relative;flex-shrink:0;">${posterImageLayer(p, posterImageKeys(p)[0])}</div>` : ''}
       </div>
@@ -2176,7 +2193,7 @@ function tplVaga(p, fmt, portal) {
           ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
           ${posterShow('category') ? posterBadge(p.category || 'VAGA ABERTA', PT.terra, '#fff') : ''}
         </div>
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${cSize}px;font-weight:700;line-height:1.04;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(cargo)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${cSize}px;font-weight:700;line-height:1.04;padding-top:0.28em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(cargo)}</h1>` : ''}
         ${posterShow('location') && p.location ? `<div style="align-self:flex-start;">${posterLocationPill(p.location)}</div>` : ''}
       </div>
       <div style="flex:1;min-height:0;padding:40px 52px;display:flex;flex-direction:column;gap:22px;box-sizing:border-box;">
@@ -2206,7 +2223,7 @@ function tplComunicado(p, fmt, portal) {
           ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:18px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:${PT.terra};">${escapeHtml(p.category || 'Comunicado')}</span>` : ''}
         </div>
         <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:24px;text-align:center;padding:30px 0;">
-          ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.16;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.22;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
           ${posterShow('description') && corpo ? `<p style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.6;color:${PT.inkSoft};margin:0;max-width:88%;align-self:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">${escapeHtml(corpo)}</p>` : ''}
         </div>
         <div style="flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:18px;padding-top:22px;border-top:2px solid ${PT.creamLine};font-family:${PT.sans};font-size:21px;font-weight:600;color:${PT.creamMute};">
@@ -2230,7 +2247,7 @@ function tplFrase(p, fmt, portal) {
       </div>
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:26px;">
         ${posterShow('graphics') ? `<span style="font-family:${PT.serif};font-size:150px;line-height:0.6;color:rgba(255,255,255,0.28);">&ldquo;</span>` : ''}
-        ${posterShow('headline') ? `<blockquote style="font-family:${PT.serif};font-weight:600;font-size:${fSize}px;line-height:1.16;letter-spacing:-0.02em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">${escapeHtml(frase)}</blockquote>` : ''}
+        ${posterShow('headline') ? `<blockquote style="font-family:${PT.serif};font-weight:600;font-size:${fSize}px;line-height:1.22;letter-spacing:-0.02em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">${escapeHtml(frase)}</blockquote>` : ''}
         ${autor ? `<div style="display:flex;align-items:center;gap:16px;">
           <span style="width:52px;height:3px;background:rgba(255,255,255,0.7);display:inline-block;flex-shrink:0;"></span>
           <span style="font-family:${PT.sans};font-size:26px;font-weight:700;letter-spacing:0.04em;color:rgba(255,255,255,0.94);">${escapeHtml(autor)}</span>
@@ -2260,7 +2277,7 @@ function tplAntesDepois(p, fmt, portal) {
         ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
         ${posterShow('category') ? posterBadge(p.category || 'COMPARATIVO', PT.terra, '#fff') : ''}
       </div>
-      ${posterShow('headline') ? `<h1 style="flex-shrink:0;font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.06;color:${PT.cream};margin:0;padding:0 44px 22px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      ${posterShow('headline') ? `<h1 style="flex-shrink:0;font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.06;padding-top:0.28em;color:${PT.cream};margin:0;padding:0 44px 22px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
       <div style="flex:1;min-height:0;display:flex;gap:6px;">
         ${painel(rotA, keys[0], PT.inkPanel)}
         ${painel(rotB, keys[1], PT.terra)}
@@ -2284,7 +2301,7 @@ function tplPassoAPasso(p, fmt, portal) {
       </div>
       <div style="flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
         ${posterShow('category') ? posterKicker(p.category || 'Tutorial') : ''}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;padding-top:0.28em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
       </div>
       ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;justify-content:center;">
         ${passos.map((t, i) => `<div style="display:flex;align-items:center;gap:20px;background:${PT.inkPanel};border-radius:16px;padding:20px 24px;">
@@ -2304,7 +2321,7 @@ function tplEnquete(p, fmt, portal) {
   const b = (p.labelB || 'Opção B').trim();
   const opcao = (txt, bg, cor) => `
     <div style="flex:1;min-height:0;background:${bg};display:flex;align-items:center;justify-content:center;padding:32px 26px;box-sizing:border-box;">
-      <span style="font-family:${PT.cond};text-transform:uppercase;font-size:${posterPickSize(txt, [[12, 54], [24, 40]], 30)}px;font-weight:700;line-height:1.08;color:${cor};text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(txt)}</span>
+      <span style="font-family:${PT.cond};text-transform:uppercase;font-size:${posterPickSize(txt, [[12, 54], [24, 40]], 30)}px;font-weight:700;line-height:1.08;padding-top:0.28em;color:${cor};text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(txt)}</span>
     </div>`;
   return `
     <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;background:${PT.paper};color:${PT.cream};font-family:${PT.sans};display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden;">
@@ -2313,7 +2330,7 @@ function tplEnquete(p, fmt, portal) {
         ${posterShow('category') ? posterBadge(p.category || 'ENQUETE', PT.terra, '#fff') : ''}
       </div>
       <div style="flex-shrink:0;padding:0 48px 30px;">
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${qSize}px;line-height:1.14;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(pergunta)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.serif};font-weight:600;font-size:${qSize}px;line-height:1.22;letter-spacing:-0.015em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(pergunta)}</h1>` : ''}
       </div>
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
         ${opcao(a, PT.inkPanel, PT.cream)}
@@ -2339,7 +2356,7 @@ function tplCapaRevista(p, fmt, portal) {
       </div>
       <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;padding:0 48px 46px;gap:18px;">
         ${posterShow('category') ? `<span style="align-self:flex-start;font-family:${PT.sans};font-size:19px;font-weight:800;letter-spacing:0.26em;text-transform:uppercase;color:${PT.terra};background:#fff;padding:8px 16px;border-radius:4px;">${escapeHtml(p.category || 'Especial')}</span>` : ''}
-        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.96;letter-spacing:-0.01em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.96;padding-top:0.28em;letter-spacing:-0.01em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:28px;font-weight:500;line-height:1.32;color:rgba(255,255,255,0.94);margin:0;max-width:88%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('description') && chamadas.length ? `<div style="display:flex;flex-direction:column;gap:9px;margin-top:6px;">
           ${chamadas.map((c) => `<div style="display:flex;align-items:center;gap:12px;">
@@ -2365,7 +2382,7 @@ function tplTipografico(p, fmt, portal) {
         ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
       </div>
       <div style="flex:1 1 0;min-height:0;overflow:hidden;display:flex;align-items:center;">
-        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.86;letter-spacing:-0.03em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.86;padding-top:0.28em;letter-spacing:-0.03em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
       </div>
       <div style="flex-shrink:0;display:flex;align-items:flex-end;justify-content:space-between;gap:26px;border-top:3px solid ${PT.cream};padding-top:22px;">
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.sans};font-size:26px;font-weight:500;line-height:1.4;color:${PT.inkSoft};margin:0;max-width:70%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : '<span></span>'}
@@ -2388,7 +2405,7 @@ function tplBlocosCor(p, fmt, portal) {
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:0 42px 38px;box-sizing:border-box;">
         <div style="flex:1 1 42%;min-height:0;display:flex;gap:10px;">
           <div style="flex:1.4;min-width:0;background:${PT.gradSolid};border-radius:18px;display:flex;align-items:flex-end;padding:28px;box-sizing:border-box;">
-            ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+            ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
           </div>
           <div style="flex:1;min-width:0;border-radius:18px;overflow:hidden;position:relative;background:${PT.inkPanel};">
             ${key ? posterImageLayer(p, key) : posterPhotoPlaceholder()}
@@ -2429,7 +2446,7 @@ function tplEventoFoto(p, fmt, portal) {
             <span style="background:rgba(255,255,255,0.96);color:${PT.ink};font-family:${PT.cond};font-weight:800;font-size:${dSize}px;line-height:0.94;letter-spacing:0.01em;padding:18px 30px;">${escapeHtml(data)}</span>
           </div>
         </div>` : ''}
-        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.98;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.98;padding-top:0.28em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:27px;font-weight:500;line-height:1.4;color:rgba(255,255,255,0.92);margin:0;max-width:90%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('location') && p.location ? `<div style="align-self:flex-start;">${posterLocationPill(p.location, true)}</div>` : ''}
       </div>
@@ -2451,7 +2468,7 @@ function tplContagem(p, fmt, portal) {
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;">
         ${posterShow('figure') ? `<span style="font-family:${PT.cond};font-weight:800;font-size:${nSize}px;line-height:0.8;letter-spacing:-0.04em;color:#fff;">${escapeHtml(n)}</span>` : ''}
         ${posterShow('figure') && p.labelA ? `<span style="font-family:${PT.sans};font-size:30px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:rgba(255,255,255,0.88);margin-top:14px;">${escapeHtml(p.labelA)}</span>` : ''}
-        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.16;color:#fff;margin:26px 0 0;max-width:88%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.22;color:#fff;margin:26px 0 0;max-width:88%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.5;color:rgba(255,255,255,0.86);margin:12px 0 0;max-width:76%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
       ${posterShow('location') && p.location ? `<div style="flex-shrink:0;display:flex;justify-content:center;">${posterLocationPill(p.location, true)}</div>` : ''}
@@ -2477,7 +2494,7 @@ function tplProgramacao(p, fmt, portal) {
       </div>
       <div style="flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
         ${posterKicker(p.category || 'Agenda')}
-        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
       </div>
       ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;">
         ${linhas.map((l) => { const it = parse(l); return `<div style="display:flex;align-items:baseline;gap:20px;padding:16px 0;border-bottom:1.5px solid ${PT.creamLine};">
@@ -2501,7 +2518,7 @@ function tplConvite(p, fmt, portal) {
           ${posterShow('header') ? ptMasthead(portal, { size: 56, nameSize: 25 }) : ''}
           ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:18px;font-weight:700;letter-spacing:0.36em;text-transform:uppercase;color:${PT.terra};">${escapeHtml(p.category || 'Convite')}</span>` : ''}
           <div style="flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;width:100%;">
-            ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.1;letter-spacing:-0.02em;color:${PT.cream};margin:0;max-width:94%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+            ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:600;font-size:${hSize}px;line-height:1.22;letter-spacing:-0.02em;color:${PT.cream};margin:0;max-width:94%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
             ${posterShow('graphics') ? `<span style="display:block;width:72px;height:1.5px;background:${PT.terra};"></span>` : ''}
             ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.6;color:${PT.inkSoft};margin:0;max-width:82%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
           </div>
@@ -2528,7 +2545,7 @@ function tplDepoimento(p, fmt, portal) {
       </div>
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:26px;background:${PT.inkPanel};border-radius:26px;padding:44px 40px;box-sizing:border-box;">
         ${posterShow('figure') ? `<div style="display:flex;gap:8px;flex-shrink:0;">${Array.from({ length: estrelas }, () => `<span style="color:${PT.terra};font-size:36px;line-height:1;">★</span>`).join('')}</div>` : ''}
-        ${posterShow('headline') && p.headline && p.headline !== fala ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${posterPickSize(p.headline, [[24, 50], [48, 40]], 32)}px;font-weight:700;line-height:1.06;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.headline)}</h1>` : ''}
+        ${posterShow('headline') && p.headline && p.headline !== fala ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${posterPickSize(p.headline, [[24, 50], [48, 40]], 32)}px;font-weight:700;line-height:1.06;padding-top:0.28em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.headline)}</h1>` : ''}
         <blockquote data-fit="subtitle" style="font-family:${PT.serif};font-weight:500;font-size:${fSize}px;line-height:1.4;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;">${escapeHtml(fala)}</blockquote>
         ${(nome || cargo || key) ? `<div style="flex-shrink:0;display:flex;align-items:center;gap:18px;padding-top:22px;border-top:1.5px solid ${PT.creamLine};">
           ${key ? `<div style="flex-shrink:0;width:84px;height:84px;border-radius:50%;overflow:hidden;position:relative;border:3px solid ${PT.terra};">${posterImageLayer(p, key)}</div>` : ''}
@@ -2561,7 +2578,7 @@ function tplCitacaoLateral(p, fmt, portal) {
         <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:20px;">
           ${posterShow('category') ? posterKicker(p.category || 'Entrevista', { rule: 32, size: 20 }) : ''}
           ${posterShow('graphics') ? `<span style="font-family:${PT.serif};font-size:120px;line-height:0.5;color:${PT.terraSoft};">&ldquo;</span>` : ''}
-          ${posterShow('headline') ? `<blockquote data-fit="headline" style="font-family:${PT.serif};font-weight:600;font-size:${fSize}px;line-height:1.2;letter-spacing:-0.018em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;">${escapeHtml(frase)}</blockquote>` : ''}
+          ${posterShow('headline') ? `<blockquote data-fit="headline" style="font-family:${PT.serif};font-weight:600;font-size:${fSize}px;line-height:1.22;letter-spacing:-0.018em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;">${escapeHtml(frase)}</blockquote>` : ''}
           ${posterShow('personName') && p.personName ? `<div style="display:flex;align-items:center;gap:14px;">
             <span style="width:40px;height:3px;background:${PT.terra};display:inline-block;flex-shrink:0;"></span>
             <div style="min-width:0;">
@@ -2588,7 +2605,7 @@ function tplCupom(p, fmt, portal) {
         ${posterShow('category') ? posterBadge(p.category || 'CUPOM', 'rgba(255,255,255,0.18)', '#fff') : ''}
       </div>
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:14px;">
-        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:1.0;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:1.0;padding-top:0.28em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:500;line-height:1.45;color:rgba(255,255,255,0.9);margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
         ${posterShow('figure') ? `<div style="position:relative;margin-top:14px;">
           ${posterSoftShadow({ blur: 72, dy: 14, radius: 20, alpha: 0.26 })}
@@ -2628,7 +2645,7 @@ function tplCatalogo(p, fmt, portal) {
         ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
         ${posterShow('category') ? posterBadge(p.category || 'CATÁLOGO', PT.terra, '#fff') : ''}
       </div>
-      ${posterShow('headline') ? `<h1 data-fit="headline" style="flex-shrink:0;font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      ${posterShow('headline') ? `<h1 data-fit="headline" style="flex-shrink:0;font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.04;padding-top:0.28em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
       <div style="flex:1;min-height:0;display:flex;gap:12px;">
         ${Array.from({ length: n }, (_, i) => cel(i)).join('')}
       </div>
@@ -2651,7 +2668,7 @@ function tplRanking(p, fmt, portal) {
       </div>
       <div style="flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
         ${posterKicker(p.category || 'Ranking')}
-        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.02;padding-top:0.28em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
       </div>
       ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;justify-content:center;">
         ${itens.map((t, i) => `<div style="display:flex;align-items:center;gap:18px;">
@@ -2691,7 +2708,7 @@ function tplBarras(p, fmt, portal) {
       </div>
       <div style="flex-shrink:0;display:flex;flex-direction:column;gap:12px;">
         ${posterKicker(p.category || 'Dados')}
-        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.03;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.03;padding-top:0.28em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
       </div>
       ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;align-items:flex-end;gap:14px;border-bottom:3px solid ${PT.cream};padding-bottom:0;">
         ${lista.map((d, i) => `<div style="flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:10px;">
@@ -2723,7 +2740,7 @@ function tplMancheteTarja(p, fmt, portal) {
           ${key ? posterImageLayer(p, key) : posterPhotoPlaceholder()}
         </div>
         <div style="flex:1 1 44%;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:16px;padding:36px 42px;box-sizing:border-box;background:${PT.ink};">
-          ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.99;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+          ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:0.99;padding-top:0.28em;letter-spacing:0.004em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
           ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.34;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
           <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:16px;border-top:1.5px solid ${PT.creamLine};">
             ${posterShow('header') ? ptMasthead(portal, { size: 48, nameSize: 23 }) : '<span></span>'}
@@ -2747,7 +2764,7 @@ function tplResumoDia(p, fmt, portal) {
           ${posterShow('header') ? ptMasthead(portal, { onDark: true, size: 52, nameSize: 24 }) : '<span></span>'}
           ${posterShow('figure') && p.figure ? `<span style="font-family:${PT.cond};font-size:30px;font-weight:800;color:#fff;white-space:nowrap;">${escapeHtml(p.figure)}</span>` : ''}
         </div>
-        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:1.0;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:1.0;padding-top:0.28em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:24px;font-weight:500;line-height:1.4;color:rgba(255,255,255,0.9);margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
       ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;padding:20px 46px;box-sizing:border-box;">
@@ -2776,7 +2793,7 @@ function tplExpediente(p, fmt, portal) {
         ${posterShow('header') ? ptMasthead(portal, { size: 54, nameSize: 25 }) : '<span></span>'}
         ${posterShow('category') ? posterBadge(p.category || 'ATENDIMENTO', PT.terra, '#fff') : ''}
       </div>
-      ${posterShow('headline') ? `<h1 data-fit="headline" style="flex-shrink:0;font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.03;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      ${posterShow('headline') ? `<h1 data-fit="headline" style="flex-shrink:0;font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:700;line-height:1.03;padding-top:0.28em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
       ${posterShow('description') ? `<div style="flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:12px;">
         ${linhas.map((l) => { const it = parse(l); return `<div style="display:flex;align-items:center;justify-content:space-between;gap:18px;background:${PT.inkPanel};border-radius:14px;padding:20px 24px;">
           <span style="flex:1;min-width:0;font-family:${PT.sans};font-size:25px;font-weight:600;line-height:1.3;color:${PT.cream};overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(it.a)}</span>
@@ -2803,7 +2820,7 @@ function tplHomenagem(p, fmt, portal) {
       <div style="flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
         ${key ? `<div style="width:min(56%,440px);aspect-ratio:1/1;border-radius:50%;overflow:hidden;position:relative;flex-shrink:0;border:6px solid rgba(255,255,255,0.9);">${posterImageLayer(p, key)}</div>` : ''}
         ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:800;letter-spacing:0.32em;text-transform:uppercase;color:rgba(255,255,255,0.9);">${escapeHtml(p.category || 'Homenagem')}</span>` : ''}
-        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:700;font-size:${hSize}px;line-height:1.08;letter-spacing:-0.02em;color:#fff;margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-weight:700;font-size:${hSize}px;line-height:1.22;letter-spacing:-0.02em;color:#fff;margin:0;max-width:92%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
         ${posterShow('personName') && p.personName ? `<div style="font-family:${PT.sans};font-size:27px;font-weight:700;letter-spacing:0.04em;color:rgba(255,255,255,0.95);">${escapeHtml(p.personName)}${posterShow('personRole') && p.personRole ? `<span style="display:block;font-size:21px;font-weight:500;color:rgba(255,255,255,0.78);margin-top:4px;">${escapeHtml(p.personRole)}</span>` : ''}</div>` : ''}
         ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:25px;font-weight:400;line-height:1.5;color:rgba(255,255,255,0.9);margin:0;max-width:80%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
@@ -2831,7 +2848,7 @@ function tplPolaroid(p, fmt, portal) {
             ${key ? posterImageLayer(p, key) : posterPhotoPlaceholder()}
           </div>
           <div style="flex-shrink:0;padding:22px 6px 26px;text-align:center;">
-            ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-style:italic;font-weight:600;font-size:${hSize}px;line-height:1.2;color:#1a1a1a;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+            ${posterShow('headline') ? `<h1 data-fit="headline" style="font-family:${PT.serif};font-style:italic;font-weight:600;font-size:${hSize}px;line-height:1.22;color:#1a1a1a;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
             ${posterShow('subtitle') && p.subtitle ? `<p data-fit="subtitle" style="font-family:${PT.sans};font-size:21px;font-weight:500;line-height:1.4;color:#5b5b5b;margin:10px 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
           </div>
         </div>
@@ -2861,7 +2878,7 @@ function tplDuasColunas(p, fmt, portal) {
         ${posterShow('header') ? ptMasthead(portal, { size: 52, nameSize: 24 }) : '<span></span>'}
         ${posterShow('category') ? `<span style="font-family:${PT.sans};font-size:19px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:${PT.terra};">${escapeHtml(p.category || 'Ensaio')}</span>` : ''}
       </div>
-      ${posterShow('headline') ? `<h1 data-fit="headline" style="flex-shrink:0;font-family:${PT.serif};font-weight:700;font-size:${hSize}px;line-height:1.1;letter-spacing:-0.02em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      ${posterShow('headline') ? `<h1 data-fit="headline" style="flex-shrink:0;font-family:${PT.serif};font-weight:700;font-size:${hSize}px;line-height:1.22;letter-spacing:-0.02em;color:${PT.cream};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
       ${posterShow('subtitle') && p.subtitle && p.subtitle !== corpo ? `<p data-fit="subtitle" style="flex-shrink:0;font-family:${PT.serif};font-style:italic;font-size:27px;font-weight:500;line-height:1.34;color:${PT.inkSoft};margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       ${posterShow('description') && corpo ? `<div style="flex:1 1 0;min-height:0;${longo ? `column-count:2;column-gap:34px;column-rule:1px solid ${PT.creamLine};` : ''}font-family:${PT.sans};font-size:${longo ? 23 : 27}px;font-weight:400;line-height:1.62;color:${PT.cream};overflow:hidden;">
         ${paras.map((t, i) => `<p style="margin:0 0 0.9em;">${i === 0 && longo ? `<span style="float:left;font-family:${PT.serif};font-weight:800;font-size:88px;line-height:0.76;padding:4px 12px 0 0;color:${PT.terra};">${escapeHtml(cap)}</span>${escapeHtml(t.slice(1))}` : escapeHtml(t)}</p>`).join('')}

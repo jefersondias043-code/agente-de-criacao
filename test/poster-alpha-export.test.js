@@ -1,19 +1,20 @@
-// EXPORTAÇÃO COM FUNDO TRANSPARENTE (sticker / moldura para vídeo).
+// EXPORTAÇÃO COM O ESPAÇO DAS FOTOS TRANSPARENTE (moldura para vídeo).
 //
-// O PNG alfa não é um "cartaz sem fundo": é um cartaz em que DUAS coisas viram
-// buraco — o fundo e as fotos do usuário — e todo o resto continua pintado.
-// Errar o corte para qualquer lado quebra o recurso de um jeito silencioso:
-//   · corte de menos → o sticker sai com um retângulo opaco onde deveria
+// O arquivo é o export NORMAL menos uma coisa: o campo onde entram as imagens
+// do usuário vira buraco. O FUNDO DO CARTAZ NÃO SAI — nem a tarja, nem o painel
+// de texto, nem o cabeçalho. Errar o corte para qualquer lado quebra o recurso
+// de um jeito silencioso:
+//   · corte de menos → a moldura sai com um retângulo opaco onde deveria
 //     aparecer o vídeo (foi o caso do polaroid, cujo card branco ficava atrás
 //     da foto, e das faixas de mídia sem foto);
-//   · corte de mais → some a tarja, o painel de texto ou o degradê de leitura,
-//     e o cartaz deixa de ser o que o usuário viu no preview.
+//   · corte de mais → some o fundo e o cartaz deixa de ser o que o usuário viu
+//     no preview. A primeira versão deste recurso vazava a raiz e as camadas
+//     que a repetiam, e o cabeçalho ficava boiando sobre o vídeo.
 //
 // A verificação de pixel roda no navegador de verdade (html2canvas 1.4.1,
-// palco de verdade), que o jsdom não reproduz: 60/60 modelos sem a foto-teste,
-// 59/60 sem a cor de fundo — o restante é a placa de título do `comparison`,
-// desenho e não fundo. Aqui ficam trancados os CONTRATOS que sustentam aquele
-// resultado, porque são eles que um refactor derruba sem ninguém perceber.
+// palco de verdade), que o jsdom não reproduz. Aqui ficam trancados os
+// CONTRATOS que sustentam aquele resultado, porque são eles que um refactor
+// derruba sem ninguém perceber.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -60,90 +61,77 @@ describe('marcadores de mídia do usuário nos modelos', () => {
   });
 });
 
-describe('_applyAlphaMask separa fundo de desenho', () => {
-  const fn = corpo(posters, '_applyAlphaMask');
+describe('_applyAlphaFill mexe APENAS no campo das fotos', () => {
+  const fn = corpo(posters, '_applyAlphaFill');
 
-  it('vaza o fundo da raiz', () => {
-    expect(fn).toMatch(/limparFundo\(target\)/);
-  });
-
-  it('lê a assinatura do fundo ANTES de limpar a raiz', () => {
-    // depois de limpar não há mais como reconhecer quem repete o fundo
-    expect(fn.indexOf('const corFundo')).toBeLessThan(fn.indexOf('limparFundo(target)'));
-    expect(fn).toMatch(/const imgFundo/);
-  });
-
-  it('vaza também as camadas que apenas REPETEM o fundo mais abaixo', () => {
-    // meia dúzia de modelos monta a base num div interno; zerar só a raiz
-    // deixava o sticker opaco assim mesmo
-    expect(fn).toMatch(/cs\.backgroundColor === corFundo/);
-    expect(fn).toMatch(/img === imgFundo/);
-  });
-
-  it('só faz isso com camadas GRANDES — chip e badge na cor do fundo ficam', () => {
-    expect(fn).toMatch(/const grande =/);
-    expect(fn).toMatch(/if \(!grande\) return;/);
-  });
-
-  it('preserva degradê de tela cheia (é tratamento de leitura, não fundo)', () => {
-    // é ele que segura o contraste do texto quando o vídeo passa por baixo
-    expect(fn).toMatch(/if \(!telaCheia \|\| temImg\) return;/);
-  });
-
-  it('esconde a mídia do usuário e limpa a célula que a abriga', () => {
+  it('pinta a mídia do usuário com a cor do passe e some com o que há dentro', () => {
     expect(fn).toMatch(/\[data-user-media\]/);
-    expect(fn).toMatch(/esconder\(media\)/);
-    // subida GEOMÉTRICA: só ancestral com praticamente a mesma caixa da foto
-    expect(fn).toMatch(/mesmaCaixa/);
-    expect(fn).toMatch(/if \(!mesmaCaixa\) break;/);
+    expect(fn).toMatch(/pintar\(media\)/);
+    expect(fn).toMatch(/esconderFilhos\(media\)/);
   });
 
-  it('limpa a faixa de mídia sem escondê-la', () => {
-    const i = fn.indexOf('[data-media-band]');
+  it('pinta a faixa reservada à imagem mas deixa os filhos visíveis', () => {
+    // pílula de local e @portal moram dentro dela; é por continuarem pintados
+    // que sobrevivem ao recorte
+    const i = fn.indexOf("[data-media-band]");
     expect(i).toBeGreaterThan(-1);
-    const bloco = fn.slice(i, i + 600);
-    expect(bloco).toMatch(/limparFundo\(band\)/);
-    expect(bloco).not.toMatch(/esconder\(band\)/);
+    const bloco = fn.slice(i);
+    expect(bloco).toMatch(/pintar\(band\)/);
+    expect(bloco).not.toMatch(/esconderFilhos\(band\)/);
   });
 
-  it('esconde avatar e camadas soltas de imagem', () => {
+  it('pinta avatar e camadas soltas de imagem', () => {
     expect(fn).toMatch(/\[data-pt="avatar-overlay"\], \[data-pt="layer"\]/);
+  });
+
+  it('NÃO toca no fundo da raiz — o cartaz sai com a base que tem', () => {
+    // a raiz só aparece como ponto de partida de busca, nunca como alvo
+    expect(fn).not.toMatch(/pintar\(target\)/);
+    expect(fn).not.toMatch(/limparFundo/);
+  });
+
+  it('não varre a árvore procurando camada de fundo para vazar', () => {
+    // a versão anterior vazava a raiz e tudo que repetisse a cor dela; o
+    // resultado era um cartaz sem base, com o cabeçalho boiando sobre o vídeo.
+    // (o `querySelectorAll('*')` que existe é escopado à faixa de mídia)
+    expect(fn).not.toMatch(/target\.querySelectorAll\('\*'\)/);
+    expect(fn).not.toMatch(/corFundo|imgFundo|telaCheia/);
+  });
+
+  it('some por visibility, não por display', () => {
+    // display:none tira o elemento do fluxo e os vizinhos se reacomodam; os
+    // dois passes precisam da MESMA geometria, senão o alfa sai fora do lugar
+    expect(fn).toMatch(/f\.style\.visibility = 'hidden'/);
+    expect(fn).not.toMatch(/style\.display = 'none'/);
   });
 });
 
 describe('a máscara é reversível — o preview volta ao que era', () => {
-  const fn = corpo(posters, '_applyAlphaMask');
-  const probe = corpo(posters, '_applyAlphaProbe');
+  const fn = corpo(posters, '_applyAlphaFill');
 
   it('guarda o estado de cada elemento UMA vez só', () => {
-    // um elemento cai em mais de uma regra (célula de foto que também forra a
-    // faixa). Guardar de novo gravaria o inline JÁ zerado, e o desfazer —
-    // que aplica os registros em ordem — deixaria o preview sem fundo.
-    for (const f of [fn, probe]) {
-      expect(f).toMatch(/const vistos = new Map\(\)/);
-      expect(f).toMatch(/if \(vistos\.has\(el\)\) return;/);
-    }
+    // um elemento pode cair em mais de uma regra. Guardar de novo gravaria o
+    // inline JÁ alterado, e o desfazer — que aplica os registros em ordem —
+    // deixaria o preview com o estado da exportação.
+    expect(fn).toMatch(/const vistos = new Map\(\)/);
+    expect(fn).toMatch(/if \(vistos\.has\(el\)\) return;/);
   });
 
-  it('guarda display + background + backgroundColor + backgroundImage', () => {
-    for (const f of [fn, probe]) {
-      expect(f).toMatch(/display: el\.style\.display/);
-      expect(f).toMatch(/background: el\.style\.background/);
-      expect(f).toMatch(/backgroundColor: el\.style\.backgroundColor/);
-      expect(f).toMatch(/backgroundImage: el\.style\.backgroundImage/);
-    }
+  it('guarda visibility + background + backgroundColor + backgroundImage', () => {
+    expect(fn).toMatch(/visibility: el\.style\.visibility/);
+    expect(fn).toMatch(/background: el\.style\.background/);
+    expect(fn).toMatch(/backgroundColor: el\.style\.backgroundColor/);
+    expect(fn).toMatch(/backgroundImage: el\.style\.backgroundImage/);
   });
 
   it('o desfazer reaplica todos os campos, sem condicional', () => {
     // `if (r.x !== undefined)` deixava passar o campo que a outra regra não
     // gravou — e o elemento ficava com o estado da exportação
-    for (const nome of ['_undoAlphaMask', '_undoAlphaProbe']) {
-      const u = corpo(posters, nome);
-      expect(u).toMatch(/r\.el\.style\.display = r\.display;/);
-      expect(u).toMatch(/r\.el\.style\.background = r\.background;/);
-      expect(u).toMatch(/r\.el\.style\.backgroundImage = r\.backgroundImage;/);
-      expect(u).not.toMatch(/!== undefined/);
-    }
+    const u = corpo(posters, '_undoAlphaFill');
+    expect(u).toMatch(/r\.el\.style\.visibility = r\.visibility;/);
+    expect(u).toMatch(/r\.el\.style\.background = r\.background;/);
+    expect(u).toMatch(/r\.el\.style\.backgroundImage = r\.backgroundImage;/);
+    expect(u).not.toMatch(/!== undefined/);
   });
 
   it('o achatamento de imagem/logo restaura o display ORIGINAL, não ""', () => {
@@ -156,39 +144,69 @@ describe('a máscara é reversível — o preview volta ao que era', () => {
   });
 });
 
-describe('2º passe: onde a foto de fato aparecia', () => {
+describe('o alfa vem da diferença entre dois passes', () => {
   const cap = corpo(posters, 'captureStageCanvas');
 
-  it('existe um marcador que nenhum tema usa', () => {
-    expect(posters).toMatch(/const ALPHA_MARK = 'rgb\(255,0,255\)'/);
+  it('as duas cores são os extremos do intervalo', () => {
+    // é a distância entre elas que vira o alfa; qualquer outro par encolheria
+    // a escala e o degradê sairia com translucidez errada
+    expect(posters).toMatch(/const ALPHA_FILL_BLACK = '#000000'/);
+    expect(posters).toMatch(/const ALPHA_FILL_WHITE = '#ffffff'/);
   });
 
-  it('o passe do marcador roda com a máscara JÁ desfeita', () => {
-    // senão o fundo vazado se confundiria com o buraco da foto
-    expect(cap.indexOf('_undoAlphaMask(alphaRestores)')).toBeLessThan(cap.indexOf('_applyAlphaProbe(target)'));
-    expect(cap).toMatch(/alphaRestores\.length = 0;/);   // não desfazer duas vezes no finally
+  it('o 1º passe é preto e o 2º é branco, com o 1º desfeito antes', () => {
+    expect(cap).toMatch(/_applyAlphaFill\(target, ALPHA_FILL_BLACK\)/);
+    expect(cap.indexOf('_undoAlphaFill(alphaRestores)'))
+      .toBeLessThan(cap.indexOf('_applyAlphaFill(target, ALPHA_FILL_WHITE)'));
   });
 
-  it('o passe do marcador é desfeito mesmo se o html2canvas estourar', () => {
-    const i = cap.indexOf('_applyAlphaProbe(target)');
-    expect(cap.slice(i, i + 420)).toMatch(/finally \{\s*_undoAlphaProbe/);
+  it('o 2º passe é desfeito mesmo se o html2canvas estourar', () => {
+    const i = cap.indexOf('_applyAlphaFill(target, ALPHA_FILL_WHITE)');
+    expect(cap.slice(i, i + 420)).toMatch(/finally \{\s*_undoAlphaFill/);
+    expect(cap).toMatch(/alphaRestores = \[\];/);   // não desfazer duas vezes no finally
   });
 
-  it('só fura onde o magenta sobreviveu (texto por cima da foto continua)', () => {
-    const punch = corpo(posters, '_punchAlphaHoles');
-    expect(punch).toMatch(/P\[i\] > 246 && P\[i \+ 1\] < 9 && P\[i \+ 2\] > 246/);
-    expect(punch).toMatch(/a\[i \+ 3\] = 0/);
+  it('desenho opaco fica intocado, e só ele', () => {
+    const c = corpo(posters, '_composeAlphaFromPasses');
+    // diferença ~0 entre os passes = nada ali depende da foto
+    expect(c).toMatch(/if \(d <= 2\) continue;/);
+    expect(c).toMatch(/const a = 255 - Math\.round\(d\)/);
+  });
+
+  it('recupera a cor real do que é semitransparente', () => {
+    // o passe preto entrega a cor JÁ multiplicada pelo alfa; sem dividir, o
+    // degradê de leitura sairia escuro demais sobre o vídeo
+    const c = corpo(posters, '_composeAlphaFromPasses');
+    expect(c).toMatch(/const k = 255 \/ a;/);
+    expect(c).toMatch(/Math\.min\(255, Math\.round\(p\[i\] \* k\)\)/);
+    expect(c).toMatch(/p\[i \+ 3\] = a;/);
+  });
+
+  it('recusa canvases de tamanhos diferentes em vez de embaralhar o pixel', () => {
+    const c = corpo(posters, '_composeAlphaFromPasses');
+    expect(c).toMatch(/cvPreto\.width !== cvBranco\.width/);
+    expect(c).toMatch(/return cvPreto;/);
   });
 
   it('não faz o 2º passe quando não há mídia nenhuma para vazar', () => {
+    // sem mídia o arquivo é idêntico ao export normal, que é o correto
     expect(cap).toMatch(/const temMidia =/);
     expect(cap).toMatch(/if \(!temMidia\) return canvas;/);
+    expect(cap).toMatch(/temMidia = target\.querySelector\('\[data-user-media\], \[data-media-band\]/);
+  });
+
+  it('os dois passes usam as MESMAS opções (têm de coincidir pixel a pixel)', () => {
+    expect(cap).toMatch(/branco = await html2canvas\(target, opcoes\)/);
   });
 });
 
-describe('o modo sticker manda no arquivo entregue', () => {
-  it('captureStageCanvas não pinta base branca no modo alfa', () => {
-    expect(corpo(posters, 'captureStageCanvas')).toMatch(/backgroundColor: alpha \? null : '#FFFFFF'/);
+describe('o modo moldura manda no arquivo entregue', () => {
+  it('captureStageCanvas continua pintando base branca — o fundo do cartaz fica', () => {
+    // `backgroundColor: null` vazava tudo que o html2canvas não pintasse,
+    // inclusive o fundo do modelo. A transparência vem só do recorte.
+    const cap = corpo(posters, 'captureStageCanvas');
+    expect(cap).toMatch(/backgroundColor: '#FFFFFF',/);
+    expect(cap).not.toMatch(/backgroundColor: alpha \? null/);
   });
 
   it('não achata as fotos no modo alfa (reinseriria o pixel que acabou de sair)', () => {
@@ -213,10 +231,13 @@ describe('o modo sticker manda no arquivo entregue', () => {
 describe('a escolha aparece no diálogo de exportação', () => {
   const fn = corpo(posters, 'openPosterExportSettings');
 
-  it('tem o grupo Fundo com Completo e Transparente', () => {
+  it('o grupo fala do ESPAÇO DAS FOTOS, não do fundo do cartaz', () => {
     expect(fn).toMatch(/data-seg="bg"/);
     expect(fn).toMatch(/data-v="solid"/);
     expect(fn).toMatch(/data-v="alpha"/);
+    expect(fn).toMatch(/Espaço das fotos/);
+    // rotular de "Fundo" prometia o que o recurso não faz
+    expect(fn).not.toMatch(/exps-label">Fundo</);
   });
 
   it('desabilita o JPG e salta a seleção para PNG no modo transparente', () => {
@@ -227,7 +248,7 @@ describe('a escolha aparece no diálogo de exportação', () => {
 
   it('explica o que o modo faz, em vez de deixar o rótulo sozinho', () => {
     expect(fn).toMatch(/exps-bg-note/);
-    expect(fn).toMatch(/camada sobre vídeo/);
+    expect(fn).toMatch(/O modelo continua igual/);
   });
 
   it('a opção chega ao exportador', () => {

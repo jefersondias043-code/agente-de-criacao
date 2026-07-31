@@ -3236,207 +3236,116 @@ function hideStageCaptureCover(force) {
 }
 
 /* ===========================================================================
- * EXPORTAÇÃO COM FUNDO TRANSPARENTE (sticker / moldura para vídeo)
+ * EXPORTAÇÃO COM O ESPAÇO DAS FOTOS TRANSPARENTE (moldura para vídeo)
  *
- * Vaza o FUNDO do cartaz e as FOTOS que o usuário inseriu, preservando todo o
- * resto do desenho — títulos, subtítulos, molduras, formas, sombras, ícones,
- * grafismos, badges e a marca do portal. O PNG resultante entra como camada
- * num editor de vídeo: o vídeo aparece nas áreas vazadas e o layout continua
- * por cima, idêntico ao preview.
+ * O arquivo é o export NORMAL menos uma coisa: o espaço das imagens que o
+ * usuário inseriu vira buraco. Todo o resto do modelo continua exatamente como
+ * é — fundo do cartaz, títulos, subtítulos, molduras, faixas, painéis, formas,
+ * ícones, badges e a marca do portal. O PNG entra como camada num editor de
+ * vídeo e o vídeo aparece só nos buracos, emoldurado pelo cartaz.
  *
- * O que sai (vira transparente):
- *   · o fundo da raiz .poster-1440 (cor sólida ou gradiente do tema)
- *   · fotos do usuário: image1..4 (data-user-media="photo") e o placeholder
- *     que ocupa o lugar delas quando não há foto
+ * O que vira transparente, e SÓ isso:
+ *   · fotos do usuário: image1..4 (data-user-media="photo"), o placeholder que
+ *     ocupa o lugar delas quando não há foto e o bloco de cor equivalente
+ *   · a faixa reservada à imagem (data-media-band), inclusive quando está vazia
  *   · avatar e camadas de imagem soltas ([data-pt="avatar-overlay"] / "layer")
- *   · o fundo da CÉLULA que abriga a foto — sem isso sobrava um retângulo
- *     escuro (vários modelos pintam a célula de #111 atrás da imagem)
- *   · qualquer painel grande pintado com o PRÓPRIO fundo do cartaz — no export
- *     normal ele funde com a raiz e é invisível; é fundo, não desenho
  *
- * O que FICA (é desenho, não mídia): logo e monograma do portal, elementos
- * livres (.pe-el: formas, badges, divisores), painéis e faixas em cor PRÓPRIA
- * (a tarja do manchete-tarja, a metade colorida do promo-split, a faixa de
- * cabeçalho do resumo-dia) e os degradês de leitura sobre a área de foto —
- * eles seguem dando contraste ao texto quando o vídeo passar por baixo.
+ * O FUNDO DO CARTAZ NÃO SAI. Uma versão anterior deste recurso vazava também a
+ * cor/o gradiente da raiz e as camadas que a repetiam — o resultado era um
+ * cartaz sem base, com o cabeçalho e os painéis boiando sobre o vídeo. O
+ * recorte é o campo da foto, não o fundo.
+ *
+ * COMO O BURACO É MEDIDO
+ *
+ * Esconder a foto não basta: no Polaroid ela fica dentro de um card branco, e
+ * escondê-la revela o card, não o vídeo. Apagar o retângulo da foto também não:
+ * em vários modelos o título, o degradê de leitura e a pílula de local ficam
+ * POR CIMA dela e iriam junto.
+ *
+ * Recortar só onde a foto estivesse DESCOBERTA também falha: em `oferta-preco`,
+ * `capa-revista` e `evento-foto` a imagem é de sangria e um degradê cobre o
+ * cartaz inteiro — não sobraria buraco nenhum, e o recurso não existiria nesses
+ * modelos.
+ *
+ * A solução é medir a COBERTURA, não a presença. O cartaz é capturado duas
+ * vezes, mudando só a cor do campo da foto: PRETO num passe, BRANCO no outro.
+ * Num pixel coberto por desenho opaco os dois passes dão a mesma cor; num pixel
+ * onde só havia foto, um dá preto e o outro branco; e num pixel sob um degradê
+ * de 35% a diferença é exatamente 65% do intervalo. Daí saem, de uma vez, o
+ * alfa do pixel e a cor real do que está por cima — ver _composeAlphaFromPasses.
+ * É a extração de alfa por dois fundos, exata para composição.
  * ==========================================================================*/
 
-/** Aplica a máscara e devolve a função que desfaz (padrão do resto do export). */
-function _applyAlphaMask(target) {
-  // Um mesmo elemento pode ser alcançado por mais de uma regra (célula de foto
-  // que também forra a faixa de mídia, por exemplo). Guardar o estado só na
-  // PRIMEIRA vez é obrigatório: na segunda o inline já está zerado e o desfazer
-  // — que aplica os registros em ordem — deixaria o preview sem fundo.
+/* Cores dos dois passes. Precisam ser os extremos do intervalo: é a distância
+ * entre elas que vira o alfa. */
+const ALPHA_FILL_BLACK = '#000000';
+const ALPHA_FILL_WHITE = '#ffffff';
+
+/**
+ * Pinta TODO o campo de imagem do usuário com `cor` e devolve o desfazer.
+ * Chamada uma vez por passe, com preto e depois com branco.
+ */
+function _applyAlphaFill(target, cor) {
+  // Um mesmo elemento pode ser alcançado por mais de uma regra (mídia que
+  // também forra a faixa, por exemplo). Guardar o estado só na PRIMEIRA vez é
+  // obrigatório: na segunda o inline já está alterado e o desfazer — que aplica
+  // os registros em ordem — deixaria o preview com o estado da exportação.
   const restores = [];
   const vistos = new Map();
   const guardar = (el) => {
     if (vistos.has(el)) return;
-    const r = { el, display: el.style.display, background: el.style.background,
+    const r = { el, visibility: el.style.visibility, background: el.style.background,
       backgroundColor: el.style.backgroundColor, backgroundImage: el.style.backgroundImage };
     vistos.set(el, r);
     restores.push(r);
   };
-  const esconder = (el) => { guardar(el); el.style.display = 'none'; };
-  const limparFundo = (el) => {
+  const pintar = (el) => {
     guardar(el);
-    el.style.background = 'none';
-    el.style.backgroundColor = 'transparent';
-  };
-
-  // Assinatura do fundo, lida ANTES de limpar a raiz: é com ela que se
-  // reconhecem as camadas que apenas repetem o fundo mais abaixo na árvore.
-  const csRaiz = getComputedStyle(target);
-  const corFundo = csRaiz.backgroundColor;
-  const imgFundo = csRaiz.backgroundImage;
-  const temCorFundo = !!corFundo && corFundo !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(corFundo);
-  const temImgFundo = !!imgFundo && imgFundo !== 'none';
-
-  const caixaRaiz = target.getBoundingClientRect();
-  const areaRaiz = caixaRaiz.width * caixaRaiz.height;
-
-  // Fundo da raiz. O tema escreve `background` inline, então zerar aqui basta.
-  limparFundo(target);
-
-  target.querySelectorAll('*').forEach((el) => {
-    const cs = getComputedStyle(el);
-    const img = cs.backgroundImage;
-    const temImg = !!img && img !== 'none';
-    const r = el.getBoundingClientRect();
-    // "Grande" = da largura ou da altura do cartaz, ou 1/4 da área. Painel de
-    // base sempre é assim; chip, pílula e badge nunca são — é o que separa uma
-    // camada de fundo de uma forma desenhada na mesma cor.
-    const grande = r.width >= caixaRaiz.width - 2 || r.height >= caixaRaiz.height - 2 ||
-      (areaRaiz > 0 && r.width * r.height >= areaRaiz * 0.25);
-    if (!grande) return;
-
-    // (a) Camada que REPETE o fundo do cartaz — mesma cor ou mesmo gradiente.
-    // Meia dúzia de modelos monta a base assim (destaque-foto, comparison,
-    // mosaic-hero, carousel-cover…) e zerar só a raiz deixava o sticker opaco.
-    if (temImg ? (temImgFundo && img === imgFundo) : (temCorFundo && cs.backgroundColor === corFundo)) {
-      limparFundo(el);
-      return;
-    }
-    // (b) Camada de tela cheia em cor sólida PRÓPRIA: ainda é base de fundo.
-    // Já um GRADIENTE de tela cheia é tratamento de leitura sobre a foto —
-    // desenho, e fica: é ele que segura o contraste do texto sobre o vídeo.
-    const telaCheia = Math.abs(r.width - caixaRaiz.width) <= 2 && Math.abs(r.height - caixaRaiz.height) <= 2;
-    if (!telaCheia || temImg) return;
-    const cor = cs.backgroundColor;
-    if (!cor || cor === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(cor)) return;
-    limparFundo(el);
-  });
-
-  target.querySelectorAll('[data-user-media]').forEach((media) => {
-    const caixa = media.getBoundingClientRect();
-    esconder(media);
-    // A célula que abriga a foto costuma ter fundo próprio (#111, degradê do
-    // tema) e, sem limpá-la, sobra um retângulo escuro no lugar da imagem.
-    //
-    // O critério é GEOMÉTRICO, não de parentesco: sobe enquanto o ancestral
-    // tiver praticamente a mesma caixa da mídia — é isso que caracteriza uma
-    // célula de foto. Um painel estrutural (faixa, cartão, rodapé) é maior que
-    // a foto que abriga e a subida para nele, preservando o desenho. Contar só
-    // com o pai direto era raso: em vários modelos a foto vem embrulhada em
-    // camadas intermediárias e o fundo ficava na célula de cima.
-    let no = media.parentElement;
-    while (no && no !== target) {
-      const r = no.getBoundingClientRect();
-      const mesmaCaixa = caixa.width > 0 && caixa.height > 0 &&
-        Math.abs(r.width - caixa.width) <= Math.max(2, caixa.width * 0.05) &&
-        Math.abs(r.height - caixa.height) <= Math.max(2, caixa.height * 0.05);
-      if (!mesmaCaixa) break;
-      limparFundo(no);
-      no = no.parentElement;
-    }
-  });
-
-  // Faixa de mídia sem foto: a área é reservada à imagem do usuário, então
-  // vaza igual — mas NÃO se esconde, porque pílula de local e @portal moram
-  // dentro dela e são desenho.
-  target.querySelectorAll('[data-media-band]').forEach((band) => {
-    limparFundo(band);
-    // Camadas que FORRAM a faixa inteira (base da célula, moldura interna)
-    // também são área de imagem. Filho menor — pílula de local, @portal,
-    // legenda — é desenho e continua pintado.
-    const rb = band.getBoundingClientRect();
-    band.querySelectorAll('*').forEach((el) => {
-      const r = el.getBoundingClientRect();
-      if (Math.abs(r.width - rb.width) <= 2 && Math.abs(r.height - rb.height) <= 2) limparFundo(el);
-    });
-  });
-
-  target.querySelectorAll('[data-pt="avatar-overlay"], [data-pt="layer"]').forEach(esconder);
-
-  return restores;
-}
-
-/** Desfaz a máscara alfa. Todos os campos guardados são reaplicados: o registro
- *  é o estado inline original completo, então a ordem shorthand → longhand
- *  reproduz exatamente o que havia antes. */
-function _undoAlphaMask(restores) {
-  for (const r of restores) {
-    r.el.style.display = r.display;
-    r.el.style.background = r.background;
-    r.el.style.backgroundColor = r.backgroundColor;
-    r.el.style.backgroundImage = r.backgroundImage;
-  }
-}
-
-/* Cor-marcador do 2º passe. Só precisa não existir no desenho; é comparada com
- * igualdade exata e nenhum tema/paleta usa magenta puro. */
-const ALPHA_MARK = 'rgb(255,0,255)';
-
-/** Pinta as fotos de magenta (e esconde o que houver dentro delas) para o passe
- *  que descobre ONDE a foto realmente aparecia. Devolve o desfazer. */
-function _applyAlphaProbe(target) {
-  // Mesma cautela do _applyAlphaMask: um elemento pode cair em duas regras
-  // (uma camada solta que também forra a faixa), e guardar duas vezes faria o
-  // desfazer gravar o estado JÁ alterado.
-  const restores = [];
-  const vistos = new Map();
-  const guardar = (el) => {
-    if (vistos.has(el)) return;
-    const r = { el, display: el.style.display, background: el.style.background,
-      backgroundColor: el.style.backgroundColor, backgroundImage: el.style.backgroundImage };
-    vistos.set(el, r);
-    restores.push(r);
-  };
-  target.querySelectorAll('[data-user-media]').forEach((media) => {
-    guardar(media);
-    media.style.display = '';
-    media.style.background = ALPHA_MARK;
-    // A <img> (ou o conteúdo do placeholder) cobriria o marcador.
-    [...media.children].forEach((f) => {
-      guardar(f);
-      f.style.display = 'none';
-    });
-  });
-  target.querySelectorAll('[data-pt="avatar-overlay"], [data-pt="layer"]').forEach((el) => {
-    guardar(el);
-    el.style.background = ALPHA_MARK;
+    el.style.background = cor;
     el.style.backgroundImage = 'none';
+    el.style.visibility = 'visible';
+  };
+  // visibility, não display: `display:none` tira o elemento do fluxo e os
+  // vizinhos se reacomodam. Os dois passes PRECISAM ter geometria idêntica —
+  // é a diferença entre eles, pixel a pixel, que vira o alfa. Com visibility a
+  // caixa continua no lugar e só o desenho some.
+  const esconderFilhos = (el) => {
+    [...el.children].forEach((f) => { guardar(f); f.style.visibility = 'hidden'; });
+  };
+
+  target.querySelectorAll('[data-user-media]').forEach((media) => {
+    pintar(media);
+    esconderFilhos(media);   // a <img> (ou o conteúdo do placeholder) cobriria a cor
   });
-  // A faixa mantém os filhos visíveis: o que estiver por cima (pílula, @portal)
-  // cobre o magenta e sobrevive ao vazamento. As camadas que forram a faixa
-  // inteira, porém, precisam do marcador — senão tapam o buraco.
+
+  target.querySelectorAll('[data-pt="avatar-overlay"], [data-pt="layer"]').forEach((el) => {
+    pintar(el);
+    esconderFilhos(el);
+  });
+
+  // Faixa reservada à imagem: entra no cálculo mesmo vazia (é o campo da foto),
+  // mas os filhos ficam VISÍVEIS — pílula de local e @portal moram dentro dela,
+  // são desenho, e é justamente por continuarem pintados que sobrevivem ao
+  // recorte. As camadas que forram a faixa inteira, essas sim, levam a cor.
   target.querySelectorAll('[data-media-band]').forEach((band) => {
-    guardar(band);
-    band.style.background = ALPHA_MARK;
+    pintar(band);
     const rb = band.getBoundingClientRect();
     band.querySelectorAll('*').forEach((el) => {
       const r = el.getBoundingClientRect();
       if (Math.abs(r.width - rb.width) > 2 || Math.abs(r.height - rb.height) > 2) return;
-      guardar(el);
-      el.style.background = ALPHA_MARK;
-      el.style.backgroundImage = 'none';
+      pintar(el);
     });
   });
+
   return restores;
 }
 
-function _undoAlphaProbe(restores) {
+/** Desfaz um passe. Todos os campos guardados são reaplicados: o registro é o
+ *  estado inline original completo, então a ordem shorthand → longhand
+ *  reproduz exatamente o que havia antes. */
+function _undoAlphaFill(restores) {
   for (const r of restores) {
-    r.el.style.display = r.display;
+    r.el.style.visibility = r.visibility;
     r.el.style.background = r.background;
     r.el.style.backgroundColor = r.backgroundColor;
     r.el.style.backgroundImage = r.backgroundImage;
@@ -3444,33 +3353,41 @@ function _undoAlphaProbe(restores) {
 }
 
 /**
- * Vaza, no canvas já exportado, os pixels onde a foto do usuário aparecia.
+ * Junta os dois passes num RGBA só, escrevendo no canvas do passe PRETO.
  *
- * Por que não basta limpar o fundo da célula: em modelos como o Polaroid a foto
- * fica DENTRO de um card branco. Apagar o fundo da célula revela o card, não o
- * vídeo — e o buraco da moldura, que é o ponto do recurso, não acontece.
+ * Para cada pixel, com `d` = média da diferença branco − preto:
+ *   d ≈ 0   → o que está ali é opaco e não depende da foto: pixel intocado.
+ *   d ≈ 255 → só havia foto: buraco (alfa 0).
+ *   entre   → algo semitransparente cobre a foto. O alfa é 255 − d, e a cor do
+ *             passe preto é essa cor JÁ multiplicada pelo alfa (o preto não
+ *             contribui com nada), então basta dividir para recuperá-la.
  *
- * Por que não basta apagar o retângulo da foto: em vários modelos o título fica
- * POR CIMA da imagem. Apagar a região levaria o texto junto.
- *
- * Então o mapa do buraco vem de um 2º passe em que a foto é pintada de magenta:
- * onde o magenta sobrevive, nada foi desenhado por cima — é buraco de verdade.
- * Onde algo cobriu (texto, badge, degradê), o pixel fica como está.
+ * O resultado é o degradê de leitura, a sombra e a borda antisserrilhada
+ * saindo com a translucidez que têm no preview — sobre o vídeo eles voltam a
+ * compor exatamente como compunham sobre a foto.
  */
-function _punchAlphaHoles(canvasAlpha, canvasProbe) {
-  if (!canvasAlpha || !canvasProbe) return canvasAlpha;
-  if (canvasAlpha.width !== canvasProbe.width || canvasAlpha.height !== canvasProbe.height) return canvasAlpha;
-  const ctxA = canvasAlpha.getContext('2d');
-  const ctxP = canvasProbe.getContext('2d');
-  const A = ctxA.getImageData(0, 0, canvasAlpha.width, canvasAlpha.height);
-  const P = ctxP.getImageData(0, 0, canvasProbe.width, canvasProbe.height).data;
-  const a = A.data;
-  for (let i = 0; i < a.length; i += 4) {
-    // tolerância pequena: o html2canvas pode antisserrilhar a borda da célula
-    if (P[i] > 246 && P[i + 1] < 9 && P[i + 2] > 246) a[i + 3] = 0;
+function _composeAlphaFromPasses(cvPreto, cvBranco) {
+  if (!cvPreto || !cvBranco) return cvPreto;
+  if (cvPreto.width !== cvBranco.width || cvPreto.height !== cvBranco.height) return cvPreto;
+  const ctx = cvPreto.getContext('2d');
+  const img = ctx.getImageData(0, 0, cvPreto.width, cvPreto.height);
+  const B = cvBranco.getContext('2d').getImageData(0, 0, cvBranco.width, cvBranco.height).data;
+  const p = img.data;
+  for (let i = 0; i < p.length; i += 4) {
+    // margem de 2: o html2canvas pode variar 1 nível entre capturas iguais, e
+    // sem folga o cartaz inteiro sairia levemente translúcido.
+    const d = ((B[i] - p[i]) + (B[i + 1] - p[i + 1]) + (B[i + 2] - p[i + 2])) / 3;
+    if (d <= 2) continue;
+    const a = 255 - Math.round(d);
+    if (a <= 3) { p[i + 3] = 0; continue; }
+    const k = 255 / a;
+    p[i] = Math.min(255, Math.round(p[i] * k));
+    p[i + 1] = Math.min(255, Math.round(p[i + 1] * k));
+    p[i + 2] = Math.min(255, Math.round(p[i + 2] * k));
+    p[i + 3] = a;
   }
-  ctxA.putImageData(A, 0, 0);
-  return canvasAlpha;
+  ctx.putImageData(img, 0, 0);
+  return cvPreto;
 }
 
 async function captureStageCanvas(fmt, scale, opts) {
@@ -3525,9 +3442,10 @@ async function captureStageCanvas(fmt, scale, opts) {
   // line-clamp/text-overflow) — feito com o layout já em escala 1 (= preview).
   const ellipsisRestores = _applyExportEllipsis(target);
 
-  // Modo sticker: vaza fundo e fotos, mantém o desenho (ver _applyAlphaMask).
+  // Modo moldura: vaza o campo das fotos, o resto do cartaz fica. É o 1º dos
+  // dois passes de medição de alfa — ver o bloco acima de _applyAlphaFill.
   const alpha = !!(opts && opts.alpha);
-  const alphaRestores = alpha ? _applyAlphaMask(target) : [];
+  let alphaRestores = alpha ? _applyAlphaFill(target, ALPHA_FILL_BLACK) : [];
 
   // --- Flatten: renderiza cada imagem num canvas com zoom+pan+cover. ---
   // No modo sticker as fotos estão ocultas: achatá-las só gastaria tempo e
@@ -3618,36 +3536,41 @@ async function captureStageCanvas(fmt, scale, opts) {
       width: fmt.w,
       height: fmt.h,
       scale: s,
-      // null = o html2canvas não pinta base nenhuma e o que não for desenhado
-      // fica com alfa 0. Branco é o padrão porque o PNG normal precisa de fundo.
-      backgroundColor: alpha ? null : '#FFFFFF',
+      // Branco também no modo moldura: o arquivo é o export normal, e a única
+      // transparência vem da medição dos dois passes. Pedir `null` aqui vazava
+      // tudo que o html2canvas não pintasse — inclusive o fundo do modelo — e o
+      // cartaz saía sem base.
+      backgroundColor: '#FFFFFF',
       useCORS: true,
       logging: false,
     };
     const canvas = await html2canvas(target, opcoes);
     if (!alpha) return canvas;
 
-    // 2º passe: mapa de onde a foto de fato aparecia (ver _punchAlphaHoles).
-    // Só no modo sticker, e só quando existe mídia para vazar.
-    const temMidia = target.querySelector('[data-user-media], [data-pt="avatar-overlay"], [data-pt="layer"]');
+    // Sem campo de imagem não há o que vazar: o arquivo é igual ao export
+    // normal, que é o correto — e a 2ª captura seria desperdício.
+    const temMidia = target.querySelector('[data-user-media], [data-media-band], [data-pt="avatar-overlay"], [data-pt="layer"]');
     if (!temMidia) return canvas;
-    _undoAlphaMask(alphaRestores);
-    alphaRestores.length = 0;
-    const probeRestores = _applyAlphaProbe(target);
-    let probe = null;
+
+    // 2º passe: o MESMO cartaz, mudando só a cor do campo da foto. A diferença
+    // entre os dois é o alfa (ver _composeAlphaFromPasses).
+    _undoAlphaFill(alphaRestores);
+    alphaRestores = _applyAlphaFill(target, ALPHA_FILL_WHITE);
+    let branco = null;
     try {
-      probe = await html2canvas(target, Object.assign({}, opcoes, { backgroundColor: '#FFFFFF' }));
+      branco = await html2canvas(target, opcoes);
     } finally {
-      _undoAlphaProbe(probeRestores);
+      _undoAlphaFill(alphaRestores);
+      alphaRestores = [];
     }
-    return _punchAlphaHoles(canvas, probe);
+    return _composeAlphaFromPasses(canvas, branco);
   } finally {
     for (const s of snapshots) {
       if (s.cvs && s.cvs.parentNode) s.cvs.remove();
       if (s.wrapEl) s.wrapEl.style.display = s.display || '';
     }
     for (const r of ellipsisRestores) { r.el.textContent = r.text; }   // restaura o texto original
-    _undoAlphaMask(alphaRestores);
+    _undoAlphaFill(alphaRestores);
     target.classList.remove('exporting');
     stage.style.transform = originalTransform;
     wrap.style.width = originalWrapW;
@@ -3657,8 +3580,8 @@ async function captureStageCanvas(fmt, scale, opts) {
 }
 
 async function exportPoster(p, scale, fileType, opts) {
-  // JPG não tem canal alfa: pedir sticker em JPG devolveria o fundo preto ou
-  // branco de volta, sem aviso. O modo transparente manda no formato.
+  // JPG não tem canal alfa: pedir a moldura em JPG tamparia os buracos de preto
+  // ou branco, sem aviso. O modo transparente manda no formato.
   const alpha = !!(opts && opts.alpha);
   const jpg = !alpha && (fileType === 'jpg' || fileType === 'jpeg');
   const mime = jpg ? 'image/jpeg' : 'image/png';
@@ -3673,7 +3596,7 @@ async function exportPoster(p, scale, fileType, opts) {
     // nova do usuário → o share nativo do iPhone funciona (não pode ser
     // disparado automático logo após o html2canvas, o iOS bloqueia).
     presentExport([{ name, blob }], alpha
-      ? { title: 'Sobreposição pronta', subtitle: 'PNG com fundo transparente — use como camada sobre o vídeo.' }
+      ? { title: 'Moldura pronta', subtitle: 'PNG com o espaço das fotos vazado — ponha sobre o vídeo no editor.' }
       : { title: 'Cartaz pronto', subtitle: 'Confira e salve na galeria ou compartilhe.' });
   } catch (err) {
     toast('Não foi possível exportar: ' + err.message, 'error');
@@ -3748,9 +3671,9 @@ function openPosterExportSettings(p) {
         </div>
       </div>
       <div class="exps-group">
-        <div class="exps-label">Fundo</div>
+        <div class="exps-label">Espaço das fotos</div>
         <div class="exps-seg" data-seg="bg">
-          <button type="button" data-v="solid" class="sel">Completo</button>
+          <button type="button" data-v="solid" class="sel">Com as fotos</button>
           <button type="button" data-v="alpha">Transparente</button>
         </div>
         <div class="exps-note exps-bg-note" id="exps-bg-note">O cartaz inteiro, como aparece na tela.</div>
@@ -3807,7 +3730,7 @@ function openPosterExportSettings(p) {
     }
     if (notaBg) {
       notaBg.textContent = alpha
-        ? 'Sem fundo e sem as fotos: só o desenho do cartaz, em PNG. Para usar como camada sobre vídeo.'
+        ? 'Só o espaço das fotos sai vazado, em PNG. O modelo continua igual — vira moldura para pôr sobre o vídeo.'
         : 'O cartaz inteiro, como aparece na tela.';
     }
   };

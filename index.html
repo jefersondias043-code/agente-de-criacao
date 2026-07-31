@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-31-r181" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-31-r182" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -956,6 +956,173 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       </aside>
     </section>
 
+    <!-- Narrativa — o construtor de histórias (nativo).
+         Fluxo: ideia bruta → três perguntas do lema → diagnóstico local
+         (situação × história) → conteúdo no formato da plataforma escolhida. -->
+    <section class="page view mtabs-host" id="view-narrativa" data-mtab="a">
+      <header class="appbar">
+        <div class="appbar-lead">
+          <div class="appbar-title">Narrativa</div>
+          <div class="appbar-desc">Antes de escrever, descubra se você tem uma história — ou apenas uma situação.</div>
+        </div>
+        <div class="appbar-actions">
+          <button class="btn btn-icon" id="n-history-open" type="button" title="Histórico de histórias" aria-label="Histórico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div id="n-api-warning" class="hidden card mb-3 callout-warn"></div>
+
+      <div class="mtabs" id="n-mtabs">
+        <button type="button" data-mtab="a" class="active">História</button>
+        <button type="button" data-mtab="b">Conteúdo</button>
+      </div>
+
+      <div class="grid-2">
+        <!-- Coluna A: a história -->
+        <div class="mtab-a flex flex-col gap-2">
+
+          <details class="editor-section" id="n-lema">
+            <summary>
+              <span>O lema que rege esta ferramenta</span>
+              <span class="chev">▾</span>
+            </summary>
+            <div class="editor-section-body">
+              <p class="narr-lema" id="n-lema-text"></p>
+            </div>
+          </details>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">A ideia</div>
+            </div>
+            <div class="field">
+              <label class="label" for="n-ideia">Material bruto <span class="text-mute" style="text-transform:none;letter-spacing:0;font-weight:400;">(opcional)</span></label>
+              <textarea class="textarea" id="n-ideia" rows="5" placeholder="O fato, o tema, a lembrança, o comentário que você leu. Ainda é só uma situação — o trabalho começa aqui."></textarea>
+              <span class="input-helper">De onde a história vai ser arrancada. Também aceita texto enviado por outras ferramentas.</span>
+              <div class="input-toolbar">
+                <button type="button" class="btn btn-ghost btn-sm" id="n-extrair">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  Achar a história com IA
+                </button>
+                <span class="text-xs text-mute">Preenche só o que estiver vazio — e diz o que ainda falta.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">As três perguntas</div>
+              <button class="btn btn-ghost btn-sm" id="n-afiar" type="button" title="Tornar as respostas mais concretas">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.6 6.5L21 11l-6.4 2.5L12 20l-2.6-6.5L3 11l6.4-2.5z"/></svg>
+                Afiar com IA
+              </button>
+            </div>
+            <div class="flex flex-col gap-2">
+              <div class="field">
+                <label class="label" for="n-protagonista">Protagonista — quem deseja?</label>
+                <input class="input" id="n-protagonista" placeholder="Ex.: seu ouvinte de 40 anos que largou o emprego; você; dona Marlene, da feira" />
+                <span class="input-helper">Pode ser você, um personagem real ou quem está do outro lado da tela.</span>
+              </div>
+              <div class="field">
+                <label class="label" for="n-desejo">1. O que ele quer?</label>
+                <textarea class="textarea textarea-answer" id="n-desejo" rows="2" placeholder="Ex.: quer reabrir a padaria do pai antes do fim do ano"></textarea>
+                <span class="input-helper">Um objetivo concreto, que dá para ver acontecendo. "Ser feliz" é tema; "voltar a morar onde nasceu" é objetivo.</span>
+              </div>
+              <div class="field">
+                <label class="label" for="n-obstaculo">2. O que o impede?</label>
+                <textarea class="textarea textarea-answer" id="n-obstaculo" rows="2" placeholder="Ex.: o imóvel foi penhorado e o irmão quer vender"></textarea>
+                <span class="input-helper">A força que trava. Se o caminho é fácil, não há conflito — e sem conflito não há envolvimento.</span>
+              </div>
+              <div class="field">
+                <label class="label" for="n-risco">3. O que ele arrisca?</label>
+                <textarea class="textarea textarea-answer" id="n-risco" rows="2" placeholder="Ex.: as economias da aposentadoria e a relação com o irmão"></textarea>
+                <span class="input-helper">O que se perde se der errado. Sem nada em jogo, ninguém torce.</span>
+              </div>
+              <div id="n-afiacao"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Coluna B: diagnóstico e produção -->
+        <div class="mtab-b flex flex-col gap-2">
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">Situação ou história?</div>
+              <button class="btn btn-ghost btn-sm" id="n-limpar" type="button" title="Limpar os campos">Limpar</button>
+            </div>
+            <div id="n-diag"></div>
+            <div class="text-xs text-mute mt-2">Diagnóstico feito no próprio aparelho, pelas regras do lema — não usa IA nem internet.</div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">Virar conteúdo</div>
+              <div id="n-result-badge"></div>
+            </div>
+            <div class="flex flex-col gap-2">
+              <div class="field">
+                <label class="label" for="n-formatoId">Formato</label>
+                <select class="select" id="n-formatoId"></select>
+                <span class="input-helper" id="n-formato-desc"></span>
+              </div>
+              <div class="grid-2 keep-2" style="gap: 1rem;">
+                <div class="field">
+                  <label class="label" for="n-tomId">Tom</label>
+                  <select class="select" id="n-tomId"></select>
+                  <span class="input-helper" id="n-tom-desc"></span>
+                </div>
+                <div class="field">
+                  <label class="label" for="n-tamanhoId">Extensão</label>
+                  <select class="select" id="n-tamanhoId"></select>
+                  <span class="input-helper" id="n-tamanho-desc"></span>
+                </div>
+              </div>
+              <div class="field">
+                <label class="label" for="n-perfil">Perfil que publica</label>
+                <select class="select" id="n-perfil"></select>
+                <span class="input-helper">Usa o nome, o @ e a assinatura do perfil para acertar a voz.</span>
+              </div>
+              <div class="field">
+                <label class="label" for="n-publico">Para quem é <span class="text-mute" style="text-transform:none;letter-spacing:0;font-weight:400;">(opcional)</span></label>
+                <input class="input" id="n-publico" placeholder="Ex.: mães de primeira viagem; pequenos comerciantes do interior" />
+              </div>
+              <div class="field">
+                <label class="label" for="n-cta">Ação desejada no fim <span class="text-mute" style="text-transform:none;letter-spacing:0;font-weight:400;">(opcional)</span></label>
+                <input class="input" id="n-cta" placeholder="Ex.: comentar a própria história; salvar o post; clicar no link da bio" />
+              </div>
+            </div>
+            <div id="n-result-area" class="mt-2"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn btn-accent" id="n-submit" type="button" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Escrever conteúdo
+        </button>
+        <span class="action-bar-hint" id="n-submit-hint">⌘/Ctrl + Enter</span>
+      </div>
+
+      <!-- Histórico de histórias — painel lateral sob demanda -->
+      <div id="n-history-backdrop" class="drawer-backdrop hidden"></div>
+      <aside id="n-history-drawer" class="history-drawer" aria-label="Histórico de histórias">
+        <div class="history-drawer-head">
+          <div class="card-title">Histórico</div>
+          <div class="flex gap-1" style="align-items: center;">
+            <button class="btn btn-danger btn-sm" id="n-history-clear" type="button">Limpar tudo</button>
+            <button class="btn btn-ghost btn-sm" id="n-history-close" type="button" title="Fechar" aria-label="Fechar">✕</button>
+          </div>
+        </div>
+        <div id="n-history-list" class="list"></div>
+      </aside>
+    </section>
+
     <!-- Removedor de Fundo (embed) -->
     <section class="page view view-fullbleed" id="view-removedor">
       <div class="detector-frame-wrap">
@@ -1137,6 +1304,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <script src="src/llm.js"></script>
 <script src="src/agents.js"></script>
 <script src="src/generate.js"></script>
+<script src="src/narrativa.js"></script>
 <script src="src/extract.js"></script>
 <script src="src/posters.js"></script>
 <script src="src/poster-templates.js"></script>

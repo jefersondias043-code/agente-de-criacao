@@ -13,6 +13,7 @@ export const SCRIPTS = [
   'llm.js',
   'agents.js',
   'generate.js',
+  'narrativa.js',
   'extract.js',
   'posters.js',
   'poster-templates.js',

@@ -20,13 +20,21 @@ Ao mexer na lista de scripts, edite `scripts/scripts.manifest.mjs` e rode
 No navegador (http://localhost:8080):
 
 - [ ] Console mostra "Agente de Postagem … pronto." e **nenhum erro**.
-- [ ] Sidebar lista as 9 seções; clicar em cada uma troca a view sem erro.
+- [ ] Sidebar lista as 10 seções; clicar em cada uma troca a view sem erro.
 - [ ] **Gerar**: selects de Estilo (28) e Tom (22) preenchidos; contador do textarea atualiza ao digitar.
       Toggle **Modo de geração** (Agentes/Rápido) troca o botão ativo e persiste ao trocar de
       view e voltar. No modo **Agentes**, gerar mostra os 3 selos (Interpretação/Redação/Design)
       acendendo em sequência e o resultado traz hashtags copiáveis + chip "Design sugerido". No
       modo **Rápido**, gerar mostra spinner simples (sem selos) e o resultado NÃO traz hashtags
       nem chip de design (paridade com o comportamento anterior ao pipeline).
+- [ ] **Narrativa**: com os campos vazios, o painel mostra **Situação** e o botão
+      "Escrever conteúdo" fica **desabilitado**. Preencher desejo + obstáculo + risco vira
+      **História** e libera o botão. Responder "nada" no obstáculo (ou "é só pedir ajuda")
+      volta a travar — é o lema aplicado, não um bug. O diagnóstico funciona **sem chave de
+      API e offline**. Trocar de ferramenta e voltar preserva o rascunho; recarregar a página
+      também. Com chave configurada: "Achar a história com IA" preenche só os campos vazios,
+      "Afiar com IA" reescreve as três respostas e oferece **Desfazer**, e o conteúdo gerado
+      entra no histórico e na barra "Enviar para".
 - [ ] **Extrair**: dropzone aparece; histórico vazio com empty-state. Aceita imagem/áudio/vídeo.
       **OCR**: uma foto com texto sobre fundo complexo é reconhecida (pré-processamento +
       limiar adaptativo); a barra de progresso avança. **Vídeo grande** (> 25 MB, com chave

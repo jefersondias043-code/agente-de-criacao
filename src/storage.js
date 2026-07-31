@@ -499,6 +499,7 @@ async function storageBreakdown() {
   const cats = [
     { label: 'Cartazes e carrosséis', prefixes: ['agp.posters'], idb: true },
     { label: 'Matérias geradas', prefixes: ['agp.generations'] },
+    { label: 'Narrativa', prefixes: ['agp.narrativas', 'agp.narrativa.'] },
     { label: 'Extrações de texto', prefixes: ['agp.extractions'] },
     { label: 'Detector Flop', prefixes: ['df_'] },
     { label: 'AutoPost IA', prefixes: ['rv_'] },

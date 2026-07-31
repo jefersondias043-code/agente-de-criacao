@@ -437,10 +437,12 @@ function _canvasToBytes(canvas, mime, quality) {
   });
 }
 
-async function exportCarousel(p, mode, scale, fileType) {
-  if (!posterIsCarousel(p)) return exportPoster(p, scale, fileType);
+async function exportCarousel(p, mode, scale, fileType, opts) {
+  if (!posterIsCarousel(p)) return exportPoster(p, scale, fileType, opts);
   mode = mode || 'zip';
-  const jpg = fileType === 'jpg' || fileType === 'jpeg';
+  // Sticker exige PNG: JPG não carrega alfa (ver exportPoster).
+  const alpha = !!(opts && opts.alpha);
+  const jpg = !alpha && (fileType === 'jpg' || fileType === 'jpeg');
   const mime = jpg ? 'image/jpeg' : 'image/png';
   const ext = jpg ? 'jpg' : 'png';
   const slides = p.slides;
@@ -469,8 +471,8 @@ async function exportCarousel(p, mode, scale, fileType) {
       // espera layout + imagens decodificarem antes de capturar
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       await waitForStageImages();
-      const canvas = await captureStageCanvas(fmt, scale);
-      if (canvas) files.push({ name: `carrossel-${String(idx + 1).padStart(2, '0')}.${ext}`, data: await _canvasToBytes(canvas, mime, jpg ? 0.92 : undefined) });
+      const canvas = await captureStageCanvas(fmt, scale, { alpha });
+      if (canvas) files.push({ name: `carrossel-${String(idx + 1).padStart(2, '0')}${alpha ? '-transparente' : ''}.${ext}`, data: await _canvasToBytes(canvas, mime, jpg ? 0.92 : undefined) });
       else naoCapturados.push(idx + 1);
     }
     if (!files.length) { toast(libReady('html2canvas') ? 'Não foi possível exportar o carrossel.' : libUnavailableMsg('html2canvas'), 'error', 6000); return; }

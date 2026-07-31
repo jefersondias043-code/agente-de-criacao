@@ -2298,16 +2298,35 @@ body.pe-full #view-posters { animation: none; }
   #p-editor > .pedit-panels { order: 2; display: none; }
   #p-editor.sheet-open > .pedit-panels {
     display: block;
-    /* altura controlada pelo divisor arrastável (--pe-panel-h); 44dvh padrão */
-    height: var(--pe-panel-h, 44dvh);
+    /* Metade da tela para os controles (o divisor arrastável continua mandando
+       quando o usuário escolhe outra divisão, e a escolha fica salva). 44dvh
+       deixava os controles com ~36% da tela num aparelho de 640px de altura —
+       o preview ganhava o que os controles não tinham para dar. */
+    height: var(--pe-panel-h, 50dvh);
     min-height: 132px; max-height: 84dvh;
     overflow-y: auto; overscroll-behavior: contain;
     background: var(--surface);
     border-top: 1px solid var(--line-soft);
     border-radius: 18px 18px 0 0;
     box-shadow: var(--shadow-float);
-    padding: 0.85rem 0.9rem 1rem;
+    padding: 0.7rem 0.8rem 0.85rem;
   }
+
+  /* DENSIDADE dentro do sheet: metade da tela num aparelho pequeno são ~300px
+     e cada campo custa caro. Estes ajustes valem SÓ dentro do painel de edição
+     do cartaz — os mesmos componentes seguem folgados no resto do app. */
+  #p-editor.sheet-open > .pedit-panels .style-subnav { margin-bottom: 0.5rem; }
+  #p-editor.sheet-open > .pedit-panels .field { gap: 0.25rem; }
+  #p-editor.sheet-open > .pedit-panels .label { font-size: 0.66rem; letter-spacing: 0.05em; }
+  #p-editor.sheet-open > .pedit-panels .input-helper { font-size: 0.66rem; line-height: 1.3; }
+  #p-editor.sheet-open > .pedit-panels .fit-row { margin-top: 0.2rem; }
+  /* O min-height global de 120px é para caixas de texto longo (a pauta do
+     Gerar). Aqui headline/subtítulo têm rows=2 e o mínimo alto sozinho comia
+     metade do painel. */
+  #p-editor.sheet-open > .pedit-panels .textarea { min-height: 0; line-height: 1.4; }
+  #p-editor.sheet-open > .pedit-panels .textarea#p-description { min-height: 92px; }
+  #p-editor.sheet-open > .pedit-panels .editor-section { margin: 0; }
+  #p-editor.sheet-open > .pedit-panels .picker-row { padding-top: 0.5rem; padding-bottom: 0.5rem; }
   /* Barra divisória arrastável (só aparece com o painel de edição aberto). */
   #p-editor > .pe-split-handle { display: none; }
   #p-editor.sheet-open > .pe-split-handle {
@@ -2342,12 +2361,13 @@ body.pe-full #view-posters { animation: none; }
   #p-editor > .pedit-tabs .pedit-tab span { max-width: 62px; }
 }
 
-/* Telas BAIXAS (≤700px de altura): com a barra da plataforma de volta, o
-   painel padrão de 44dvh espremia demais o preview. Um padrão menor devolve
-   preview justamente onde falta — e o divisor arrastável (com a altura salva
-   no aparelho) continua mandando quando o usuário escolhe outra divisão. */
+/* Telas BAIXAS (≤700px de altura) são justamente as que MENOS podem perder
+   controle: 36dvh aqui deixava os controles com pouco mais de um terço da
+   tela e trazia a rolagem de volta em quase toda sub-aba. As subabas cortaram
+   o conteúdo por grupo, então metade da tela agora cabe o grupo inteiro —
+   e o divisor arrastável segue disponível para quem quiser mais preview. */
 @media (max-width: 900px) and (max-height: 700px) {
-  #p-editor.sheet-open > .pedit-panels { height: var(--pe-panel-h, 36dvh); }
+  #p-editor.sheet-open > .pedit-panels { height: var(--pe-panel-h, 50dvh); }
 }
 
 @media (prefers-reduced-motion: reduce) {

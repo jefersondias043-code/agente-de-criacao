@@ -938,14 +938,25 @@ function renderPosterEditor() {
     const tpl = $('#p-template') ? $('#p-template').value : (s.template || '');
     const show = (id, on) => { const f = $(`#${id}`); if (f) f.style.display = on ? '' : 'none'; };
     const person = (tpl === 'face-to-news' || tpl === 'quote-impact');
+    const figure = (tpl === 'numbers-data');
+    const labels = (tpl === 'comparison');
     show('p-pf-name-field', person);
     show('p-pf-role-field', person);
-    show('p-pf-figure-field', tpl === 'numbers-data');
-    show('p-pf-labels-row', tpl === 'comparison');
-    // Seção recolhível "Texto longo": abre automaticamente p/ os modelos que
-    // dependem do corpo (Texto/Tópicos); recolhida nos demais p/ poupar rolagem.
+    show('p-pf-figure-field', figure);
+    show('p-pf-labels-row', labels);
+    // A sub-aba "Campos" existe só nos modelos que têm campo dedicado; sem
+    // isso a pílula abriria um painel vazio.
+    const subCampos = document.querySelector('.pedit-panel[data-pgroup="content"] .style-sub[data-sub="campos"]');
+    if (subCampos) subCampos.dataset.subOff = (person || figure || labels) ? '0' : '1';
+    // "Texto longo" agora é a sub-aba Corpo: quem entra nela quer justamente o
+    // corpo, então recolher viraria um clique a mais sem ganho de rolagem (a
+    // sub-aba já esconde tudo que não é dela). Antes era <details> recolhido no
+    // meio da pilha e custava rolagem só para ser encontrado.
     const txt = $('#p-text-section');
-    if (txt) txt.open = (tpl === 'texto' || tpl === 'topicos');
+    if (txt) txt.open = true;
+    // Os campos dedicados acabaram de mudar de visibilidade: a pílula "Campos"
+    // some quando nenhum deles se aplica ao modelo atual.
+    if (typeof activatePanelSub === 'function') activatePanelSub('content', _pSubByGroup.content);
   };
   const onMediaChange = () => { updateProgressiveVisibility(); updateMosaicControl(); };
 
@@ -1665,7 +1676,8 @@ function openUnifiedThemePicker() {
  * Ajustes manuais · Favoritos. Barra sempre visível; cada botão mostra sua
  * sub-área. Modelo/Formato/Temas = grids de cards inline (mesmos selects-fonte).
  * ==========================================================================*/
-let _pStyleSub = 'model';
+/* A sub-aba ativa da aba Estilo mora em `_pSubByGroup.colors` desde que as
+ * subabas viraram genéricas (ver activatePanelSub). */
 
 /** Popula o <select> de modelos a partir do REGISTRO (fonte única). Chamado
  *  no boot: acrescentar um modelo em POSTER_TEMPLATES basta para ele aparecer
@@ -1736,23 +1748,91 @@ function _renderSelectCards(grid, sel, kind) {
 }
 
 function activateStyleSub(key) {
-  _pStyleSub = key;
-  const panel = $('#p-style-section');
-  if (!panel) return;
-  panel.querySelectorAll('.style-subnav button[data-sub]').forEach(b => b.classList.toggle('active', b.dataset.sub === key));
-  panel.querySelectorAll('.style-sub[data-sub]').forEach(s => s.classList.toggle('active', s.dataset.sub === key));
-  if (key === 'model') _renderTemplatePicker($('#p-sub-model'), $('#p-template'));
-  else if (key === 'format') _renderSelectCards($('#p-sub-format'), $('#p-format'), 'format');
-  else if (key === 'themes') _renderUnifiedThemeInto($('#p-sub-themes'));
+  activatePanelSub('colors', key);
 }
 
-function setupStyleSubnav() {
-  const nav = $('#p-style-subnav');
+/* ===========================================================================
+ * SUBABAS DE PAINEL — o segundo nível de navegação do editor.
+ *
+ * No celular a metade de baixo da tela é tudo o que os controles têm. Um
+ * painel que empilha Modelo + Headline + Ajuste + Categoria + Localização +
+ * Subtítulo + Corpo numa coluna só obriga o usuário a rolar muito num espaço
+ * curto — e rolagem vertical é justamente o que sobra menos.
+ *
+ * A aba Estilo já resolvia isso com uma barra de pílulas horizontal
+ * (.style-subnav + .style-sub). Isto aqui é a MESMA mecânica, promovida a
+ * genérica: qualquer .pedit-panel que declare uma .style-subnav ganha
+ * subabas, sem código próprio. A memória do que estava aberto é POR GRUPO,
+ * então voltar para uma aba devolve o usuário onde ele parou.
+ * ==========================================================================*/
+
+/** Sub-aba ativa por grupo do editor. `colors` começa em 'model' por herança
+ *  do comportamento anterior; os demais caem na primeira sub-aba declarada. */
+const _pSubByGroup = { colors: 'model' };
+
+/** Alguns grupos precisam desenhar conteúdo só quando a sub-aba abre (grades
+ *  pesadas de cards). Mantido como tabela para o controlador seguir genérico. */
+const _pSubLazy = {
+  colors: {
+    model: () => _renderTemplatePicker($('#p-sub-model'), $('#p-template')),
+    format: () => _renderSelectCards($('#p-sub-format'), $('#p-format'), 'format'),
+    themes: () => _renderUnifiedThemeInto($('#p-sub-themes')),
+  },
+};
+
+/** Ativa uma sub-aba dentro do painel do grupo.
+ *
+ *  Disponibilidade é EXPLÍCITA (`dataset.subOff`), não medida do layout: as
+ *  grades de Modelo/Formato/Temas nascem vazias e só são preenchidas quando a
+ *  sub-aba abre, então "está vazio agora" não significa "não se aplica" —
+ *  medir escondia justamente as abas que ainda não tinham sido desenhadas.
+ *  Quem sabe se um grupo se aplica é a lógica do app (ver updateExtraFields). */
+function activatePanelSub(group, key) {
+  const painel = document.querySelector(`.pedit-panel[data-pgroup="${group}"]`);
+  if (!painel) return;
+  const nav = painel.querySelector('.style-subnav');
   if (!nav) return;
-  nav.querySelectorAll('button[data-sub]').forEach(b => { b.onclick = () => activateStyleSub(b.dataset.sub); });
-  const has = [...nav.querySelectorAll('button[data-sub]')].some(b => b.dataset.sub === _pStyleSub);
-  activateStyleSub(has ? _pStyleSub : 'model');
+
+  const subs = [...painel.querySelectorAll(':scope > .style-sub[data-sub]')];
+  const disponiveis = [];
+  subs.forEach((s) => {
+    const ok = s.dataset.subOff !== '1';
+    const btn = nav.querySelector(`button[data-sub="${s.dataset.sub}"]`);
+    if (btn) btn.hidden = !ok;
+    if (ok) disponiveis.push(s.dataset.sub);
+  });
+  if (!disponiveis.length) return;
+  if (!disponiveis.includes(key)) key = disponiveis[0];
+
+  _pSubByGroup[group] = key;
+  nav.querySelectorAll('button[data-sub]').forEach(b => b.classList.toggle('active', b.dataset.sub === key));
+  subs.forEach(s => s.classList.toggle('active', s.dataset.sub === key));
+  const lazy = _pSubLazy[group] && _pSubLazy[group][key];
+  if (typeof lazy === 'function') lazy();
+  // A pílula ativa pode estar fora da janela do trilho rolável.
+  const ativo = nav.querySelector('button.active');
+  if (ativo && typeof ativo.scrollIntoView === 'function') {
+    ativo.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
 }
+
+/** Liga TODAS as subabas do editor (idempotente — roda a cada render). */
+function setupPanelSubnavs() {
+  document.querySelectorAll('.pedit-panel .style-subnav').forEach((nav) => {
+    const painel = nav.closest('.pedit-panel');
+    const group = painel && painel.dataset.pgroup;
+    if (!group) return;
+    nav.querySelectorAll('button[data-sub]').forEach((b) => {
+      b.onclick = () => activatePanelSub(group, b.dataset.sub);
+    });
+    const primeira = nav.querySelector('button[data-sub]');
+    const lembrado = _pSubByGroup[group];
+    const existe = lembrado && nav.querySelector(`button[data-sub="${lembrado}"]`);
+    activatePanelSub(group, existe ? lembrado : (primeira && primeira.dataset.sub));
+  });
+}
+
+function setupStyleSubnav() { setupPanelSubnavs(); }
 
 /* ===========================================================================
  * NAVEGAÇÃO POR CATEGORIAS do editor — só o grupo ativo fica visível.

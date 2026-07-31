@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-07-30-r177" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-07-31-r178" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -625,13 +625,19 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 
                   <!-- CONTEÚDO: campos dedicados (condicionais), título, categoria, local, subtítulo, texto longo -->
                   <div class="pedit-panel" data-pgroup="content">
-                <!-- Atalho contextual: os campos visíveis dependem do MODELO —
-                     trocar de modelo sem sair da aba de texto. -->
-                <button type="button" class="picker-row picker-quick" data-for="p-template">
-                  <span class="picker-row-label">Modelo</span>
-                  <span class="picker-row-value">—</span>
-                  <svg class="picker-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
+                    <!-- Subabas (r178): no celular a metade de baixo é tudo o que
+                         os controles têm; empilhar título+categoria+local+subtítulo
+                         +corpo numa coluna só obriga a rolar muito. Mesma mecânica
+                         da aba Estilo, agora genérica (activatePanelSub). -->
+                    <div class="style-subnav" role="tablist">
+                      <button type="button" data-sub="titulo" role="tab">Título</button>
+                      <button type="button" data-sub="subtitulo" role="tab">Subtítulo</button>
+                      <button type="button" data-sub="rotulos" role="tab">Rótulos</button>
+                      <button type="button" data-sub="corpo" role="tab">Corpo</button>
+                      <button type="button" data-sub="campos" role="tab">Campos</button>
+                    </div>
+
+                    <div class="style-sub" data-sub="campos">
                 <div class="grid-2" style="gap: 0.6rem;">
                   <div class="field" id="p-pf-name-field" style="display:none;">
                     <div class="label-row"><label class="label" for="p-person-name">Nome (pessoa)</label><button class="el-eye" data-el="personName" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
@@ -656,6 +662,16 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                     <input class="input" id="p-label-b" maxlength="24" placeholder="Ex.: Depois" />
                   </div>
                 </div>
+                    </div><!-- /sub campos -->
+
+                    <div class="style-sub" data-sub="titulo">
+                <!-- Atalho contextual: os campos visíveis dependem do MODELO —
+                     trocar de modelo sem sair da aba de texto. -->
+                <button type="button" class="picker-row picker-quick" data-for="p-template">
+                  <span class="picker-row-label">Modelo</span>
+                  <span class="picker-row-value">—</span>
+                  <svg class="picker-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
                 <div class="field">
                   <div class="label-row"><label class="label" for="p-headline">Headline</label><button class="el-eye" data-el="headline" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                   <textarea class="textarea textarea-serif" id="p-headline" rows="2" maxlength="120" placeholder="Título principal"></textarea>
@@ -667,6 +683,9 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                     <span class="fit-val" id="p-fit-headline-val">72</span>
                   </div>
                 </div>
+                    </div><!-- /sub titulo -->
+
+                    <div class="style-sub" data-sub="rotulos">
                 <div class="grid-2" style="gap: 0.75rem;">
                   <div class="field">
                     <div class="label-row"><label class="label" for="p-category">Categoria</label><button class="el-eye" data-el="category" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
@@ -677,6 +696,9 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                     <input class="input" id="p-location" maxlength="40" placeholder="Cidade, UF" />
                   </div>
                 </div>
+                    </div><!-- /sub rotulos -->
+
+                    <div class="style-sub" data-sub="subtitulo">
                 <div class="field">
                   <div class="label-row"><label class="label" for="p-subtitle">Subtítulo</label><button class="el-eye" data-el="subtitle" type="button" aria-pressed="true" title="Mostrar/ocultar no cartaz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
                   <textarea class="textarea" id="p-subtitle" rows="2" maxlength="160" placeholder="Resumo em uma linha"></textarea>
@@ -688,17 +710,32 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                     <span class="fit-val" id="p-fit-subtitle-val">72</span>
                   </div>
                 </div>
-                <details class="editor-section" id="p-text-section">
+                    </div><!-- /sub subtitulo -->
+
+                    <!-- O corpo virou sub-aba própria: como <details> recolhido
+                         dentro de uma pilha, ele custava rolagem para ser achado.
+                         O #p-text-section fica (updateExtraFields o abre para os
+                         modelos que dependem do corpo), agora sem esconder nada. -->
+                    <div class="style-sub" data-sub="corpo">
+                <details class="editor-section" id="p-text-section" open>
                   <summary><span>Texto longo <span class="editor-section-hint">— corpo / tópicos</span></span><span class="chev">▾</span></summary>
                   <div class="editor-section-body">
                     <textarea class="textarea" id="p-description" rows="4" maxlength="900" placeholder="Texto longo usado pelos modelos Texto, Tópicos e no corpo dos carrosséis. Dica: uma frase (ou item) por linha vira uma lista de tópicos."></textarea>
                     <span class="input-helper" id="p-description-counter">0 / 900</span>
                   </div>
                 </details>
+                    </div><!-- /sub corpo -->
                   </div><!-- /content -->
 
                   <!-- IMAGENS: upload, ativar/desativar, mosaico e enquadramento no preview -->
                   <div class="pedit-panel" data-pgroup="images">
+                    <div class="style-subnav" role="tablist">
+                      <button type="button" data-sub="midias" role="tab">Mídias</button>
+                      <button type="button" data-sub="camadas" role="tab">Camadas</button>
+                      <button type="button" data-sub="ajustes" role="tab">Ajustes</button>
+                    </div>
+
+                    <div class="style-sub" data-sub="midias">
                   <div class="input-helper" style="margin:0 0 .1rem;">Enquadre cada foto arrastando e usando o scroll/zoom diretamente sobre ela no preview.</div>
                 <!-- Mídias: 4 imagens + avatar -->
                 <div class="field" style="margin-top: 0.25rem;">
@@ -741,7 +778,9 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                   </div>
                   <div class="input-helper">JPG ou PNG, até 10 MB. Arraste uma miniatura sobre outra para reordenar.</div>
                 </div>
+                    </div><!-- /sub midias -->
 
+                    <div class="style-sub" data-sub="camadas">
                 <!-- CAMADAS (r107): imagens PNG/JPEG livres sobre o cartaz. Cada camada
                      é um OBJETO INDEPENDENTE — arrasta, redimensiona (alça ou pinça),
                      GIRA (alça de rotação, r118) e empilha na hierarquia unificada.
@@ -764,7 +803,9 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                   <div id="p-layers-list"></div>
                   <div class="input-helper">PNG com transparência, JPEG, WEBP… No cartaz: arraste para mover, pince com 2 dedos para o zoom, use a alça ↘ para redimensionar e a ↻ para girar.</div>
                 </div>
+                    </div><!-- /sub camadas -->
 
+                    <div class="style-sub" data-sub="ajustes">
                 <!-- Disposição das imagens (mosaico) — mora AQUI: é ajuste de imagem.
                      Visível só em modelos de foto com ≥2 imagens (updateMosaicControl). -->
                 <div class="field" id="p-mosaic-field" style="display:none;">
@@ -788,6 +829,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                     <svg class="picker-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                   </button>
                 </div>
+                    </div><!-- /sub ajustes -->
                   </div><!-- /images -->
 
 

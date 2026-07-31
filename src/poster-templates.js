@@ -720,19 +720,14 @@ function posterImageLayer(p, key) {
   // applyImageTransform() após o load (precisa do tamanho natural). object-position
   // fica fixo no centro: o enquadramento todo vem do transform, garantindo ganho
   // uniforme e bordas alcançáveis em qualquer formato/template.
-  // data-user-media: marca a MÍDIA DO USUÁRIO (foto que ele inseriu), em
-  // oposição ao grafismo do modelo. A exportação com fundo transparente usa
-  // esse marcador para deixar a área vazada — ver _applyAlphaMask em posters.js.
-  // Como todos os modelos passam por este helper, o marcador cobre os 60 sem
-  // precisar tocar em nenhum deles.
-  return `<div data-user-media="photo" data-zoomscale="${sc}" style="width:100%;height:100%;transform:translate(0px,0px) scale(${sc});transform-origin:center center;display:flex;align-items:center;justify-content:center;">
+  return `<div data-zoomscale="${sc}" style="width:100%;height:100%;transform:translate(0px,0px) scale(${sc});transform-origin:center center;display:flex;align-items:center;justify-content:center;">
       <img src="${src}" data-draggable="${key}" data-posx="${px}" data-posy="${py}" data-scale="${sc}" style="width:100%;height:100%;object-fit:cover;object-position:50% 50%;cursor:grab;display:block;user-select:none;-webkit-user-drag:none;touch-action:none;" alt="" crossorigin="anonymous" />
     </div>`;
 }
 
 /** Placeholder de foto (sem imagem) — escuro e intencional. */
 function posterPhotoPlaceholder() {
-  return `<div data-user-media="placeholder" style="width:100%;height:100%;background:linear-gradient(150deg,#152133 0%,#0B1421 100%);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);font-family:${PT.sans};font-size:22px;font-weight:500;letter-spacing:0.06em;">
+  return `<div style="width:100%;height:100%;background:linear-gradient(150deg,#152133 0%,#0B1421 100%);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);font-family:${PT.sans};font-size:22px;font-weight:500;letter-spacing:0.06em;">
       <div style="text-align:center;">
         <svg width="74" height="74" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" style="margin-bottom:14px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         <div>adicione a imagem de destaque</div>
@@ -794,10 +789,7 @@ function posterPhotoMosaic(p, opt) {
     }
     inner = buildMosaic(keys, n, mode, { cell, rowOf, colOf, frame, clipCell, absBox });
   }
-  // data-media-band: a cor de gutter preenche a FAIXA inteira da foto. Sem a
-  // marca, ela sobrevivia à exportação transparente e a área da imagem saía
-  // como um bloco sólido — o vazado morria justamente nos modelos de mosaico.
-  return `<div data-media-band="1" style="position:absolute;inset:0;overflow:hidden;background:${bg};">${inner}</div>`;
+  return `<div style="position:absolute;inset:0;overflow:hidden;background:${bg};">${inner}</div>`;
 }
 
 /** Monta o HTML de um mosaico para o modo dado (flex puro — html2canvas-safe). */
@@ -1171,12 +1163,8 @@ function tplManchete2(p, fmt, portal) {
         ${posterShow('subtitle') && p.subtitle ? `<p style="font-family:${PT.serif};font-style:italic;font-size:32px;font-weight:500;line-height:1.3;color:${PT.inkSoft};margin:22px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
       </div>
 
-      <!-- Faixa de mídia. data-media-band: é a ÁREA reservada à foto do usuário,
-           mesmo quando ele ainda não colocou nenhuma — sem a marca, a faixa
-           vazia saía como um bloco opaco na exportação com fundo transparente.
-           Diferente de data-user-media, a faixa não é escondida: a pílula de
-           local e o @portal moram dentro dela e são desenho. -->
-      <div data-media-band="1" style="flex:1;min-height:0;position:relative;margin:8px 52px 52px;border-radius:4px;overflow:hidden;background:${PT.paper2};">
+      <!-- Faixa de mídia -->
+      <div style="flex:1;min-height:0;position:relative;margin:8px 52px 52px;border-radius:4px;overflow:hidden;background:${PT.paper2};">
         ${hasImg ? posterPhotoMosaic(p, { two: 'row', three: 'row', four: 'row', gapColor: PT.ink }) : ''}
         ${hasImg ? `<div style="position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(to top, rgba(15,12,8,0.72), rgba(15,12,8,0));pointer-events:none;"></div>` : ''}
         ${p.location ? `<div style="position:absolute;top:18px;left:18px;pointer-events:none;">${posterLocationPill(p.location, hasImg)}</div>` : ''}
@@ -1641,13 +1629,9 @@ function tplComparison(p, fmt, portal) {
   const labelA = p.labelA || 'Antes';
   const labelB = p.labelB || 'Depois';
   const keys = posterImageKeys(p);   // as 2 primeiras imagens ATIVAS (ou bloco de cor)
-  // Este é o único modelo que troca a foto ausente por um BLOCO DE COR em vez do
-  // posterPhotoPlaceholder(). O bloco ocupa o mesmo papel — é a vaga da imagem
-  // do usuário — então leva o mesmo marcador, senão a metade sem foto saía
-  // opaca no PNG transparente enquanto a outra vazava.
   const half = (key, label, accent) => `
     <div style="flex:1;min-height:0;position:relative;overflow:hidden;">
-      ${p[key] ? `<div style="position:absolute;inset:0;">${posterImageLayer(p, key)}</div>` : `<div data-user-media="fill" style="position:absolute;inset:0;background:${accent};"></div>`}
+      ${p[key] ? `<div style="position:absolute;inset:0;">${posterImageLayer(p, key)}</div>` : `<div style="position:absolute;inset:0;background:${accent};"></div>`}
       <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 38%);"></div>
       <div style="position:absolute;top:26px;left:28px;pointer-events:none;"><span style="display:inline-block;background:${accent};color:#fff;font-family:${PT.cond};font-weight:800;font-size:28px;letter-spacing:0.12em;text-transform:uppercase;padding:10px 20px;border-radius:7px;">${escapeHtml(label)}</span></div>
     </div>`;

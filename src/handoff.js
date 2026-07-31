@@ -9,6 +9,9 @@
    ============================================================ */
 const TEXT_CONSUMERS = [
   { id: 'generate', label: 'Gerar matéria', kind: 'native', view: 'generate' },
+  // Narrativa: recebe o texto como IDEIA BRUTA — o ponto de partida para achar
+  // o desejo, o obstáculo e o risco antes de virar conteúdo.
+  { id: 'narrativa', label: 'Narrativa', kind: 'native', view: 'narrativa' },
   { id: 'autopost', label: 'AutoPost', kind: 'embedded', view: 'autopost', frame: '#autopostFrame', target: 'novopacote' },
   { id: 'detector', label: 'Detector', kind: 'embedded', view: 'detector', frame: '#detectorFrame', target: 'analisar' },
   // Cartazes: cria um cartaz a partir do texto (reusa o parser de matéria → headline/categoria/etc.)

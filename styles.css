@@ -599,6 +599,15 @@ h3 { font-size: 1.1rem; line-height: 1.3; }
   font-family: var(--mono);
   font-size: 0.85rem;
 }
+.textarea-answer {
+  /* Respostas de UMA linha (as três perguntas da Narrativa): o min-height de
+     120px do textarea padrão — pensado para pautas coladas — empurrava o
+     diagnóstico para fora da tela no celular. Fonte de texto, não de código:
+     aqui se escreve prosa curta, não se cola material bruto. */
+  min-height: 62px;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+}
 .textarea-serif {
   font-family: var(--serif);
   font-size: 1rem;
@@ -2563,3 +2572,131 @@ body.pe-full #view-posters { animation: none; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .attach-card-meta { font-size: 0.72rem; color: var(--ink-mute); }
+
+/* ====== NARRATIVA — diagnóstico "situação × história" ======
+   O veredito é a peça central da ferramenta: precisa ser lido de relance, no
+   celular, sem precisar interpretar número. Por isso a hierarquia é selo →
+   frase → medidor → parecer por pergunta. Só tokens da plataforma: o painel
+   muda de temperatura (verde/vermelho) sem sair da identidade. */
+.narr-lema {
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--ink-2);
+  white-space: pre-line;
+  margin: 0;
+  text-wrap: pretty;
+}
+.narr-verdict {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  padding: 0.75rem 0.9rem;
+}
+.narr-verdict-historia { border-left-color: var(--green); }
+.narr-verdict-situacao { border-left-color: var(--accent); }
+.narr-verdict-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+.narr-score {
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1;
+}
+.narr-score-max { font-size: 0.7rem; color: var(--ink-mute); font-weight: 400; }
+.narr-verdict-text {
+  font-size: 0.88rem;
+  color: var(--ink-2);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.narr-meter {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+  margin-top: 0.6rem;
+}
+.narr-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width var(--dur-2) var(--ease);
+}
+.narr-verdict-historia .narr-meter-fill { background: var(--green); }
+
+.narr-checks { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.6rem; }
+.narr-check {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.narr-check-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: var(--ink-mute);
+}
+.narr-check-icon svg { width: 12px; height: 12px; }
+.narr-ok .narr-check-icon { background: var(--green); }
+.narr-fraco .narr-check-icon { background: var(--amber); }
+.narr-faltando .narr-check-icon { background: var(--accent); }
+.narr-check-body { min-width: 0; }
+.narr-check-q {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--ink-mute);
+  margin-bottom: 0.15rem;
+}
+.narr-check-msg { font-size: 0.85rem; color: var(--ink); line-height: 1.45; text-wrap: pretty; }
+.narr-check-tip {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  margin-top: 0.25rem;
+  text-wrap: pretty;
+}
+.narr-avisos {
+  margin: 0.6rem 0 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.narr-avisos li { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.45; text-wrap: pretty; }
+
+.narr-escalada {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+}
+.narr-escalada-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--ink-mute);
+  margin-bottom: 0.35rem;
+}
+.narr-escalada ol { margin: 0 0 0.4rem; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.25rem; }
+.narr-escalada li { font-size: 0.84rem; color: var(--ink-2); line-height: 1.45; }

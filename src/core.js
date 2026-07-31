@@ -125,6 +125,8 @@ const STORAGE_KEYS = {
   generations: 'agp.generations',
   extractions: 'agp.extractions',
   posters: 'agp.posters',
+  narrativas: 'agp.narrativas',            // Narrativa: conteúdos escritos a partir de histórias validadas
+  narrativaDraft: 'agp.narrativa.draft',   // Narrativa: a história em construção (não perder ao trocar de ferramenta)
   posterPresets: 'agp.posterPresets',
   posterPanelH: 'agp.posterPanelH',   // altura (px) do painel de edição no mobile — divisor arrastável preview↔edição
 };
@@ -226,6 +228,8 @@ const State = (() => {
     generations: loadJSON(STORAGE_KEYS.generations, []),
     extractions: loadJSON(STORAGE_KEYS.extractions, []),
     posters: loadJSON(STORAGE_KEYS.posters, []),
+    narrativas: loadJSON(STORAGE_KEYS.narrativas, []),
+    narrativaDraft: loadJSON(STORAGE_KEYS.narrativaDraft, null),
     posterPresets: loadJSON(STORAGE_KEYS.posterPresets, []),   // presets de identidade visual (nome + custom)
     currentView: 'welcome',
     activeExtractionId: null,

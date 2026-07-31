@@ -246,6 +246,28 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   .segmented button { min-width: 54px; }
 }
 
+/* DENSIDADE em telas baixas (≤700px de altura). Com o preview ocupando metade,
+   sobram ~280px para os controles — e categorias como "Trocar cor" e "Retoque"
+   passavam disso, voltando a exigir rolagem vertical num espaço que já é curto.
+   O ajuste é de RESPIRO, não de tamanho de alvo de toque: sliders, botões e
+   amostras mantêm a altura clicável; encolhem margens, textos de apoio e a
+   folga entre linhas. */
+@media (max-height: 700px) {
+  /* A topbar e o splitter comem ~11% da altura, então um preview de 46% deixava
+     os controles com 43% — abaixo da metade justamente onde ela mais falta.
+     42% reequilibra sem que o preview deixe de ser a metade visual da tela.
+     O splitter arrastável continua sobrepondo esta escolha. */
+  .app.split .stage { flex: 0 0 var(--split, 42%); }
+  .cat { gap: .34rem; }
+  .note { font-size: .63rem; line-height: 1.25; }
+  .row { gap: .4rem; }
+  .swatches { gap: 5px; }
+  .swatch { width: 26px; height: 26px; }
+  .panel { gap: .38rem; padding-top: .4rem; }
+  .segmented button { padding: .34rem .3rem; font-size: .64rem; }
+  .segmented button svg { width: 16px; height: 16px; }
+}
+
 .toast { position: fixed; left: 50%; bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none; background: var(--ink); color: var(--paper); font-size: .82rem; font-weight: 600; padding: .65rem 1rem; border-radius: 12px; box-shadow: var(--shadow-lg); z-index: 40; transition: .25s; max-width: 90vw; text-align: center; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.err { background: var(--accent); }
@@ -1711,7 +1733,13 @@ input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 
   }
   (function initSplit() {
     let saved = parseFloat(localStorage.getItem(SPLIT_STORE) || '');
-    applySplit(isFinite(saved) ? saved : 46);
+    // Padrão sensível à altura da tela: a barra de topo e o splitter consomem
+    // ~11% da altura, então 46% de preview deixava os controles com 43% num
+    // aparelho de 640px — abaixo da metade justo onde ela mais falta. Em telas
+    // baixas o preview cede um pouco; em telas altas nada muda. A escolha do
+    // usuário (arrastar o splitter) continua vencendo o padrão.
+    const padrao = (window.innerHeight || 800) <= 700 ? 40 : 46;
+    applySplit(isFinite(saved) ? saved : padrao);
   })();
   (function wireSplitter() {
     const el = $('#splitter'); if (!el) return;

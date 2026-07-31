@@ -3235,162 +3235,7 @@ function hideStageCaptureCover(force) {
   }
 }
 
-/* ===========================================================================
- * EXPORTAÇÃO COM O ESPAÇO DAS FOTOS TRANSPARENTE (moldura para vídeo)
- *
- * O arquivo é o export NORMAL menos uma coisa: o espaço das imagens que o
- * usuário inseriu vira buraco. Todo o resto do modelo continua exatamente como
- * é — fundo do cartaz, títulos, subtítulos, molduras, faixas, painéis, formas,
- * ícones, badges e a marca do portal. O PNG entra como camada num editor de
- * vídeo e o vídeo aparece só nos buracos, emoldurado pelo cartaz.
- *
- * O que vira transparente, e SÓ isso:
- *   · fotos do usuário: image1..4 (data-user-media="photo"), o placeholder que
- *     ocupa o lugar delas quando não há foto e o bloco de cor equivalente
- *   · a faixa reservada à imagem (data-media-band), inclusive quando está vazia
- *   · avatar e camadas de imagem soltas ([data-pt="avatar-overlay"] / "layer")
- *
- * O FUNDO DO CARTAZ NÃO SAI. Uma versão anterior deste recurso vazava também a
- * cor/o gradiente da raiz e as camadas que a repetiam — o resultado era um
- * cartaz sem base, com o cabeçalho e os painéis boiando sobre o vídeo. O
- * recorte é o campo da foto, não o fundo.
- *
- * COMO O BURACO É MEDIDO
- *
- * Esconder a foto não basta: no Polaroid ela fica dentro de um card branco, e
- * escondê-la revela o card, não o vídeo. Apagar o retângulo da foto também não:
- * em vários modelos o título, o degradê de leitura e a pílula de local ficam
- * POR CIMA dela e iriam junto.
- *
- * Recortar só onde a foto estivesse DESCOBERTA também falha: em `oferta-preco`,
- * `capa-revista` e `evento-foto` a imagem é de sangria e um degradê cobre o
- * cartaz inteiro — não sobraria buraco nenhum, e o recurso não existiria nesses
- * modelos.
- *
- * A solução é medir a COBERTURA, não a presença. O cartaz é capturado duas
- * vezes, mudando só a cor do campo da foto: PRETO num passe, BRANCO no outro.
- * Num pixel coberto por desenho opaco os dois passes dão a mesma cor; num pixel
- * onde só havia foto, um dá preto e o outro branco; e num pixel sob um degradê
- * de 35% a diferença é exatamente 65% do intervalo. Daí saem, de uma vez, o
- * alfa do pixel e a cor real do que está por cima — ver _composeAlphaFromPasses.
- * É a extração de alfa por dois fundos, exata para composição.
- * ==========================================================================*/
-
-/* Cores dos dois passes. Precisam ser os extremos do intervalo: é a distância
- * entre elas que vira o alfa. */
-const ALPHA_FILL_BLACK = '#000000';
-const ALPHA_FILL_WHITE = '#ffffff';
-
-/**
- * Pinta TODO o campo de imagem do usuário com `cor` e devolve o desfazer.
- * Chamada uma vez por passe, com preto e depois com branco.
- */
-function _applyAlphaFill(target, cor) {
-  // Um mesmo elemento pode ser alcançado por mais de uma regra (mídia que
-  // também forra a faixa, por exemplo). Guardar o estado só na PRIMEIRA vez é
-  // obrigatório: na segunda o inline já está alterado e o desfazer — que aplica
-  // os registros em ordem — deixaria o preview com o estado da exportação.
-  const restores = [];
-  const vistos = new Map();
-  const guardar = (el) => {
-    if (vistos.has(el)) return;
-    const r = { el, visibility: el.style.visibility, background: el.style.background,
-      backgroundColor: el.style.backgroundColor, backgroundImage: el.style.backgroundImage };
-    vistos.set(el, r);
-    restores.push(r);
-  };
-  const pintar = (el) => {
-    guardar(el);
-    el.style.background = cor;
-    el.style.backgroundImage = 'none';
-    el.style.visibility = 'visible';
-  };
-  // visibility, não display: `display:none` tira o elemento do fluxo e os
-  // vizinhos se reacomodam. Os dois passes PRECISAM ter geometria idêntica —
-  // é a diferença entre eles, pixel a pixel, que vira o alfa. Com visibility a
-  // caixa continua no lugar e só o desenho some.
-  const esconderFilhos = (el) => {
-    [...el.children].forEach((f) => { guardar(f); f.style.visibility = 'hidden'; });
-  };
-
-  target.querySelectorAll('[data-user-media]').forEach((media) => {
-    pintar(media);
-    esconderFilhos(media);   // a <img> (ou o conteúdo do placeholder) cobriria a cor
-  });
-
-  target.querySelectorAll('[data-pt="avatar-overlay"], [data-pt="layer"]').forEach((el) => {
-    pintar(el);
-    esconderFilhos(el);
-  });
-
-  // Faixa reservada à imagem: entra no cálculo mesmo vazia (é o campo da foto),
-  // mas os filhos ficam VISÍVEIS — pílula de local e @portal moram dentro dela,
-  // são desenho, e é justamente por continuarem pintados que sobrevivem ao
-  // recorte. As camadas que forram a faixa inteira, essas sim, levam a cor.
-  target.querySelectorAll('[data-media-band]').forEach((band) => {
-    pintar(band);
-    const rb = band.getBoundingClientRect();
-    band.querySelectorAll('*').forEach((el) => {
-      const r = el.getBoundingClientRect();
-      if (Math.abs(r.width - rb.width) > 2 || Math.abs(r.height - rb.height) > 2) return;
-      pintar(el);
-    });
-  });
-
-  return restores;
-}
-
-/** Desfaz um passe. Todos os campos guardados são reaplicados: o registro é o
- *  estado inline original completo, então a ordem shorthand → longhand
- *  reproduz exatamente o que havia antes. */
-function _undoAlphaFill(restores) {
-  for (const r of restores) {
-    r.el.style.visibility = r.visibility;
-    r.el.style.background = r.background;
-    r.el.style.backgroundColor = r.backgroundColor;
-    r.el.style.backgroundImage = r.backgroundImage;
-  }
-}
-
-/**
- * Junta os dois passes num RGBA só, escrevendo no canvas do passe PRETO.
- *
- * Para cada pixel, com `d` = média da diferença branco − preto:
- *   d ≈ 0   → o que está ali é opaco e não depende da foto: pixel intocado.
- *   d ≈ 255 → só havia foto: buraco (alfa 0).
- *   entre   → algo semitransparente cobre a foto. O alfa é 255 − d, e a cor do
- *             passe preto é essa cor JÁ multiplicada pelo alfa (o preto não
- *             contribui com nada), então basta dividir para recuperá-la.
- *
- * O resultado é o degradê de leitura, a sombra e a borda antisserrilhada
- * saindo com a translucidez que têm no preview — sobre o vídeo eles voltam a
- * compor exatamente como compunham sobre a foto.
- */
-function _composeAlphaFromPasses(cvPreto, cvBranco) {
-  if (!cvPreto || !cvBranco) return cvPreto;
-  if (cvPreto.width !== cvBranco.width || cvPreto.height !== cvBranco.height) return cvPreto;
-  const ctx = cvPreto.getContext('2d');
-  const img = ctx.getImageData(0, 0, cvPreto.width, cvPreto.height);
-  const B = cvBranco.getContext('2d').getImageData(0, 0, cvBranco.width, cvBranco.height).data;
-  const p = img.data;
-  for (let i = 0; i < p.length; i += 4) {
-    // margem de 2: o html2canvas pode variar 1 nível entre capturas iguais, e
-    // sem folga o cartaz inteiro sairia levemente translúcido.
-    const d = ((B[i] - p[i]) + (B[i + 1] - p[i + 1]) + (B[i + 2] - p[i + 2])) / 3;
-    if (d <= 2) continue;
-    const a = 255 - Math.round(d);
-    if (a <= 3) { p[i + 3] = 0; continue; }
-    const k = 255 / a;
-    p[i] = Math.min(255, Math.round(p[i] * k));
-    p[i + 1] = Math.min(255, Math.round(p[i + 1] * k));
-    p[i + 2] = Math.min(255, Math.round(p[i + 2] * k));
-    p[i + 3] = a;
-  }
-  ctx.putImageData(img, 0, 0);
-  return cvPreto;
-}
-
-async function captureStageCanvas(fmt, scale, opts) {
+async function captureStageCanvas(fmt, scale) {
   // Sem o html2canvas (CDN bloqueado/offline) a exportação apenas "não
   // acontecia": ReferenceError no console e botão sem reação nenhuma. Confere
   // ANTES de preparar o palco — quem chamou avisa o usuário. Ver ensureLib().
@@ -3442,16 +3287,9 @@ async function captureStageCanvas(fmt, scale, opts) {
   // line-clamp/text-overflow) — feito com o layout já em escala 1 (= preview).
   const ellipsisRestores = _applyExportEllipsis(target);
 
-  // Modo moldura: vaza o campo das fotos, o resto do cartaz fica. É o 1º dos
-  // dois passes de medição de alfa — ver o bloco acima de _applyAlphaFill.
-  const alpha = !!(opts && opts.alpha);
-  let alphaRestores = alpha ? _applyAlphaFill(target, ALPHA_FILL_BLACK) : [];
-
   // --- Flatten: renderiza cada imagem num canvas com zoom+pan+cover. ---
-  // No modo sticker as fotos estão ocultas: achatá-las só gastaria tempo e
-  // reinseriria no DOM o pixel que acabamos de mandar embora.
   const snapshots = [];
-  const imgs = alpha ? [] : [...target.querySelectorAll('[data-draggable]')];
+  const imgs = [...target.querySelectorAll('[data-draggable]')];
   for (const img of imgs) {
     const wrapEl = img.parentElement?.closest?.('[data-zoomscale]') || img.parentElement;
     if (!wrapEl) continue;
@@ -3502,9 +3340,9 @@ async function captureStageCanvas(fmt, scale, opts) {
     if (clipPts) ctx.restore();
 
     // `display` original guardado: o wrapper de posterImageLayer é `display:flex`
-    // inline e restaurar com '' o rebaixava a `block` — o preview ficava
-    // silenciosamente diferente do que era antes de exportar, até o próximo
-    // render. Ver o `finally` desta função.
+    // inline e restaurar com '' o rebaixava a `block` — depois de exportar, o
+    // preview ficava silenciosamente diferente do que era, até o próximo render.
+    // Ver o `finally` desta função.
     snapshots.push({ container, wrapEl, cvs, display: wrapEl.style.display });
     wrapEl.style.display = 'none';
     container.insertBefore(cvs, wrapEl);
@@ -3532,45 +3370,20 @@ async function captureStageCanvas(fmt, scale, opts) {
   }
 
   try {
-    const opcoes = {
+    return await html2canvas(target, {
       width: fmt.w,
       height: fmt.h,
       scale: s,
-      // Branco também no modo moldura: o arquivo é o export normal, e a única
-      // transparência vem da medição dos dois passes. Pedir `null` aqui vazava
-      // tudo que o html2canvas não pintasse — inclusive o fundo do modelo — e o
-      // cartaz saía sem base.
       backgroundColor: '#FFFFFF',
       useCORS: true,
       logging: false,
-    };
-    const canvas = await html2canvas(target, opcoes);
-    if (!alpha) return canvas;
-
-    // Sem campo de imagem não há o que vazar: o arquivo é igual ao export
-    // normal, que é o correto — e a 2ª captura seria desperdício.
-    const temMidia = target.querySelector('[data-user-media], [data-media-band], [data-pt="avatar-overlay"], [data-pt="layer"]');
-    if (!temMidia) return canvas;
-
-    // 2º passe: o MESMO cartaz, mudando só a cor do campo da foto. A diferença
-    // entre os dois é o alfa (ver _composeAlphaFromPasses).
-    _undoAlphaFill(alphaRestores);
-    alphaRestores = _applyAlphaFill(target, ALPHA_FILL_WHITE);
-    let branco = null;
-    try {
-      branco = await html2canvas(target, opcoes);
-    } finally {
-      _undoAlphaFill(alphaRestores);
-      alphaRestores = [];
-    }
-    return _composeAlphaFromPasses(canvas, branco);
+    });
   } finally {
     for (const s of snapshots) {
       if (s.cvs && s.cvs.parentNode) s.cvs.remove();
       if (s.wrapEl) s.wrapEl.style.display = s.display || '';
     }
     for (const r of ellipsisRestores) { r.el.textContent = r.text; }   // restaura o texto original
-    _undoAlphaFill(alphaRestores);
     target.classList.remove('exporting');
     stage.style.transform = originalTransform;
     wrap.style.width = originalWrapW;
@@ -3579,25 +3392,19 @@ async function captureStageCanvas(fmt, scale, opts) {
   }
 }
 
-async function exportPoster(p, scale, fileType, opts) {
-  // JPG não tem canal alfa: pedir a moldura em JPG tamparia os buracos de preto
-  // ou branco, sem aviso. O modo transparente manda no formato.
-  const alpha = !!(opts && opts.alpha);
-  const jpg = !alpha && (fileType === 'jpg' || fileType === 'jpeg');
+async function exportPoster(p, scale, fileType) {
+  const jpg = fileType === 'jpg' || fileType === 'jpeg';
   const mime = jpg ? 'image/jpeg' : 'image/png';
   const ext = jpg ? 'jpg' : 'png';
   try {
-    const canvas = await captureStageCanvas(posterActiveFormat(), scale, { alpha });
+    const canvas = await captureStageCanvas(posterActiveFormat(), scale);
     if (!canvas) { toast(libReady('html2canvas') ? 'Não foi possível exportar.' : libUnavailableMsg('html2canvas'), 'error', 6000); return; }
-    const base = (p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase();
-    const name = `cartaz-${base}${alpha ? '-transparente' : ''}.${ext}`;
+    const name = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}.${ext}`;
     const blob = await canvasToBlob(canvas, mime, jpg ? 0.92 : undefined);
     // Mostra a PRÉVIA + botão salvar/compartilhar. O salvamento vira uma ação
     // nova do usuário → o share nativo do iPhone funciona (não pode ser
     // disparado automático logo após o html2canvas, o iOS bloqueia).
-    presentExport([{ name, blob }], alpha
-      ? { title: 'Moldura pronta', subtitle: 'PNG com o espaço das fotos vazado — ponha sobre o vídeo no editor.' }
-      : { title: 'Cartaz pronto', subtitle: 'Confira e salve na galeria ou compartilhe.' });
+    presentExport([{ name, blob }], { title: 'Cartaz pronto', subtitle: 'Confira e salve na galeria ou compartilhe.' });
   } catch (err) {
     toast('Não foi possível exportar: ' + err.message, 'error');
   } finally {
@@ -3636,7 +3443,7 @@ function openPosterExportSettings(p) {
   };
   let selFmt = (s && s.format) || (p && p.format) || '3:4';
   if (!FORMATS[selFmt]) selFmt = Object.keys(FORMATS)[0] || '3:4';
-  let selScale = 1, selFile = 'png', selMode = 'images', selBg = 'solid';
+  let selScale = 1, selFile = 'png', selMode = 'images';
 
   const fmtCards = Object.keys(FORMATS).map((k) => {
     const parts = k.split(':').map(Number);
@@ -3671,14 +3478,6 @@ function openPosterExportSettings(p) {
         </div>
       </div>
       <div class="exps-group">
-        <div class="exps-label">Espaço das fotos</div>
-        <div class="exps-seg" data-seg="bg">
-          <button type="button" data-v="solid" class="sel">Com as fotos</button>
-          <button type="button" data-v="alpha">Transparente</button>
-        </div>
-        <div class="exps-note exps-bg-note" id="exps-bg-note">O cartaz inteiro, como aparece na tela.</div>
-      </div>
-      <div class="exps-group">
         <div class="exps-label">Formato</div>
         <div class="exps-seg" data-seg="file">
           <button type="button" data-v="png" class="sel">PNG</button>
@@ -3711,40 +3510,13 @@ function openPosterExportSettings(p) {
     selFmt = btn.dataset.fmt;
     backdrop.querySelectorAll('.exps-fmt').forEach((b) => b.classList.toggle('sel', b === btn));
   }; });
-  // O modo transparente MANDA no formato: JPG não tem canal alfa e devolveria
-  // o fundo de volta em silêncio. O botão JPG fica desabilitado e a seleção
-  // salta para PNG — em vez de deixar o usuário escolher algo impossível.
-  const segFile = backdrop.querySelector('.exps-seg[data-seg="file"]');
-  const btnJpg = segFile && segFile.querySelector('button[data-v="jpg"]');
-  const btnPng = segFile && segFile.querySelector('button[data-v="png"]');
-  const notaBg = backdrop.querySelector('#exps-bg-note');
-  const sincronizarFundo = () => {
-    const alpha = selBg === 'alpha';
-    if (btnJpg) {
-      btnJpg.disabled = alpha;
-      btnJpg.title = alpha ? 'JPG não suporta transparência' : '';
-    }
-    if (alpha && selFile !== 'png' && btnPng) {
-      selFile = 'png';
-      segFile.querySelectorAll('button').forEach((b) => b.classList.toggle('sel', b === btnPng));
-    }
-    if (notaBg) {
-      notaBg.textContent = alpha
-        ? 'Só o espaço das fotos sai vazado, em PNG. O modelo continua igual — vira moldura para pôr sobre o vídeo.'
-        : 'O cartaz inteiro, como aparece na tela.';
-    }
-  };
-  sincronizarFundo();
-
   backdrop.querySelectorAll('.exps-seg').forEach((seg) => {
     seg.querySelectorAll('button').forEach((btn) => { btn.onclick = () => {
-      if (btn.disabled) return;
       seg.querySelectorAll('button').forEach((b) => b.classList.toggle('sel', b === btn));
       const v = btn.dataset.v, k = seg.dataset.seg;
       if (k === 'scale') selScale = Number(v);
       else if (k === 'file') selFile = v;
       else if (k === 'mode') selMode = v;
-      else if (k === 'bg') { selBg = v; sincronizarFundo(); }
     }; });
   });
 
@@ -3764,9 +3536,8 @@ function openPosterExportSettings(p) {
     }
     if (typeof _posterCommitFields === 'function') _posterCommitFields({ flush: true });
     else if (typeof savePosters === 'function') savePosters();
-    const opts = { alpha: selBg === 'alpha' };
-    if (isCar) exportCarousel(p, selMode, selScale, selFile, opts);
-    else exportPoster(p, selScale, selFile, opts);
+    if (isCar) exportCarousel(p, selMode, selScale, selFile);
+    else exportPoster(p, selScale, selFile);
   };
 
   document.body.appendChild(backdrop);

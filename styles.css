@@ -2757,3 +2757,8 @@ body.pe-full #view-posters { animation: none; }
   .narr-cast-papel { grid-area: papel; min-width: 0; }
   .narr-cast-del { grid-area: del; }
 }
+
+/* Fileira de selos (ex.: "Gerado" + "Comentários: Negativos" no resultado da
+   Gerar). Os .badge são inline-flex e encostavam um no outro quando mais de um
+   ocupava o mesmo cabeçalho. */
+.badge-row { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }

@@ -248,12 +248,13 @@ function suggestBodyLength(interp) {
   return { min: 4, max: 5 };
 }
 
-function buildWriterPrompt(interp, style, tone) {
+function buildWriterPrompt(interp, style, tone, comentarios) {
   const tonePrompt = (typeof TONE_PROMPTS !== 'undefined' && (TONE_PROMPTS[tone] || TONE_PROMPTS['Neutro'])) || `Tom: ${tone}`;
   const stylePrompt_ = (typeof stylePrompt === 'function') ? stylePrompt(style) : `Estilo: ${style}`;
   const len = suggestBodyLength(interp);
   const faixa = len.min === len.max ? `${len.min}` : `${len.min} a ${len.max}`;
   const temCitacao = (interp.citacoes || []).length > 0;
+  const blocoComentario = (typeof comentarioBloco === 'function') ? comentarioBloco(comentarios, tone) : '';
   return [
     'Você é um AGENTE REDATOR jornalístico profissional. Recebe FATOS JÁ ISOLADOS por outro agente e escreve a matéria. Você NÃO tem acesso ao texto original — só aos fatos abaixo.',
     '',
@@ -290,7 +291,9 @@ function buildWriterPrompt(interp, style, tone) {
     '',
     'ÚNICA EXCEÇÃO: fala entre aspas. Citação é reproduzida LITERALMENTE, mesmo carregando juízo contrário ao seu tom — o fato ali é "fulano disse isso". O que é seu é o enquadramento: apresente, contextualize e responda à fala ("o secretário classificou a obra como \'um sucesso\'; os números do próprio material mostram…").',
     '',
-    'UNIDADE: ao terminar, a matéria inteira precisa soar como UMA voz. Nenhum parágrafo pode puxar para o lado contrário ao tom escolhido.',
+    blocoComentario
+      ? 'UNIDADE: ao terminar, a matéria inteira precisa soar como UMA voz. O RELATO não pode puxar para o lado contrário ao tom escolhido. Atenção: a camada de comentário (adiante) é a única exceção — ela tem direção própria, pedida pelo usuário, e não conta como quebra de unidade.'
+      : 'UNIDADE: ao terminar, a matéria inteira precisa soar como UMA voz. Nenhum parágrafo pode puxar para o lado contrário ao tom escolhido.',
     '',
     '═══ O TOM ENQUADRA O FATO — NÃO FABRICA FATO NOVO ═══',
     'Ao aplicar um tom forte existe uma tentação perigosa: inventar a premissa que justifica o tom. Isso é alucinação, não estilo.',
@@ -342,6 +345,7 @@ function buildWriterPrompt(interp, style, tone) {
     'TESTE ANTES DE ENTREGAR: se você trocasse o tom por outro, quantas frases precisaria reescrever? Se a resposta for "poucas", o tom NÃO está aplicado — refaça com mais convicção.',
     'A intensidade não afrouxa a fidelidade: um tom forte se constrói com ênfase, enquadramento e argumento sobre os fatos que existem, nunca com fato novo.',
     '',
+    ...(blocoComentario ? [blocoComentario, ''] : []),
     'Responda APENAS com um objeto JSON válido, sem cercas de código, com EXATAMENTE estas chaves:',
     '{',
     '  "titulo": "chamativo e informativo, JÁ refletindo o tom",',
@@ -365,6 +369,12 @@ function buildWriterPrompt(interp, style, tone) {
     '9. Sobrou alguma palavra de juízo herdada da fonte que puxa para o lado CONTRÁRIO ao tom pedido? Fora dela — sem tirar o acontecimento.',
     '10. Inventei alguma comparação, avaliação sem dono ("foi considerado…") ou consequência para sustentar o tom? Se sim, troque pelo que o material realmente traz.',
     '11. Dois parágrafos fazem a mesma crítica ou o mesmo elogio com outras palavras? Funda-os e traga um aspecto novo — ou entregue um parágrafo a menos.',
+    ...(blocoComentario ? [
+      '12. Cada comentário se apoia num fato da lista, ou algum deles trouxe informação que não está lá?',
+      '13. Algum comentário está escrito como fato provado em vez de leitura assumida? Marque-o como leitura.',
+      '14. Algum comentário desqualifica uma PESSOA em vez de comentar o ato, o dado ou a ausência? Reescreva mirando o ato.',
+      '15. Todos os parágrafos terminam com a mesma fórmula de comentário? Varie ou deixe algum sem.',
+    ] : []),
   ].join('\n');
 }
 
@@ -406,8 +416,8 @@ function articleFromPlainText(raw, interp) {
   };
 }
 
-async function runWriterAgent(interp, style, tone, call = callLLM) {
-  const r = await callLLMJson(buildWriterPrompt(interp, style, tone), call);
+async function runWriterAgent(interp, style, tone, call = callLLM, comentarios) {
+  const r = await callLLMJson(buildWriterPrompt(interp, style, tone, comentarios), call);
   const article = r.data ? normalizeArticle(r.data, interp) : articleFromPlainText(r.raw, interp);
   return { article, model: r.model, promptTokens: r.promptTokens, completionTokens: r.completionTokens, ok: !!r.data };
 }
@@ -426,7 +436,7 @@ async function runWriterAgent(interp, style, tone, call = callLLM) {
 /* ou citação que não existiam, a revisão é DESCARTADA e fica o rascunho.      */
 /* -------------------------------------------------------------------------- */
 
-function buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes) {
+function buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes, comentarios) {
   const corpo = (article.corpo || []).map((p, i) => `  P${i + 1}: ${p}`).join('\n');
   const listaConflito = (conflitos && conflitos.length)
     ? [
@@ -444,6 +454,23 @@ function buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes) 
       ...repeticoes.map((r) => `• ${r}`),
       'Cada parágrafo tem que AVANÇAR: trazer um aspecto novo do assunto, não reformular o anterior. Se dois parágrafos fazem a mesma crítica (ou o mesmo elogio) com outras palavras, funda-os num só e use o espaço liberado para um ângulo ainda não explorado — ou entregue menos parágrafos. Matéria curta e densa é melhor que matéria longa e circular.',
       'Varie também as aberturas: nenhum parágrafo deve começar com o mesmo sujeito ou a mesma construção do anterior.',
+    ].join('\n')
+    : '';
+  // A revisão é o lugar mais provável de a camada opinativa morrer: o
+  // copidesque é treinado para cortar o que "não é fato". Sem este aviso, o
+  // editor devolveria a matéria neutralizada e o usuário veria o controle não
+  // fazer efeito nenhum.
+  const blocoComentario = (typeof comentarioAtivo === 'function' && comentarioAtivo(comentarios))
+    ? [
+      '',
+      `═══ ESTA MATÉRIA LEVA COMENTÁRIO OPINATIVO (direção: ${typeof comentarioLabel === 'function' ? comentarioLabel(comentarios) : comentarios}) ═══`,
+      'As passagens de leitura e opinião são INTENCIONAIS — foram pedidas pelo usuário. NÃO as neutralize, não as corte por "não serem fato" e não as transforme em relato seco. Se a sua versão ficou mais informativa e menos opinativa, você desfez o pedido.',
+      'O que você CORRIGE nelas:',
+      '• comentário sem nenhum fato que o sustente → corte (é invenção, não opinião);',
+      '• comentário escrito como fato provado ("ficou provado que") → reescreva marcado como leitura ("o material não explica");',
+      '• comentário que desqualifica uma pessoa → troque pela crítica ao ato, ao dado ou ao prazo;',
+      '• o mesmo comentário repetido em parágrafos diferentes → funda ou corte um.',
+      'O que você NÃO faz: transformar opinião em informação, nem informação em opinião.',
     ].join('\n')
     : '';
   return [
@@ -468,6 +495,9 @@ function buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes) 
     '',
     listaConflito,
     listaRepeticao,
+    // Só entra quando há camada opinativa: um item vazio a mais mudaria o
+    // prompt de quem não pediu nada (linha em branco extra).
+    ...(blocoComentario ? [blocoComentario] : []),
     `═══ ESTILO "${style}" / TOM "${tone}" — preservar e, se der, REFORÇAR ═══`,
     'Atenção: ao cortar redundância e frase morta, é fácil neutralizar o texto sem querer. NÃO faça isso. Se uma palavra carrega o tom, ela fica — mesmo que "mais enxuto" fosse possível. Onde a revisão puder tornar o tom MAIS nítido sem inventar fato, torne.',
     'Nunca troque uma formulação assumidamente interpretativa por uma neutra: a leitura editorial é intencional, não é defeito de escrita.',
@@ -490,7 +520,9 @@ function buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes) 
     '1. Algum número, nome, data ou citação da sua versão está ausente da matéria original? Se sim, você inventou — desfaça.',
     '2. Sua versão ficou mais NEUTRA que a original? Se sim, você apagou o tom — devolva a intensidade.',
     '3. Sobrou alguma afirmação que acusa alguém sem atribuição ou sem respaldo nos fatos? Reescreva atribuindo.',
-    '4. Restou alguma expressão de juízo puxando para o lado contrário ao tom? A matéria tem que soar como UMA voz do início ao fim.',
+    blocoComentario
+      ? '4. Restou expressão de juízo puxando o RELATO para o lado contrário ao tom? Corrija — sem tocar na camada de comentário, que tem direção própria e pedida.'
+      : '4. Restou alguma expressão de juízo puxando para o lado contrário ao tom? A matéria tem que soar como UMA voz do início ao fim.',
     '5. Dois parágrafos dizem a mesma coisa com outras palavras? Funda-os — repetir argumento não reforça, cansa.',
   ].join('\n');
 }
@@ -511,16 +543,26 @@ function semCitacoes(texto) {
  * virar aviso na tela — o conserto é automático e o usuário não precisa saber
  * que houve conflito.
  */
-function detectarConflitosDeTom(article, tone, interp) {
+function detectarConflitosDeTom(article, tone, interp, comentarios) {
   const texto = semCitacoes(articleAllText(article)).toLowerCase();
   const achados = [];
+
+  // Valência que o usuário PEDIU na camada de comentário. Juízo daquele lado
+  // deixa de ser vazamento e passa a ser o serviço contratado — apontá-lo ao
+  // revisor faria a ferramenta apagar a escolha do próprio usuário.
+  const intencional = (typeof comentarioValencias === 'function')
+    ? comentarioValencias(comentarios)
+    : { positivo: false, negativo: false };
 
   // (a) Léxico fixo — pega o vazamento clássico.
   const valencia = (typeof toneValence === 'function') ? toneValence(tone) : 0;
   if (valencia) {
-    const contrarios = valencia > 0
+    // Tom positivo → o "contrário" é o léxico negativo, e vice-versa.
+    const contrarioEhNegativo = valencia > 0;
+    const pedido = contrarioEhNegativo ? intencional.negativo : intencional.positivo;
+    const contrarios = pedido ? [] : (contrarioEhNegativo
       ? ((typeof TOM_LEXICO_NEGATIVO !== 'undefined') ? TOM_LEXICO_NEGATIVO : [])
-      : ((typeof TOM_LEXICO_POSITIVO !== 'undefined') ? TOM_LEXICO_POSITIVO : []);
+      : ((typeof TOM_LEXICO_POSITIVO !== 'undefined') ? TOM_LEXICO_POSITIVO : []));
     contrarios.forEach((termo) => { if (texto.includes(termo)) achados.push(termo); });
   }
 
@@ -655,11 +697,11 @@ function mergeEditedArticle(rascunho, data) {
   return saida;
 }
 
-async function runEditorAgent(article, interp, style, tone, call = callLLM) {
-  const conflitos = detectarConflitosDeTom(article, tone, interp);
+async function runEditorAgent(article, interp, style, tone, call = callLLM, comentarios) {
+  const conflitos = detectarConflitosDeTom(article, tone, interp, comentarios);
   const repeticoes = detectarRepeticoes(article);
   try {
-    const r = await callLLMJson(buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes), call);
+    const r = await callLLMJson(buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes, comentarios), call);
     if (!r.data) return { article, ok: false, motivo: 'sem-json', model: r.model, conflitos, repeticoes };
     const revisado = mergeEditedArticle(article, r.data);
     const inventado = editorIntroduziuFato(article, revisado, interp);
@@ -669,7 +711,7 @@ async function runEditorAgent(article, interp, style, tone, call = callLLM) {
         promptTokens: r.promptTokens, completionTokens: r.completionTokens };
     }
     return { article: revisado, ok: true, model: r.model, conflitos, repeticoes,
-      conflitosRestantes: detectarConflitosDeTom(revisado, tone, interp),
+      conflitosRestantes: detectarConflitosDeTom(revisado, tone, interp, comentarios),
       repeticoesRestantes: detectarRepeticoes(revisado),
       promptTokens: r.promptTokens, completionTokens: r.completionTokens };
   } catch (_) {
@@ -970,7 +1012,7 @@ function artFromPipeline(g) {
  * @returns {Promise<object>} resultado com interpretation, article,
  *   content (texto plano), e metadados por agente.
  */
-async function runContentPipeline({ content, style, tone, onStage, call = callLLM } = {}) {
+async function runContentPipeline({ content, style, tone, comentarios, onStage, call = callLLM } = {}) {
   const stage = (k, t, d) => { if (typeof onStage === 'function') onStage(k, t, d); };
   const agents = {};
 
@@ -982,14 +1024,14 @@ async function runContentPipeline({ content, style, tone, onStage, call = callLL
 
   // 2) Redação — a partir SÓ dos fatos isolados.
   stage('write', 'Agente redator…', 'Escrevendo título, lead e corpo.');
-  const wRes = await runWriterAgent(interpretation, style, tone, call);
+  const wRes = await runWriterAgent(interpretation, style, tone, call, comentarios);
   agents.writer = { model: wRes.model, promptTokens: wRes.promptTokens, completionTokens: wRes.completionTokens, ok: wRes.ok };
   const article = wRes.article;
 
   // 3) Revisão — copidesque sobre o rascunho. Só forma; se tentar mexer no
   //    conteúdo, a trava determinística descarta e fica o rascunho.
   stage('edit', 'Agente editor…', 'Revisando coesão, ritmo e transições.');
-  const eRes = await runEditorAgent(article, interpretation, style, tone, call);
+  const eRes = await runEditorAgent(article, interpretation, style, tone, call, comentarios);
   agents.editor = {
     model: eRes.model || null, ok: eRes.ok, motivo: eRes.motivo || null,
     inventado: eRes.inventado || null,

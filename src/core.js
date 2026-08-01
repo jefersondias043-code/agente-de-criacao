@@ -117,6 +117,7 @@ const STORAGE_KEYS = {
   model: 'agp.model',
   provider: 'agp.provider',
   genMode: 'agp.genMode',   // 'agents' (pipeline de 3 agentes) | 'fast' (1 chamada, como antes)
+  comentarios: 'agp.comentarios',   // camada opinativa da matéria: nenhum | positivos | negativos | ambos
   apiKeys: 'agp.apiKeys',
   apiKeysEnc: 'agp.apiKeys.enc',   // bloqueio do workspace: chaves cifradas (AES-GCM) — opcional
   models: 'agp.models',
@@ -217,6 +218,8 @@ const State = (() => {
   return {
     provider: localStorage.getItem(STORAGE_KEYS.provider) || 'groq',
     genMode: (localStorage.getItem(STORAGE_KEYS.genMode) === 'fast') ? 'fast' : 'agents',
+    // Padrão 'nenhum': quem não pediu a camada opinativa gera exatamente como antes.
+    comentarios: localStorage.getItem(STORAGE_KEYS.comentarios) || 'nenhum',
     apiKeys, models,
     locked,        // chaves estão cifradas em repouso?
     unlocked: !locked,  // já há chave utilizável em memória nesta sessão?

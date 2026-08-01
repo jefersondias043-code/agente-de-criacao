@@ -20,10 +20,10 @@ beforeAll(() => {
   clearStorage();
   A = loadModules(
     ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js', 'generate.js'],
-    ['COMENTARIOS', 'COMENTARIO_PROMPTS', 'comentarioAtivo', 'comentarioLabel',
-      'comentarioValencias', 'comentarioBloco', 'buildPrompt', 'buildWriterPrompt',
-      'buildEditorPrompt', 'detectarConflitosDeTom', 'toneValence',
-      'assembleFastGeneration', 'assembleAgentsGeneration']
+    ['COMENTARIOS', 'COMENTARIO_PROMPTS', 'COMENTARIO_MARCADORES', 'comentarioAtivo',
+      'comentarioLabel', 'comentarioValencias', 'comentarioBloco', 'comentarioAplicado',
+      'buildPrompt', 'buildWriterPrompt', 'buildEditorPrompt', 'detectarConflitosDeTom',
+      'toneValence', 'assembleFastGeneration', 'assembleAgentsGeneration', 'avisoComentarios']
   );
 });
 
@@ -79,10 +79,15 @@ describe('o bloco de comentário', () => {
   });
 
   it('positivo não autoriza elogiar o que não existe', () => {
+    // A redação mudou junto com a correção do "zero comentário": as frases
+    // antigas ("não force", "melhor faltar") eram justamente os tetos que
+    // faziam o modelo pular tudo. A proibição de elogio inventado continua —
+    // agora sem servir de desculpa para não comentar.
     const b = A.comentarioBloco('positivos', 'Neutro');
     expect(b).toMatch(/DIREÇÃO DO COMENTÁRIO: POSITIVA/);
-    expect(b).toMatch(/NÃO force/);
-    expect(b).toMatch(/Elogiar o que não existe é invenção/);
+    expect(b).toMatch(/nunca elogio inventado/);
+    expect(b).toMatch(/Entusiasmo não autoriza superlativo sem base/);
+    expect(b).toMatch(/Ancore cada elogio num fato/);
   });
 
   it('negativo critica mesmo material elogioso — mas o ato, não a pessoa', () => {
@@ -353,5 +358,125 @@ describe('a escolha fica gravada na matéria', () => {
     expect(g.comentarios).toBe('nenhum');
     expect(A.comentarioAtivo(g.comentarios)).toBe(false);
     expect(A.comentarioAtivo(undefined)).toBe(false);
+  });
+});
+
+describe('o defeito relatado: instrução só de teto produzia zero comentário', () => {
+  // O controle aparecia, era escolhido, chegava ao prompt — e a matéria saía
+  // idêntica. A causa não era encanamento: o bloco era feito quase só de
+  // limites ("no máximo um", "melhor faltar do que forçar", "não force"), e
+  // cercado dos avisos anti-invenção do resto do prompt o caminho seguro para
+  // o modelo era não comentar nada. Estes testes travam o piso.
+  it('manda comentar CADA parágrafo do corpo', () => {
+    ['positivos', 'negativos', 'ambos'].forEach((id) => {
+      const b = A.comentarioBloco(id, 'Neutro');
+      expect(b, id).toMatch(/CADA parágrafo do corpo leva UM comentário/);
+      expect(b, id).toMatch(/nem zero, nem dois/);
+    });
+  });
+
+  it('não deixa mais escapatória para pular o parágrafo', () => {
+    const b = A.comentarioBloco('negativos', 'Neutro');
+    expect(b).not.toMatch(/melhor faltar do que forçar/);
+    expect(b).not.toMatch(/deixe o parágrafo sem comentário/);
+    expect(b).toMatch(/NÃO é resposta aceitável/);
+    expect(b).toMatch(/não existe parágrafo sem comentário/);
+  });
+
+  it('a lacuna é a saída sempre disponível quando falta base', () => {
+    const b = A.comentarioBloco('negativos', 'Neutro');
+    expect(b).toMatch(/COMENTÁRIO DE LACUNA/);
+    expect(b).toMatch(/sempre disponível/);
+  });
+
+  it('exige frase inteira, não oração escondida no meio do fato', () => {
+    const b = A.comentarioBloco('positivos', 'Neutro');
+    expect(b).toMatch(/FRASE INTEIRA/);
+    expect(b).toMatch(/oração subordinada escondida/);
+  });
+
+  it('cada direção traz exemplo de parágrafo sem e com comentário', () => {
+    ['positivos', 'negativos'].forEach((id) => {
+      const b = A.comentarioBloco(id, 'Neutro');
+      expect(b, id).toContain('SEM: ');
+      expect(b, id).toContain('COM: ');
+    });
+    const ambos = A.comentarioBloco('ambos', 'Neutro');
+    expect(ambos).toMatch(/P1: /);
+    expect(ambos).toMatch(/P2: /);
+  });
+
+  it('o requisito entra no CONTRATO DE SAÍDA dos dois modos', () => {
+    // É a linha que o modelo relê ao montar a resposta — a que ele menos ignora.
+    const w = A.buildWriterPrompt({ fatos: ['f'], citacoes: [] }, 'Jornalístico', 'Neutro', 'negativos');
+    expect(w).toMatch(/"corpo".*CADA UM termina com uma frase de comentário opinativo/);
+    const f = A.buildPrompt('Jornalístico', 'Neutro', 'pauta', 'negativos').prompt;
+    expect(f).toMatch(/\\*Corpo:.*CADA parágrafo termina com uma frase de comentário opinativo/);
+  });
+
+  it('sem a camada, o contrato de saída fica como era', () => {
+    const w = A.buildWriterPrompt({ fatos: ['f'], citacoes: [] }, 'Jornalístico', 'Neutro');
+    expect(w).toMatch(/"corpo".*conforme o material comporta/);
+    expect(w).not.toMatch(/frase de comentário opinativo/);
+  });
+});
+
+describe('falha silenciosa vira aviso', () => {
+  const marcado = 'A obra foi entregue. O material não informa o custo.';
+  const seco = 'A obra foi entregue nesta semana pela Prefeitura do município.';
+
+  it('reconhece as marcas que o próprio prompt ensina', () => {
+    expect(A.comentarioAplicado(marcado)).toBe(true);
+    expect(A.comentarioAplicado(seco)).toBe(false);
+    expect(A.comentarioAplicado('')).toBe(false);
+    expect(A.comentarioAplicado(null)).toBe(false);
+  });
+
+  it('cada marca ensinada no bloco é reconhecida na saída', () => {
+    // Fonte única: se alguém acrescentar uma construção ao prompt sem pôr na
+    // lista, a conferência passa a acusar quem cumpriu a instrução.
+    A.COMENTARIO_MARCADORES.forEach((m) => {
+      expect(A.comentarioAplicado('Texto qualquer. ' + m + ' algo.'), m).toBe(true);
+    });
+  });
+
+  it('as 12 construções citadas no prompt estão na lista de conferência', () => {
+    const b = A.comentarioBloco('negativos', 'Neutro');
+    A.COMENTARIO_MARCADORES.slice(0, 12).forEach((m) => expect(b, m).toContain(m));
+  });
+
+  it('avisa quando pediu comentário e o texto voltou sem marca nenhuma', () => {
+    const av = A.avisoComentarios('negativos', seco);
+    expect(av.length).toBe(1);
+    expect(av[0]).toMatch(/não aplicou os comentários/i);
+    expect(av[0]).toMatch(/modelo maior/);   // o aviso diz o que fazer
+  });
+
+  it('não avisa quando o comentário apareceu', () => {
+    expect(A.avisoComentarios('negativos', marcado)).toEqual([]);
+  });
+
+  it('não avisa quando o usuário não pediu comentário', () => {
+    expect(A.avisoComentarios('nenhum', seco)).toEqual([]);
+    expect(A.avisoComentarios(undefined, seco)).toEqual([]);
+  });
+
+  it('o aviso chega na matéria montada, junto dos avisos que já existiam', () => {
+    const g = A.assembleFastGeneration({
+      style: 'Jornalístico', tone: 'Neutro', comentarios: 'negativos',
+      manualText: 'pauta', extractionId: null, createdAt: '2026-01-01T00:00:00.000Z',
+      built: { originalCharCount: 5, finalCharCount: 5, wasTruncated: false },
+      result: { content: seco, model: 'm' },
+    });
+    expect(g.warnings.length).toBe(1);
+    expect(g.warnings[0]).toMatch(/não aplicou os comentários/i);
+
+    const ok = A.assembleAgentsGeneration({
+      style: 'Jornalístico', tone: 'Neutro', comentarios: 'negativos',
+      manualText: 'pauta', extractionId: null, combinedText: 'pauta',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      result: { content: marcado, model: 'm', interpretation: {}, article: {}, optimization: {}, agents: {} },
+    });
+    expect(ok.warnings).toEqual([]);
   });
 });

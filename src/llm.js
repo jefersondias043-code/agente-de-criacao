@@ -143,7 +143,9 @@ function buildPrompt(style, tone, content, comentarios) {
     '*Título: chamativo e informativo, JÁ refletindo o tom',
     '*Subtítulo: ângulo COMPLEMENTAR ao título, com palavras-pivô do tom',
     '*Lead: primeiro parágrafo com as informações essenciais, ordem alinhada ao estilo e ao tom',
-    '*Corpo: parágrafos de desenvolvimento com microintervenções consistentes',
+    blocoComentario
+      ? '*Corpo: parágrafos de desenvolvimento com microintervenções consistentes — e CADA parágrafo termina com uma frase de comentário opinativo, conforme a camada definida acima'
+      : '*Corpo: parágrafos de desenvolvimento com microintervenções consistentes',
     '',
     'Extensão: 2 a 4 parágrafos de corpo, conforme o material comportar. Pauta curta rende 2; pauta rica rende 4. Não encha linguiça para alongar, nem espreme fatos para encurtar.',
     '',

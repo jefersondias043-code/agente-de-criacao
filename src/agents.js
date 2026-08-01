@@ -351,7 +351,13 @@ function buildWriterPrompt(interp, style, tone, comentarios) {
     '  "titulo": "chamativo e informativo, JÁ refletindo o tom",',
     '  "subtitulo": "ângulo COMPLEMENTAR ao título, com palavras-pivô do tom",',
     '  "lead": "primeiro parágrafo com o essencial, ordem alinhada ao estilo e ao tom",',
-    `  "corpo": ["parágrafos de desenvolvimento — ${faixa} no total, conforme o material comporta"],`,
+    // O requisito entra no PRÓPRIO contrato de saída, não só no bloco de
+    // instruções: é a linha que o modelo relê ao montar o JSON, e a que ele
+    // menos ignora. Sem isto, a camada de comentário dependia de uma seção
+    // distante lá em cima do prompt.
+    blocoComentario
+      ? `  "corpo": ["parágrafos de desenvolvimento — ${faixa} no total. CADA UM termina com uma frase de comentário opinativo, conforme a camada de comentário definida acima"],`
+      : `  "corpo": ["parágrafos de desenvolvimento — ${faixa} no total, conforme o material comporta"],`,
     '  "resumo": "1 frase para legenda de rede social"',
     '}',
     '',

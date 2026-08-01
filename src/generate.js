@@ -1,6 +1,20 @@
 'use strict';
 // Gerado pela refatoração (split do index.html monolítico). Código movido verbatim.
 
+/** Aviso quando o usuário pediu comentários e o texto voltou sem sinal deles.
+ *  Falha silenciosa é o pior desfecho possível: o controle fica visível, a
+ *  matéria sai igual e nada explica por quê. Melhor um aviso honesto — e
+ *  acionável — do que o usuário concluir que o recurso não existe. */
+function avisoComentarios(comentarios, texto) {
+  if (typeof comentarioAtivo !== 'function' || !comentarioAtivo(comentarios)) return [];
+  if (typeof comentarioAplicado !== 'function' || comentarioAplicado(texto)) return [];
+  return ['A IA não aplicou os comentários pedidos ('
+    + comentarioLabel(comentarios).toLowerCase()
+    + '): o texto voltou sem as marcas de leitura opinativa. Gere de novo — ou, se repetir, '
+    + 'troque para um modelo maior nas Configurações; modelos pequenos costumam ignorar '
+    + 'instruções longas.'];
+}
+
 /** Monta o objeto de geração do MODO AGENTES (pipeline de 3 agentes) — função
  *  pura, sem tocar no DOM, para poder ser testada isoladamente. */
 function assembleAgentsGeneration({ style, tone, comentarios, manualText, extractionId, combinedText, result, createdAt }) {
@@ -17,7 +31,7 @@ function assembleAgentsGeneration({ style, tone, comentarios, manualText, extrac
     sourceCharCount: combinedText.length,
     finalCharCount: Math.min(combinedText.length, MAX_CONTENT_CHARS),
     wasTruncated: combinedText.length > MAX_CONTENT_CHARS,
-    warnings: truncNote,
+    warnings: truncNote.concat(avisoComentarios(comentarios, result.content)),
     // Saída estruturada do pipeline de agentes:
     interpretation: result.interpretation,
     article: result.article,
@@ -45,9 +59,9 @@ function assembleFastGeneration({ style, tone, comentarios, manualText, extracti
     sourceCharCount: built.originalCharCount,
     finalCharCount: built.finalCharCount,
     wasTruncated: built.wasTruncated,
-    warnings: built.wasTruncated
+    warnings: (built.wasTruncated
       ? [`Conteúdo truncado de ${built.originalCharCount.toLocaleString('pt-BR')} para ${built.finalCharCount.toLocaleString('pt-BR')} caracteres.`]
-      : [],
+      : []).concat(avisoComentarios(comentarios, result.content)),
     pipeline: false,
     model: result.model,
     promptTokens: result.promptTokens || null,

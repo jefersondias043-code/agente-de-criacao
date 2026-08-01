@@ -701,37 +701,44 @@ function comentarioValencias(id) {
   }
 }
 
-/* Vocabulário de MARCAÇÃO da opinião.
+/* Vocabulário de MARCAÇÃO da opinião, separado por DIREÇÃO.
  *
- * Duas funções, uma lista só. No prompt, é o que ensina a marcar a leitura como
+ * Duas funções, uma fonte só. No prompt, é o que ensina a marcar a leitura como
  * leitura (a exigência jurídica de fronteira visível). Na saída, é o que permite
- * conferir de forma determinística se a camada foi mesmo aplicada — sem tentar
- * "detectar opinião" em geral, que é problema semântico, e sim procurar as
- * construções que a própria ferramenta pediu. Fonte única: mudar aqui muda o
- * que se ensina E o que se confere, sem risco de um sair de sincronia do outro. */
-const COMENTARIO_MARCADORES = [
-  // Marcação de leitura (servem às duas direções)
-  'chama atenção', 'chama a atenção', 'não é pouco', 'não é trivial', 'não é detalhe',
-  'vale registrar', 'ganha peso', 'pesa mais', 'diz muito', 'é o tipo de',
-  'sinaliza', 'representa', 'é um passo', 'faz diferença',
-  // Cobrança e lacuna (o ângulo sempre disponível)
-  'resta saber', 'deixa em aberto', 'fica em aberto', 'segue sem', 'continua sem',
-  'o material não', 'não informa', 'não explica', 'não detalha', 'não esclarece',
-  'não responde', 'não diz', 'sem que se saiba', 'ainda depende', 'é apertado',
-  'a conferir', 'fica a pergunta', 'a dúvida',
+ * conferir de forma determinística se a camada foi aplicada E se veio na direção
+ * pedida — sem tentar "detectar opinião" em geral, que é problema semântico, e
+ * sim procurar as construções que a própria ferramenta mandou usar. */
+const COMENTARIO_MARCADORES_RECONHECIMENTO = [
+  'não é pouco', 'nao e pouco', 'não é trivial', 'não é detalhe', 'não é banal',
+  'vale registrar', 'ganha peso', 'pesa a favor', 'diz muito', 'é o tipo de',
+  'sinaliza', 'representa um', 'é um passo', 'faz diferença', 'não é comum',
+  'chama atenção pela', 'salta aos olhos',
 ];
+const COMENTARIO_MARCADORES_COBRANCA = [
+  'resta saber', 'deixa em aberto', 'fica em aberto', 'segue sem', 'continua sem',
+  'o material não', 'não informa', 'nao informa', 'não explica', 'nao explica',
+  'não detalha', 'não esclarece', 'não responde', 'não diz quanto', 'não diz quantas',
+  'sem que se saiba', 'ainda depende', 'é apertado', 'fica a pergunta', 'a dúvida que',
+  'nada garante', 'não há prazo', 'não se sabe', 'passa longe', 'fica aquém',
+];
+const COMENTARIO_MARCADORES = COMENTARIO_MARCADORES_RECONHECIMENTO.concat(COMENTARIO_MARCADORES_COBRANCA);
 
 /* Bloco comum a qualquer direção de comentário: COMO ele entra no texto.
  *
- * A primeira versão deste bloco não produzia comentário NENHUM, e o motivo é
- * instrutivo: era feita quase só de tetos — "no máximo um", "melhor faltar do
- * que forçar", "não force", "se ficou grande, está grande demais". Cercado dos
- * avisos anti-invenção do resto do prompt, o caminho seguro para o modelo era
- * não comentar nada, e foi o que ele fez. Um prompt só de limites converge para
- * zero. Agora existe PISO (todo parágrafo do corpo leva um comentário), a saída
- * de emergência é o comentário sobre a LACUNA — que está sempre disponível, de
- * modo que "não havia base" nunca justifica zero — e há exemplos, que os
- * modelos seguem melhor do que regras. */
+ * Duas correções moram aqui, e as duas vieram de defeito relatado em uso real:
+ *
+ * 1. A primeira versão não produzia comentário NENHUM. Era feita quase só de
+ *    tetos ("no máximo um", "melhor faltar do que forçar"). Um prompt só de
+ *    limites converge para zero. Daí o PISO: todo parágrafo do corpo leva um.
+ *
+ * 2. A segunda produzia sempre comentário POSITIVO, qualquer que fosse a
+ *    escolha. A causa: em nenhum lugar se proibia a direção contrária — a
+ *    instrução descrevia o que fazer sem excluir o oposto —, e a direção
+ *    crítica carregava cinco proibições próprias somadas a catorze do bloco
+ *    jurídico, enquanto o elogio corria solto. Diante de pauta institucional,
+ *    o caminho de menor resistência era elogiar, e nenhuma regra era violada.
+ *    Daí a EXCLUSIVIDADE, que abre cada direção, e o reequilíbrio: a direção
+ *    crítica agora tem menu de movimentos permitidos, não só lista de vetos. */
 const COMENTARIO_BASE = [
   '═══ CAMADA DE COMENTÁRIO OPINATIVO (pedida pelo usuário — não é opcional) ═══',
   'Além de relatar, esta matéria leva COMENTÁRIO: uma leitura opinativa assumida sobre o que cada parágrafo apresenta.',
@@ -739,17 +746,22 @@ const COMENTARIO_BASE = [
   'QUANTIDADE — o piso, não o teto',
   '• CADA parágrafo do corpo leva UM comentário. Um por parágrafo: nem zero, nem dois.',
   '• O comentário é uma FRASE INTEIRA, própria, normalmente a última do parágrafo. Não é adjetivo solto nem oração subordinada escondida no meio da frase do fato — assim ninguém percebe que ela está lá.',
-  '• "O parágrafo não dava base para comentar" NÃO é resposta aceitável: quando faltar base para elogiar ou criticar, o comentário é sobre a LACUNA (veja abaixo). Essa saída está sempre disponível, então não existe parágrafo sem comentário.',
+  '• "O parágrafo não dava base para comentar" NÃO é resposta aceitável: quando faltar base, o comentário é sobre a LACUNA (veja abaixo). Essa saída está sempre disponível, então não existe parágrafo sem comentário.',
   '• Varie a construção entre os parágrafos. Se todos terminam com a mesma fórmula, vira cacoete.',
+  '',
+  'DIREÇÃO — a escolha do usuário é EXCLUSIVA, não uma sugestão',
+  '• A direção definida adiante vale para TODOS os comentários da matéria. Comentário na direção contrária é ERRO DE EXECUÇÃO, não variação de estilo.',
+  '• O material de origem NÃO decide a direção. Pauta institucional e elogiosa recebe a direção pedida do mesmo jeito — é justamente aí que a escolha do usuário tem valor.',
+  '• A lista "Ângulos editoriais" e o tom da fonte também não decidem: são insumo neutro. Quem decide a direção do comentário é a instrução abaixo, e só ela.',
+  '• Ao terminar, releia cada comentário e pergunte: este está na direção pedida? Qualquer um que não esteja, reescreva antes de responder.',
   '',
   'A REGRA QUE NÃO SE QUEBRA: COMENTÁRIO COMENTA, NÃO INFORMA',
   '• Ele só se apoia em algo que está literalmente no material. Vale o mesmo teste do resto da matéria: "de onde você tirou isso?" precisa ter resposta apontável.',
   '• Nunca é fato novo, comparação que o material não faz, causa deduzida, número estimado nem reação de terceiros que ninguém relatou.',
-  '• O COMENTÁRIO DE LACUNA é o mais seguro e o mais forte quando falta base: aponta o que o material deixou de responder. "O material não informa o custo da obra" é verificável, honesto e não inventa nada.',
+  '• O COMENTÁRIO DE LACUNA é o mais seguro quando falta base: aponta o que o material deixou de responder. "O material não informa o custo da obra" é verificável, honesto e não inventa nada.',
   '',
   'FRONTEIRA VISÍVEL — exigência jurídica, não capricho de estilo',
-  '• O comentário entra MARCADO como leitura. Use construções como: ' + COMENTARIO_MARCADORES.slice(0, 12).map((m) => `"${m}…"`).join(', ') + '.',
-  '• Nunca como veredito disfarçado de notícia: "ficou provado que", "é evidente que houve", "não há dúvida de que".',
+  '• O comentário entra MARCADO como leitura, nunca como veredito disfarçado de notícia ("ficou provado que", "é evidente que houve").',
   '• Sem adjetivo que desqualifique PESSOA. Comenta-se o ato, o dado, a decisão, o prazo, o silêncio — nunca o caráter de alguém.',
   '• Em pauta de crime ou apuração, o comentário obedece à presunção de inocência e à fase processual igual ao resto do texto.',
   '',
@@ -758,46 +770,65 @@ const COMENTARIO_BASE = [
   '• Sempre DEPOIS do fato que ele comenta: primeiro o leitor sabe o que aconteceu, só então lê a leitura.',
 ].join('\n');
 
-/* Direção do comentário. Cada bloco entra junto do COMENTARIO_BASE.
-   Os exemplos são o item que mais muda o resultado: mostram o parágrafo ANTES
-   (só fato) e DEPOIS (fato + comentário), deixando visível o tamanho e o lugar
-   exatos do que se pede. */
+/* Direção do comentário. Cada bloco abre pela EXCLUSIVIDADE (a regra que
+   faltava), segue com o MENU do que fazer — com as construções de marcação
+   correspondentes — e só então os limites, comprimidos. Ordem proposital: o
+   modelo lê primeiro o que deve fazer, não o que não pode. */
 const COMENTARIO_PROMPTS = {
   positivos: [
-    'DIREÇÃO DO COMENTÁRIO: POSITIVA.',
-    '• Reforce o que o material apresenta de positivo: o que avança, o que atende, o que resolve, o que é inédito, quem é beneficiado.',
-    '• Ancore cada elogio num fato daquele parágrafo. Elogio genérico ("uma grande iniciativa", "um passo importante") não vale nada; elogio ancorado vale ("o valor cobre a fila inteira que o próprio material descreve").',
-    '• Entusiasmo não autoriza superlativo sem base: "o maior da região" só entra se o material disser isso.',
-    '• Sem nada de positivo no parágrafo, o comentário vira reconhecimento do que o dado permite ("é o primeiro número que o material apresenta sobre o atendimento") — nunca elogio inventado.',
+    'DIREÇÃO DO COMENTÁRIO: POSITIVA — e SOMENTE positiva.',
+    '',
+    'EXCLUSIVIDADE: nenhum comentário crítico nesta matéria. Zero. Se um comentário cobra, aponta falha, lamenta ausência ou relativiza o mérito, ele está na direção ERRADA — reescreva-o como reconhecimento. Ressalva também é crítica: "embora ainda faltem…" não entra.',
+    '',
+    'O QUE FAZER — reconheça o que os fatos sustentam:',
+    '• o alcance do que foi feito ("o número não é pouco para uma ação de bairro");',
+    '• o ineditismo, quando o material o afirma ("é o primeiro levantamento que o município divulga sobre o tema");',
+    '• quem sai ganhando, nomeando o benefício concreto que está no material;',
+    '• a velocidade, o volume ou a abrangência, quando houver dado que os mostre;',
+    '• o que o dado permite afirmar de bom, mesmo modesto ("é o primeiro número que o material apresenta sobre o atendimento").',
+    'Construções úteis: ' + COMENTARIO_MARCADORES_RECONHECIMENTO.slice(0, 8).map((m) => `"${m}…"`).join(', ') + '.',
+    '',
+    'LIMITES: ancore cada elogio num fato daquele parágrafo — elogio genérico ("uma grande iniciativa") não vale nada. Entusiasmo não autoriza superlativo sem base: "o maior da região" só entra se o material disser isso. E nunca elogio inventado.',
     '',
     'EXEMPLO (o mesmo parágrafo, sem e com comentário):',
     'SEM: "A Prefeitura entregou 50 cestas básicas a moradores do Calabar nesta semana."',
-    'COM: "A Prefeitura entregou 50 cestas básicas a moradores do Calabar nesta semana. O número não é pouco para uma ação semanal de bairro."',
-    '(O comentário é uma frase inteira, vem depois do fato e se apoia no número que já estava lá.)',
+    'COM: "A Prefeitura entregou 50 cestas básicas a moradores do Calabar nesta semana. O número não é pouco para uma ação semanal concentrada em um único bairro."',
   ].join('\n'),
 
   negativos: [
-    'DIREÇÃO DO COMENTÁRIO: CRÍTICA.',
-    '• Desenvolva argumento crítico sobre os fatos — INCLUSIVE quando o material for elogioso. O material anuncia; o comentário pergunta o que ele não responde.',
-    '• Ângulos legítimos, todos ancorados no próprio material: o que ficou de fora (prazo, custo, responsável, quantas pessoas); o tamanho do que foi feito diante do que o próprio material descreve; o tempo que se levou; o que segue em aberto; a distância entre o anúncio e a entrega.',
-    '• A crítica recai sobre O ATO, O DADO, A DECISÃO, O PRAZO ou A AUSÊNCIA — nunca sobre a pessoa. "A obra levou dois anos além do prazo" é crítica; "o secretário é incompetente" é ofensa e não entra.',
-    '• NÃO invente o defeito. Sem base para criticar o mérito, critique a LACUNA — ela quase sempre existe e é o ângulo mais sólido que você tem.',
-    '• Crítica não é acusação: não impute crime, fraude, desvio ou má-fé sem que o material traga a apuração — e, se trouxer, com a fase processual e a atribuição corretas.',
-    '• Não transforme suspeita em conclusão. "O material não explica por que o prazo dobrou" é forte e seguro; "houve superfaturamento" sem apuração é temerário.',
+    'DIREÇÃO DO COMENTÁRIO: CRÍTICA — e SOMENTE crítica.',
+    '',
+    'EXCLUSIVIDADE: nenhum comentário elogioso nesta matéria. Zero. Se um comentário reconhece mérito, celebra, tranquiliza ou termina em nota positiva, ele está na direção ERRADA — reescreva-o como cobrança. Isso vale principalmente quando o material de origem é elogioso: é exatamente esse o caso em que o usuário escolheu crítica, e o anúncio da fonte não muda a direção.',
+    'Também não vale o "elogio com ressalva" ("a medida é positiva, embora…"). A frase inteira é crítica, do começo ao fim.',
+    '',
+    'O QUE FAZER — a crítica sai destes ângulos, todos ancorados no próprio material e todos seguros:',
+    '• O QUE FICOU DE FORA: custo, prazo, responsável, quantas pessoas, de onde vem o dinheiro. "O material não informa quanto custou."',
+    '• O TAMANHO DIANTE DO PROBLEMA: o feito comparado ao que o próprio material descreve como necessidade. "As 50 cestas ficam aquém da fila que o próprio texto menciona."',
+    '• O TEMPO: quanto se levou, quantas vezes foi anunciado, há quanto tempo o problema existe — se o material trouxer.',
+    '• O QUE SEGUE EM ABERTO: o que a medida não resolve e o texto não responde. "Resta saber o que acontece com quem ficou fora da lista."',
+    '• ANÚNCIO × ENTREGA: a distância entre o que se promete e o que se comprova no material.',
+    '• O SILÊNCIO: a falta do outro lado, da explicação ou do dado que sustentaria a versão apresentada.',
+    'Construções úteis: ' + COMENTARIO_MARCADORES_COBRANCA.slice(0, 8).map((m) => `"${m}…"`).join(', ') + '.',
+    '',
+    'LIMITES (curtos, e nenhum deles autoriza recuar para o elogio): a crítica recai sobre o ATO, o DADO, a DECISÃO, o PRAZO ou a AUSÊNCIA — nunca sobre a pessoa. Não impute crime, fraude ou má-fé sem que o material traga a apuração. Não transforme suspeita em conclusão. Se faltar base para criticar o mérito, critique a LACUNA — ela existe em quase toda pauta e é o ângulo mais sólido disponível. Falta de base NUNCA é motivo para elogiar.',
     '',
     'EXEMPLO (o mesmo parágrafo, sem e com comentário):',
     'SEM: "A Prefeitura entregou 50 cestas básicas a moradores do Calabar nesta semana."',
     'COM: "A Prefeitura entregou 50 cestas básicas a moradores do Calabar nesta semana. O material não informa quantas famílias do bairro seguem na fila, o que deixa em aberto o alcance real da entrega."',
-    '(A crítica não inventa defeito: cobra o que o próprio material deixou de responder.)',
   ].join('\n'),
 
   ambos: [
-    'DIREÇÃO DO COMENTÁRIO: OS DOIS LADOS.',
-    '• A matéria carrega elogio E crítica, cada um ancorado no que o seu parágrafo traz. Não é alternância mecânica um-para-um: é reconhecer o que avança e cobrar o que falta.',
-    '• Construção preferida: o contraste dentro do mesmo movimento — "o programa cobre as 200 famílias listadas; o material não diz o que acontece com quem ficou fora da lista".',
-    '• Cada parágrafo continua levando UM comentário. O que varia é a direção dele: um parágrafo pode receber o reconhecimento, o seguinte a cobrança.',
-    '• A matéria INTEIRA não pode terminar com um lado só. Se ao revisar você vir que só elogiou (ou só criticou), refaça o comentário de pelo menos um parágrafo.',
-    '• Elogio e crítica não podem se anular na mesma frase a ponto de o leitor não saber o que foi dito. Equilibrar não é amornar: cada um entra com clareza, não como ressalva tímida do outro.',
+    'DIREÇÃO DO COMENTÁRIO: OS DOIS LADOS — e os dois precisam APARECER.',
+    '',
+    'EXCLUSIVIDADE ÀS AVESSAS: aqui o erro é ficar de um lado só. A matéria tem de conter, obrigatoriamente, pelo menos UM comentário de reconhecimento E pelo menos UM de cobrança. Se ao revisar você vir que todos elogiam (ou todos cobram), reescreva o comentário de pelo menos um parágrafo para a outra direção. Matéria só elogiosa é o erro mais comum aqui — confira isso especificamente.',
+    '',
+    'COMO DISTRIBUIR:',
+    '• Cada parágrafo continua levando UM comentário. O que varia é a direção dele: um parágrafo recebe o reconhecimento, outro a cobrança.',
+    '• Não é alternância mecânica um-para-um: é reconhecer o que avança e cobrar o que falta, onde cada um couber.',
+    '• Também cabe o contraste dentro do mesmo movimento: "o programa cobre as 200 famílias listadas; o material não diz o que acontece com quem ficou fora".',
+    '• Elogio e crítica não podem se anular a ponto de o leitor não saber o que foi dito. Equilibrar não é amornar: cada um entra com clareza, não como ressalva tímida do outro.',
+    'Construções úteis — reconhecimento: ' + COMENTARIO_MARCADORES_RECONHECIMENTO.slice(0, 5).map((m) => `"${m}…"`).join(', ') + '.',
+    'Construções úteis — cobrança: ' + COMENTARIO_MARCADORES_COBRANCA.slice(0, 5).map((m) => `"${m}…"`).join(', ') + '.',
     '',
     'EXEMPLO (dois parágrafos seguidos, com direções diferentes):',
     'P1: "A Prefeitura entregou 50 cestas básicas no Calabar nesta semana. Para uma ação semanal de bairro, o número não é pouco."',
@@ -805,25 +836,51 @@ const COMENTARIO_PROMPTS = {
   ].join('\n'),
 };
 
+/** Rótulo curto da direção, para injetar no contrato de saída e no editor. */
+const COMENTARIO_DIRECAO_CURTA = {
+  positivos: 'POSITIVO (reconhecimento — nunca crítica)',
+  negativos: 'CRÍTICO (cobrança — nunca elogio)',
+  ambos: 'alternando reconhecimento e cobrança (os dois têm de aparecer)',
+};
+function comentarioDirecaoCurta(id) {
+  return COMENTARIO_DIRECAO_CURTA[id] || '';
+}
+
 /**
- * A camada de comentário aparece no texto gerado?
+ * A camada de comentário aparece no texto — e na DIREÇÃO pedida?
  *
- * NÃO é um detector de opinião — isso é problema semântico, e a ferramenta já
+ * NÃO é um detector de opinião: isso é problema semântico, e a ferramenta já
  * aprendeu (na Narrativa, com a heurística de palavras em comum) o preço de
- * fingir que uma varredura lexical decide questão de sentido. O que esta função
- * faz é estreito e honesto: procura as CONSTRUÇÕES DE MARCAÇÃO que o próprio
- * prompt mandou usar. Nenhuma delas presente é sinal forte de que o modelo
- * ignorou a instrução — o caso que o usuário relatou, em que o controle ficava
- * visível e a matéria saía exatamente igual, sem nada avisando.
+ * fingir que varredura lexical decide questão de sentido. O que se faz aqui é
+ * estreito: procurar as CONSTRUÇÕES DE MARCAÇÃO que o próprio prompt mandou
+ * usar, separadas por direção.
  *
- * Falso positivo (achar marca onde não houve camada) apenas silencia o aviso —
- * o mesmo que antes. Por isso a lista é generosa: o erro caro aqui é acusar
- * quem cumpriu.
+ * Regra de prudência: só se acusa a AUSÊNCIA da direção pedida. Nunca se acusa
+ * pela presença da outra — um comentário crítico pode legitimamente conter
+ * "chama atenção", e reprovar quem cumpriu seria o erro caro. Falso positivo
+ * apenas silencia o aviso; é o lado barato de errar.
+ *
+ * Devolve { reconhecimento, cobranca, ok } — `ok` já considerando o modo.
  */
-function comentarioAplicado(texto) {
+function comentarioDirecaoAplicada(texto, id) {
   const t = String(texto || '').toLowerCase();
-  if (!t.trim()) return false;
-  return COMENTARIO_MARCADORES.some((m) => t.indexOf(m) !== -1);
+  const tem = (lista) => lista.some((m) => t.indexOf(m) !== -1);
+  const reconhecimento = !!t.trim() && tem(COMENTARIO_MARCADORES_RECONHECIMENTO);
+  const cobranca = !!t.trim() && tem(COMENTARIO_MARCADORES_COBRANCA);
+  let ok;
+  switch (id) {
+    case 'positivos': ok = reconhecimento; break;
+    case 'negativos': ok = cobranca; break;
+    case 'ambos': ok = reconhecimento && cobranca; break;
+    default: ok = true; break;   // sem pedido, nada a conferir
+  }
+  return { reconhecimento, cobranca, ok };
+}
+
+/** A camada apareceu de alguma forma (qualquer direção)? */
+function comentarioAplicado(texto) {
+  const d = comentarioDirecaoAplicada(texto, null);
+  return d.reconhecimento || d.cobranca;
 }
 
 /**

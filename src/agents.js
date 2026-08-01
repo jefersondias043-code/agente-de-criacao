@@ -356,7 +356,7 @@ function buildWriterPrompt(interp, style, tone, comentarios) {
     // menos ignora. Sem isto, a camada de comentário dependia de uma seção
     // distante lá em cima do prompt.
     blocoComentario
-      ? `  "corpo": ["parágrafos de desenvolvimento — ${faixa} no total. CADA UM termina com uma frase de comentário opinativo, conforme a camada de comentário definida acima"],`
+      ? `  "corpo": ["parágrafos de desenvolvimento — ${faixa} no total. CADA UM termina com uma frase de comentário ${comentarioDirecaoCurta(comentarios)}"],`
       : `  "corpo": ["parágrafos de desenvolvimento — ${faixa} no total, conforme o material comporta"],`,
     '  "resumo": "1 frase para legenda de rede social"',
     '}',
@@ -376,10 +376,13 @@ function buildWriterPrompt(interp, style, tone, comentarios) {
     '10. Inventei alguma comparação, avaliação sem dono ("foi considerado…") ou consequência para sustentar o tom? Se sim, troque pelo que o material realmente traz.',
     '11. Dois parágrafos fazem a mesma crítica ou o mesmo elogio com outras palavras? Funda-os e traga um aspecto novo — ou entregue um parágrafo a menos.',
     ...(blocoComentario ? [
-      '12. Cada comentário se apoia num fato da lista, ou algum deles trouxe informação que não está lá?',
-      '13. Algum comentário está escrito como fato provado em vez de leitura assumida? Marque-o como leitura.',
-      '14. Algum comentário desqualifica uma PESSOA em vez de comentar o ato, o dado ou a ausência? Reescreva mirando o ato.',
-      '15. Todos os parágrafos terminam com a mesma fórmula de comentário? Varie ou deixe algum sem.',
+      // A checagem de DIREÇÃO vem primeiro e nomeada: era o furo que fazia a
+      // matéria sair sempre elogiosa, qualquer que fosse a escolha.
+      `12. DIREÇÃO: releia UM A UM os comentários. Todos estão na direção pedida (${comentarioDirecaoCurta(comentarios)})? Qualquer um fora dela é erro de execução — reescreva antes de responder.`,
+      '13. Cada comentário se apoia num fato da lista, ou algum deles trouxe informação que não está lá?',
+      '14. Algum comentário está escrito como fato provado em vez de leitura assumida? Marque-o como leitura.',
+      '15. Algum comentário desqualifica uma PESSOA em vez de comentar o ato, o dado ou a ausência? Reescreva mirando o ato.',
+      '16. Todos os parágrafos terminam com a mesma fórmula de comentário? Varie a construção.',
     ] : []),
   ].join('\n');
 }
@@ -469,14 +472,14 @@ function buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes, 
   const blocoComentario = (typeof comentarioAtivo === 'function' && comentarioAtivo(comentarios))
     ? [
       '',
-      `═══ ESTA MATÉRIA LEVA COMENTÁRIO OPINATIVO (direção: ${typeof comentarioLabel === 'function' ? comentarioLabel(comentarios) : comentarios}) ═══`,
+      `═══ ESTA MATÉRIA LEVA COMENTÁRIO OPINATIVO — direção ${typeof comentarioDirecaoCurta === 'function' ? comentarioDirecaoCurta(comentarios) : comentarios} ═══`,
       'As passagens de leitura e opinião são INTENCIONAIS — foram pedidas pelo usuário. NÃO as neutralize, não as corte por "não serem fato" e não as transforme em relato seco. Se a sua versão ficou mais informativa e menos opinativa, você desfez o pedido.',
       'O que você CORRIGE nelas:',
       '• comentário sem nenhum fato que o sustente → corte (é invenção, não opinião);',
       '• comentário escrito como fato provado ("ficou provado que") → reescreva marcado como leitura ("o material não explica");',
       '• comentário que desqualifica uma pessoa → troque pela crítica ao ato, ao dado ou ao prazo;',
       '• o mesmo comentário repetido em parágrafos diferentes → funda ou corte um.',
-      'O que você NÃO faz: transformar opinião em informação, nem informação em opinião.',
+      'O que você NÃO faz: transformar opinião em informação, nem informação em opinião — nem INVERTER a direção de um comentário. Se um comentário está na direção contrária à pedida, corrija-o PARA a direção pedida; nunca o contrário.',
     ].join('\n')
     : '';
   return [

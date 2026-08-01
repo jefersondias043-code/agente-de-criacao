@@ -1,18 +1,38 @@
 'use strict';
 // Gerado pela refatoração (split do index.html monolítico). Código movido verbatim.
 
-/** Aviso quando o usuário pediu comentários e o texto voltou sem sinal deles.
- *  Falha silenciosa é o pior desfecho possível: o controle fica visível, a
- *  matéria sai igual e nada explica por quê. Melhor um aviso honesto — e
- *  acionável — do que o usuário concluir que o recurso não existe. */
+/** Aviso quando o usuário pediu comentários e o texto não corresponde.
+ *
+ *  Dois desfechos silenciosos já foram relatados em uso real: a matéria sair
+ *  sem comentário nenhum, e sair só com elogio qualquer que fosse a escolha.
+ *  Nos dois casos o controle ficava visível e a matéria parecia normal — nada
+ *  dizia ao usuário que sua seleção tinha sido ignorada. Agora diz, e diz o
+ *  que fazer. A conferência é heurística (procura as construções que o prompt
+ *  pede) e só acusa a AUSÊNCIA do que se pediu, nunca a presença do resto. */
 function avisoComentarios(comentarios, texto) {
   if (typeof comentarioAtivo !== 'function' || !comentarioAtivo(comentarios)) return [];
-  if (typeof comentarioAplicado !== 'function' || comentarioAplicado(texto)) return [];
-  return ['A IA não aplicou os comentários pedidos ('
-    + comentarioLabel(comentarios).toLowerCase()
-    + '): o texto voltou sem as marcas de leitura opinativa. Gere de novo — ou, se repetir, '
-    + 'troque para um modelo maior nas Configurações; modelos pequenos costumam ignorar '
-    + 'instruções longas.'];
+  if (typeof comentarioDirecaoAplicada !== 'function') return [];
+  const d = comentarioDirecaoAplicada(texto, comentarios);
+  if (d.ok) return [];
+
+  const comoResolver = ' Gere de novo — ou, se repetir, troque para um modelo maior nas '
+    + 'Configurações; modelos pequenos costumam ignorar instruções longas.';
+
+  if (!d.reconhecimento && !d.cobranca) {
+    return ['A IA não aplicou os comentários pedidos (' + comentarioLabel(comentarios).toLowerCase()
+      + '): o texto voltou sem as marcas de leitura opinativa.' + comoResolver];
+  }
+  if (comentarios === 'negativos') {
+    return ['Você pediu comentários NEGATIVOS, mas o texto voltou sem nenhuma cobrança — '
+      + 'só com leitura de reconhecimento.' + comoResolver];
+  }
+  if (comentarios === 'positivos') {
+    return ['Você pediu comentários POSITIVOS, mas o texto voltou sem nenhum reconhecimento — '
+      + 'só com cobrança.' + comoResolver];
+  }
+  return ['Você pediu os DOIS lados, mas o texto voltou só com '
+    + (d.reconhecimento ? 'reconhecimento — falta a cobrança.' : 'cobrança — falta o reconhecimento.')
+    + comoResolver];
 }
 
 /** Monta o objeto de geração do MODO AGENTES (pipeline de 3 agentes) — função

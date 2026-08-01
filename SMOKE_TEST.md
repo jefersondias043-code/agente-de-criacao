@@ -35,6 +35,11 @@ No navegador (http://localhost:8080):
       também. Com chave configurada: "Achar a história com IA" preenche só os campos vazios,
       "Afiar com IA" reescreve as três respostas e oferece **Desfazer**, e o conteúdo gerado
       entra no histórico e na barra "Enviar para".
+- [ ] **Narrativa — elenco**: "Adicionar personagem" cria a linha e já foca o nome; digitar não
+      perde o foco. Personagem sem desejo declarado vira aviso (nunca trava — os três portões
+      continuam sendo do protagonista). Trocar o formato muda o limite de elenco (Reels avisa
+      com 3 personagens; vídeo longo, não). O formato **Diálogo** cobra pelo menos um personagem.
+      Recarregar a página e reabrir do histórico devolvem o elenco inteiro.
 - [ ] **Extrair**: dropzone aparece; histórico vazio com empty-state. Aceita imagem/áudio/vídeo.
       **OCR**: uma foto com texto sobre fundo complexo é reconhecida (pré-processamento +
       limiar adaptativo); a barra de progresso avança. **Vídeo grande** (> 25 MB, com chave

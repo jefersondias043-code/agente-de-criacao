@@ -2700,3 +2700,60 @@ body.pe-full #view-posters { animation: none; }
 }
 .narr-escalada ol { margin: 0 0 0.4rem; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.25rem; }
 .narr-escalada li { font-size: 0.84rem; color: var(--ink-2); line-height: 1.45; }
+
+/* ====== NARRATIVA — elenco ======
+   Cada personagem é um bloco de três informações: quem é, que função exerce e
+   o que quer. A função vem de um <select> (declarada, não adivinhada) e o campo
+   do desejo ocupa a linha inteira, porque é o que costuma faltar — e é o que o
+   diagnóstico cobra. */
+.narr-cast-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.narr-cast {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.narr-cast-row { display: flex; gap: 0.4rem; align-items: center; }
+.narr-cast-nome { flex: 1 1 40%; min-width: 0; }
+.narr-cast-papel { flex: 1 1 45%; min-width: 0; }
+.narr-cast-del {
+  flex: 0 0 auto;
+  padding-left: 0.6rem;
+  padding-right: 0.6rem;
+  color: var(--ink-mute);
+}
+.narr-cast-del:hover { color: var(--accent); }
+.narr-cast-hint { font-size: 0.72rem; color: var(--ink-mute); line-height: 1.4; }
+.narr-cast-empty {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  padding: 0.7rem;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--paper-2);
+  text-wrap: pretty;
+}
+.narr-parecer { margin: 0 0 0.4rem; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.narr-parecer li { font-size: 0.84rem; color: var(--ink-2); line-height: 1.45; text-wrap: pretty; }
+.narr-parecer li .badge { margin-left: 0.35rem; vertical-align: middle; }
+.narr-parecer-corta { color: var(--ink-soft); }
+
+@media (max-width: 480px) {
+  /* Num telefone estreito os três campos não cabem lado a lado. Grid explícito
+     em vez de flex-wrap: com wrap, o <select> (que é width:100% por padrão)
+     empurrava o botão de remover sozinho para uma terceira linha. Aqui o nome
+     ocupa a primeira faixa e papel + remover dividem a segunda, sempre. */
+  .narr-cast-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "nome nome" "papel del";
+    gap: 0.4rem;
+  }
+  .narr-cast-nome { grid-area: nome; }
+  .narr-cast-papel { grid-area: papel; min-width: 0; }
+  .narr-cast-del { grid-area: del; }
+}

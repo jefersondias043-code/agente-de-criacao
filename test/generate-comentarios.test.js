@@ -95,7 +95,7 @@ describe('o bloco de comentário', () => {
   it('negativo critica mesmo material elogioso — mas o ato, não a pessoa', () => {
     const b = A.comentarioBloco('negativos', 'Otimista');
     expect(b).toMatch(/principalmente quando o material de origem é elogioso/i);
-    expect(b).toMatch(/nunca sobre a pessoa/i);
+    expect(b).toMatch(/não o caráter da pessoa/i);
     expect(b).toMatch(/Não impute crime, fraude ou má-fé/);
     expect(b).toMatch(/Não transforme suspeita em conclusão/);
   });
@@ -104,7 +104,7 @@ describe('o bloco de comentário', () => {
     const b = A.comentarioBloco('ambos', 'Neutro');
     expect(b).toMatch(/OS DOIS LADOS/);
     expect(b).toMatch(/Não é alternância mecânica/);
-    expect(b).toMatch(/Equilibrar não é amornar/);
+    expect(b).toMatch(/Equilibrar NÃO é amornar/);
   });
 
   it('explica que comentário e tom são eixos diferentes', () => {
@@ -398,11 +398,12 @@ describe('o defeito relatado: instrução só de teto produzia zero comentário'
     expect(b).toMatch(/oração subordinada escondida/);
   });
 
-  it('cada direção traz exemplo de parágrafo sem e com comentário', () => {
+  it('cada direção traz exemplo contrastando o fraco com o incisivo', () => {
     ['positivos', 'negativos'].forEach((id) => {
       const b = A.comentarioBloco(id, 'Neutro');
-      expect(b, id).toContain('SEM: ');
-      expect(b, id).toContain('COM: ');
+      expect(b, id).toContain('FATO: ');
+      expect(b, id).toContain('FRACO (não faça): ');
+      expect(b, id).toContain('FORTE (faça): ');
     });
     const ambos = A.comentarioBloco('ambos', 'Neutro');
     expect(ambos).toMatch(/P1: /);
@@ -535,7 +536,7 @@ describe('o defeito relatado: sempre saía comentário positivo', () => {
     ['O QUE FICOU DE FORA', 'O TAMANHO DIANTE DO PROBLEMA', 'O TEMPO',
       'O QUE SEGUE EM ABERTO', 'ANÚNCIO × ENTREGA', 'O SILÊNCIO']
       .forEach((ang) => expect(neg, ang).toContain(ang));
-    expect(neg).toMatch(/Falta de base NUNCA é motivo para elogiar/);
+    expect(neg).toMatch(/NUNCA é motivo para elogiar/);
   });
 
   it('"ambos" exige que os dois lados apareçam de fato', () => {
@@ -567,9 +568,9 @@ describe('o defeito relatado: sempre saía comentário positivo', () => {
 });
 
 describe('conferência de DIREÇÃO na saída', () => {
-  const soElogio = 'A obra foi entregue. O número não é pouco para um bairro.';
-  const soCobranca = 'A obra foi entregue. O material não informa o custo.';
-  const osDois = 'A obra foi entregue. O número não é pouco. Ainda assim, o material não informa o custo.';
+  const soElogio = 'A praça saiu. Cinquenta famílias em uma semana é entrega concreta.';
+  const soCobranca = 'A praça saiu. Dois anos depois do prazo, a Prefeitura não informa o custo.';
+  const osDois = 'A praça saiu. Cinquenta famílias em uma semana é entrega concreta. Sobre o custo, a Prefeitura não informa nada.';
   const seco = 'A Prefeitura entregou a obra da praça nesta semana.';
 
   it('separa reconhecimento de cobrança', () => {
@@ -642,5 +643,105 @@ describe('conferência de DIREÇÃO na saída', () => {
       result: { content: soElogio, model: 'm', interpretation: {}, article: {}, optimization: {}, agents: {} },
     });
     expect(agentes.warnings[0]).toMatch(/pediu comentários NEGATIVOS/);
+  });
+});
+
+describe('intensidade: o comentário é veredito, não anotação', () => {
+  // Terceiro relato de uso real sobre a mesma funcionalidade: os comentários
+  // apareciam e respeitavam a direção, mas saíam discretos demais para o
+  // usuário sentir que escolheu alguma coisa. A culpa era dos EXEMPLOS — eu
+  // ensinava brandura ("o material não informa o custo") e o modelo copiava o
+  // registro do exemplo, não a instrução.
+
+  it('proíbe explicitamente o hedge e a muleta de abertura', () => {
+    const b = A.comentarioBloco('negativos', 'Neutro');
+    expect(b).toMatch(/INTENSIDADE/);
+    ['talvez', 'de certa forma', 'pode-se dizer', 'cabe questionar se',
+      'é importante ressaltar', 'vale destacar'].forEach((m) => expect(b, m).toContain(m));
+    expect(b).toMatch(/Não peça licença para opinar/);
+  });
+
+  it('exige veredito e dá um teste para o modelo se conferir', () => {
+    const b = A.comentarioBloco('positivos', 'Neutro');
+    expect(b).toMatch(/VEREDITO/);
+    expect(b).toMatch(/TESTE FINAL/);
+    expect(b).toMatch(/legenda de foto/);
+    expect(b).toMatch(/assinadas por qualquer lado da discussão/);
+  });
+
+  it('os exemplos contrastam o fraco com o forte em cada direção', () => {
+    // É o item que mais move o resultado: o modelo copia o registro do exemplo.
+    const neg = A.comentarioBloco('negativos', 'Neutro');
+    expect(neg).toMatch(/FRACO \(não faça\): "O material não informa o custo da obra\."/);
+    expect(neg).toMatch(/FORTE \(faça\): .*silêncio sobre o valor é a informação mais eloquente/);
+    const pos = A.comentarioBloco('positivos', 'Neutro');
+    expect(pos).toMatch(/FRACO \(não faça\)/);
+    expect(pos).toMatch(/FORTE \(faça\): .*entrega concreta/);
+  });
+
+  it('libera a força contra ato, dado, prazo, omissão e INSTITUIÇÃO', () => {
+    const b = A.comentarioBloco('negativos', 'Neutro');
+    expect(b).toMatch(/Instituição não é blindada/);
+    expect(b).toMatch(/A Prefeitura não explica/);
+    expect(b).toMatch(/Cobre a conduta pública de quem tem cargo/);
+    expect(b).toMatch(/Conduta é alvo legítimo; caráter não é/);
+  });
+
+  it('a única linha que segura é o ataque ao caráter — e justificada pela força, não por pudor', () => {
+    const b = A.comentarioBloco('negativos', 'Neutro');
+    expect(b).toMatch(/único trecho que um advogado consegue derrubar/);
+    expect(b).toMatch(/é frágil, atacável e diz pouco/);
+    expect(b).toMatch(/devastador, verificável/);
+  });
+
+  it('o lado positivo recebe a mesma carga, não só o negativo', () => {
+    const pos = A.comentarioBloco('positivos', 'Neutro');
+    expect(pos).toMatch(/ENFÁTICA/);
+    expect(pos).toMatch(/elogio morno não serve/i);
+    expect(pos).toMatch(/sem pedir licença/);
+    const amb = A.comentarioBloco('ambos', 'Neutro');
+    expect(amb).toMatch(/os dois lados entram com a mesma convicção/i);
+    expect(amb).toMatch(/dois comentários mornos que se anulam/);
+  });
+
+  it('a crítica dura não afrouxou nenhuma trava de fidelidade', () => {
+    const b = A.comentarioBloco('negativos', 'Neutro');
+    expect(b).toMatch(/COMENTÁRIO COMENTA, NÃO INFORMA/);
+    expect(b).toMatch(/Não impute crime, fraude ou má-fé/);
+    expect(b).toMatch(/presunção de inocência/i);
+    expect(b).toMatch(/Não transforme suspeita em conclusão/);
+  });
+});
+
+describe('as listas de marcação não podem colidir', () => {
+  it('nenhum marcador de um lado é substring de um marcador do outro', () => {
+    // Invariante descoberta na prática: eu havia posto 'é pouco' na cobrança,
+    // e ele é substring de 'não é pouco' (reconhecimento) — todo elogio
+    // passaria a contar como crítica, e "ambos" ficaria satisfeito só com
+    // elogio. Mesmo problema com 'entregou' × 'não entregou'.
+    const colisoes = [];
+    for (const r of A.COMENTARIO_MARCADORES_RECONHECIMENTO) {
+      for (const c of A.COMENTARIO_MARCADORES_COBRANCA) {
+        if (c.includes(r)) colisoes.push(`${r} ⊂ ${c}`);
+        if (r.includes(c)) colisoes.push(`${c} ⊂ ${r}`);
+      }
+    }
+    expect(colisoes).toEqual([]);
+  });
+
+  it('nenhum marcador vira o oposto com um "não" na frente', () => {
+    const perigosos = A.COMENTARIO_MARCADORES_RECONHECIMENTO
+      .filter((r) => A.COMENTARIO_MARCADORES_COBRANCA.some((c) => c === 'não ' + r || c === 'nao ' + r));
+    expect(perigosos).toEqual([]);
+  });
+
+  it('elogio incisivo não é lido como cobrança, e vice-versa', () => {
+    const elogio = 'Cinquenta famílias em uma semana é entrega concreta.';
+    const critica = 'Dois anos depois do prazo, a Prefeitura não informa o custo.';
+    expect(A.comentarioDirecaoAplicada(elogio, 'ambos')).toMatchObject({ reconhecimento: true, cobranca: false });
+    expect(A.comentarioDirecaoAplicada(critica, 'ambos')).toMatchObject({ reconhecimento: false, cobranca: true });
+    // E "ambos" só passa quando os dois estão mesmo lá.
+    expect(A.avisoComentarios('ambos', elogio).length).toBe(1);
+    expect(A.avisoComentarios('ambos', elogio + ' ' + critica)).toEqual([]);
   });
 });

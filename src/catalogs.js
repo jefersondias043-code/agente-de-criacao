@@ -701,38 +701,79 @@ function comentarioValencias(id) {
   }
 }
 
-/* Bloco comum a qualquer direção de comentário: COMO ele entra no texto. */
+/* Vocabulário de MARCAÇÃO da opinião.
+ *
+ * Duas funções, uma lista só. No prompt, é o que ensina a marcar a leitura como
+ * leitura (a exigência jurídica de fronteira visível). Na saída, é o que permite
+ * conferir de forma determinística se a camada foi mesmo aplicada — sem tentar
+ * "detectar opinião" em geral, que é problema semântico, e sim procurar as
+ * construções que a própria ferramenta pediu. Fonte única: mudar aqui muda o
+ * que se ensina E o que se confere, sem risco de um sair de sincronia do outro. */
+const COMENTARIO_MARCADORES = [
+  // Marcação de leitura (servem às duas direções)
+  'chama atenção', 'chama a atenção', 'não é pouco', 'não é trivial', 'não é detalhe',
+  'vale registrar', 'ganha peso', 'pesa mais', 'diz muito', 'é o tipo de',
+  'sinaliza', 'representa', 'é um passo', 'faz diferença',
+  // Cobrança e lacuna (o ângulo sempre disponível)
+  'resta saber', 'deixa em aberto', 'fica em aberto', 'segue sem', 'continua sem',
+  'o material não', 'não informa', 'não explica', 'não detalha', 'não esclarece',
+  'não responde', 'não diz', 'sem que se saiba', 'ainda depende', 'é apertado',
+  'a conferir', 'fica a pergunta', 'a dúvida',
+];
+
+/* Bloco comum a qualquer direção de comentário: COMO ele entra no texto.
+ *
+ * A primeira versão deste bloco não produzia comentário NENHUM, e o motivo é
+ * instrutivo: era feita quase só de tetos — "no máximo um", "melhor faltar do
+ * que forçar", "não force", "se ficou grande, está grande demais". Cercado dos
+ * avisos anti-invenção do resto do prompt, o caminho seguro para o modelo era
+ * não comentar nada, e foi o que ele fez. Um prompt só de limites converge para
+ * zero. Agora existe PISO (todo parágrafo do corpo leva um comentário), a saída
+ * de emergência é o comentário sobre a LACUNA — que está sempre disponível, de
+ * modo que "não havia base" nunca justifica zero — e há exemplos, que os
+ * modelos seguem melhor do que regras. */
 const COMENTARIO_BASE = [
-  '═══ CAMADA DE COMENTÁRIO OPINATIVO (pedida pelo usuário) ═══',
-  'Além de relatar, esta matéria leva COMENTÁRIO: uma leitura opinativa sobre o que cada parágrafo apresenta.',
+  '═══ CAMADA DE COMENTÁRIO OPINATIVO (pedida pelo usuário — não é opcional) ═══',
+  'Além de relatar, esta matéria leva COMENTÁRIO: uma leitura opinativa assumida sobre o que cada parágrafo apresenta.',
   '',
-  'COMO O COMENTÁRIO ENTRA',
-  '• Integrado ao parágrafo, no mesmo fluxo de leitura. NUNCA em bloco separado, entre parênteses, em itálico ou com rótulo do tipo "Comentário:", "Análise:", "Opinião:".',
-  '• No máximo um comentário por parágrafo. Parágrafo que não sustenta comentário fica só com o fato — melhor faltar do que forçar.',
-  '• Sempre DEPOIS do fato que ele comenta: primeiro o leitor sabe o que aconteceu, só então lê a leitura.',
-  '• Uma frase curta, ou a oração final do parágrafo. Se o comentário ficou maior que o fato que o sustenta, ele está grande demais.',
-  '• Varie a construção. Se todo parágrafo termina com a mesma fórmula, vira cacoete e o leitor pula.',
+  'QUANTIDADE — o piso, não o teto',
+  '• CADA parágrafo do corpo leva UM comentário. Um por parágrafo: nem zero, nem dois.',
+  '• O comentário é uma FRASE INTEIRA, própria, normalmente a última do parágrafo. Não é adjetivo solto nem oração subordinada escondida no meio da frase do fato — assim ninguém percebe que ela está lá.',
+  '• "O parágrafo não dava base para comentar" NÃO é resposta aceitável: quando faltar base para elogiar ou criticar, o comentário é sobre a LACUNA (veja abaixo). Essa saída está sempre disponível, então não existe parágrafo sem comentário.',
+  '• Varie a construção entre os parágrafos. Se todos terminam com a mesma fórmula, vira cacoete.',
   '',
   'A REGRA QUE NÃO SE QUEBRA: COMENTÁRIO COMENTA, NÃO INFORMA',
-  '• Ele só pode se apoiar em algo que está literalmente no material. Vale o mesmo teste do resto da matéria: "de onde você tirou isso?" precisa ter resposta apontável.',
+  '• Ele só se apoia em algo que está literalmente no material. Vale o mesmo teste do resto da matéria: "de onde você tirou isso?" precisa ter resposta apontável.',
   '• Nunca é fato novo, comparação que o material não faz, causa deduzida, número estimado nem reação de terceiros que ninguém relatou.',
-  '• A AUSÊNCIA de informação é matéria-prima legítima e forte: "o material não informa o prazo" é comentário honesto e verificável.',
+  '• O COMENTÁRIO DE LACUNA é o mais seguro e o mais forte quando falta base: aponta o que o material deixou de responder. "O material não informa o custo da obra" é verificável, honesto e não inventa nada.',
   '',
   'FRONTEIRA VISÍVEL — exigência jurídica, não capricho de estilo',
-  '• O comentário entra MARCADO como leitura: "o número chama atenção", "o prazo é apertado", "a explicação deixa em aberto", "resta saber".',
+  '• O comentário entra MARCADO como leitura. Use construções como: ' + COMENTARIO_MARCADORES.slice(0, 12).map((m) => `"${m}…"`).join(', ') + '.',
   '• Nunca como veredito disfarçado de notícia: "ficou provado que", "é evidente que houve", "não há dúvida de que".',
   '• Sem adjetivo que desqualifique PESSOA. Comenta-se o ato, o dado, a decisão, o prazo, o silêncio — nunca o caráter de alguém.',
   '• Em pauta de crime ou apuração, o comentário obedece à presunção de inocência e à fase processual igual ao resto do texto.',
+  '',
+  'FORMA — o comentário é do texto, não um puxadinho',
+  '• Integrado ao parágrafo, no mesmo fluxo de leitura. NUNCA em bloco separado, entre parênteses, em itálico, em nota ou com rótulo do tipo "Comentário:", "Análise:", "Opinião:".',
+  '• Sempre DEPOIS do fato que ele comenta: primeiro o leitor sabe o que aconteceu, só então lê a leitura.',
 ].join('\n');
 
-/* Direção do comentário. Cada bloco entra junto do COMENTARIO_BASE. */
+/* Direção do comentário. Cada bloco entra junto do COMENTARIO_BASE.
+   Os exemplos são o item que mais muda o resultado: mostram o parágrafo ANTES
+   (só fato) e DEPOIS (fato + comentário), deixando visível o tamanho e o lugar
+   exatos do que se pede. */
 const COMENTARIO_PROMPTS = {
   positivos: [
     'DIREÇÃO DO COMENTÁRIO: POSITIVA.',
     '• Reforce o que o material apresenta de positivo: o que avança, o que atende, o que resolve, o que é inédito, quem é beneficiado.',
     '• Ancore cada elogio num fato daquele parágrafo. Elogio genérico ("uma grande iniciativa", "um passo importante") não vale nada; elogio ancorado vale ("o valor cobre a fila inteira que o próprio material descreve").',
-    '• Se o parágrafo não trouxer nada de positivo, NÃO force: fique só com o fato. Elogiar o que não existe é invenção, e invenção continua proibida.',
     '• Entusiasmo não autoriza superlativo sem base: "o maior da região" só entra se o material disser isso.',
+    '• Sem nada de positivo no parágrafo, o comentário vira reconhecimento do que o dado permite ("é o primeiro número que o material apresenta sobre o atendimento") — nunca elogio inventado.',
+    '',
+    'EXEMPLO (o mesmo parágrafo, sem e com comentário):',
+    'SEM: "A Prefeitura entregou 50 cestas básicas a moradores do Calabar nesta semana."',
+    'COM: "A Prefeitura entregou 50 cestas básicas a moradores do Calabar nesta semana. O número não é pouco para uma ação semanal de bairro."',
+    '(O comentário é uma frase inteira, vem depois do fato e se apoia no número que já estava lá.)',
   ].join('\n'),
 
   negativos: [
@@ -740,20 +781,50 @@ const COMENTARIO_PROMPTS = {
     '• Desenvolva argumento crítico sobre os fatos — INCLUSIVE quando o material for elogioso. O material anuncia; o comentário pergunta o que ele não responde.',
     '• Ângulos legítimos, todos ancorados no próprio material: o que ficou de fora (prazo, custo, responsável, quantas pessoas); o tamanho do que foi feito diante do que o próprio material descreve; o tempo que se levou; o que segue em aberto; a distância entre o anúncio e a entrega.',
     '• A crítica recai sobre O ATO, O DADO, A DECISÃO, O PRAZO ou A AUSÊNCIA — nunca sobre a pessoa. "A obra levou dois anos além do prazo" é crítica; "o secretário é incompetente" é ofensa e não entra.',
-    '• NÃO invente o defeito. Sem base no parágrafo, comente a lacuna ("o material não informa o custo") ou deixe o parágrafo sem comentário.',
+    '• NÃO invente o defeito. Sem base para criticar o mérito, critique a LACUNA — ela quase sempre existe e é o ângulo mais sólido que você tem.',
     '• Crítica não é acusação: não impute crime, fraude, desvio ou má-fé sem que o material traga a apuração — e, se trouxer, com a fase processual e a atribuição corretas.',
     '• Não transforme suspeita em conclusão. "O material não explica por que o prazo dobrou" é forte e seguro; "houve superfaturamento" sem apuração é temerário.',
+    '',
+    'EXEMPLO (o mesmo parágrafo, sem e com comentário):',
+    'SEM: "A Prefeitura entregou 50 cestas básicas a moradores do Calabar nesta semana."',
+    'COM: "A Prefeitura entregou 50 cestas básicas a moradores do Calabar nesta semana. O material não informa quantas famílias do bairro seguem na fila, o que deixa em aberto o alcance real da entrega."',
+    '(A crítica não inventa defeito: cobra o que o próprio material deixou de responder.)',
   ].join('\n'),
 
   ambos: [
     'DIREÇÃO DO COMENTÁRIO: OS DOIS LADOS.',
     '• A matéria carrega elogio E crítica, cada um ancorado no que o seu parágrafo traz. Não é alternância mecânica um-para-um: é reconhecer o que avança e cobrar o que falta.',
     '• Construção preferida: o contraste dentro do mesmo movimento — "o programa cobre as 200 famílias listadas; o material não diz o que acontece com quem ficou fora da lista".',
-    '• Nem todo parágrafo precisa dos dois lados: um pode levar só elogio, outro só crítica. O que a matéria INTEIRA não pode é terminar com um lado só — se acabou assim, o modo escolhido foi o errado.',
-    '• Elogio e crítica não podem se anular na mesma frase a ponto de o leitor não saber o que foi dito. Cada um vale por si, com o fato que o sustenta.',
-    '• Equilibrar não é amornar: os dois lados entram com a mesma clareza, não como ressalva tímida um do outro.',
+    '• Cada parágrafo continua levando UM comentário. O que varia é a direção dele: um parágrafo pode receber o reconhecimento, o seguinte a cobrança.',
+    '• A matéria INTEIRA não pode terminar com um lado só. Se ao revisar você vir que só elogiou (ou só criticou), refaça o comentário de pelo menos um parágrafo.',
+    '• Elogio e crítica não podem se anular na mesma frase a ponto de o leitor não saber o que foi dito. Equilibrar não é amornar: cada um entra com clareza, não como ressalva tímida do outro.',
+    '',
+    'EXEMPLO (dois parágrafos seguidos, com direções diferentes):',
+    'P1: "A Prefeitura entregou 50 cestas básicas no Calabar nesta semana. Para uma ação semanal de bairro, o número não é pouco."',
+    'P2: "A distribuição integra o programa de assistência social do município. O material não informa quantas famílias seguem na fila, o que deixa em aberto o alcance do programa."',
   ].join('\n'),
 };
+
+/**
+ * A camada de comentário aparece no texto gerado?
+ *
+ * NÃO é um detector de opinião — isso é problema semântico, e a ferramenta já
+ * aprendeu (na Narrativa, com a heurística de palavras em comum) o preço de
+ * fingir que uma varredura lexical decide questão de sentido. O que esta função
+ * faz é estreito e honesto: procura as CONSTRUÇÕES DE MARCAÇÃO que o próprio
+ * prompt mandou usar. Nenhuma delas presente é sinal forte de que o modelo
+ * ignorou a instrução — o caso que o usuário relatou, em que o controle ficava
+ * visível e a matéria saía exatamente igual, sem nada avisando.
+ *
+ * Falso positivo (achar marca onde não houve camada) apenas silencia o aviso —
+ * o mesmo que antes. Por isso a lista é generosa: o erro caro aqui é acusar
+ * quem cumpriu.
+ */
+function comentarioAplicado(texto) {
+  const t = String(texto || '').toLowerCase();
+  if (!t.trim()) return false;
+  return COMENTARIO_MARCADORES.some((m) => t.indexOf(m) !== -1);
+}
 
 /**
  * Monta o bloco completo de comentário para injetar num prompt. Devolve string

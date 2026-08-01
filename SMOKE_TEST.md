@@ -50,6 +50,10 @@ No navegador (http://localhost:8080):
       pode sair celebrando; com Positivos, nenhum pode virar cobrança; com Ambos, os dois lados
       têm de aparecer. Se a IA desviar da direção (ou não comentar), a matéria vem com aviso
       âmbar dizendo exatamente o que faltou, em vez de sair em silêncio.
+      **Intensidade**: o comentário tem de soar como veredito, não como observação. Lendo só as
+      frases de comentário em sequência, deve dar para dizer de que lado a matéria está. Se
+      saírem mornas ("o material não informa o custo" e pouco mais), o modelo copiou o registro
+      fraco — gerar de novo ou trocar por um modelo maior.
 - [ ] **Extrair**: dropzone aparece; histórico vazio com empty-state. Aceita imagem/áudio/vídeo.
       **OCR**: uma foto com texto sobre fundo complexo é reconhecida (pré-processamento +
       limiar adaptativo); a barra de progresso avança. **Vídeo grande** (> 25 MB, com chave

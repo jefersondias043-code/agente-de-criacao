@@ -85,7 +85,12 @@ const NARR_PERGUNTAS = [
 
 /* Cada formato carrega a ESTRUTURA (os beats) que o prompt entrega ao modelo.
    O que muda entre plataformas não é o tom — é onde o desejo, o obstáculo e o
-   risco aparecem no tempo. Por isso a estrutura vive junto do formato. */
+   risco aparecem no tempo. Por isso a estrutura vive junto do formato.
+
+   `elencoMax` = quantos personagens ALÉM do protagonista o formato sustenta.
+   Não é regra de gosto: em 30 segundos não dá tempo de o espectador aprender
+   quem é quem. Cinco nomes num Reels viram ruído; num roteiro de 10 minutos,
+   não. O diagnóstico usa esse número para avisar (nunca para travar). */
 const NARR_FORMATOS = [
   {
     id: 'reels',
@@ -99,6 +104,7 @@ const NARR_FORMATOS = [
       '45–60s FECHAMENTO: uma frase que devolve o tema a quem assiste, seguida de uma chamada natural (comentar, salvar, seguir).',
       'Escreva a FALA — o que sai da boca —, não a descrição da cena. Marque cada bloco com o tempo.',
     ],
+    elencoMax: 2,
   },
   {
     id: 'carrossel',
@@ -113,6 +119,7 @@ const NARR_FORMATOS = [
       'Último slide — FECHAMENTO: a frase que a pessoa quer repetir + a chamada.',
       'Formate como "SLIDE 1 —" em cada bloco. Máximo de 30 palavras por slide.',
     ],
+    elencoMax: 3,
   },
   {
     id: 'legenda',
@@ -124,6 +131,7 @@ const NARR_FORMATOS = [
       'FECHAMENTO: uma frase de sentido + uma pergunta genuína que dê vontade de responder.',
       'Depois do texto, sugira de 5 a 8 hashtags em uma única linha.',
     ],
+    elencoMax: 3,
   },
   {
     id: 'stories',
@@ -137,6 +145,7 @@ const NARR_FORMATOS = [
       'ÚLTIMA TELA: a virada e uma interação (caixinha de pergunta, enquete ou "responde aqui").',
       'Cada tela deve terminar em um gancho que obrigue a tocar na próxima.',
     ],
+    elencoMax: 2,
   },
   {
     id: 'youtube',
@@ -150,6 +159,7 @@ const NARR_FORMATOS = [
       'FECHAMENTO: o sentido do que aconteceu + a chamada.',
       'Marque cada bloco com o nome do ato. Escreva a fala corrida, não tópicos.',
     ],
+    elencoMax: 5,
   },
   {
     id: 'thread',
@@ -162,6 +172,7 @@ const NARR_FORMATOS = [
       'Cada post precisa fazer sentido sozinho e ainda assim puxar o próximo.',
       'Último post: fechamento + chamada.',
     ],
+    elencoMax: 3,
   },
   {
     id: 'newsletter',
@@ -174,6 +185,7 @@ const NARR_FORMATOS = [
       'FECHAMENTO: o que isso significa para quem lê.',
       'De 400 a 800 palavras, salvo indicação de tamanho diferente.',
     ],
+    elencoMax: 5,
   },
   {
     id: 'ganchos',
@@ -185,7 +197,37 @@ const NARR_FORMATOS = [
       'Máximo de 15 palavras cada. Nenhum pode começar com pergunta retórica batida ("você já parou para pensar").',
       'Nenhum gancho pode entregar o desfecho.',
     ],
+    elencoMax: 1,
   },
+  {
+    id: 'dialogo',
+    label: 'Diálogo / esquete — duas vozes ou mais',
+    desc: 'Cena falada entre os personagens, com rubricas curtas. Precisa de elenco.',
+    estrutura: [
+      'Escreva como cena: "NOME:" antes de cada fala, rubrica de ação entre parênteses e curta.',
+      'ABERTURA: entre no meio da conversa, já em atrito. Nada de cumprimento nem apresentação.',
+      'MEIO: o desejo do protagonista bate no que o outro personagem quer. É esse choque que segura a cena.',
+      'VIRADA: alguém diz o que estava calado — e o que está em jogo aparece na fala, não na narração.',
+      'FECHAMENTO: uma última fala curta que deixa a decisão no ar ou a devolve para quem assiste.',
+      'Ninguém explica a própria motivação em voz alta: a intenção aparece no que a pessoa faz e evita dizer.',
+      'Se nenhum outro personagem tiver sido declarado, escreva como monólogo com fala relatada — não invente um personagem.',
+    ],
+    elencoMax: 3,
+  },
+];
+
+/* Papéis do elenco. São DECLARADOS pelo usuário num select, nunca inferidos do
+   texto — a lição da heurística de palavras em comum que precisou ser removida
+   vale aqui em dobro: adivinhar a função de um personagem por vocabulário erraria
+   contra quem escreve bem. Declarado, o papel vira dado confiável: o diagnóstico
+   e o prompt sabem exatamente o que cada um faz com o desejo do protagonista. */
+const NARR_PAPEIS = [
+  { id: 'antagonista', label: 'Antagonista', desc: 'Quer o oposto. É a força que trava o protagonista.' },
+  { id: 'rival', label: 'Rival', desc: 'Quer a mesma coisa. Só um consegue.' },
+  { id: 'aliado', label: 'Aliado', desc: 'Ajuda — e a ajuda cobra um preço.' },
+  { id: 'mentor', label: 'Mentor', desc: 'Ensina o que falta, mas não resolve no lugar dele.' },
+  { id: 'vinculo', label: 'Vínculo', desc: 'A relação em jogo: por quem ele faz, ou o que ele perde se seguir.' },
+  { id: 'testemunha', label: 'Testemunha', desc: 'Vê de fora e conta. Não decide nada.' },
 ];
 
 /* Tons pensados para conteúdo de criador — não para jornalismo (esse catálogo
@@ -281,6 +323,75 @@ function narrEhAusencia(texto) {
   return /^(nada|ninguem|nenhum[ao]?)( o| me| lhe)?( impede| impedia| atrapalha| trava)?$/.test(n) ||
     /^(nao (perde|arrisca|arriscaria|tem|ha)( nada)?)$/.test(n) ||
     /^nao sei( ainda)?$/.test(n);
+}
+
+/* ----- Elenco -----
+   O lema fala de UM protagonista, e é dele o desejo que impulsiona a narrativa.
+   O elenco não muda isso: os três portões continuam sendo as três perguntas do
+   protagonista. O que o elenco ganha é um teste mais leve, derivado da mesma
+   frase de abertura — "se o seu protagonista não deseja conquistar nada, sua
+   história perde a força": um personagem que não quer nada é cenário com nome.
+   Isso AVISA, não trava, porque quem decide o peso de cada figura é quem escreve. */
+
+function narrElenco(n) {
+  const lista = (n && Array.isArray(n.elenco)) ? n.elenco : [];
+  // Linhas recém-adicionadas e ainda em branco não são defeito — são o cursor
+  // do usuário. Só entram no diagnóstico quando têm nome ou desejo.
+  return lista.filter((p) => p && (String(p.nome || '').trim() || String(p.quer || '').trim()));
+}
+
+function narrPapel(id) {
+  return NARR_PAPEIS.find((p) => p.id === id) || NARR_PAPEIS[0];
+}
+
+/** Avisos do elenco. Um aviso por TIPO de defeito, listando os nomes — assim o
+ *  placar não desaba por ter muitos personagens, só por ter muitos problemas. */
+function narrAvisosElenco(elenco, formato, protagonista) {
+  const avisos = [];
+  if (!elenco.length) {
+    if (formato && formato.id === 'dialogo') {
+      avisos.push('O formato Diálogo pede pelo menos um personagem além do protagonista — sem elenco, sai um monólogo. Adicione quem está do outro lado da conversa ou troque de formato.');
+    }
+    return avisos;
+  }
+
+  const semNome = elenco.filter((p) => !String(p.nome || '').trim());
+  if (semNome.length) {
+    avisos.push(`${semNome.length === 1 ? 'Um personagem está' : `${semNome.length} personagens estão`} sem nome. Quem não tem nome não é lembrado — e quem não é lembrado não sustenta uma cena.`);
+  }
+
+  const semDesejo = elenco.filter((p) => String(p.nome || '').trim() && !String(p.quer || '').trim());
+  if (semDesejo.length) {
+    const nomes = semDesejo.map((p) => p.nome.trim()).join(', ');
+    const soAntagonistas = semDesejo.every((p) => p.papel === 'antagonista' || p.papel === 'rival');
+    avisos.push(soAntagonistas
+      ? `${nomes}: um antagonista que não quer nada não consegue se opor a nada. Diga o que ele quer — é o choque entre os dois desejos que cria o conflito.`
+      : `${nomes} não quer nada. Personagem sem desejo é cenário com nome: ou dê a ele um objetivo próprio, ou corte.`);
+  }
+
+  const vistos = new Set();
+  const repetidos = new Set();
+  elenco.forEach((p) => {
+    const chave = narrNorm(p.nome);
+    if (!chave) return;
+    if (vistos.has(chave)) repetidos.add(p.nome.trim());
+    vistos.add(chave);
+  });
+  if (repetidos.size) {
+    avisos.push(`Nome repetido no elenco: ${[...repetidos].join(', ')}. Dois personagens com o mesmo nome confundem quem lê.`);
+  }
+
+  const prot = narrNorm(protagonista);
+  if (prot && vistos.has(prot)) {
+    avisos.push('O protagonista está listado também no elenco. Ele já é o centro da história — no elenco vai só quem gira em volta dele.');
+  }
+
+  const max = (formato && typeof formato.elencoMax === 'number') ? formato.elencoMax : 3;
+  if (elenco.length > max) {
+    avisos.push(`${elenco.length} personagens além do protagonista para o formato "${formato.label}" — ele sustenta cerca de ${max}. Quem não mexe no desejo, no obstáculo ou no risco pode sair sem prejuízo.`);
+  }
+
+  return avisos;
 }
 
 function _check(id, status, mensagem, dica) {
@@ -406,6 +517,8 @@ function diagnosticarNarrativa(n) {
   if (obstaculo && risco && narrNorm(obstaculo) === narrNorm(risco)) {
     avisos.push('O obstáculo e o risco estão iguais. São coisas diferentes: o obstáculo é o que impede de conseguir; o risco é o que se perde por tentar.');
   }
+  const elenco = narrElenco(dados);
+  narrAvisosElenco(elenco, narrFormato(dados.formatoId), protagonista).forEach((a) => avisos.push(a));
 
   let score = 100;
   perguntas.forEach((p) => {
@@ -429,7 +542,7 @@ function diagnosticarNarrativa(n) {
     resumo = 'Você tem uma história: alguém quer algo, alguma coisa impede e há um preço a pagar.';
   }
 
-  return { veredito, pronto: veredito === 'historia', score, perguntas, avisos, resumo };
+  return { veredito, pronto: veredito === 'historia', score, perguntas, avisos, resumo, elenco: elenco.length };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -463,6 +576,28 @@ function narrBlocoHistoria(n) {
   return linhas.join('\n');
 }
 
+/** Bloco do elenco. Só existe quando há elenco — sem personagens, nem o
+ *  cabeçalho entra (um cabeçalho vazio convida o modelo a preencher). */
+function narrBlocoElenco(n) {
+  const elenco = narrElenco(n);
+  if (!elenco.length) return '';
+  const linhas = ['== ELENCO (além do protagonista) =='];
+  elenco.forEach((p) => {
+    const papel = narrPapel(p.papel);
+    const nome = String(p.nome || '').trim() || 'Personagem sem nome';
+    const quer = String(p.quer || '').trim();
+    linhas.push(`- ${nome} — ${papel.label}: ${papel.desc}${quer ? ` Quer: ${quer}` : ' (o que essa pessoa quer não foi declarado — não invente; mantenha-a em segundo plano.)'}`);
+  });
+  linhas.push('');
+  linhas.push('REGRAS DO ELENCO:');
+  linhas.push('- O centro continua sendo o protagonista: é o desejo DELE que impulsiona a narrativa. Ninguém do elenco toma a história para si.');
+  linhas.push('- Cada personagem só entra na cena em que afeta o desejo, o obstáculo ou o risco do protagonista. Quem não afeta, não aparece.');
+  linhas.push('- O conflito nasce do choque entre o que o protagonista quer e o que os outros querem — não de mal-entendido nem de coincidência.');
+  linhas.push('- Não crie personagens além dos listados. Figurantes necessários ficam sem nome ("o fiscal", "a vizinha").');
+  linhas.push('- Use os nomes exatamente como estão escritos acima.');
+  return linhas.join('\n');
+}
+
 /**
  * Prompt de PRODUÇÃO: transforma a estrutura validada em conteúdo publicável.
  * O lema entra como regra de escrita — não como enfeite —, e a estrutura do
@@ -482,6 +617,8 @@ function buildNarrativaPrompt(opcoes) {
   linhas.push(narrBlocoLema());
   linhas.push('');
   linhas.push(narrBlocoHistoria(n));
+  const elenco = narrBlocoElenco(n);
+  if (elenco) { linhas.push(''); linhas.push(elenco); }
   linhas.push('');
   linhas.push(`== FORMATO: ${f.label} ==`);
   linhas.push(f.desc);
@@ -511,7 +648,12 @@ function buildNarrativaPrompt(opcoes) {
   linhas.push('5. Nada de clichê de abertura ("você já parou para pensar", "hoje eu vou falar sobre", "prepare-se").');
   linhas.push('6. Frases curtas. Voz ativa. Corte qualquer adjetivo que não mude o sentido.');
   linhas.push('7. No máximo 2 emojis no total, e só se o tom pedir.');
-  linhas.push('8. Devolva SOMENTE o conteúdo final, seguindo a estrutura do formato. Sem introdução, sem explicação, sem comentário sobre o texto.');
+  if (elenco) {
+    linhas.push('8. Todo personagem citado tem de estar no elenco acima, com o nome escrito igual. Ninguém novo entra com nome próprio.');
+    linhas.push('9. Devolva SOMENTE o conteúdo final, seguindo a estrutura do formato. Sem introdução, sem explicação, sem comentário sobre o texto.');
+  } else {
+    linhas.push('8. Devolva SOMENTE o conteúdo final, seguindo a estrutura do formato. Sem introdução, sem explicação, sem comentário sobre o texto.');
+  }
 
   return { prompt: linhas.join('\n'), formato: f, tom: t, tamanho: tam };
 }
@@ -532,8 +674,14 @@ function buildExtracaoNarrativaPrompt(ideia) {
     '',
     '== TAREFA ==',
     'Leia a ideia e responda às três perguntas do lema com base APENAS no que está escrito.',
+    'Identifique também as OUTRAS pessoas que aparecem na ideia e o papel de cada uma em relação ao objetivo do protagonista.',
     'REGRA CRÍTICA: se a ideia não permitir responder alguma pergunta, devolva string vazia ("") naquele campo.',
-    'NÃO invente desejo, obstáculo nem risco que não estejam sugeridos no material. Um campo vazio é uma resposta útil — uma invenção não é.',
+    'NÃO invente desejo, obstáculo, risco nem personagens que não estejam no material. Um campo vazio é uma resposta útil — uma invenção não é.',
+    'Só entra no elenco quem age sobre o objetivo do protagonista. Quem é apenas mencionado de passagem fica de fora.',
+    'O protagonista NÃO entra no elenco.',
+    '',
+    'Papéis possíveis (use exatamente um destes identificadores):',
+    NARR_PAPEIS.map((p) => `  ${p.id} — ${p.desc}`).join('\n'),
     '',
     'Devolva SOMENTE um objeto JSON, sem cercas de código e sem comentários, neste formato:',
     '{',
@@ -541,8 +689,10 @@ function buildExtracaoNarrativaPrompt(ideia) {
     '  "desejo": "o objetivo concreto, começando por verbo",',
     '  "obstaculo": "a força que impede esse objetivo",',
     '  "risco": "o que essa pessoa perde se falhar",',
+    '  "elenco": [{ "nome": "", "papel": "antagonista", "quer": "" }],',
     '  "falta": "em uma frase, o que a ideia ainda não responde (ou string vazia)"',
     '}',
+    'Se não houver mais ninguém além do protagonista, devolva "elenco": [].',
   ].join('\n');
 }
 
@@ -565,11 +715,17 @@ function buildAfiacaoNarrativaPrompt(n) {
       ideia: d.ideia || '',
       publico: d.publico || '',
     }),
+    narrBlocoElenco(d),
     '',
     '== TAREFA ==',
     'Reescreva as três respostas mantendo os MESMOS fatos, porém mais concretas: com objeto, prazo e consequência visíveis.',
     'Não troque a história por outra. Não acrescente fatos novos — só torne explícito o que já está implícito.',
     'Proponha também uma escalada: três obstáculos em ordem crescente de dificuldade, mostrando que o caminho fica pior antes de melhorar.',
+    // Julgar se um personagem serve à história é tarefa de sentido, não de
+    // contagem de palavras — por isso mora aqui, no agente que lê, e não no
+    // diagnóstico local, que só afirma o que é decidível pelo texto.
+    'Sobre o ELENCO (se houver): para cada personagem, diga em uma frase o que ele faz COM o objetivo do protagonista — empurra, trava, cobra um preço ou observa.',
+    'Se algum personagem não afetar o desejo, o obstáculo nem o risco do protagonista, aponte-o como dispensável. Não invente personagem novo.',
     '',
     'Devolva SOMENTE um objeto JSON, sem cercas de código, neste formato:',
     '{',
@@ -577,6 +733,7 @@ function buildAfiacaoNarrativaPrompt(n) {
     '  "obstaculo": "versão mais concreta",',
     '  "risco": "versão mais concreta",',
     '  "escalada": ["obstáculo 1", "obstáculo 2 (pior)", "obstáculo 3 (o pior)"],',
+    '  "elenco": [{ "nome": "igual ao recebido", "funcao": "o que faz com o objetivo do protagonista", "dispensavel": false }],',
     '  "porque": "em uma frase, o que ficou mais forte"',
     '}',
   ].join('\n');
@@ -589,15 +746,25 @@ function buildAfiacaoNarrativaPrompt(n) {
 function narrativaVazia() {
   return {
     ideia: '', protagonista: '', desejo: '', obstaculo: '', risco: '',
+    elenco: [],                 // personagens além do protagonista
     publico: '', formatoId: 'reels', tomId: 'direto', tamanhoId: 'medio',
     perfilIndex: -1, cta: '',   // -1 = nenhum perfil (os perfis começam vazios)
   };
+}
+
+/** Linha nova do elenco. O papel padrão é "antagonista" porque é o que a
+ *  maioria das histórias precisa primeiro — quem se opõe ao desejo. */
+function narrPersonagemNovo() {
+  return { id: uuid(), nome: '', papel: 'antagonista', quer: '' };
 }
 
 /** Rascunho atual (o que está nos campos). Persistido a cada digitação para
  *  que trocar de ferramenta — ou fechar o app — nunca custe o trabalho. */
 function narrativaDraft() {
   if (!State.narrativaDraft) State.narrativaDraft = narrativaVazia();
+  // Migração: rascunhos e histórias salvos antes do elenco não têm o campo.
+  // Sem isto, a primeira leitura de um rascunho antigo quebraria o render.
+  if (!Array.isArray(State.narrativaDraft.elenco)) State.narrativaDraft.elenco = [];
   return State.narrativaDraft;
 }
 function saveNarrativaDraft() {
@@ -652,6 +819,104 @@ function narrPreencher() {
   });
   const perfil = $('#n-perfil');
   if (perfil) perfil.value = String(typeof d.perfilIndex === 'number' ? d.perfilIndex : -1);
+  narrAtualizarDescricoes();
+}
+
+/** Sincroniza as legendas de formato/tom/extensão com o que os selects mostram.
+ *  Mora junto de narrPreencher (que é quem escreve os selects a partir do
+ *  modelo) porque toda vez que os dois saíram de sincronia foi por alguém
+ *  trocar o valor sem repintar a legenda — reabrir do histórico mostrava o
+ *  formato certo com a descrição do formato anterior. */
+function narrAtualizarDescricoes() {
+  const par = [
+    ['#n-formatoId', '#n-formato-desc', narrFormato],
+    ['#n-tomId', '#n-tom-desc', narrTom],
+    ['#n-tamanhoId', '#n-tamanho-desc', narrTamanho],
+  ];
+  par.forEach(([sel, alvo, resolve]) => {
+    const s = $(sel), a = $(alvo);
+    if (s && a) a.textContent = resolve(s.value).desc;
+  });
+}
+
+/* ----- Elenco: lista editável -----
+   A lista é pintada UMA vez por mudança estrutural (adicionar/remover/carregar).
+   Digitar num campo NÃO repinta a lista: o handler escreve direto no modelo e só
+   o diagnóstico é redesenhado. Repintar a cada tecla arrancaria o foco do campo
+   e o usuário perderia a posição do cursor a cada letra. */
+function renderNarrElenco() {
+  const host = $('#n-elenco-list');
+  if (!host) return;
+  const d = narrativaDraft();
+  const lista = d.elenco;
+
+  if (!lista.length) {
+    host.innerHTML = `
+      <div class="narr-cast-empty">
+        Só o protagonista, por enquanto. Adicione quem empurra, trava ou cobra um preço — e o que essa pessoa quer.
+      </div>`;
+    return;
+  }
+
+  const opcoes = (sel) => NARR_PAPEIS.map((p) =>
+    `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${escapeHtml(p.label)}</option>`).join('');
+
+  host.innerHTML = lista.map((p, i) => `
+    <div class="narr-cast" data-cast="${i}">
+      <div class="narr-cast-row">
+        <input class="input narr-cast-nome" data-cast-campo="nome" placeholder="Nome"
+               value="${escapeHtml(p.nome || '')}" aria-label="Nome do personagem ${i + 1}" />
+        <select class="select narr-cast-papel" data-cast-campo="papel" aria-label="Papel do personagem ${i + 1}">
+          ${opcoes(p.papel)}
+        </select>
+        <button type="button" class="btn btn-ghost btn-sm narr-cast-del" data-cast-del="${i}"
+                title="Remover personagem" aria-label="Remover personagem ${i + 1}">✕</button>
+      </div>
+      <input class="input" data-cast-campo="quer" placeholder="O que essa pessoa quer?"
+             value="${escapeHtml(p.quer || '')}" aria-label="Desejo do personagem ${i + 1}" />
+      <div class="narr-cast-hint">${escapeHtml(narrPapel(p.papel).desc)}</div>
+    </div>`).join('');
+
+  host.querySelectorAll('.narr-cast').forEach((linha) => {
+    const i = parseInt(linha.dataset.cast, 10);
+    linha.querySelectorAll('[data-cast-campo]').forEach((campo) => {
+      const chave = campo.dataset.castCampo;
+      const atualizar = () => {
+        if (!d.elenco[i]) return;
+        d.elenco[i][chave] = campo.value;
+        // O papel muda a dica exibida; nome e desejo não mexem no layout.
+        if (chave === 'papel') {
+          const dica = linha.querySelector('.narr-cast-hint');
+          if (dica) dica.textContent = narrPapel(campo.value).desc;
+        }
+        renderNarrDiagnostico();   // já persiste (narrColetar)
+      };
+      campo.addEventListener(chave === 'papel' ? 'change' : 'input', atualizar);
+    });
+  });
+
+  host.querySelectorAll('[data-cast-del]').forEach((b) => {
+    b.onclick = () => {
+      const i = parseInt(b.dataset.castDel, 10);
+      d.elenco.splice(i, 1);
+      saveNarrativaDraft();
+      renderNarrElenco();
+      renderNarrDiagnostico();
+    };
+  });
+}
+
+function narrAdicionarPersonagem(dados) {
+  const d = narrativaDraft();
+  d.elenco.push(Object.assign(narrPersonagemNovo(), dados || {}));
+  saveNarrativaDraft();
+  renderNarrElenco();
+  renderNarrDiagnostico();
+  // Leva o cursor direto ao nome recém-criado: adicionar e ter de clicar no
+  // campo é um passo a mais em toda vez que se monta um elenco.
+  const campos = $$('#n-elenco-list .narr-cast-nome');
+  const ultimo = campos[campos.length - 1];
+  if (ultimo && !dados) ultimo.focus();
 }
 
 function narrStatusIcone(status) {
@@ -730,6 +995,25 @@ function narrAplicarSugestao(obj, opcoes) {
     if (el) el.value = valor;
     mudou++;
   });
+
+  // Elenco sugerido: só entra se o usuário ainda não montou o dele. Mesclar
+  // duas listas de personagens automaticamente geraria duplicatas silenciosas
+  // ("Marlene" e "Dona Marlene") — pior do que não sugerir nada.
+  const sugerido = Array.isArray(obj && obj.elenco) ? obj.elenco : [];
+  if (sugerido.length && !narrElenco(d).length) {
+    const papeisValidos = NARR_PAPEIS.map((x) => x.id);
+    d.elenco = sugerido
+      .filter((p) => p && String(p.nome || '').trim())
+      .slice(0, 6)
+      .map((p) => Object.assign(narrPersonagemNovo(), {
+        nome: String(p.nome).trim(),
+        papel: papeisValidos.indexOf(p.papel) !== -1 ? p.papel : 'antagonista',
+        quer: String(p.quer || '').trim(),
+      }));
+    mudou += d.elenco.length;
+    renderNarrElenco();
+  }
+
   saveNarrativaDraft();
   renderNarrDiagnostico();
   return mudou;
@@ -747,6 +1031,26 @@ async function narrChamarIA(btn, rotuloCarregando, prompt) {
     btn.disabled = false;
     btn.innerHTML = original;
   }
+}
+
+/** Parecer do "Afiar" sobre o elenco: o que cada personagem faz com o objetivo
+ *  do protagonista, e quem sobra. É a checagem de sentido que o diagnóstico
+ *  local não pode fazer — por isso vem rotulada como opinião da IA, e nada é
+ *  removido automaticamente: cortar personagem é decisão de quem escreve. */
+function narrParecerElenco(lista) {
+  const itens = (Array.isArray(lista) ? lista : [])
+    .filter((p) => p && String(p.nome || '').trim());
+  if (!itens.length) return '';
+  return `
+    <div class="narr-escalada">
+      <div class="narr-escalada-title">O que cada personagem faz pela história</div>
+      <ul class="narr-parecer">${itens.map((p) => `
+        <li${p.dispensavel ? ' class="narr-parecer-corta"' : ''}>
+          <strong>${escapeHtml(String(p.nome).trim())}</strong>${p.funcao ? ' — ' + escapeHtml(String(p.funcao)) : ''}
+          ${p.dispensavel ? '<span class="badge warn">pode sair</span>' : ''}
+        </li>`).join('')}</ul>
+      <div class="text-xs text-mute">Leitura da IA sobre o elenco que você montou. Nada foi removido — a decisão é sua.</div>
+    </div>`;
 }
 
 function narrEscalada(lista) {
@@ -861,6 +1165,7 @@ function renderNarrHistorico() {
       State.narrativaDraft = Object.assign(narrativaVazia(), it.narrativa || {});
       saveNarrativaDraft();
       narrPreencher();
+      renderNarrElenco();
       renderNarrDiagnostico();
       renderNarrResultado(it);
       fecharNarrHistorico();
@@ -935,15 +1240,7 @@ function renderNarrativa() {
 
   narrPreencher();
 
-  const atualizarDesc = () => {
-    const f = narrFormato($('#n-formatoId').value);
-    const t = narrTom($('#n-tomId').value);
-    const tam = narrTamanho($('#n-tamanhoId').value);
-    const dF = $('#n-formato-desc'); if (dF) dF.textContent = f.desc;
-    const dT = $('#n-tom-desc'); if (dT) dT.textContent = t.desc;
-    const dTam = $('#n-tamanho-desc'); if (dTam) dTam.textContent = tam.desc;
-  };
-  atualizarDesc();
+  narrAtualizarDescricoes();
 
   // Aviso de chave de API — as três ações de IA dependem dela; o diagnóstico não.
   const aviso = $('#n-api-warning');
@@ -977,10 +1274,14 @@ function renderNarrativa() {
     });
     ['formatoId', 'tomId', 'tamanhoId'].forEach((c) => {
       const el = $('#n-' + c);
-      if (el) el.addEventListener('change', () => { narrColetar(); atualizarDesc(); });
+      // O diagnóstico também é redesenhado: o limite de elenco vem do formato,
+      // então trocar de Reels para vídeo longo muda o que é excesso de gente.
+      if (el) el.addEventListener('change', () => { narrAtualizarDescricoes(); renderNarrDiagnostico(); });
     });
     const perfilSel = $('#n-perfil');
     if (perfilSel) perfilSel.addEventListener('change', () => narrColetar());
+
+    if ($('#n-elenco-add')) $('#n-elenco-add').onclick = () => narrAdicionarPersonagem();
 
     if ($('#n-history-open')) $('#n-history-open').onclick = abrirNarrHistorico;
     if ($('#n-history-close')) $('#n-history-close').onclick = fecharNarrHistorico;
@@ -999,7 +1300,7 @@ function renderNarrativa() {
       State.narrativaDraft = narrativaVazia();
       saveNarrativaDraft();
       narrPreencher();
-      atualizarDesc();
+      renderNarrElenco();
       narrLimparResultado();
       renderNarrDiagnostico();
     };
@@ -1045,6 +1346,7 @@ function renderNarrativa() {
         const host = $('#n-afiacao');
         if (host) {
           host.innerHTML = narrEscalada(obj.escalada) +
+            narrParecerElenco(obj.elenco) +
             (obj.porque ? `<div class="text-sm text-soft mt-1">${escapeHtml(String(obj.porque))}</div>` : '') +
             '<button class="btn btn-ghost btn-sm mt-2" id="n-desfazer">Desfazer afiação</button>';
           $('#n-desfazer').onclick = () => {
@@ -1121,6 +1423,7 @@ function renderNarrativa() {
     };
   }
 
+  renderNarrElenco();
   renderNarrDiagnostico();
   renderNarrHistorico();
 }

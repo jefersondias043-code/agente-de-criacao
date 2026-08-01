@@ -191,6 +191,7 @@ function openRecent(kind, id) {
         typeof narrativaVazia === 'function' ? narrativaVazia() : {}, n.narrativa || {});
       if (typeof saveNarrativaDraft === 'function') saveNarrativaDraft();
       if (typeof narrPreencher === 'function') narrPreencher();
+      if (typeof renderNarrElenco === 'function') renderNarrElenco();
       if (typeof renderNarrDiagnostico === 'function') renderNarrDiagnostico();
       if (typeof renderNarrResultado === 'function') renderNarrResultado(n);
     }

@@ -21,6 +21,8 @@ beforeAll(() => {
   A = loadModules(
     ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js', 'generate.js'],
     ['COMENTARIOS', 'COMENTARIO_PROMPTS', 'COMENTARIO_MARCADORES', 'comentarioAtivo',
+      'COMENTARIO_MARCADORES_RECONHECIMENTO', 'COMENTARIO_MARCADORES_COBRANCA',
+      'comentarioDirecaoAplicada', 'comentarioDirecaoCurta',
       'comentarioLabel', 'comentarioValencias', 'comentarioBloco', 'comentarioAplicado',
       'buildPrompt', 'buildWriterPrompt', 'buildEditorPrompt', 'detectarConflitosDeTom',
       'toneValence', 'assembleFastGeneration', 'assembleAgentsGeneration', 'avisoComentarios']
@@ -87,15 +89,15 @@ describe('o bloco de comentário', () => {
     expect(b).toMatch(/DIREÇÃO DO COMENTÁRIO: POSITIVA/);
     expect(b).toMatch(/nunca elogio inventado/);
     expect(b).toMatch(/Entusiasmo não autoriza superlativo sem base/);
-    expect(b).toMatch(/Ancore cada elogio num fato/);
+    expect(b).toMatch(/ancore cada elogio num fato/i);
   });
 
   it('negativo critica mesmo material elogioso — mas o ato, não a pessoa', () => {
     const b = A.comentarioBloco('negativos', 'Otimista');
-    expect(b).toMatch(/INCLUSIVE quando o material for elogioso/);
+    expect(b).toMatch(/principalmente quando o material de origem é elogioso/i);
     expect(b).toMatch(/nunca sobre a pessoa/i);
-    expect(b).toMatch(/Crítica não é acusação/);
-    expect(b).toMatch(/NÃO invente o defeito/);
+    expect(b).toMatch(/Não impute crime, fraude ou má-fé/);
+    expect(b).toMatch(/Não transforme suspeita em conclusão/);
   });
 
   it('ambos combina os dois lados sem virar alternância mecânica', () => {
@@ -125,8 +127,8 @@ describe('modo rápido (1 chamada)', () => {
     const p = A.buildPrompt('Jornalístico', 'Neutro', 'conteúdo', 'negativos').prompt;
     expect(p).toContain('CAMADA DE COMENTÁRIO');
     expect(p).toMatch(/DIREÇÃO DO COMENTÁRIO: CRÍTICA/);
-    expect(p).toMatch(/12\. Cada comentário se apoia/);
-    expect(p).toMatch(/14\. Algum comentário desqualifica uma PESSOA/);
+    expect(p).toMatch(/12\. DIREÇÃO: releia UM A UM/);
+    expect(p).toMatch(/15\. Algum comentário desqualifica uma PESSOA/);
   });
 
   it('não mexe no resto do prompt — fidelidade e segurança jurídica seguem lá', () => {
@@ -207,7 +209,8 @@ describe('modo agentes — editor não pode neutralizar o que foi pedido', () =>
     expect(p).toContain('ESTA MATÉRIA LEVA COMENTÁRIO OPINATIVO');
     expect(p).toMatch(/NÃO as neutralize/);
     expect(p).toMatch(/não as corte por "não serem fato"/);
-    expect(p).toContain('Negativos');   // a direção escolhida vai nomeada
+    expect(p).toMatch(/CRÍTICO \(cobrança — nunca elogio\)/);   // a direção vai nomeada
+    expect(p).toMatch(/nunca o contrário/);                     // e não pode ser invertida
   });
 
   it('ainda assim corrige comentário sem base, veredito e ofensa', () => {
@@ -409,9 +412,14 @@ describe('o defeito relatado: instrução só de teto produzia zero comentário'
   it('o requisito entra no CONTRATO DE SAÍDA dos dois modos', () => {
     // É a linha que o modelo relê ao montar a resposta — a que ele menos ignora.
     const w = A.buildWriterPrompt({ fatos: ['f'], citacoes: [] }, 'Jornalístico', 'Neutro', 'negativos');
-    expect(w).toMatch(/"corpo".*CADA UM termina com uma frase de comentário opinativo/);
+    expect(w).toMatch(/"corpo".*CADA UM termina com uma frase de comentário CRÍTICO/);
     const f = A.buildPrompt('Jornalístico', 'Neutro', 'pauta', 'negativos').prompt;
-    expect(f).toMatch(/\\*Corpo:.*CADA parágrafo termina com uma frase de comentário opinativo/);
+    expect(f).toMatch(/\*Corpo:.*CADA parágrafo termina com uma frase de comentário CRÍTICO/);
+    // A direção acompanha a escolha — não é rótulo genérico colado em tudo.
+    expect(A.buildWriterPrompt({ fatos: ['f'], citacoes: [] }, 'Jornalístico', 'Neutro', 'positivos'))
+      .toMatch(/"corpo".*frase de comentário POSITIVO/);
+    expect(A.buildWriterPrompt({ fatos: ['f'], citacoes: [] }, 'Jornalístico', 'Neutro', 'ambos'))
+      .toMatch(/"corpo".*alternando reconhecimento e cobrança/);
   });
 
   it('sem a camada, o contrato de saída fica como era', () => {
@@ -440,9 +448,14 @@ describe('falha silenciosa vira aviso', () => {
     });
   });
 
-  it('as 12 construções citadas no prompt estão na lista de conferência', () => {
-    const b = A.comentarioBloco('negativos', 'Neutro');
-    A.COMENTARIO_MARCADORES.slice(0, 12).forEach((m) => expect(b, m).toContain(m));
+  it('as construções citadas em cada direção estão na lista daquela direção', () => {
+    // Fonte única por direção: o prompt cita as primeiras da lista, e é a mesma
+    // lista que confere a saída. Se uma sair de sincronia, a conferência passa
+    // a acusar quem cumpriu a instrução.
+    const neg = A.comentarioBloco('negativos', 'Neutro');
+    A.COMENTARIO_MARCADORES_COBRANCA.slice(0, 8).forEach((m) => expect(neg, m).toContain(m));
+    const pos = A.comentarioBloco('positivos', 'Neutro');
+    A.COMENTARIO_MARCADORES_RECONHECIMENTO.slice(0, 8).forEach((m) => expect(pos, m).toContain(m));
   });
 
   it('avisa quando pediu comentário e o texto voltou sem marca nenhuma', () => {
@@ -478,5 +491,156 @@ describe('falha silenciosa vira aviso', () => {
       result: { content: marcado, model: 'm', interpretation: {}, article: {}, optimization: {}, agents: {} },
     });
     expect(ok.warnings).toEqual([]);
+  });
+});
+
+describe('o defeito relatado: sempre saía comentário positivo', () => {
+  // A causa não era encanamento nem falta de instrução: em lugar nenhum se
+  // PROIBIA a direção contrária. O prompt descrevia o que fazer sem excluir o
+  // oposto — e a direção crítica ainda carregava cinco proibições próprias,
+  // somadas a catorze do bloco jurídico, enquanto o elogio corria solto.
+  // Diante de pauta institucional, elogiar era o caminho de menor resistência
+  // e não violava regra nenhuma.
+
+  it('cada direção proíbe explicitamente a contrária', () => {
+    const pos = A.comentarioBloco('positivos', 'Neutro');
+    expect(pos).toMatch(/EXCLUSIVIDADE/);
+    expect(pos).toMatch(/nenhum comentário crítico/i);
+    expect(pos).toMatch(/direção ERRADA/);
+
+    const neg = A.comentarioBloco('negativos', 'Neutro');
+    expect(neg).toMatch(/EXCLUSIVIDADE/);
+    expect(neg).toMatch(/nenhum comentário elogioso/i);
+    expect(neg).toMatch(/direção ERRADA/);
+  });
+
+  it('fecha a brecha do meio-termo: ressalva e elogio-com-ressalva', () => {
+    expect(A.comentarioBloco('positivos', 'Neutro')).toMatch(/Ressalva também é crítica/);
+    expect(A.comentarioBloco('negativos', 'Neutro')).toMatch(/elogio com ressalva/i);
+  });
+
+  it('diz que o material de origem NÃO decide a direção', () => {
+    const b = A.comentarioBloco('negativos', 'Neutro');
+    expect(b).toMatch(/material de origem NÃO decide a direção/i);
+    expect(b).toMatch(/Pauta institucional e elogiosa recebe a direção pedida/);
+    // Nem os "Ângulos editoriais" que o interpretador extrai da pauta.
+    expect(b).toMatch(/Ângulos editoriais.*insumo neutro/s);
+  });
+
+  it('a direção crítica deixou de ser só lista de vetos', () => {
+    // O reequilíbrio é o que tira o elogio do caminho de menor resistência:
+    // a crítica passa a ter um menu concreto de movimentos permitidos.
+    const neg = A.COMENTARIO_PROMPTS.negativos;
+    expect(neg).toMatch(/O QUE FAZER/);
+    ['O QUE FICOU DE FORA', 'O TAMANHO DIANTE DO PROBLEMA', 'O TEMPO',
+      'O QUE SEGUE EM ABERTO', 'ANÚNCIO × ENTREGA', 'O SILÊNCIO']
+      .forEach((ang) => expect(neg, ang).toContain(ang));
+    expect(neg).toMatch(/Falta de base NUNCA é motivo para elogiar/);
+  });
+
+  it('"ambos" exige que os dois lados apareçam de fato', () => {
+    const b = A.comentarioBloco('ambos', 'Neutro');
+    expect(b).toMatch(/pelo menos UM comentário de reconhecimento E pelo menos UM de cobrança/);
+    expect(b).toMatch(/Matéria só elogiosa é o erro mais comum aqui/);
+  });
+
+  it('a direção é repetida no contrato de saída e na verificação final', () => {
+    const w = A.buildWriterPrompt({ fatos: ['f'], citacoes: [] }, 'Jornalístico', 'Otimista', 'negativos');
+    expect(w).toMatch(/"corpo".*CRÍTICO \(cobrança — nunca elogio\)/);
+    expect(w).toMatch(/12\. DIREÇÃO: releia UM A UM os comentários/);
+    expect(w).toMatch(/erro de execução/i);
+  });
+
+  it('o editor não pode inverter a direção ao "melhorar"', () => {
+    const p = A.buildEditorPrompt(materia('x'), {}, 'Jornalístico', 'Otimista', [], [], 'negativos');
+    expect(p).toMatch(/CRÍTICO \(cobrança — nunca elogio\)/);
+    expect(p).toMatch(/nem INVERTER a direção/);
+    expect(p).toMatch(/nunca o contrário/);
+  });
+
+  it('o rótulo curto da direção acompanha a escolha', () => {
+    expect(A.comentarioDirecaoCurta('positivos')).toMatch(/POSITIVO/);
+    expect(A.comentarioDirecaoCurta('negativos')).toMatch(/CRÍTICO/);
+    expect(A.comentarioDirecaoCurta('ambos')).toMatch(/alternando/);
+    expect(A.comentarioDirecaoCurta('nenhum')).toBe('');
+  });
+});
+
+describe('conferência de DIREÇÃO na saída', () => {
+  const soElogio = 'A obra foi entregue. O número não é pouco para um bairro.';
+  const soCobranca = 'A obra foi entregue. O material não informa o custo.';
+  const osDois = 'A obra foi entregue. O número não é pouco. Ainda assim, o material não informa o custo.';
+  const seco = 'A Prefeitura entregou a obra da praça nesta semana.';
+
+  it('separa reconhecimento de cobrança', () => {
+    expect(A.comentarioDirecaoAplicada(soElogio, 'positivos')).toMatchObject({ reconhecimento: true, cobranca: false, ok: true });
+    expect(A.comentarioDirecaoAplicada(soCobranca, 'negativos')).toMatchObject({ reconhecimento: false, cobranca: true, ok: true });
+    expect(A.comentarioDirecaoAplicada(osDois, 'ambos')).toMatchObject({ reconhecimento: true, cobranca: true, ok: true });
+  });
+
+  it('acusa exatamente o defeito relatado: pediu crítica, veio elogio', () => {
+    const d = A.comentarioDirecaoAplicada(soElogio, 'negativos');
+    expect(d.ok).toBe(false);
+    const av = A.avisoComentarios('negativos', soElogio);
+    expect(av.length).toBe(1);
+    expect(av[0]).toMatch(/pediu comentários NEGATIVOS/);
+    expect(av[0]).toMatch(/sem nenhuma cobrança/);
+  });
+
+  it('acusa o inverso também', () => {
+    const av = A.avisoComentarios('positivos', soCobranca);
+    expect(av[0]).toMatch(/pediu comentários POSITIVOS/);
+    expect(av[0]).toMatch(/sem nenhum reconhecimento/);
+  });
+
+  it('em "ambos", acusa o lado que faltou — nomeando qual', () => {
+    expect(A.avisoComentarios('ambos', soElogio)[0]).toMatch(/falta a cobrança/);
+    expect(A.avisoComentarios('ambos', soCobranca)[0]).toMatch(/falta o reconhecimento/);
+    expect(A.avisoComentarios('ambos', osDois)).toEqual([]);
+  });
+
+  it('texto sem marca nenhuma continua com o aviso de "não aplicou"', () => {
+    expect(A.avisoComentarios('negativos', seco)[0]).toMatch(/não aplicou os comentários/i);
+  });
+
+  it('só acusa a AUSÊNCIA do pedido, nunca a presença do outro lado', () => {
+    // Um comentário crítico pode legitimamente conter marca de reconhecimento.
+    // Reprovar quem cumpriu seria o erro caro; por isso a conferência é
+    // lenient nessa direção.
+    expect(A.avisoComentarios('negativos', osDois)).toEqual([]);
+    expect(A.avisoComentarios('positivos', osDois)).toEqual([]);
+  });
+
+  it('sem pedido, não confere nada', () => {
+    expect(A.comentarioDirecaoAplicada(seco, 'nenhum').ok).toBe(true);
+    expect(A.avisoComentarios('nenhum', seco)).toEqual([]);
+  });
+
+  it('todo marcador de cada grupo é reconhecido no seu grupo', () => {
+    A.COMENTARIO_MARCADORES_RECONHECIMENTO.forEach((m) => {
+      expect(A.comentarioDirecaoAplicada('Fato. ' + m + ' algo.', 'positivos').ok, m).toBe(true);
+    });
+    A.COMENTARIO_MARCADORES_COBRANCA.forEach((m) => {
+      expect(A.comentarioDirecaoAplicada('Fato. ' + m + ' algo.', 'negativos').ok, m).toBe(true);
+    });
+  });
+
+  it('o aviso de direção chega na matéria montada nos dois modos', () => {
+    const base = {
+      style: 'Jornalístico', tone: 'Neutro', manualText: 'p', extractionId: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const rapido = A.assembleFastGeneration({
+      ...base, comentarios: 'negativos',
+      built: { originalCharCount: 5, finalCharCount: 5, wasTruncated: false },
+      result: { content: soElogio, model: 'm' },
+    });
+    expect(rapido.warnings[0]).toMatch(/pediu comentários NEGATIVOS/);
+
+    const agentes = A.assembleAgentsGeneration({
+      ...base, comentarios: 'negativos', combinedText: 'p',
+      result: { content: soElogio, model: 'm', interpretation: {}, article: {}, optimization: {}, agents: {} },
+    });
+    expect(agentes.warnings[0]).toMatch(/pediu comentários NEGATIVOS/);
   });
 });

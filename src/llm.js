@@ -144,7 +144,7 @@ function buildPrompt(style, tone, content, comentarios) {
     '*Subtítulo: ângulo COMPLEMENTAR ao título, com palavras-pivô do tom',
     '*Lead: primeiro parágrafo com as informações essenciais, ordem alinhada ao estilo e ao tom',
     blocoComentario
-      ? '*Corpo: parágrafos de desenvolvimento com microintervenções consistentes — e CADA parágrafo termina com uma frase de comentário opinativo, conforme a camada definida acima'
+      ? `*Corpo: parágrafos de desenvolvimento com microintervenções consistentes — e CADA parágrafo termina com uma frase de comentário ${comentarioDirecaoCurta(comentarios)}`
       : '*Corpo: parágrafos de desenvolvimento com microintervenções consistentes',
     '',
     'Extensão: 2 a 4 parágrafos de corpo, conforme o material comportar. Pauta curta rende 2; pauta rica rende 4. Não encha linguiça para alongar, nem espreme fatos para encurtar.',
@@ -163,10 +163,11 @@ function buildPrompt(style, tone, content, comentarios) {
     '11. Dois parágrafos dizem a mesma coisa com outras palavras? Funda-os e traga um aspecto novo.',
     '',
     ...(blocoComentario ? [
-      '12. Cada comentário se apoia em algo que está no Conteúdo, ou algum deles trouxe informação que ninguém escreveu?',
-      '13. Algum comentário está escrito como fato provado em vez de leitura assumida? Marque-o como leitura.',
-      '14. Algum comentário desqualifica uma PESSOA em vez de comentar o ato, o dado ou a ausência? Reescreva mirando o ato.',
-      '15. Todos os parágrafos terminam com a mesma fórmula de comentário? Varie ou deixe algum sem.',
+      `12. DIREÇÃO: releia UM A UM os comentários. Todos estão na direção pedida (${comentarioDirecaoCurta(comentarios)})? Qualquer um fora dela é erro de execução — reescreva antes de responder.`,
+      '13. Cada comentário se apoia em algo que está no Conteúdo, ou algum deles trouxe informação que ninguém escreveu?',
+      '14. Algum comentário está escrito como fato provado em vez de leitura assumida? Marque-o como leitura.',
+      '15. Algum comentário desqualifica uma PESSOA em vez de comentar o ato, o dado ou a ausência? Reescreva mirando o ato.',
+      '16. Todos os parágrafos terminam com a mesma fórmula de comentário? Varie a construção.',
     ] : []),
     'Se 2 estiver "sim", o tom está aplicado. Se 1, 3 ou 4 estiverem problemáticos, REESCREVA.',
     '',

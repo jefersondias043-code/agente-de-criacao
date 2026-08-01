@@ -46,8 +46,10 @@ No navegador (http://localhost:8080):
       elogiosa, a matéria mantém o tom escolhido no relato e traz crítica ancorada nos fatos
       (inclusive apontando o que a pauta não informa) — sem xingar pessoas nem afirmar crime.
       Voltando para "Sem comentários", a matéria sai como antes.
-      Se a IA ignorar o pedido (modelo pequeno), a matéria vem com aviso âmbar
-      "A IA não aplicou os comentários pedidos" em vez de sair igual e em silêncio.
+      **A direção precisa ser respeitada**: com Negativos sobre pauta elogiosa, nenhum comentário
+      pode sair celebrando; com Positivos, nenhum pode virar cobrança; com Ambos, os dois lados
+      têm de aparecer. Se a IA desviar da direção (ou não comentar), a matéria vem com aviso
+      âmbar dizendo exatamente o que faltou, em vez de sair em silêncio.
 - [ ] **Extrair**: dropzone aparece; histórico vazio com empty-state. Aceita imagem/áudio/vídeo.
       **OCR**: uma foto com texto sobre fundo complexo é reconhecida (pré-processamento +
       limiar adaptativo); a barra de progresso avança. **Vídeo grande** (> 25 MB, com chave

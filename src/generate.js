@@ -3,7 +3,7 @@
 
 /** Monta o objeto de geração do MODO AGENTES (pipeline de 3 agentes) — função
  *  pura, sem tocar no DOM, para poder ser testada isoladamente. */
-function assembleAgentsGeneration({ style, tone, manualText, extractionId, combinedText, result, createdAt }) {
+function assembleAgentsGeneration({ style, tone, comentarios, manualText, extractionId, combinedText, result, createdAt }) {
   const truncNote = combinedText.length > MAX_CONTENT_CHARS
     ? [`Conteúdo truncado de ${combinedText.length.toLocaleString('pt-BR')} para ${MAX_CONTENT_CHARS.toLocaleString('pt-BR')} caracteres.`]
     : [];
@@ -11,6 +11,7 @@ function assembleAgentsGeneration({ style, tone, manualText, extractionId, combi
     id: uuid(),
     content: cleanText(result.content),
     style, tone,
+    comentarios: comentarios || 'nenhum',
     manualText: manualText || null,
     extractionId: extractionId || null,
     sourceCharCount: combinedText.length,
@@ -33,11 +34,12 @@ function assembleAgentsGeneration({ style, tone, manualText, extractionId, combi
 
 /** Monta o objeto de geração do MODO RÁPIDO (1 chamada de IA, comportamento
  *  anterior ao pipeline) — função pura, sem tocar no DOM. */
-function assembleFastGeneration({ style, tone, manualText, extractionId, built, result, createdAt }) {
+function assembleFastGeneration({ style, tone, comentarios, manualText, extractionId, built, result, createdAt }) {
   return {
     id: uuid(),
     content: cleanText(result.content),
     style, tone,
+    comentarios: comentarios || 'nenhum',
     manualText: manualText || null,
     extractionId: extractionId || null,
     sourceCharCount: built.originalCharCount,
@@ -64,6 +66,19 @@ function setGenMode(mode) {
   const host = $('#g-genmode');
   if (host) host.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.mode === State.genMode));
 }
+/** Guarda a escolha da camada de comentários (persistida como o modo de
+ *  geração — é uma preferência de trabalho, não um parâmetro de uma pauta só). */
+function setComentarios(id) {
+  const valido = (typeof COMENTARIOS !== 'undefined') && COMENTARIOS.some((c) => c.id === id);
+  State.comentarios = valido ? id : 'nenhum';
+  try { localStorage.setItem(STORAGE_KEYS.comentarios, State.comentarios); } catch {}
+  const desc = $('#g-comentarios-desc');
+  if (desc && typeof COMENTARIOS !== 'undefined') {
+    const c = COMENTARIOS.find((x) => x.id === State.comentarios);
+    desc.textContent = c ? c.desc : '';
+  }
+}
+
 function wireGenMode() {
   const host = $('#g-genmode');
   if (!host) return;
@@ -156,6 +171,18 @@ function renderGenerate() {
     toneSel.value = 'Formal'; updateToneDesc();
   }
 
+  // Camada de comentários — eixo independente de estilo e tom.
+  const comSel = $('#g-comentarios');
+  if (comSel && !comSel.options.length && typeof COMENTARIOS !== 'undefined') {
+    comSel.innerHTML = COMENTARIOS.map((c) =>
+      `<option value="${c.id}">${escapeHtml(c.label)}</option>`).join('');
+    comSel.addEventListener('change', () => setComentarios(comSel.value));
+  }
+  if (comSel) {
+    comSel.value = State.comentarios || 'nenhum';
+    setComentarios(comSel.value);
+  }
+
   // Status da chave de IA: quando OK vira um selo discreto no cabeçalho (não
   // gasta área nobre); o card âmbar com CTA só aparece quando FALTA a chave.
   const providerName = (State.provider || 'groq').charAt(0).toUpperCase() + (State.provider || 'groq').slice(1);
@@ -227,6 +254,7 @@ function renderGenerate() {
   $('#g-submit').onclick = async () => {
     const style = styleSel.value;
     const tone = toneSel.value;
+    const comentarios = State.comentarios || 'nenhum';
     const manualText = ta.value.trim();
     const extractionId = eSel.value;
     const extraction = extractionId ? State.extractions.find(e => e.id === extractionId) : null;
@@ -283,12 +311,12 @@ function renderGenerate() {
       const createdAt = new Date().toISOString();
       let generation;
       if (isFast) {
-        const built = buildPrompt(style, tone, combinedText);
+        const built = buildPrompt(style, tone, combinedText, comentarios);
         const result = await callLLM(built.prompt);
-        generation = assembleFastGeneration({ style, tone, manualText, extractionId, built, result, createdAt });
+        generation = assembleFastGeneration({ style, tone, comentarios, manualText, extractionId, built, result, createdAt });
       } else {
-        const result = await runContentPipeline({ content: combinedText, style, tone, onStage });
-        generation = assembleAgentsGeneration({ style, tone, manualText, extractionId, combinedText, result, createdAt });
+        const result = await runContentPipeline({ content: combinedText, style, tone, comentarios, onStage });
+        generation = assembleAgentsGeneration({ style, tone, comentarios, manualText, extractionId, combinedText, result, createdAt });
       }
       State.generations.unshift(generation);
       saveGenerations();
@@ -415,7 +443,11 @@ function legalRisksHtml(g) {
 
 function renderGenerationResult(g) {
   setMtab('#view-generate', 'b'); // no mobile, leva direto ao resultado
-  $('#g-result-badge').innerHTML = `<span class="badge success">Gerado</span>`;
+  // O selo de comentários fica ao lado de "Gerado": ao reabrir uma matéria do
+  // histórico, é o que diz por que ela tem opinião no meio dos fatos.
+  const seloCom = (typeof comentarioAtivo === 'function' && comentarioAtivo(g.comentarios))
+    ? `<span class="badge warn">Comentários: ${escapeHtml(comentarioLabel(g.comentarios))}</span>` : '';
+  $('#g-result-badge').innerHTML = `<span class="badge success">Gerado</span>${seloCom}`;
   const warnHtml = g.warnings?.length
     ? `<div class="card mb-2" style="border-color: var(--amber); background: #fbf2dc; padding: 0.75rem 1rem;">
         <div class="text-sm">${g.warnings.map(escapeHtml).join('<br>')}</div>

@@ -40,6 +40,12 @@ No navegador (http://localhost:8080):
       continuam sendo do protagonista). Trocar o formato muda o limite de elenco (Reels avisa
       com 3 personagens; vídeo longo, não). O formato **Diálogo** cobra pelo menos um personagem.
       Recarregar a página e reabrir do histórico devolvem o elenco inteiro.
+- [ ] **Gerar — Comentários**: o seletor tem 4 opções e começa em "Sem comentários"; trocar
+      atualiza a legenda e a escolha sobrevive ao recarregar. Com uma direção ativa, o resultado
+      e o histórico ganham o selo "Comentários: …". Gerando com **Negativos** sobre uma pauta
+      elogiosa, a matéria mantém o tom escolhido no relato e traz crítica ancorada nos fatos
+      (inclusive apontando o que a pauta não informa) — sem xingar pessoas nem afirmar crime.
+      Voltando para "Sem comentários", a matéria sai como antes.
 - [ ] **Extrair**: dropzone aparece; histórico vazio com empty-state. Aceita imagem/áudio/vídeo.
       **OCR**: uma foto com texto sobre fundo complexo é reconhecida (pré-processamento +
       limiar adaptativo); a barra de progresso avança. **Vídeo grande** (> 25 MB, com chave

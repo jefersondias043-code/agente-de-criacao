@@ -42,6 +42,8 @@ function renderGenHistory() {
       <div class="list-item-meta">
         <span class="badge" style="font-size: 0.65rem;">${escapeHtml(g.style)}</span>
         <span class="badge" style="font-size: 0.65rem;">${escapeHtml(g.tone)}</span>
+        ${(typeof comentarioAtivo === 'function' && comentarioAtivo(g.comentarios))
+          ? `<span class="badge warn" style="font-size: 0.65rem;">Comentários: ${escapeHtml(comentarioLabel(g.comentarios))}</span>` : ''}
         <span>${formatDate(g.createdAt)}</span>
       </div>
     </div>

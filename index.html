@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-01-r183" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-01-r184" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -170,6 +170,12 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
             </div>
 
             <div class="field">
+              <label class="label" for="g-comentarios">Comentários</label>
+              <select class="select" id="g-comentarios"></select>
+              <span class="input-helper" id="g-comentarios-desc"></span>
+            </div>
+
+            <div class="field">
               <label class="label" for="g-text">Texto da pauta</label>
               <textarea class="textarea" id="g-text" rows="11" placeholder="Cole aqui o texto da pauta…"></textarea>
               <span class="input-helper" id="g-text-helper">0 caracteres</span>
@@ -199,7 +205,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
         <div class="card mtab-b">
           <div class="card-head">
             <div class="card-title">Resultado</div>
-            <div id="g-result-badge"></div>
+            <div id="g-result-badge" class="badge-row"></div>
           </div>
           <div id="g-result-area">
             <div class="empty">

@@ -4,13 +4,17 @@
 const MAX_CONTENT_CHARS = 12000;
 
 
-function buildPrompt(style, tone, content) {
+// `comentarios` é opcional e default 'nenhum': quem não pediu a camada
+// opinativa recebe exatamente o prompt de antes, byte a byte.
+function buildPrompt(style, tone, content, comentarios) {
   let truncated = content;
   let wasTruncated = false;
   if (content.length > MAX_CONTENT_CHARS) {
     truncated = content.slice(0, MAX_CONTENT_CHARS);
     wasTruncated = true;
   }
+
+  const blocoComentario = (typeof comentarioBloco === 'function') ? comentarioBloco(comentarios, tone) : '';
 
   // Prompt V4 — microintervenções interpretativas.
   // Ensina à IA os mecanismos linguísticos que aplicam tom sem inventar fato.
@@ -130,6 +134,7 @@ function buildPrompt(style, tone, content) {
     '',
     `INTENSIDADE: o tom "${tone}" precisa ser INEQUÍVOCO. Ele deve aparecer no título, no subtítulo, no lead, em CADA parágrafo e no fecho — não só numa palavra-pivô solta. Se você trocasse o tom por outro e precisasse reescrever poucas frases, o tom NÃO está aplicado.`,
     '',
+    ...(blocoComentario ? [blocoComentario, ''] : []),
     'Conteúdo:',
     truncated,
     '',
@@ -155,6 +160,12 @@ function buildPrompt(style, tone, content) {
     '10. Inventei comparação, avaliação sem dono ou consequência para sustentar o tom? Troque pelo que o Conteúdo traz.',
     '11. Dois parágrafos dizem a mesma coisa com outras palavras? Funda-os e traga um aspecto novo.',
     '',
+    ...(blocoComentario ? [
+      '12. Cada comentário se apoia em algo que está no Conteúdo, ou algum deles trouxe informação que ninguém escreveu?',
+      '13. Algum comentário está escrito como fato provado em vez de leitura assumida? Marque-o como leitura.',
+      '14. Algum comentário desqualifica uma PESSOA em vez de comentar o ato, o dado ou a ausência? Reescreva mirando o ato.',
+      '15. Todos os parágrafos terminam com a mesma fórmula de comentário? Varie ou deixe algum sem.',
+    ] : []),
     'Se 2 estiver "sim", o tom está aplicado. Se 1, 3 ou 4 estiverem problemáticos, REESCREVA.',
     '',
     'Responda APENAS com a matéria final, sem cabeçalhos como "Título:" e sem comentários introdutórios.',

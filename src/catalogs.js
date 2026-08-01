@@ -644,6 +644,136 @@ function toneValence(tone) {
 }
 
 /** Catálogo de modelos disponíveis por provedor */
+/* ============================================================================
+ * COMENTÁRIOS OPINATIVOS — a camada de leitura sobre os fatos.
+ *
+ * Estilo e tom mudam COMO o fato é contado. Este controle acrescenta outra
+ * coisa: uma opinião assumida sobre o que cada parágrafo apresenta. São eixos
+ * independentes de propósito — dá para narrar em tom otimista e comentar com
+ * crítica, e isso NÃO é contradição: é a matéria dizendo "isto aconteceu" e,
+ * em seguida, "e a leitura disso é esta".
+ *
+ * Duas travas herdadas do resto da ferramenta valem aqui inteiras:
+ *   1. Comentário COMENTA, não informa. Ele se apoia em algo literalmente
+ *      presente no material — nunca em fato novo, comparação inexistente ou
+ *      causa deduzida. É o mesmo teste do "de onde você tirou isso?".
+ *   2. A fronteira fato × leitura fica VISÍVEL ao leitor. Não é preciosismo
+ *      de estilo: é o item 3 do bloco de segurança jurídica. Opinião marcada
+ *      como opinião é protegida; opinião disfarçada de fato provado é risco.
+ *
+ * Por isso o modo crítico ataca o ATO, o DADO, o PRAZO e a AUSÊNCIA — nunca o
+ * caráter de quem quer que seja.
+ * ========================================================================== */
+const COMENTARIOS = [
+  { id: 'nenhum', label: 'Sem comentários', desc: 'A matéria sai como sempre: só os fatos, no estilo e no tom escolhidos.' },
+  { id: 'positivos', label: 'Positivos', desc: 'Reforça o que o material apresenta de positivo, parágrafo a parágrafo.' },
+  { id: 'negativos', label: 'Negativos', desc: 'Desenvolve crítica sobre os fatos — mesmo quando o material é elogioso.' },
+  { id: 'ambos', label: 'Positivos e negativos', desc: 'Reconhece o que avança e cobra o que falta, cada um ancorado no seu parágrafo.' },
+];
+
+/** O modo está ativo? (qualquer coisa fora de 'nenhum'/vazio) */
+function comentarioAtivo(id) {
+  return !!id && id !== 'nenhum' && COMENTARIOS.some((c) => c.id === id && c.id !== 'nenhum');
+}
+
+/** Rótulo legível para histórico e selos. */
+function comentarioLabel(id) {
+  const c = COMENTARIOS.find((x) => x.id === id);
+  return c ? c.label : COMENTARIOS[0].label;
+}
+
+/**
+ * Quais valências passam a ser INTENCIONAIS no texto.
+ *
+ * Existe porque a varredura determinística de coerência de tom
+ * (detectarConflitosDeTom) foi escrita para achar juízo do lado CONTRÁRIO ao
+ * tom e mandar o revisor apagar. Com comentário ligado, esse juízo contrário
+ * pode ser exatamente o que o usuário PEDIU — apagá-lo seria a ferramenta
+ * desfazendo a escolha dele. Daí a valência intencional: o que foi pedido não
+ * é vazamento.
+ */
+function comentarioValencias(id) {
+  switch (id) {
+    case 'positivos': return { positivo: true, negativo: false };
+    case 'negativos': return { positivo: false, negativo: true };
+    case 'ambos': return { positivo: true, negativo: true };
+    default: return { positivo: false, negativo: false };
+  }
+}
+
+/* Bloco comum a qualquer direção de comentário: COMO ele entra no texto. */
+const COMENTARIO_BASE = [
+  '═══ CAMADA DE COMENTÁRIO OPINATIVO (pedida pelo usuário) ═══',
+  'Além de relatar, esta matéria leva COMENTÁRIO: uma leitura opinativa sobre o que cada parágrafo apresenta.',
+  '',
+  'COMO O COMENTÁRIO ENTRA',
+  '• Integrado ao parágrafo, no mesmo fluxo de leitura. NUNCA em bloco separado, entre parênteses, em itálico ou com rótulo do tipo "Comentário:", "Análise:", "Opinião:".',
+  '• No máximo um comentário por parágrafo. Parágrafo que não sustenta comentário fica só com o fato — melhor faltar do que forçar.',
+  '• Sempre DEPOIS do fato que ele comenta: primeiro o leitor sabe o que aconteceu, só então lê a leitura.',
+  '• Uma frase curta, ou a oração final do parágrafo. Se o comentário ficou maior que o fato que o sustenta, ele está grande demais.',
+  '• Varie a construção. Se todo parágrafo termina com a mesma fórmula, vira cacoete e o leitor pula.',
+  '',
+  'A REGRA QUE NÃO SE QUEBRA: COMENTÁRIO COMENTA, NÃO INFORMA',
+  '• Ele só pode se apoiar em algo que está literalmente no material. Vale o mesmo teste do resto da matéria: "de onde você tirou isso?" precisa ter resposta apontável.',
+  '• Nunca é fato novo, comparação que o material não faz, causa deduzida, número estimado nem reação de terceiros que ninguém relatou.',
+  '• A AUSÊNCIA de informação é matéria-prima legítima e forte: "o material não informa o prazo" é comentário honesto e verificável.',
+  '',
+  'FRONTEIRA VISÍVEL — exigência jurídica, não capricho de estilo',
+  '• O comentário entra MARCADO como leitura: "o número chama atenção", "o prazo é apertado", "a explicação deixa em aberto", "resta saber".',
+  '• Nunca como veredito disfarçado de notícia: "ficou provado que", "é evidente que houve", "não há dúvida de que".',
+  '• Sem adjetivo que desqualifique PESSOA. Comenta-se o ato, o dado, a decisão, o prazo, o silêncio — nunca o caráter de alguém.',
+  '• Em pauta de crime ou apuração, o comentário obedece à presunção de inocência e à fase processual igual ao resto do texto.',
+].join('\n');
+
+/* Direção do comentário. Cada bloco entra junto do COMENTARIO_BASE. */
+const COMENTARIO_PROMPTS = {
+  positivos: [
+    'DIREÇÃO DO COMENTÁRIO: POSITIVA.',
+    '• Reforce o que o material apresenta de positivo: o que avança, o que atende, o que resolve, o que é inédito, quem é beneficiado.',
+    '• Ancore cada elogio num fato daquele parágrafo. Elogio genérico ("uma grande iniciativa", "um passo importante") não vale nada; elogio ancorado vale ("o valor cobre a fila inteira que o próprio material descreve").',
+    '• Se o parágrafo não trouxer nada de positivo, NÃO force: fique só com o fato. Elogiar o que não existe é invenção, e invenção continua proibida.',
+    '• Entusiasmo não autoriza superlativo sem base: "o maior da região" só entra se o material disser isso.',
+  ].join('\n'),
+
+  negativos: [
+    'DIREÇÃO DO COMENTÁRIO: CRÍTICA.',
+    '• Desenvolva argumento crítico sobre os fatos — INCLUSIVE quando o material for elogioso. O material anuncia; o comentário pergunta o que ele não responde.',
+    '• Ângulos legítimos, todos ancorados no próprio material: o que ficou de fora (prazo, custo, responsável, quantas pessoas); o tamanho do que foi feito diante do que o próprio material descreve; o tempo que se levou; o que segue em aberto; a distância entre o anúncio e a entrega.',
+    '• A crítica recai sobre O ATO, O DADO, A DECISÃO, O PRAZO ou A AUSÊNCIA — nunca sobre a pessoa. "A obra levou dois anos além do prazo" é crítica; "o secretário é incompetente" é ofensa e não entra.',
+    '• NÃO invente o defeito. Sem base no parágrafo, comente a lacuna ("o material não informa o custo") ou deixe o parágrafo sem comentário.',
+    '• Crítica não é acusação: não impute crime, fraude, desvio ou má-fé sem que o material traga a apuração — e, se trouxer, com a fase processual e a atribuição corretas.',
+    '• Não transforme suspeita em conclusão. "O material não explica por que o prazo dobrou" é forte e seguro; "houve superfaturamento" sem apuração é temerário.',
+  ].join('\n'),
+
+  ambos: [
+    'DIREÇÃO DO COMENTÁRIO: OS DOIS LADOS.',
+    '• A matéria carrega elogio E crítica, cada um ancorado no que o seu parágrafo traz. Não é alternância mecânica um-para-um: é reconhecer o que avança e cobrar o que falta.',
+    '• Construção preferida: o contraste dentro do mesmo movimento — "o programa cobre as 200 famílias listadas; o material não diz o que acontece com quem ficou fora da lista".',
+    '• Nem todo parágrafo precisa dos dois lados: um pode levar só elogio, outro só crítica. O que a matéria INTEIRA não pode é terminar com um lado só — se acabou assim, o modo escolhido foi o errado.',
+    '• Elogio e crítica não podem se anular na mesma frase a ponto de o leitor não saber o que foi dito. Cada um vale por si, com o fato que o sustenta.',
+    '• Equilibrar não é amornar: os dois lados entram com a mesma clareza, não como ressalva tímida um do outro.',
+  ].join('\n'),
+};
+
+/**
+ * Monta o bloco completo de comentário para injetar num prompt. Devolve string
+ * vazia quando o modo está desligado — nada muda no prompt de quem não pediu.
+ */
+function comentarioBloco(id, tone) {
+  if (!comentarioAtivo(id)) return '';
+  const direcao = COMENTARIO_PROMPTS[id] || '';
+  return [
+    COMENTARIO_BASE,
+    '',
+    direcao,
+    '',
+    '═══ COMENTÁRIO × TOM — não confunda os dois ═══',
+    `O tom "${tone}" continua mandando na NARRAÇÃO: escolha de verbo, adjetivação do relato, ordem dos fatos, ritmo. Isso não muda.`,
+    'O comentário é uma camada À PARTE, e a direção dele foi escolhida pelo usuário. Quando os dois apontarem para lados diferentes, isso NÃO é contradição nem descuido: é a matéria relatando no tom pedido e, em seguida, oferecendo a leitura pedida.',
+    'O que precisa ficar claro é a passagem entre uma coisa e outra — o leitor tem de perceber onde termina o relato e começa a opinião. O que não pode, nunca, é o comentário se disfarçar de fato.',
+  ].join('\n');
+}
+
 const PROVIDER_MODELS = {
   groq: [
     { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', desc: 'Recomendado · ótimo custo-benefício, 128k ctx' },

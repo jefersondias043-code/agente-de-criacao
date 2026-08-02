@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-02-r190" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-02-r191" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -768,6 +768,10 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                       <div class="media-upload-label">Imagem 1</div>
                       <button class="media-upload-toggle hidden" id="p-image1-toggle" type="button" aria-pressed="true" title="Desativar (sem apagar)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                       <button class="media-upload-clear hidden" id="p-image1-clear" type="button" title="Remover">×</button>
+                      <!-- Campo VAZADO: o slot vira um buraco transparente no PNG,
+                           para o cartaz virar moldura sobre vídeo. -->
+                      <button class="pimg-vazar" id="p-image1-vazar" type="button" aria-pressed="false"
+                              title="Deixar este campo transparente (vazado no PNG)">Transparente</button>
                     </div>
                     <div class="media-upload" id="p-image2-upload">
                       <input type="file" id="p-image2-file" accept="image/*" hidden />
@@ -775,6 +779,10 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                       <div class="media-upload-label">Imagem 2</div>
                       <button class="media-upload-toggle hidden" id="p-image2-toggle" type="button" aria-pressed="true" title="Desativar (sem apagar)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                       <button class="media-upload-clear hidden" id="p-image2-clear" type="button" title="Remover">×</button>
+                      <!-- Campo VAZADO: o slot vira um buraco transparente no PNG,
+                           para o cartaz virar moldura sobre vídeo. -->
+                      <button class="pimg-vazar" id="p-image2-vazar" type="button" aria-pressed="false"
+                              title="Deixar este campo transparente (vazado no PNG)">Transparente</button>
                     </div>
                     <div class="media-upload" id="p-image3-upload">
                       <input type="file" id="p-image3-file" accept="image/*" hidden />
@@ -782,6 +790,10 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                       <div class="media-upload-label">Imagem 3</div>
                       <button class="media-upload-toggle hidden" id="p-image3-toggle" type="button" aria-pressed="true" title="Desativar (sem apagar)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                       <button class="media-upload-clear hidden" id="p-image3-clear" type="button" title="Remover">×</button>
+                      <!-- Campo VAZADO: o slot vira um buraco transparente no PNG,
+                           para o cartaz virar moldura sobre vídeo. -->
+                      <button class="pimg-vazar" id="p-image3-vazar" type="button" aria-pressed="false"
+                              title="Deixar este campo transparente (vazado no PNG)">Transparente</button>
                     </div>
                     <div class="media-upload" id="p-image4-upload">
                       <input type="file" id="p-image4-file" accept="image/*" hidden />
@@ -789,6 +801,10 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                       <div class="media-upload-label">Imagem 4</div>
                       <button class="media-upload-toggle hidden" id="p-image4-toggle" type="button" aria-pressed="true" title="Desativar (sem apagar)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                       <button class="media-upload-clear hidden" id="p-image4-clear" type="button" title="Remover">×</button>
+                      <!-- Campo VAZADO: o slot vira um buraco transparente no PNG,
+                           para o cartaz virar moldura sobre vídeo. -->
+                      <button class="pimg-vazar" id="p-image4-vazar" type="button" aria-pressed="false"
+                              title="Deixar este campo transparente (vazado no PNG)">Transparente</button>
                     </div>
                     <div class="media-upload" id="p-avatar-upload">
                       <input type="file" id="p-avatar-file" accept="image/*" hidden />

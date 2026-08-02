@@ -440,7 +440,15 @@ function _canvasToBytes(canvas, mime, quality) {
 async function exportCarousel(p, mode, scale, fileType) {
   if (!posterIsCarousel(p)) return exportPoster(p, scale, fileType);
   mode = mode || 'zip';
-  const jpg = fileType === 'jpg' || fileType === 'jpeg';
+  // JPG não tem canal alfa: se QUALQUER slide tem campo transparente, o
+  // conjunto inteiro sai em PNG — misturar formatos no mesmo ZIP confundiria
+  // mais do que ajudaria.
+  const temVazado = (typeof posterTemVazado === 'function')
+    && (p.slides || []).some((sl) => posterTemVazado(sl));
+  const jpg = !temVazado && (fileType === 'jpg' || fileType === 'jpeg');
+  if (temVazado && (fileType === 'jpg' || fileType === 'jpeg') && typeof toast === 'function') {
+    toast('Exportado em PNG: o JPG não guarda transparência.', 'info', 5000);
+  }
   const mime = jpg ? 'image/jpeg' : 'image/png';
   const ext = jpg ? 'jpg' : 'png';
   const slides = p.slides;
@@ -469,7 +477,11 @@ async function exportCarousel(p, mode, scale, fileType) {
       // espera layout + imagens decodificarem antes de capturar
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       await waitForStageImages();
-      const canvas = await captureStageCanvas(fmt, scale);
+      // Cada SLIDE decide o próprio vazado: o compositor devolve a captura
+      // normal quando não há campo transparente, então serve para os dois casos.
+      const canvas = (typeof captureStageComVazado === 'function')
+        ? await captureStageComVazado(fmt, scale)
+        : await captureStageCanvas(fmt, scale);
       if (canvas) files.push({ name: `carrossel-${String(idx + 1).padStart(2, '0')}.${ext}`, data: await _canvasToBytes(canvas, mime, jpg ? 0.92 : undefined) });
       else naoCapturados.push(idx + 1);
     }

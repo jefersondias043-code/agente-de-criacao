@@ -542,7 +542,15 @@ function _pBAND(ctx, w, h, c, side, t) { ctx.fillStyle = c; if (side === 'top') 
 function _pFRAME(ctx, w, h, c, t) { ctx.fillStyle = c; ctx.fillRect(0, 0, w, t); ctx.fillRect(0, h - t, w, t); ctx.fillRect(0, 0, t, h); ctx.fillRect(w - t, 0, t, h); }
 function _pBANDS(ctx, w, h, c1, c2, bw, deg) { bw = Math.max(6, bw); ctx.save(); ctx.translate(w / 2, h / 2); ctx.rotate(deg * Math.PI / 180); const L = Math.hypot(w, h); let i = 0; for (let y = -L; y < L; y += bw, i++) { ctx.fillStyle = (i % 2 === 0) ? c1 : c2; ctx.fillRect(-L, y, 2 * L, bw); } ctx.restore(); }
 
-const _patCache = new Map();   // dataURL por (id|opts|base|fmt) — evita re-desenhar no preview ao vivo
+/** Maior resolução que a exportação oferece (fonte: POSTER_EXPORT_SCALES, em
+ *  posters.js). É por ela que os bitmaps gerados aqui precisam ser densos —
+ *  qualquer coisa rasterizada no tamanho do cartaz seria AMPLIADA no export. */
+function ptEscalaMaximaExport() {
+  return (typeof POSTER_EXPORT_SCALES !== 'undefined' && Array.isArray(POSTER_EXPORT_SCALES))
+    ? POSTER_EXPORT_SCALES.reduce((m, e) => Math.max(m, e.v || 1), 1) : 2;
+}
+
+const _patCache = new Map();   // dataURL por (id|opts|base|fmt|densidade) — evita re-desenhar no preview ao vivo
 /** Rasteriza o padrão num CANVAS full-size (imagem única) → dataURL. Cor/alpha
  * derivam do tema (PT) quando não sobrescritas. PREVIEW e EXPORT usam a MESMA
  * imagem → idênticos, e o html2canvas pinta bitmap de forma confiável. */
@@ -562,10 +570,19 @@ function _patternDataURL(id, opts, baseColor, fmt) {
   const px = (opts.posX != null) ? opts.posX : 0;
   const py = (opts.posY != null) ? opts.posY : 0;
   const w = fmt && fmt.w || 1080, hh = fmt && fmt.h || 1440;
-  const key = [id, a, c1, c2, P.s, ang, px, py, baseColor, w, hh].join('|');
+  const key = [id, a, c1, c2, P.s, ang, px, py, baseColor, w, hh, ptEscalaMaximaExport()].join('|');
   if (_patCache.has(key)) return _patCache.get(key);
-  const cv = document.createElement('canvas'); cv.width = w; cv.height = hh;
+  // SUPERAMOSTRAGEM: o bitmap sai com o dobro dos pixels do cartaz, mas o
+  // desenho continua em coordenadas do cartaz (ctx.scale antes de tudo). Sem
+  // isto o padrão era rasterizado em 1080 e a exportação em 2× o AMPLIAVA —
+  // ponto e listra saíam com a borda mole enquanto o texto ao lado saía nítido.
+  // O CSS aplica com background-size:100% 100%, então nada muda de lugar.
+  // Lido com defesa: posters.js carrega ANTES daqui, mas há testes que montam
+  // só o catálogo de modelos.
+  const F = ptEscalaMaximaExport();
+  const cv = document.createElement('canvas'); cv.width = w * F; cv.height = hh * F;
   const ctx = cv.getContext('2d');
+  ctx.scale(F, F);
   ctx.fillStyle = baseColor; ctx.fillRect(0, 0, w, hh);
   ctx.save();
   ctx.translate(px, py);
@@ -573,7 +590,9 @@ function _patternDataURL(id, opts, baseColor, fmt) {
   try { entry.draw(ctx, w, hh, P); } catch (e) { /* desenho defensivo */ }
   ctx.restore();
   const url = cv.toDataURL('image/png');
-  if (_patCache.size > 32) _patCache.clear();
+  // Cache menor: cada entrada agora tem F² vezes mais pixels, e ela existe só
+  // para não redesenhar a cada tecla no preview.
+  if (_patCache.size > 8) _patCache.clear();
   _patCache.set(key, url);
   return url;
 }
@@ -742,7 +761,11 @@ function _mbRoundRect(x, X, Y, W, H, r) {
   x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath();
 }
 function _mbDataUrl(onSquare, squareFill) {
-  const N = 220, c = document.createElement('canvas'); c.width = c.height = N;
+  // 220px era menos do que a exportação pede: o símbolo é desenhado com até
+  // ~200px de CSS e o export em 2× precisa de ~400 — o bitmap era AMPLIADO e a
+  // marca saía com o traço mole. É desenho vetorial, então subir a densidade
+  // não custa nada além de um canvas maior, gerado uma única vez (cache).
+  const N = 1024, c = document.createElement('canvas'); c.width = c.height = N;
   const x = c.getContext('2d');
   if (onSquare) { x.fillStyle = squareFill || PT.navy2; _mbRoundRect(x, 6, 6, N - 12, N - 12, N * 0.22); x.fill(); }
   x.lineWidth = N * 0.135; x.lineCap = 'round'; x.lineJoin = 'round';

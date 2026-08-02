@@ -38,6 +38,7 @@ beforeAll(() => {
   P = loadModules(['catalogs.js', 'core.js', 'posters.js', 'poster-templates.js'], [
     'POSTER_TEMPLATES', 'POSTER_CATEGORIES', 'POSTER_FORMATS', 'POSTER_SAFE_ZONES',
     'POSTER_SAFE_DEFAULT', 'ptSafeZone', 'ptSafeRect', 'ptSafeBoxCss', 'ptSafeAtiva',
+    'ptFormatoDeRede',
     'posterEhModeloDeRede', 'applyTheme',
   ]);
   P.applyTheme('municipios-bahia');
@@ -104,15 +105,16 @@ describe('o retângulo seguro em pixels', () => {
     expect(r.h).toBe(1920 - r.top - r.bottom);
   });
 
-  it('acompanha o formato — a mesma zona vale em 9:16, 4:5 e 1:1', () => {
+  it('o retângulo é sempre consistente com o formato', () => {
     Object.values(P.POSTER_FORMATS).forEach((f) => {
-      const r = P.ptSafeRect({ safeZone: 'universal' }, f);
+      const r = P.ptSafeRect({ safeZone: 'universal', template: 'manchete' }, f);
       expect(r.w, `${f.w}x${f.h}`).toBeGreaterThan(0);
       expect(r.h, `${f.w}x${f.h}`).toBeGreaterThan(0);
       expect(r.left + r.w + r.right).toBe(f.w);
       expect(r.top + r.h + r.bottom).toBe(f.h);
     });
   });
+
 
   it('o padrão depende do modelo: redes nasce na área segura, o resto nasce livre', () => {
     // Contrato deliberado (r189): a adaptação passou a valer para a biblioteca
@@ -138,6 +140,56 @@ describe('o retângulo seguro em pixels', () => {
     expect(P.ptSafeAtiva({ safeZone: 'livre', template: 'manchete' })).toBe(false);
     expect(P.ptSafeAtiva({ safeZone: 'reels', template: 'manchete' })).toBe(true);
     expect(P.ptSafeAtiva({ template: 'manchete' })).toBe(false);
+  });
+});
+
+describe('a área segura vale SÓ no 9:16 (r190)', () => {
+  // Decisão do usuário: fora do vertical de tela cheia nada cobre o cartaz, e
+  // reservar faixas só desperdiçaria área. Nos demais formatos os modelos
+  // voltam a ser exatamente o que eram antes da adaptação.
+  const v = { w: 1080, h: 1920 };   // 9:16
+  const feed45 = { w: 1080, h: 1350 };
+  const quadrado = { w: 1080, h: 1080 };
+  const retrato34 = { w: 1080, h: 1440 };
+
+  it('reconhece o formato pela proporção, não pelo nome', () => {
+    expect(P.ptFormatoDeRede(v)).toBe(true);
+    [feed45, quadrado, retrato34].forEach((f) =>
+      expect(P.ptFormatoDeRede(f), `${f.w}x${f.h}`).toBe(false));
+    expect(P.ptFormatoDeRede(null)).toBe(true);   // sem formato, não bloqueia
+  });
+
+  it('modelo comum: zona escolhida só tem efeito no 9:16', () => {
+    const p = { template: 'manchete', safeZone: 'universal' };
+    expect(P.ptSafeAtiva(p, v)).toBe(true);
+    [feed45, quadrado, retrato34].forEach((f) => {
+      expect(P.ptSafeAtiva(p, f), `${f.w}x${f.h}`).toBe(false);
+      const r = P.ptSafeRect(p, f);
+      expect([r.top, r.bottom, r.left, r.right], `${f.w}x${f.h}`).toEqual([0, 0, 0, 0]);
+    });
+  });
+
+  it('a escolha do usuário fica guardada e volta a valer ao retornar ao 9:16', () => {
+    const p = { template: 'manchete', safeZone: 'reels' };
+    expect(P.ptSafeAtiva(p, quadrado)).toBe(false);
+    expect(P.ptSafeAtiva(p, v)).toBe(true);
+    expect(P.ptSafeZone(p, v).label).toBe(P.POSTER_SAFE_ZONES.reels.label);
+  });
+
+  it('família de redes fora do 9:16 cai na margem do feed, não em zero', () => {
+    // Esses modelos são construídos sobre um retângulo interno: sem recuo
+    // nenhum o texto encostaria na borda do cartaz.
+    const p = { template: 'redes-manchete', safeZone: 'universal' };
+    expect(P.ptSafeZone(p, feed45).label).toBe(P.POSTER_SAFE_ZONES.feed.label);
+    const r = P.ptSafeRect(p, feed45);
+    expect(r.top).toBeGreaterThan(0);
+    expect(r.right).toBeLessThan(Math.round(feed45.w * 0.1));   // sem coluna de botões
+    expect(P.ptSafeAtiva(p, feed45)).toBe(true);
+  });
+
+  it('no 9:16 a família segue na zona da plataforma', () => {
+    const p = { template: 'redes-manchete', safeZone: 'tiktok' };
+    expect(P.ptSafeZone(p, v).label).toBe(P.POSTER_SAFE_ZONES.tiktok.label);
   });
 });
 

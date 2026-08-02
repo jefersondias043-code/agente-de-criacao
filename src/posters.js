@@ -934,10 +934,28 @@ function renderPosterEditor() {
   // publicado em rede vertical, e a adaptação é central. Nos modelos da família
   // "Redes sociais" a opção "Livre" não aparece — neles a área segura não é um
   // ajuste, é a própria composição.
+  // A área segura só existe no 9:16 — é onde o aplicativo desenha a interface
+  // por cima do cartaz. Nos outros formatos o seletor seria um controle sem
+  // efeito nenhum, então some e dá lugar à explicação de por quê.
   const updateSafeZoneControl = () => {
     const field = $('#p-safezone-field');
     const sel = $('#p-safezone');
+    const hint = $('#p-safezone-hint');
     if (!field || !sel || typeof POSTER_SAFE_ZONES === 'undefined') return;
+    const fmtId = $('#p-format') ? $('#p-format').value : (s.format || '3:4');
+    const fmt = POSTER_FORMATS[fmtId];
+    field.style.display = '';
+    // Esconder/mostrar é feito pelo SELECT-fonte, não pela linha do picker:
+    // _syncPickerRowEl faz a linha seguir o display do select (é assim que
+    // #pb-pattern já funciona). Mexer na linha direto era desfeito no próximo
+    // setupPosterPickers().
+    if (typeof ptFormatoDeRede === 'function' && !ptFormatoDeRede(fmt)) {
+      sel.style.display = 'none';
+      if (hint) hint.textContent = 'Vale para o formato 9:16 (Reels, Stories, TikTok) — é onde o aplicativo cobre parte do cartaz. Nos demais formatos o modelo sai na composição original.';
+      if (typeof setupPosterPickers === 'function') setupPosterPickers();
+      return;
+    }
+    sel.style.display = '';
     const tpl = $('#p-template') ? $('#p-template').value : (s.template || '');
     const ehRede = posterEhModeloDeRede(tpl);
     const anterior = sel.value;
@@ -946,8 +964,6 @@ function renderPosterEditor() {
     if (sel.innerHTML !== html) sel.innerHTML = html;
     const valido = zonas.some(([id]) => id === anterior);
     sel.value = valido ? anterior : (ehRede ? POSTER_SAFE_DEFAULT : (s.safeZone || 'livre'));
-    field.style.display = '';
-    const hint = $('#p-safezone-hint');
     const z = POSTER_SAFE_ZONES[sel.value];
     if (hint && z) hint.textContent = z.hint || '';
   };
@@ -1183,6 +1199,9 @@ function renderPosterEditor() {
       // Ir para 9:16 é o sinal de que o cartaz vai para rede vertical: liga a
       // área segura sozinho. Só quando ainda está em 'livre' — escolha manual
       // do usuário nunca é sobrescrita —, e avisando, porque muda a composição.
+      // Sair do 9:16 NÃO apaga a escolha: ela fica guardada e volta a valer se o
+      // usuário retornar ao formato vertical. Fora dele a trava de ptSafeZone
+      // já garante que nada é aplicado.
       if (id === 'p-format' && newFmt === '9:16' && !posterEhModeloDeRede(s.template)
           && (!s.safeZone || s.safeZone === 'livre')) {
         s.safeZone = POSTER_SAFE_DEFAULT;
@@ -2711,7 +2730,7 @@ function _safeBlocosAbsolutos(raiz) {
 /** Etapa 1 — respiro em fluxo. Roda ANTES da composição tipográfica, que
  *  precisa medir a caixa final para achar o corpo de fonte que cabe. */
 function posterAdaptarAreaSegura(raiz, p, fmt) {
-  if (!raiz || typeof ptSafeAtiva !== 'function' || !ptSafeAtiva(p)) return;
+  if (!raiz || typeof ptSafeAtiva !== 'function' || !ptSafeAtiva(p, fmt)) return;
   if (typeof posterEhModeloDeRede === 'function' && posterEhModeloDeRede(p.template)) return;
   const r = ptSafeRect(p, fmt);
   const cs = getComputedStyle(raiz);
@@ -2735,7 +2754,7 @@ function posterAdaptarAreaSegura(raiz, p, fmt) {
  *  Para (b) e (c) a correção é a mesma: limitar a largura ao que sobra. O texto
  *  reflui, que é o comportamento natural do modelo em telas estreitas. */
 function posterAjustarBlocosSeguros(raiz, p, fmt) {
-  if (!raiz || typeof ptSafeAtiva !== 'function' || !ptSafeAtiva(p)) return 0;
+  if (!raiz || typeof ptSafeAtiva !== 'function' || !ptSafeAtiva(p, fmt)) return 0;
   if (typeof posterEhModeloDeRede === 'function' && posterEhModeloDeRede(p.template)) return 0;
   const r = ptSafeRect(p, fmt);
   const rb = raiz.getBoundingClientRect();

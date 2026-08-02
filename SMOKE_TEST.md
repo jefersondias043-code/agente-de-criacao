@@ -80,15 +80,6 @@ No navegador (http://localhost:8080):
       aquela área **vazada** — abrindo num editor de vídeo, o vídeo aparece atrás do buraco.
       O formato cai para PNG automaticamente (JPG não guarda transparência), com aviso. Desligar
       devolve a foto que estava lá. Modelos sem área de foto não são afetados.
-- [ ] **Cartazes — área segura, SÓ no 9:16**: em 3:4, 4:5 e 1:1 o seletor "Área segura da
-      plataforma" (Estilo → Formato) não aparece — só a nota explicando que vale para 9:16 —
-      e o cartaz sai na composição original de sempre. Trocando para **9:16**, o seletor surge,
-      a área segura liga sozinha (com aviso) e o conteúdo recolhe para fora das faixas de
-      legenda e botões. Voltar a 4:5 desfaz o recolhimento mas GUARDA a escolha: retornando ao
-      9:16 ela volta a valer. O PNG exportado mantém o recolhimento e não leva o guia.
-      Auditoria geométrica repetível: `node scripts/static-server.mjs &` +
-      `npm run audit:area-segura` (mede todos os modelos × plataformas num navegador real;
-      exige Playwright, e sem ele apenas avisa).
 - [ ] **Cartazes — Editor visual** (aba Elementos): adicionar forma/badge/ícone/texto aparece no
       preview e na lista de camadas; arrastar mostra guias de alinhamento; alça de rotação gira;
       "Área segura" desenha a margem; Desfazer/Refazer (Ctrl+Z/Y) revertem; modo Simples esconde

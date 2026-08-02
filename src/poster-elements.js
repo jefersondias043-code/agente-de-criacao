@@ -78,11 +78,9 @@ function drawSafeArea(root) {
   const p = (typeof State !== 'undefined' && typeof getSlide === 'function' && State.posters)
     ? (() => { const x = State.posters.find((q) => q.id === State.activePosterId); return x ? getSlide(x) : null; })()
     : null;
-  // Vale para qualquer modelo: basta o cartaz ter uma plataforma escolhida.
-  // Em 'livre' cai no guia genérico de composição (comportamento anterior).
-  const fmtAtual = (typeof posterActiveFormat === 'function') ? posterActiveFormat() : null;
-  const zAtiva = (typeof ptSafeZone === 'function' && p) ? ptSafeZone(p, fmtAtual) : null;
-  const z = (zAtiva && !zAtiva.livre) ? zAtiva : null;
+  const z = (typeof POSTER_SAFE_ZONES !== 'undefined' && p && p.safeZone && POSTER_SAFE_ZONES[p.safeZone])
+    || (typeof POSTER_SAFE_ZONES !== 'undefined' && typeof posterEhModeloDeRede === 'function'
+        && p && posterEhModeloDeRede(p.template) ? POSTER_SAFE_ZONES[POSTER_SAFE_DEFAULT] : null);
 
   if (!z) {
     // Guia genérico (comportamento anterior, para os modelos que não são de rede).

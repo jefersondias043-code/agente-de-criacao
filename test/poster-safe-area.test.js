@@ -11,7 +11,13 @@
 // nenhum modelo antigo foi tocado.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { JSDOM } from 'jsdom';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadModules, clearStorage } from './helpers/load.mjs';
+
+const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src');
+const fonte = (f) => fs.readFileSync(path.join(SRC, f), 'utf8');
 
 let P;
 const portal = {
@@ -37,8 +43,7 @@ beforeAll(() => {
   clearStorage();
   P = loadModules(['catalogs.js', 'core.js', 'posters.js', 'poster-templates.js'], [
     'POSTER_TEMPLATES', 'POSTER_CATEGORIES', 'POSTER_FORMATS', 'POSTER_SAFE_ZONES',
-    'POSTER_SAFE_DEFAULT', 'ptSafeZone', 'ptSafeRect', 'ptSafeBoxCss', 'ptSafeAtiva',
-    'ptFormatoDeRede',
+    'POSTER_SAFE_DEFAULT', 'ptSafeZone', 'ptSafeRect', 'ptSafeBoxCss',
     'posterEhModeloDeRede', 'applyTheme',
   ]);
   P.applyTheme('municipios-bahia');
@@ -49,10 +54,9 @@ const idsRedes = () => Object.entries(P.POSTER_TEMPLATES)
 
 describe('catálogo de zonas', () => {
   it('cobre as plataformas que o usuário citou, mais o feed', () => {
-    ['livre', 'universal', 'reels', 'stories', 'tiktok', 'feed']
+    ['universal', 'reels', 'stories', 'tiktok', 'feed']
       .forEach((id) => expect(P.POSTER_SAFE_ZONES[id], id).toBeTruthy());
     expect(P.POSTER_SAFE_DEFAULT).toBe('universal');
-    expect(P.POSTER_SAFE_ZONES.livre.livre).toBe(true);
   });
 
   it('toda zona traz rótulo, dica e as quatro margens', () => {
@@ -105,9 +109,9 @@ describe('o retângulo seguro em pixels', () => {
     expect(r.h).toBe(1920 - r.top - r.bottom);
   });
 
-  it('o retângulo é sempre consistente com o formato', () => {
+  it('acompanha o formato — a mesma zona vale em 9:16, 4:5 e 1:1', () => {
     Object.values(P.POSTER_FORMATS).forEach((f) => {
-      const r = P.ptSafeRect({ safeZone: 'universal', template: 'manchete' }, f);
+      const r = P.ptSafeRect({ safeZone: 'universal' }, f);
       expect(r.w, `${f.w}x${f.h}`).toBeGreaterThan(0);
       expect(r.h, `${f.w}x${f.h}`).toBeGreaterThan(0);
       expect(r.left + r.w + r.right).toBe(f.w);
@@ -115,81 +119,11 @@ describe('o retângulo seguro em pixels', () => {
     });
   });
 
-
-  it('o padrão depende do modelo: redes nasce na área segura, o resto nasce livre', () => {
-    // Contrato deliberado (r189): a adaptação passou a valer para a biblioteca
-    // inteira, então o padrão fora da família precisa ser NÃO MEXER — cartaz
-    // salvo antes desta versão não pode mudar de aparência sozinho.
-    const rede = P.ptSafeRect({ template: 'redes-manchete' }, fmt);
-    expect(rede).toEqual(P.ptSafeRect({ safeZone: 'universal', template: 'redes-manchete' }, fmt));
-    expect(P.ptSafeZone({ template: 'manchete' }).livre).toBe(true);
-    expect(P.ptSafeZone(null).livre).toBe(true);
-    expect(P.ptSafeZone({}).livre).toBe(true);
-  });
-
-  it('zona inválida não quebra', () => {
-    const r = P.ptSafeRect({ safeZone: 'inexistente', template: 'manchete' }, fmt);
-    expect(r.top).toBe(0);
-    expect(P.ptSafeRect({ safeZone: 'inexistente', template: 'redes-manchete' }, fmt))
-      .toEqual(P.ptSafeRect({ safeZone: 'universal', template: 'redes-manchete' }, fmt));
-  });
-
-  it('"livre" não vale para a família de redes — nela a área segura É a composição', () => {
-    expect(P.ptSafeZone({ safeZone: 'livre', template: 'redes-cartao' }).livre).toBeFalsy();
-    expect(P.ptSafeAtiva({ safeZone: 'livre', template: 'redes-cartao' })).toBe(true);
-    expect(P.ptSafeAtiva({ safeZone: 'livre', template: 'manchete' })).toBe(false);
-    expect(P.ptSafeAtiva({ safeZone: 'reels', template: 'manchete' })).toBe(true);
-    expect(P.ptSafeAtiva({ template: 'manchete' })).toBe(false);
-  });
-});
-
-describe('a área segura vale SÓ no 9:16 (r190)', () => {
-  // Decisão do usuário: fora do vertical de tela cheia nada cobre o cartaz, e
-  // reservar faixas só desperdiçaria área. Nos demais formatos os modelos
-  // voltam a ser exatamente o que eram antes da adaptação.
-  const v = { w: 1080, h: 1920 };   // 9:16
-  const feed45 = { w: 1080, h: 1350 };
-  const quadrado = { w: 1080, h: 1080 };
-  const retrato34 = { w: 1080, h: 1440 };
-
-  it('reconhece o formato pela proporção, não pelo nome', () => {
-    expect(P.ptFormatoDeRede(v)).toBe(true);
-    [feed45, quadrado, retrato34].forEach((f) =>
-      expect(P.ptFormatoDeRede(f), `${f.w}x${f.h}`).toBe(false));
-    expect(P.ptFormatoDeRede(null)).toBe(true);   // sem formato, não bloqueia
-  });
-
-  it('modelo comum: zona escolhida só tem efeito no 9:16', () => {
-    const p = { template: 'manchete', safeZone: 'universal' };
-    expect(P.ptSafeAtiva(p, v)).toBe(true);
-    [feed45, quadrado, retrato34].forEach((f) => {
-      expect(P.ptSafeAtiva(p, f), `${f.w}x${f.h}`).toBe(false);
-      const r = P.ptSafeRect(p, f);
-      expect([r.top, r.bottom, r.left, r.right], `${f.w}x${f.h}`).toEqual([0, 0, 0, 0]);
-    });
-  });
-
-  it('a escolha do usuário fica guardada e volta a valer ao retornar ao 9:16', () => {
-    const p = { template: 'manchete', safeZone: 'reels' };
-    expect(P.ptSafeAtiva(p, quadrado)).toBe(false);
-    expect(P.ptSafeAtiva(p, v)).toBe(true);
-    expect(P.ptSafeZone(p, v).label).toBe(P.POSTER_SAFE_ZONES.reels.label);
-  });
-
-  it('família de redes fora do 9:16 cai na margem do feed, não em zero', () => {
-    // Esses modelos são construídos sobre um retângulo interno: sem recuo
-    // nenhum o texto encostaria na borda do cartaz.
-    const p = { template: 'redes-manchete', safeZone: 'universal' };
-    expect(P.ptSafeZone(p, feed45).label).toBe(P.POSTER_SAFE_ZONES.feed.label);
-    const r = P.ptSafeRect(p, feed45);
-    expect(r.top).toBeGreaterThan(0);
-    expect(r.right).toBeLessThan(Math.round(feed45.w * 0.1));   // sem coluna de botões
-    expect(P.ptSafeAtiva(p, feed45)).toBe(true);
-  });
-
-  it('no 9:16 a família segue na zona da plataforma', () => {
-    const p = { template: 'redes-manchete', safeZone: 'tiktok' };
-    expect(P.ptSafeZone(p, v).label).toBe(P.POSTER_SAFE_ZONES.tiktok.label);
+  it('cartaz sem zona escolhida cai no padrão, e zona inválida não quebra', () => {
+    const padrao = P.ptSafeRect({}, fmt);
+    expect(padrao).toEqual(P.ptSafeRect({ safeZone: 'universal' }, fmt));
+    expect(P.ptSafeRect({ safeZone: 'inexistente' }, fmt)).toEqual(padrao);
+    expect(P.ptSafeZone(null).label).toBe(P.POSTER_SAFE_ZONES.universal.label);
   });
 });
 
@@ -300,18 +234,86 @@ describe('os modelos antigos não foram tocados', () => {
       const antigo = makePoster(id, '9:16');      // sem safeZone
       delete antigo.safeZone;
       const html = P.POSTER_TEMPLATES[id].render(antigo, fmt, portal);
-      const r = P.ptSafeRect({ template: id }, fmt);   // família → universal
+      const r = P.ptSafeRect({}, fmt);
       expect(html, id).toContain(`top:${r.top}px`);
     });
   });
+});
 
-  it('modelo antigo sem zona não recebe adaptação nenhuma', () => {
-    // O retângulo de um modelo comum sem escolha é o cartaz inteiro: a
-    // adaptação central checa ptSafeAtiva() e devolve sem tocar em nada.
+// ---------------------------------------------------------------------------
+// A ADAPTAÇÃO AUTOMÁTICA NÃO EXISTE — e não pode voltar por descuido.
+//
+// Ela existiu: r189 aplicou a área segura a TODA a biblioteca e r190 restringiu
+// ao 9:16. O usuário testou e reprovou — recolher o conteúdo para fora das
+// faixas descaracterizava os modelos. Foi removida.
+//
+// O que sobrou é o que ele aprovou: a família "Redes sociais", que NASCE
+// composta dentro do retângulo. Fora dela, nenhum modelo é tocado, em nenhum
+// formato — inclusive no 9:16.
+// ---------------------------------------------------------------------------
+describe('nenhum modelo comum é recolhido no 9:16', () => {
+  // NOTA sobre o alcance destes testes: a adaptação removida NÃO passava pelo
+  // render() dos modelos — ela mexia no DOM já montado, depois. Por isso os dois
+  // primeiros testes (que comparam HTML) travam só a metade declarativa: nenhum
+  // modelo pode passar a LER a plataforma. Quem trava o motor de fato é o teste
+  // de código-fonte mais abaixo, e ele foi conferido: reprova no build anterior.
+  //
+  // A regressão que importa para o usuário: ele tem cartazes SALVOS com uma
+  // plataforma gravada, de quando o recurso existia. Esse campo tem de ficar
+  // inerte — abrir o cartaz antigo devolve a composição original.
+  it('modelo comum no 9:16 ignora a plataforma gravada', () => {
     const fmt = P.POSTER_FORMATS['9:16'];
-    const r = P.ptSafeRect({ template: 'manchete' }, fmt);
-    expect([r.top, r.bottom, r.left, r.right]).toEqual([0, 0, 0, 0]);
-    expect(r.w).toBe(fmt.w);
-    expect(r.h).toBe(fmt.h);
+    const comuns = Object.entries(P.POSTER_TEMPLATES).filter(([, t]) => t.cat !== 'redes');
+    expect(comuns.length).toBeGreaterThan(30);
+    comuns.forEach(([id, t]) => {
+      const semZona = makePoster(id, '9:16');
+      delete semZona.safeZone;
+      const limpo = t.render(semZona, fmt, portal);
+      ['universal', 'reels', 'stories', 'tiktok', 'feed'].forEach((z) => {
+        expect(t.render(makePoster(id, '9:16', z), fmt, portal),
+          `${id} muda de composição no 9:16 com a plataforma "${z}"`).toBe(limpo);
+      });
+    });
+  });
+
+  it('e ignora também nos demais formatos', () => {
+    const comuns = Object.entries(P.POSTER_TEMPLATES).filter(([, t]) => t.cat !== 'redes');
+    ['3:4', '4:5', '1:1'].forEach((fid) => {
+      const fmt = P.POSTER_FORMATS[fid];
+      comuns.forEach(([id, t]) => {
+        const semZona = makePoster(id, fid);
+        delete semZona.safeZone;
+        expect(t.render(makePoster(id, fid, 'universal'), fmt, portal), `${id}/${fid}`)
+          .toBe(t.render(semZona, fmt, portal));
+      });
+    });
+  });
+
+  it('a zona não depende do formato — quem consulta é só a família Redes', () => {
+    // ptSafeZone voltou a receber só o cartaz. Se alguém reintroduzir um
+    // segundo parâmetro de formato, é sinal de que a adaptação está voltando.
+    expect(P.ptSafeZone.length).toBe(1);
+    const p = { safeZone: 'reels' };
+    Object.values(P.POSTER_FORMATS).forEach((f) => {
+      expect(P.ptSafeRect(p, f).zone.label).toBe(P.POSTER_SAFE_ZONES.reels.label);
+    });
+  });
+
+  it('não há zona "livre": ela só fazia sentido para desligar a adaptação', () => {
+    expect(P.POSTER_SAFE_ZONES.livre).toBeUndefined();
+    Object.values(P.POSTER_SAFE_ZONES).forEach((z) => expect(z.livre).toBeFalsy());
+  });
+
+  it('o motor de adaptação não está mais no código', () => {
+    const js = fonte('posters.js') + fonte('poster-templates.js') + fonte('poster-elements.js');
+    ['posterAdaptarAreaSegura', 'posterAjustarBlocosSeguros', 'ptSafeAtiva',
+      'ptFormatoDeRede', '_safeBlocosAbsolutos', '_safeEhDecoracao',
+      'data-safe-clamp', 'data-safe-shift', 'safeClamp', 'safeShift']
+      .forEach((nome) => expect(js, `"${nome}" reapareceu`).not.toContain(nome));
+  });
+
+  it('trocar para 9:16 não liga nada sozinho', () => {
+    // O aviso "Área segura ligada" era o gatilho automático que incomodava.
+    expect(fonte('posters.js')).not.toContain('Área segura ligada');
   });
 });

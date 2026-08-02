@@ -40,6 +40,12 @@ No navegador (http://localhost:8080):
       continuam sendo do protagonista). Trocar o formato muda o limite de elenco (Reels avisa
       com 3 personagens; vídeo longo, não). O formato **Diálogo** cobra pelo menos um personagem.
       Recarregar a página e reabrir do histórico devolvem o elenco inteiro.
+- [ ] **Gerar — Atribuição**: numa pauta de anúncio (ex.: "o governador anunciou que as obras
+      começam em 1º de agosto"), a matéria NÃO pode afirmar a data por conta própria — tem de
+      sair "Segundo o governador…", "De acordo com…". Vale para promessa, previsão, número,
+      causa e avaliação; acontecimento observado ("a ponte foi interditada") dispensa. Se o
+      texto voltar sem nenhuma atribuição e a pauta tinha declarações, o resultado mostra o
+      ponto de atenção "A pauta traz N informação(ões) declarada(s)…".
 - [ ] **Gerar — Comentários**: o seletor tem 4 opções e começa em "Sem comentários"; trocar
       atualiza a legenda e a escolha sobrevive ao recarregar. Com uma direção ativa, o resultado
       e o histórico ganham o selo "Comentários: …". Gerando com **Negativos** sobre uma pauta

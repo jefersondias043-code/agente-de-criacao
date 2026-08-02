@@ -523,6 +523,49 @@ function stylePrompt(styleId) {
  * conquista com PRECISÃO e ATRIBUIÇÃO, não com hesitação — por isso o bloco
  * termina com o contraste dos três textos.
  * ========================================================================== */
+/* ============================================================================
+ * ATRIBUIÇÃO — de quem é a afirmação.
+ *
+ * Defeito relatado em uso real: a matéria escrevia "as obras da Ponte
+ * Salvador-Itaparica começam em 1º de agosto" como se o veículo garantisse a
+ * data. O que existe é um governador tendo anunciado isso — e a diferença não é
+ * de estilo: a obra pode atrasar, e aí o erro passa a ser do jornal.
+ *
+ * A regra já existia, mas enterrada no item 1 do bloco de segurança jurídica,
+ * enquadrada como precaução para pauta de crime. Aqui ela vira o que é: regra
+ * de redação, válida para toda matéria, aplicada a toda informação que tem
+ * dono. O bloco entra alto no prompt, nos dois modos de geração.
+ * ========================================================================== */
+const EDITORIAL_ATTRIBUTION = [
+  '═══ ATRIBUIÇÃO — TODA INFORMAÇÃO TEM DONO ═══',
+  '',
+  'A matéria NÃO afirma por conta própria o que uma pessoa, um órgão ou uma empresa afirmou. Ela relata QUEM afirmou. Escrever a declaração de alguém como se fosse fato apurado pelo veículo é o erro mais comum e o mais caro: quando a promessa não se cumpre, o erro vira do jornal.',
+  '',
+  'O QUE PRECISA DE FONTE — praticamente tudo que não é acontecimento observado:',
+  '• anúncio, promessa e cronograma ("as obras começam em…", "o serviço será ampliado…");',
+  '• previsão, estimativa, projeção e meta ("devem ser gerados 5 mil empregos");',
+  '• número, valor e balanço ("R$ 4,5 bilhões", "atendeu 500 famílias");',
+  '• causa, motivo e explicação ("o atraso se deve à chuva");',
+  '• avaliação e diagnóstico ("a situação está controlada");',
+  '• acusação, suspeita e apuração — aqui a fonte é obrigatória e a fase processual também.',
+  '',
+  'O QUE DISPENSA FONTE: o acontecimento que o material apresenta como ocorrido e verificável por qualquer um ("a ponte foi interditada", "o evento reuniu público na praça").',
+  '',
+  'COMO ATRIBUIR',
+  '• Construções: "segundo X", "de acordo com X", "conforme X", "X informou que", "X anunciou", "X afirmou", "na avaliação de X", "de acordo com o relatório/o comunicado/a nota".',
+  '• A fonte aparece na PRIMEIRA vez que a informação é dada. Nas retomadas seguintes do mesmo assunto não precisa repetir a cada frase — mas se um parágrafo novo traz informação nova daquela fonte, ela volta.',
+  '• Verbos NEUTROS de atribuição: disse, afirmou, declarou, informou, anunciou, apontou, estima. Evite os que já julgam: "admitiu" e "confessou" pressupõem culpa; "alegou" insinua descrédito; "revelou" pressupõe verdade oculta.',
+  '• Nomeie a fonte com o cargo quando o material der: "o governador Jerônimo Rodrigues", "a Secretaria de Infraestrutura", "o relatório do TCE".',
+  '• Se o material NÃO diz quem informou, isso é matéria-prima honesta: "o material não informa a origem da data" é melhor do que assumir a informação como sua.',
+  '',
+  'EXEMPLO — o mesmo fato, errado e certo:',
+  '✗ ERRADO (o veículo assume a promessa): "As obras da Ponte Salvador-Itaparica começam em 1º de agosto."',
+  '✓ CERTO (a promessa tem dono): "Segundo o governador Jerônimo Rodrigues, as obras da Ponte Salvador-Itaparica começam em 1º de agosto."',
+  '✓ TAMBÉM CERTO: "As obras da ponte devem começar em 1º de agosto, de acordo com o anúncio do governo do estado."',
+  '',
+  'ATENÇÃO: atribuir NÃO é encher o texto de "segundo" em toda frase — isso emperra a leitura. É garantir que o leitor sempre saiba de quem é cada afirmação. Uma fonte bem posicionada cobre o parágrafo inteiro.',
+].join('\n');
+
 const EDITORIAL_SAFETY = [
   '═══ REDAÇÃO JURIDICAMENTE RESPONSÁVEL (vale para qualquer estilo e qualquer tom) ═══',
   '',

@@ -61,6 +61,13 @@ No navegador (http://localhost:8080):
       "…em ~N partes" — e conclui sem o antigo erro de "máximo 25 MB". (Mesmo pipeline
       vale em **Gerar → Anexar arquivo** e nas ferramentas embutidas via ingest.)
 - [ ] **Cartazes**: "Novo cartaz" cria e renderiza o preview; editar headline atualiza ao vivo.
+- [ ] **Cartazes — Redes sociais (área segura)**: a aba "Redes sociais" do seletor de modelos traz
+      6 modelos; escolher um deles muda o formato para 9:16 automaticamente (com aviso) e libera
+      o seletor **Área segura da plataforma** em Estilo → Formato. Trocar entre Todas/Reels/
+      Stories/TikTok reposiciona o texto na hora. Com "Mostrar área segura" ligado (aba Elementos),
+      o guia desenha as faixas reais do app — topo, legenda e coluna de botões — e NÃO aparece
+      no PNG exportado. Título, subtítulo, @ e local ficam sempre dentro do retângulo tracejado.
+      Os modelos antigos seguem idênticos.
 - [ ] **Cartazes — Editor visual** (aba Elementos): adicionar forma/badge/ícone/texto aparece no
       preview e na lista de camadas; arrastar mostra guias de alinhamento; alça de rotação gira;
       "Área segura" desenha a margem; Desfazer/Refazer (Ctrl+Z/Y) revertem; modo Simples esconde

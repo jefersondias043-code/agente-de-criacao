@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-01-r187" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-02-r188" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -503,6 +503,9 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
                            (src/posters.js). O registro é a fonte única: um modelo
                            novo aparece aqui sem tocar no HTML. -->
                       <select class="select" id="p-template"></select>
+                      <!-- Plataforma da ÁREA SEGURA — usado só pelos modelos da
+                           família "Redes sociais". Opções vêm de POSTER_SAFE_ZONES. -->
+                      <select class="select" id="p-safezone"></select>
                       <select class="select" id="p-format">
                       <option value="3:4">Retrato 3:4</option>
                       <option value="4:5">Vertical 4:5</option>
@@ -533,7 +536,19 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 
                     <!-- Sub-áreas: só a ativa aparece. Modelo/Formato/Temas = grids de cards. -->
                     <div class="style-sub active" data-sub="model"><div class="picker-grid" id="p-sub-model"></div></div>
-                    <div class="style-sub" data-sub="format"><div class="picker-grid" id="p-sub-format"></div></div>
+                    <div class="style-sub" data-sub="format">
+                      <div class="picker-grid" id="p-sub-format"></div>
+                      <!-- Só aparece nos modelos "Redes sociais": é o que decide
+                           onde o app cobre o cartaz e, portanto, onde o texto pode ficar. -->
+                      <div id="p-safezone-field" style="display:none;margin-top:.7rem;">
+                        <div class="kicker" style="margin-bottom:.3rem;">Área segura da plataforma</div>
+                        <button type="button" class="picker-row" data-for="p-safezone">
+                          <span class="picker-row-value">—</span>
+                          <svg class="picker-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
+                        <p class="text-xs text-mute" style="margin:.4rem 0 0;" id="p-safezone-hint"></p>
+                      </div>
+                    </div>
                     <div class="style-sub" data-sub="themes"><div class="picker-grid" id="p-sub-themes"></div></div>
                     <div class="style-sub" data-sub="manual" id="p-sub-manual">
                       <div class="field" style="margin:0 0 .6rem;">

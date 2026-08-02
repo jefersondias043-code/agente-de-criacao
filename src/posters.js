@@ -907,6 +907,15 @@ function renderPosterEditor() {
   if ($('#p-description')) $('#p-description').value = s.description || '';
   if ($('#p-template')) $('#p-template').value = s.template || 'manchete';
   if ($('#p-format')) $('#p-format').value = s.format || '3:4';
+  // Área segura: opções vêm do catálogo (fonte única) e o valor é do cartaz.
+  const zsel = $('#p-safezone');
+  if (zsel && typeof POSTER_SAFE_ZONES !== 'undefined') {
+    if (!zsel.options.length) {
+      zsel.innerHTML = Object.entries(POSTER_SAFE_ZONES)
+        .map(([id, z]) => `<option value="${escapeHtml(id)}">${escapeHtml(z.label)}</option>`).join('');
+    }
+    zsel.value = s.safeZone || POSTER_SAFE_DEFAULT;
+  }
   if ($('#p-mosaic')) $('#p-mosaic').value = s.mosaic || 'auto';
   if ($('#p-theme')) $('#p-theme').value = p.theme || '';   // tema do CARTAZ (vazio = herda o portal)
   // Campos dedicados opcionais (mostrados só nos modelos que usam — ver updateExtraFields).
@@ -918,6 +927,21 @@ function renderPosterEditor() {
 
   // Controle "Disposição das imagens" — visível só p/ modelos de foto com ≥2 imagens;
   // popula as opções conforme a quantidade de imagens do alvo (slide ou cartaz).
+  // Controle "Área segura": só faz sentido nos modelos que compõem dentro dela.
+  // Nos demais, ficaria um seletor sem efeito nenhum na tela — pior que ausente.
+  const updateSafeZoneControl = () => {
+    const field = $('#p-safezone-field');
+    if (!field) return;
+    const tpl = $('#p-template') ? $('#p-template').value : (s.template || '');
+    const mostra = posterEhModeloDeRede(tpl);
+    field.style.display = mostra ? '' : 'none';
+    if (!mostra) return;
+    const hint = $('#p-safezone-hint');
+    const z = (typeof POSTER_SAFE_ZONES !== 'undefined')
+      && POSTER_SAFE_ZONES[($('#p-safezone') && $('#p-safezone').value) || POSTER_SAFE_DEFAULT];
+    if (hint && z) hint.textContent = z.hint || '';
+  };
+
   const updateMosaicControl = () => {
     const field = $('#p-mosaic-field'); const sel = $('#p-mosaic');
     if (!field || !sel) return;
@@ -970,6 +994,7 @@ function renderPosterEditor() {
   updateProgressiveVisibility();
   updateMosaicControl();
   updateExtraFields();
+  updateSafeZoneControl();
 
   // Live preview: cada campo atualiza o cartaz em tempo real
   const updatePreview = () => {
@@ -979,6 +1004,7 @@ function renderPosterEditor() {
       ...((typeof posterIsCarousel === 'function' && posterIsCarousel(p)) ? { _idx: (p.slideIndex || 0) + 1, _total: p.slides.length } : {}),
       template: $('#p-template') ? $('#p-template').value : (s.template || 'manchete'),
       format: $('#p-format') ? $('#p-format').value : (s.format || '3:4'),
+      safeZone: $('#p-safezone') ? $('#p-safezone').value : s.safeZone,
       headline: $('#p-headline').value,
       category: ($('#p-category').value || '').toUpperCase(),
       location: $('#p-location').value,
@@ -1028,6 +1054,7 @@ function renderPosterEditor() {
     if ($('#p-description')) t.description = $('#p-description').value;
     if ($('#p-template')) t.template = $('#p-template').value;
     if ($('#p-format')) t.format = $('#p-format').value;
+    if ($('#p-safezone')) t.safeZone = $('#p-safezone').value;
     if ($('#p-person-name')) t.personName = $('#p-person-name').value;
     if ($('#p-person-role')) t.personRole = $('#p-person-role').value;
     if ($('#p-figure')) t.figure = $('#p-figure').value;
@@ -1125,12 +1152,24 @@ function renderPosterEditor() {
 
   // Troca de modelo/formato: persiste e re-renderiza (re-ativa pan pois alguns
   // modelos passam a usar imagem arrastável, e o formato muda as dimensões).
-  ['p-template', 'p-format'].forEach(id => {
+  ['p-template', 'p-format', 'p-safezone'].forEach(id => {
     const el = $(`#${id}`);
     if (!el) return;
     el.onchange = () => {
+      const tplAntes = s.template;
       s.template = $('#p-template') ? $('#p-template').value : s.template;
-      const newFmt = $('#p-format') ? $('#p-format').value : s.format;
+      s.safeZone = $('#p-safezone') ? $('#p-safezone').value : s.safeZone;
+      let newFmt = $('#p-format') ? $('#p-format').value : s.format;
+      // Ao ENTRAR num modelo de redes sociais, leva junto o formato vertical:
+      // é para 9:16 que as áreas seguras foram medidas, e trocar à mão logo
+      // depois era o ajuste manual que o modelo deveria poupar. Só na entrada,
+      // e avisando — quem quiser outro formato troca em seguida e fica.
+      if (id === 'p-template' && posterEhModeloDeRede(s.template)
+          && !posterEhModeloDeRede(tplAntes) && newFmt !== '9:16') {
+        newFmt = '9:16';
+        if ($('#p-format')) $('#p-format').value = '9:16';
+        if (typeof toast === 'function') toast('Formato ajustado para 9:16 — é a proporção das áreas seguras de Reels, Stories e TikTok.', 'info', 5000);
+      }
       s.format = newFmt;
       // FORMATO é propriedade do CONJUNTO no carrossel: sincroniza TODOS os
       // slides + o nível do carrossel (o usuário muda uma vez e vale p/ todos).
@@ -1143,6 +1182,8 @@ function renderPosterEditor() {
       savePosters();
       updateMosaicControl();
       updateExtraFields();
+      updateSafeZoneControl();
+      if (typeof setupPosterPickers === 'function') setupPosterPickers();   // sincroniza a linha do picker
       updatePreview();
       requestAnimationFrame(() => {
         fitPosterPreview();
@@ -1464,6 +1505,7 @@ function setupVisibilityImages() {
 const POSTER_PICKER_DEFS = {
   'p-template':     { title: 'Modelo',                 kind: 'plain' },
   'p-format':       { title: 'Formato',                kind: 'format' },
+  'p-safezone':     { title: 'Área segura da rede',    kind: 'safezone' },
   'p-theme':        { title: 'Tema',                   kind: 'theme' },
   'p-palette':      { title: 'Paleta de cores',        kind: 'palette' },
   'p-mosaic':       { title: 'Disposição das imagens', kind: 'plain' },
@@ -1489,6 +1531,19 @@ function _pickerSwatch(value, kind) {
     const f = (typeof POSTER_FORMATS !== 'undefined') ? POSTER_FORMATS[value] : null;
     const ar = f ? `${f.w}/${f.h}` : '3/4';
     return `<span class="pk-fmt-wrap"><span class="pk-fmt" style="aspect-ratio:${ar}"></span></span>`;
+  }
+  if (kind === 'safezone') {
+    // Miniatura 9:16 com as faixas que o aplicativo cobre — o usuário entende a
+    // escolha olhando, sem precisar decorar percentuais.
+    const z = (typeof POSTER_SAFE_ZONES !== 'undefined') ? POSTER_SAFE_ZONES[value] : null;
+    if (!z) return '<span class="pk-sw pk-sw-auto">—</span>';
+    const faixa = (css) => `<i style="position:absolute;background:rgba(207,52,24,.34);${css}"></i>`;
+    return `<span class="pk-safe">
+      ${faixa(`left:0;right:0;top:0;height:${z.top}%;`)}
+      ${faixa(`left:0;right:0;bottom:0;height:${z.bottom}%;`)}
+      ${faixa(`top:${z.top}%;bottom:${z.bottom}%;right:0;width:${z.right}%;`)}
+      <i style="position:absolute;left:${z.left}%;right:${z.right}%;top:${z.top}%;bottom:${z.bottom}%;border:1.5px dashed rgba(13,148,136,.9);background:transparent;"></i>
+    </span>`;
   }
   if (kind === 'gradient') {
     const g = (typeof POSTER_GRADIENTS !== 'undefined') ? POSTER_GRADIENTS[value] : null;
@@ -2563,6 +2618,12 @@ function tplManchete(p, fmt, portal) { return tplManchete2(p, fmt, portal); }
   `;
 }
 */
+
+/** O modelo pertence à família "Redes sociais" (composição em área segura)? */
+function posterEhModeloDeRede(tplId) {
+  const t = (typeof POSTER_TEMPLATES !== 'undefined') && POSTER_TEMPLATES[tplId];
+  return !!(t && t.cat === 'redes');
+}
 
 /** Formato (dimensões) do cartaz/slide ativo (em carrossel, o do slide visível). */
 function posterActiveFormat() {

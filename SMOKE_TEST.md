@@ -80,6 +80,13 @@ No navegador (http://localhost:8080):
       aquela área **vazada** — abrindo num editor de vídeo, o vídeo aparece atrás do buraco.
       O formato cai para PNG automaticamente (JPG não guarda transparência), com aviso. Desligar
       devolve a foto que estava lá. Modelos sem área de foto não são afetados.
+- [ ] **Cartazes — qualidade da exportação**: em Finalizar, a **Resolução** já vem em **2160px**
+      (a maior); 1080px continua a um toque. Exportando em PNG, abrir o arquivo em tamanho real
+      e comparar com o preview: texto, contorno de forma e borda de foto têm de estar tão
+      definidos quanto na tela — sem halo, sem serrilhado, sem cara de imagem comprimida.
+      Trocar uma foto por uma de câmera (3000px+) e reexportar: a foto NÃO pode sair mais mole
+      que o texto ao lado. Com fundo de padrão (Estilo → Fundo), os pontos/listras têm de sair
+      com a borda limpa. JPG segue disponível e sai bem menos comprimido que antes.
 - [ ] **Cartazes — Editor visual** (aba Elementos): adicionar forma/badge/ícone/texto aparece no
       preview e na lista de camadas; arrastar mostra guias de alinhamento; alça de rotação gira;
       "Área segura" desenha a margem; Desfazer/Refazer (Ctrl+Z/Y) revertem; modo Simples esconde

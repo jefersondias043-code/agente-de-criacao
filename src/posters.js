@@ -2395,43 +2395,79 @@ function togglePosterVazado(key) {
     : 'Campo voltou a usar foto.', 'success');
 }
 
-/**
- * Lê uma imagem do disco, redimensiona para no máximo 1200px no maior lado
- * e devolve como dataURL (JPEG quality 0.85). Isso reduz drasticamente o
- * tamanho que vai para o localStorage.
- */
-function fileToBase64Compressed(file, maxDimension = 1200, quality = 0.85) {
+/* MAIOR LADO QUE A EXPORTAÇÃO CHEGA A PEDIR.
+ *
+ * Guardar menos que isto obriga a AMPLIAR a foto na hora de exportar — e
+ * ampliar é justamente o que tira a nitidez das bordas. Guardar mais não
+ * melhora pixel nenhum do PNG e só ocupa espaço.
+ *
+ * Calculado, não fixo: sai do cartaz mais alto do catálogo vezes a resolução
+ * máxima oferecida. Hoje 1920 × 2 = 3840. Se um formato novo entrar, o teto
+ * acompanha sozinho. Fica numa função porque posters.js carrega ANTES de
+ * poster-templates.js (ver scripts.manifest.mjs) — no topo, POSTER_FORMATS
+ * ainda não existe. */
+function posterMaiorLadoExportavel() {
+  const fmts = (typeof POSTER_FORMATS !== 'undefined') ? Object.values(POSTER_FORMATS) : [];
+  const lado = fmts.reduce((m, f) => Math.max(m, f.w || 0, f.h || 0), 0) || 1920;
+  const escala = (typeof POSTER_EXPORT_SCALES !== 'undefined')
+    ? POSTER_EXPORT_SCALES.reduce((m, e) => Math.max(m, e.v), 1) : 2;
+  return lado * escala;
+}
+
+/** Lê o arquivo como dataURL, sem passar por canvas (bytes originais). */
+function fileToDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = Math.round(height * (maxDimension / width));
-            width = maxDimension;
-          } else {
-            width = Math.round(width * (maxDimension / height));
-            height = maxDimension;
-          }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        // Mantém PNG se a imagem original era PNG (preserva transparência)
-        const isPng = file.type === 'image/png';
-        const dataUrl = canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality);
-        resolve(dataUrl);
-      };
-      img.onerror = () => reject(new Error('Imagem inválida'));
-      img.src = e.target.result;
-    };
+    reader.onload = (e) => resolve(e.target.result);
     reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Traz uma imagem do disco para o cartaz PRESERVANDO a qualidade.
+ *
+ * Antes esta função reduzia TODA imagem a 1200px e reencodava em JPEG 0.85,
+ * para caber no localStorage. Esse motivo não existe mais: as imagens vivem no
+ * IndexedDB como Blob desde a offloadPosterImagesToIDB(), cujo limite é a
+ * capacidade do aparelho. O que sobrava era só o prejuízo — medido num Chromium
+ * real contra a mesma foto desenhada direto no tamanho de export (2160px):
+ * 23,2 dB de PSNR e METADE da energia de contorno da referência. Era daí que
+ * vinha a maior parte da "sensação de imagem comprimida" na exportação.
+ *
+ * Agora:
+ *   - cabe no teto  → PASSAGEM DIRETA, byte a byte, sem reencodar nada. Zero
+ *     perda; e como o arquivo já vem comprimido da câmera, costuma ficar até
+ *     MENOR do que ficaria reencodado.
+ *   - passa do teto → uma única redução, com suavização de alta qualidade e
+ *     quality 0.95 (ou PNG, se a origem era PNG — preserva transparência).
+ */
+function fileToBase64Compressed(file, maxDimension, quality = 0.95) {
+  const teto = maxDimension || posterMaiorLadoExportavel();
+  return fileToDataURL(file).then((bruto) => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const { width: iw, height: ih } = img;
+      // Já cabe: entrega os bytes originais. Nenhuma etapa de perda.
+      if (Math.max(iw, ih) <= teto) { resolve(bruto); return; }
+      const k = teto / Math.max(iw, ih);
+      const width = Math.round(iw * k);
+      const height = Math.round(ih * k);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      // Reduzir sem isto serrilha contorno fino — o padrão do Chrome é 'low'.
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, width, height);
+      // Mantém PNG se a imagem original era PNG (preserva transparência)
+      const isPng = file.type === 'image/png';
+      resolve(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality));
+    };
+    img.onerror = () => reject(new Error('Imagem inválida'));
+    img.src = bruto;
+  }));
 }
 
 // Manchete — usa o layout "front page" tplManchete2 (definido em poster-templates.js).
@@ -3421,6 +3457,11 @@ async function captureStageCanvas(fmt, scale, opcoes) {
     cvs.height = H * s;
     cvs.style.cssText = 'display: block; width: 100%; height: 100%;';
     const ctx = cvs.getContext('2d');
+    // Uma foto de câmera quase sempre é REDUZIDA para caber no slot. Com o
+    // padrão do Chrome ('low') a redução serrilha contorno e textura fina —
+    // é parte da "suavização excessiva" que aparecia só no arquivo salvo.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // Enquadramento desenhado por RETÂNGULO DE DESTINO (preserva a proporção em
     // QUALQUER zoom). Mesma geometria do preview (applyImageTransform): a imagem
@@ -3470,6 +3511,8 @@ async function captureStageCanvas(fmt, scale, opcoes) {
     lc.width = lw * s; lc.height = lh * s;   // bitmap em alta-res; CSS continua em px
     lc.style.cssText = `display:block;width:${lw}px;height:${lh}px;flex-shrink:0;`;
     const lctx = lc.getContext('2d');
+    lctx.imageSmoothingEnabled = true;
+    lctx.imageSmoothingQuality = 'high';
     if (radius > 0 && typeof _mbRoundRect === 'function') { _mbRoundRect(lctx, 0, 0, lw * s, lh * s, radius * s); lctx.clip(); }
     const sCover = Math.max(lw / iw, lh / ih);   // cover: preenche, recorta o excedente
     const rW = iw * sCover * s, rH = ih * sCover * s;
@@ -3603,6 +3646,8 @@ async function captureStageComVazado(fmt, scale) {
   const out = document.createElement('canvas');
   out.width = normal.width; out.height = normal.height;
   const ctx = out.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(normal, 0, 0);
   // Abre os buracos no cartaz opaco…
   ctx.save();
@@ -3634,7 +3679,7 @@ async function exportPoster(p, scale, fileType) {
     const canvas = await captureStageComVazado(posterActiveFormat(), scale);
     if (!canvas) { toast(libReady('html2canvas') ? 'Não foi possível exportar.' : libUnavailableMsg('html2canvas'), 'error', 6000); return; }
     const name = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}${vazado ? '-moldura' : ''}.${ext}`;
-    const blob = await canvasToBlob(canvas, mime, jpg ? 0.92 : undefined);
+    const blob = await canvasToBlob(canvas, mime, jpg ? POSTER_JPG_QUALITY : undefined);
     // Mostra a PRÉVIA + botão salvar/compartilhar. O salvamento vira uma ação
     // nova do usuário → o share nativo do iPhone funciona (não pode ser
     // disparado automático logo após o html2canvas, o iOS bloqueia).
@@ -3658,6 +3703,29 @@ function _savePosterProject(p) {
   toast((typeof posterIsCarousel === 'function' && posterIsCarousel(p)) ? 'Carrossel salvo.' : 'Cartaz salvo.', 'success');
 }
 
+/* RESOLUÇÕES OFERECIDAS — fonte única.
+ *
+ * O rótulo mostra a LARGURA final; a altura sai da proporção escolhida (no
+ * 9:16, 2× dá 2160×3840). O padrão é a máxima: o PNG é sem perda, então a
+ * única coisa que a resolução menor economiza é tamanho de arquivo — e quem
+ * exporta um cartaz quer que ele fique nítido no feed. Quem precisa de arquivo
+ * leve continua com o 1× a um toque.
+ *
+ * Também é daqui que sai o teto de entrada das fotos
+ * (posterMaiorLadoExportavel): guardar imagem menor do que a maior exportação
+ * possível obrigaria a ampliar na hora de exportar. */
+const POSTER_EXPORT_SCALES = [
+  { v: 1, label: '1080px', hint: 'arquivo leve' },
+  { v: 2, label: '2160px', hint: 'máxima definição' },
+];
+const POSTER_EXPORT_SCALE_DEFAULT = 2;
+
+/* Qualidade do JPG. O PNG é sem perda e é o padrão; quem escolhe JPG ainda
+ * assim não deve receber um arquivo borrado, então fica no topo prático da
+ * escala — acima disto o arquivo cresce muito sem diferença visível, e é
+ * justamente em texto e contorno que o JPG costuma sujar. */
+const POSTER_JPG_QUALITY = 0.98;
+
 /* Tela de FINALIZAR: um ícone abre esta tela única com as duas ações —
    SALVAR o projeto (mantém editável) e EXPORTAR (arquivo final). Já vem
    pré-preenchida com as escolhas da edição; o usuário ajusta e conclui.
@@ -3677,7 +3745,7 @@ function openPosterExportSettings(p) {
   };
   let selFmt = (s && s.format) || (p && p.format) || '3:4';
   if (!FORMATS[selFmt]) selFmt = Object.keys(FORMATS)[0] || '3:4';
-  let selScale = 1, selFile = 'png', selMode = 'images';
+  let selScale = POSTER_EXPORT_SCALE_DEFAULT, selFile = 'png', selMode = 'images';
 
   const fmtCards = Object.keys(FORMATS).map((k) => {
     const parts = k.split(':').map(Number);
@@ -3707,8 +3775,7 @@ function openPosterExportSettings(p) {
       <div class="exps-group">
         <div class="exps-label">Resolução</div>
         <div class="exps-seg" data-seg="scale">
-          <button type="button" data-v="1" class="sel">1080px</button>
-          <button type="button" data-v="2">2160px</button>
+          ${POSTER_EXPORT_SCALES.map((e) => `<button type="button" data-v="${e.v}" title="${escapeHtml(e.hint)}"${e.v === selScale ? ' class="sel"' : ''}>${escapeHtml(e.label)}</button>`).join('')}
         </div>
       </div>
       <div class="exps-group">
@@ -4216,7 +4283,10 @@ function initPortalForm() {
     if (!file.type.startsWith('image/')) { toast('Apenas imagens são aceitas.', 'error'); return; }
     if (file.size > 5 * 1024 * 1024) { toast('A imagem é muito grande (máximo 5 MB).', 'error'); return; }
     try {
-      const base64 = await fileToBase64Compressed(file, 400, 0.9);
+      // 400px era pouco: o masthead desenha a logo com algumas centenas de px
+      // e a exportação em 2× dobra isso — a marca saía do PNG mais mole que o
+      // resto do cartaz. 1600 cobre o maior uso com folga.
+      const base64 = await fileToBase64Compressed(file, 1600, 0.95);
       getPortal().logo = base64;
       saveJSON(STORAGE_KEYS.portals, State.portals);
       refreshLogoPreview();

@@ -80,6 +80,11 @@ const POSTER_FORMATS = {
  * plataformas. É o padrão, porque o mesmo cartaz costuma ir para todas.
  * ========================================================================== */
 const POSTER_SAFE_ZONES = {
+  livre: {
+    label: 'Livre — sem ajuste', hint: 'Composição original do modelo, sem reservar as faixas do app',
+    top: 0, bottom: 0, left: 0, right: 0, livre: true,
+    ui: { topo: '', base: '', direita: '' },
+  },
   universal: {
     label: 'Todas as redes', hint: 'Reels + Stories + TikTok ao mesmo tempo (mais restrito)',
     top: 14, bottom: 27, left: 6, right: 18,
@@ -108,10 +113,23 @@ const POSTER_SAFE_ZONES = {
 };
 const POSTER_SAFE_DEFAULT = 'universal';
 
-/** Zona ativa de um cartaz (com padrão). */
+/** Zona ativa de um cartaz.
+ *
+ *  O padrão é 'livre' — cartaz salvo antes desta versão, ou modelo em que o
+ *  usuário não escolheu nada, continua exatamente como estava. A família
+ *  "Redes sociais" é a exceção: ela É a composição em área segura, então cai
+ *  no padrão universal mesmo se alguém marcar 'livre'. */
 function ptSafeZone(p) {
-  const id = (p && p.safeZone) || POSTER_SAFE_DEFAULT;
-  return POSTER_SAFE_ZONES[id] || POSTER_SAFE_ZONES[POSTER_SAFE_DEFAULT];
+  const ehRede = (typeof posterEhModeloDeRede === 'function') && p && posterEhModeloDeRede(p.template);
+  let id = (p && p.safeZone) || (ehRede ? POSTER_SAFE_DEFAULT : 'livre');
+  if (id === 'livre' && ehRede) id = POSTER_SAFE_DEFAULT;
+  return POSTER_SAFE_ZONES[id] || POSTER_SAFE_ZONES[ehRede ? POSTER_SAFE_DEFAULT : 'livre'];
+}
+
+/** A adaptação automática está ligada para este cartaz? */
+function ptSafeAtiva(p) {
+  const z = ptSafeZone(p);
+  return !!z && !z.livre;
 }
 
 /** Retângulo seguro em PIXELS do formato — o que os modelos usam para posicionar. */

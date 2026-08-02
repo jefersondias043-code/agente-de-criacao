@@ -13,7 +13,8 @@
     "build:detector-css": "node scripts/build-detector-css.mjs",
     "bake:autopost": "node scripts/bake-autopost.mjs",
     "verify": "npm run lint && npm run test && npm run check:manifest && npm run check:html-js && node scripts/sync-manifest.mjs --check && node scripts/bake-autopost.mjs --check",
-    "check:html-js": "node scripts/check-html-js.mjs"
+    "check:html-js": "node scripts/check-html-js.mjs",
+    "audit:area-segura": "node scripts/audit-area-segura.mjs"
   },
   "devDependencies": {
     "eslint": "^9.18.0",

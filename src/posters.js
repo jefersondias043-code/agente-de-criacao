@@ -914,7 +914,8 @@ function renderPosterEditor() {
       zsel.innerHTML = Object.entries(POSTER_SAFE_ZONES)
         .map(([id, z]) => `<option value="${escapeHtml(id)}">${escapeHtml(z.label)}</option>`).join('');
     }
-    zsel.value = s.safeZone || POSTER_SAFE_DEFAULT;
+    // Cartaz salvo antes desta versão não tem o campo: fica 'livre' e nada muda.
+    zsel.value = s.safeZone || (posterEhModeloDeRede(s.template) ? POSTER_SAFE_DEFAULT : 'livre');
   }
   if ($('#p-mosaic')) $('#p-mosaic').value = s.mosaic || 'auto';
   if ($('#p-theme')) $('#p-theme').value = p.theme || '';   // tema do CARTAZ (vazio = herda o portal)
@@ -929,16 +930,25 @@ function renderPosterEditor() {
   // popula as opções conforme a quantidade de imagens do alvo (slide ou cartaz).
   // Controle "Área segura": só faz sentido nos modelos que compõem dentro dela.
   // Nos demais, ficaria um seletor sem efeito nenhum na tela — pior que ausente.
+  // O controle vale para a BIBLIOTECA INTEIRA (r189): qualquer modelo pode ser
+  // publicado em rede vertical, e a adaptação é central. Nos modelos da família
+  // "Redes sociais" a opção "Livre" não aparece — neles a área segura não é um
+  // ajuste, é a própria composição.
   const updateSafeZoneControl = () => {
     const field = $('#p-safezone-field');
-    if (!field) return;
+    const sel = $('#p-safezone');
+    if (!field || !sel || typeof POSTER_SAFE_ZONES === 'undefined') return;
     const tpl = $('#p-template') ? $('#p-template').value : (s.template || '');
-    const mostra = posterEhModeloDeRede(tpl);
-    field.style.display = mostra ? '' : 'none';
-    if (!mostra) return;
+    const ehRede = posterEhModeloDeRede(tpl);
+    const anterior = sel.value;
+    const zonas = Object.entries(POSTER_SAFE_ZONES).filter(([id]) => !(ehRede && id === 'livre'));
+    const html = zonas.map(([id, z]) => `<option value="${escapeHtml(id)}">${escapeHtml(z.label)}</option>`).join('');
+    if (sel.innerHTML !== html) sel.innerHTML = html;
+    const valido = zonas.some(([id]) => id === anterior);
+    sel.value = valido ? anterior : (ehRede ? POSTER_SAFE_DEFAULT : (s.safeZone || 'livre'));
+    field.style.display = '';
     const hint = $('#p-safezone-hint');
-    const z = (typeof POSTER_SAFE_ZONES !== 'undefined')
-      && POSTER_SAFE_ZONES[($('#p-safezone') && $('#p-safezone').value) || POSTER_SAFE_DEFAULT];
+    const z = POSTER_SAFE_ZONES[sel.value];
     if (hint && z) hint.textContent = z.hint || '';
   };
 
@@ -1169,6 +1179,15 @@ function renderPosterEditor() {
         newFmt = '9:16';
         if ($('#p-format')) $('#p-format').value = '9:16';
         if (typeof toast === 'function') toast('Formato ajustado para 9:16 — é a proporção das áreas seguras de Reels, Stories e TikTok.', 'info', 5000);
+      }
+      // Ir para 9:16 é o sinal de que o cartaz vai para rede vertical: liga a
+      // área segura sozinho. Só quando ainda está em 'livre' — escolha manual
+      // do usuário nunca é sobrescrita —, e avisando, porque muda a composição.
+      if (id === 'p-format' && newFmt === '9:16' && !posterEhModeloDeRede(s.template)
+          && (!s.safeZone || s.safeZone === 'livre')) {
+        s.safeZone = POSTER_SAFE_DEFAULT;
+        if ($('#p-safezone')) $('#p-safezone').value = POSTER_SAFE_DEFAULT;
+        if (typeof toast === 'function') toast('Área segura ligada: o conteúdo foi recolhido para fora das faixas de legenda e botões. Desligue em Estilo → Formato se preferir a composição original.', 'info', 7000);
       }
       s.format = newFmt;
       // FORMATO é propriedade do CONJUNTO no carrossel: sincroniza TODOS os
@@ -2633,6 +2652,164 @@ function posterActiveFormat() {
   return f || { w: 1080, h: 1440 };
 }
 
+/* ==========================================================================
+ * ADAPTAÇÃO À ÁREA SEGURA — vale para a BIBLIOTECA INTEIRA (r189).
+ *
+ * A família "Redes sociais" nasce composta dentro da área útil. Os outros 60
+ * modelos, não: uma auditoria com layout real mostrou que 60 de 66 deixavam
+ * texto sob as faixas do aplicativo, quase sempre o rodapé (@ e local), que os
+ * modelos encostam na base — exatamente onde a legenda do Reels começa.
+ *
+ * Reescrever 60 modelos à mão destruiria a identidade de cada um e seria
+ * impossível de manter. Em vez disso a adaptação acontece em UM lugar, sobre o
+ * DOM já montado, e faz só duas coisas:
+ *
+ *   1. Aumenta o PADDING do nó raiz até a margem segura. Como os modelos põem
+ *      o conteúdo em fluxo (flex column), tudo desliza para dentro sem que a
+ *      composição mude de natureza. O fundo NÃO se mexe: `position:absolute;
+ *      inset:0` se resolve contra a caixa de padding, então foto e gradiente
+ *      seguem sangrando o cartaz inteiro — que é o que se quer.
+ *
+ *   2. Empurra para dentro os blocos de texto POSICIONADOS EM ABSOLUTO, que o
+ *      padding não alcança (faixas sobre foto, selos, tarjas). Move só o que
+ *      carrega informação: decoração translúcida e marca-d'água ficam onde
+ *      estão, porque sangrar é a função delas.
+ *
+ * Nada disso roda sem o usuário escolher uma plataforma: o padrão é 'livre'.
+ * ========================================================================== */
+
+/** Um nó é decoração (pode sangrar) em vez de informação (precisa caber)? */
+function _safeEhDecoracao(el) {
+  const cs = getComputedStyle(el);
+  if (cs.pointerEvents === 'none') return true;            // convenção do próprio catálogo
+  const m = /rgba?\(([^)]+)\)/.exec(cs.color || '');
+  if (m) {
+    const partes = m[1].split(',').map((x) => parseFloat(x));
+    if (partes.length >= 4 && partes[3] < 0.35) return true;   // marca-d'água / número fantasma
+  }
+  return (cs.opacity !== '' && parseFloat(cs.opacity) < 0.35);
+}
+
+/** Blocos absolutos mais externos que carregam texto visível. */
+function _safeBlocosAbsolutos(raiz) {
+  const out = [];
+  const anda = (el) => {
+    for (const ch of el.children) {
+      const cs = getComputedStyle(ch);
+      if (cs.position === 'absolute' || cs.position === 'fixed') {
+        // Não desce: os filhos acompanham o pai quando ele for deslocado.
+        if ((ch.textContent || '').trim() && !_safeEhDecoracao(ch)) out.push(ch);
+      } else {
+        anda(ch);
+      }
+    }
+  };
+  anda(raiz);
+  return out;
+}
+
+/** Etapa 1 — respiro em fluxo. Roda ANTES da composição tipográfica, que
+ *  precisa medir a caixa final para achar o corpo de fonte que cabe. */
+function posterAdaptarAreaSegura(raiz, p, fmt) {
+  if (!raiz || typeof ptSafeAtiva !== 'function' || !ptSafeAtiva(p)) return;
+  if (typeof posterEhModeloDeRede === 'function' && posterEhModeloDeRede(p.template)) return;
+  const r = ptSafeRect(p, fmt);
+  const cs = getComputedStyle(raiz);
+  const atual = (lado) => parseFloat(cs['padding' + lado]) || 0;
+  raiz.style.paddingTop = Math.max(atual('Top'), r.top) + 'px';
+  raiz.style.paddingBottom = Math.max(atual('Bottom'), r.bottom) + 'px';
+  raiz.style.paddingLeft = Math.max(atual('Left'), r.left) + 'px';
+  raiz.style.paddingRight = Math.max(atual('Right'), r.right) + 'px';
+  raiz.dataset.safeArea = p.safeZone || '';
+}
+
+/** Etapa 2 — o que o padrão do fluxo não alcança. Roda DEPOIS do typeset, com
+ *  o texto no tamanho final: é a caixa real que decide quanto mover e encolher.
+ *
+ *  A auditoria mostrou três causas distintas de vazamento, e todas caem aqui:
+ *    a) bloco absoluto posicionado sobre a foto (faixa, selo, tarja);
+ *    b) bloco absoluto MAIS LARGO que a área útil — deslocar não adianta, e sem
+ *       limitar a largura ele sempre sobra do lado direito;
+ *    c) linha em fluxo que não encolhe (flex com colunas de largura mínima),
+ *       estourando a caixa já reduzida pelo padding.
+ *  Para (b) e (c) a correção é a mesma: limitar a largura ao que sobra. O texto
+ *  reflui, que é o comportamento natural do modelo em telas estreitas. */
+function posterAjustarBlocosSeguros(raiz, p, fmt) {
+  if (!raiz || typeof ptSafeAtiva !== 'function' || !ptSafeAtiva(p)) return 0;
+  if (typeof posterEhModeloDeRede === 'function' && posterEhModeloDeRede(p.template)) return 0;
+  const r = ptSafeRect(p, fmt);
+  const rb = raiz.getBoundingClientRect();
+  if (!rb.width) return 0;
+  const k = rb.width / fmt.w;              // o preview é escalado; medir em px do cartaz
+  const limiteDir = fmt.w - r.right;
+  let n = 0;
+
+  // IDEMPOTÊNCIA: a etapa roda duas vezes (antes e depois da recomposição
+  // tipográfica). Sem desfazer o ajuste anterior, o segundo passe somaria outra
+  // translação sobre a primeira e o bloco sairia do outro lado.
+  raiz.querySelectorAll('[data-safe-clamp]').forEach((el) => {
+    el.style.maxWidth = ''; el.style.minWidth = '';
+    delete el.dataset.safeClamp;
+  });
+  raiz.querySelectorAll('[data-safe-shift]').forEach((el) => {
+    el.style.transform = el.dataset.safeT0 || '';
+    delete el.dataset.safeShift;
+  });
+
+  // (a) e (b) — blocos absolutos com informação.
+  _safeBlocosAbsolutos(raiz).forEach((el) => {
+    const bb = el.getBoundingClientRect();
+    if (!bb.width || !bb.height) return;
+    const topo = (bb.top - rb.top) / k, esq = (bb.left - rb.left) / k;
+    const alt = bb.height / k, larg = bb.width / k;
+    // Largura primeiro: um bloco mais largo que a área útil não tem para onde
+    // ser empurrado — encolhe e o texto se reacomoda.
+    if (larg > r.w + 1) {
+      el.style.maxWidth = Math.round(r.w) + 'px';
+      el.dataset.safeClamp = '1';
+      n++;
+    }
+    let dy = 0, dx = 0;
+    if (topo < r.top) dy = r.top - topo;
+    else if (topo + alt > fmt.h - r.bottom) dy = -((topo + alt) - (fmt.h - r.bottom));
+    const largFinal = Math.min(larg, r.w);
+    if (esq < r.left) dx = r.left - esq;
+    else if (esq + largFinal > limiteDir) dx = -((esq + largFinal) - limiteDir);
+    // Bloco mais alto que a faixa útil: prioriza o começo do texto, que é o que
+    // carrega a informação — descer para caber cortaria o título.
+    if (topo + dy < r.top) dy = r.top - topo;
+    if (esq + dx < r.left) dx = r.left - esq;
+    if (!dx && !dy) return;
+    if (el.dataset.safeT0 === undefined) el.dataset.safeT0 = el.style.transform || '';
+    el.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px) ${el.dataset.safeT0}`.trim();
+    el.dataset.safeShift = '1';
+    n++;
+  });
+
+  // (c) — quem está em fluxo e mesmo assim estoura à direita. Limita o nó mais
+  // EXTERNO que vaza: encolher o pai reacomoda os filhos de uma vez.
+  const anda = (el) => {
+    for (const ch of el.children) {
+      const cs = getComputedStyle(ch);
+      if (cs.position === 'absolute' || cs.position === 'fixed') continue;   // já tratado acima
+      const bb = ch.getBoundingClientRect();
+      if (!bb.width) continue;
+      const esq = (bb.left - rb.left) / k;
+      const dir = (bb.right - rb.left) / k;
+      if (dir > limiteDir + 1 && (ch.textContent || '').trim() && !_safeEhDecoracao(ch)) {
+        ch.style.maxWidth = Math.max(40, Math.round(limiteDir - esq)) + 'px';
+        ch.style.minWidth = '0';           // sem isto, item de flex não encolhe
+        ch.dataset.safeClamp = '1';
+        n++;
+      } else {
+        anda(ch);
+      }
+    }
+  };
+  anda(raiz);
+  return n;
+}
+
 /** Renderiza o cartaz escolhendo template + formato (delega ao catálogo). */
 function renderPosterTemplate(p) {
   const portal = { ...(p.portalSnapshot || {}), ...(State.portals[State.activePortalIndex] || State.portals[0] || {}) };
@@ -2649,10 +2826,24 @@ function renderPosterTemplate(p) {
         : tpl.render(p, fmt, portal))
     : tplManchete(p, fmt, portal);
   if (typeof applyPosterRootBg === 'function') applyPosterRootBg(p.custom, $('#p-stage'), fmt);   // fundo custom (sólido/gradiente/padrão) no nó raiz
+  // ÁREA SEGURA (r189): respiro em fluxo antes do typeset — ele mede a caixa
+  // final para escolher o corpo de fonte, então precisa da caixa já encolhida.
+  posterAdaptarAreaSegura($('#p-stage').querySelector('.poster-1440'), p, fmt);
   // COMPOSIÇÃO TIPOGRÁFICA (r165): mede o título/subtítulo no DOM já montado e
   // acha o corpo de fonte que realmente cabe, com quebras equilibradas. Roda
   // ANTES de escalar o preview — o fit precisa das medidas em escala 1:1.
   if (typeof typesetPoster === 'function') typesetPoster(p, $('#p-stage'));
+  // ÁREA SEGURA, etapa 2: com o texto no tamanho final, empurra para dentro os
+  // blocos absolutos (faixas sobre foto, selos) que o padding não alcança e
+  // limita a largura do que ainda estoura.
+  const _raizSegura = $('#p-stage').querySelector('.poster-1440');
+  if (posterAjustarBlocosSeguros(_raizSegura, p, fmt)) {
+    // Encolher uma caixa invalida a composição que acabou de ser calculada para
+    // a largura antiga — sem recompor, o título vinha truncado com reticências.
+    // Recompõe na caixa final e reajusta (a etapa é idempotente).
+    if (typeof typesetPoster === 'function') typesetPoster(p, $('#p-stage'));
+    posterAjustarBlocosSeguros(_raizSegura, p, fmt);
+  }
   fitPosterPreview();
   applyAllImageTransforms($('#p-stage'));
   // OVERLAYS unificados (r116): elementos livres + avatar + camadas de imagem numa

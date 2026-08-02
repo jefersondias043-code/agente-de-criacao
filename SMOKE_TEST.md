@@ -68,6 +68,15 @@ No navegador (http://localhost:8080):
       o guia desenha as faixas reais do app — topo, legenda e coluna de botões — e NÃO aparece
       no PNG exportado. Título, subtítulo, @ e local ficam sempre dentro do retângulo tracejado.
       Os modelos antigos seguem idênticos.
+- [ ] **Cartazes — área segura em QUALQUER modelo**: o seletor "Área segura da plataforma"
+      (Estilo → Formato) aparece para todos os modelos, começando em **Livre — sem ajuste**
+      (cartaz antigo abre exatamente como estava). Trocar o formato para 9:16 liga a área
+      segura sozinho, com aviso. Ligada, o conteúdo recolhe para dentro do retângulo e o
+      rodapé sai de baixo da legenda; voltando para "Livre", a composição original retorna
+      sem sobra de ajuste. O PNG exportado mantém o recolhimento e não leva o guia.
+      Auditoria geométrica repetível: `node scripts/static-server.mjs &` +
+      `npm run audit:area-segura` (mede todos os modelos × plataformas num navegador real;
+      exige Playwright, e sem ele apenas avisa).
 - [ ] **Cartazes — Editor visual** (aba Elementos): adicionar forma/badge/ícone/texto aparece no
       preview e na lista de camadas; arrastar mostra guias de alinhamento; alça de rotação gira;
       "Área segura" desenha a margem; Desfazer/Refazer (Ctrl+Z/Y) revertem; modo Simples esconde

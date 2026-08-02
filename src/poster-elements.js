@@ -60,19 +60,58 @@ function _peBorderCss(el, posterH) {
   return `border:${w}px ${style} ${el.border};`;
 }
 
-/** Overlay de ÁREA SEGURA (margem + centro) — guia de composição p/ redes
- *  sociais; só no editor (escondido no export via .poster-1440.exporting). */
+/** Overlay de ÁREA SEGURA — guia de composição; só no editor (removido do
+ *  export junto com os demais nós .pe-*).
+ *
+ *  Quando o cartaz usa a zona de uma PLATAFORMA, o guia deixa de ser uma margem
+ *  genérica de 6% e passa a desenhar as faixas que o aplicativo realmente cobre
+ *  — topo, base e a coluna de botões à direita —, cada uma rotulada com o que
+ *  fica ali. É a diferença entre "respeite uma margem" e "a legenda do Reels
+ *  come esta faixa": o usuário vê o problema em vez de deduzi-lo. */
 function drawSafeArea(root) {
   const old = root.querySelector('.pe-safe'); if (old) old.remove();
   if (!_peSafeArea) return;
   const m = document.createElement('div');
   m.className = 'pe-safe';
   m.style.cssText = 'position:absolute;inset:0;z-index:65;pointer-events:none;';
+
+  const p = (typeof State !== 'undefined' && typeof getSlide === 'function' && State.posters)
+    ? (() => { const x = State.posters.find((q) => q.id === State.activePosterId); return x ? getSlide(x) : null; })()
+    : null;
+  const z = (typeof POSTER_SAFE_ZONES !== 'undefined' && p && p.safeZone && POSTER_SAFE_ZONES[p.safeZone])
+    || (typeof POSTER_SAFE_ZONES !== 'undefined' && typeof posterEhModeloDeRede === 'function'
+        && p && posterEhModeloDeRede(p.template) ? POSTER_SAFE_ZONES[POSTER_SAFE_DEFAULT] : null);
+
+  if (!z) {
+    // Guia genérico (comportamento anterior, para os modelos que não são de rede).
+    m.innerHTML =
+      '<div style="position:absolute;left:6%;top:6%;right:6%;bottom:6%;border:2px dashed rgba(20,184,166,.75);border-radius:6px;"></div>' +
+      '<div style="position:absolute;left:50%;top:0;bottom:0;width:0;border-left:2px dotted rgba(20,184,166,.45);"></div>' +
+      '<div style="position:absolute;top:50%;left:0;right:0;height:0;border-top:2px dotted rgba(20,184,166,.45);"></div>' +
+      '<div style="position:absolute;left:6%;top:6%;transform:translateY(-115%);font:700 26px \'IBM Plex Mono\',monospace;color:#0d9488;">área segura</div>';
+    root.appendChild(m);
+    return;
+  }
+
+  // Cada rótulo fica DENTRO da faixa que nomeia. Ficavam todos na borda do
+  // retângulo seguro e se sobrepunham no topo — o nome da plataforma por cima
+  // do nome da faixa, ambos ilegíveis.
+  const rotulo = (txt, css) => txt
+    ? `<div style="position:absolute;${css}display:flex;align-items:center;font:700 22px 'IBM Plex Mono',monospace;color:rgba(255,255,255,.92);white-space:nowrap;">${escapeHtml(txt)}</div>`
+    : '';
+  const faixa = (css) => `<div style="position:absolute;${css}background:repeating-linear-gradient(45deg,rgba(207,52,24,.30) 0 14px,rgba(207,52,24,.16) 14px 28px);"></div>`;
+  const ui = z.ui || {};
   m.innerHTML =
-    '<div style="position:absolute;left:6%;top:6%;right:6%;bottom:6%;border:2px dashed rgba(20,184,166,.75);border-radius:6px;"></div>' +
-    '<div style="position:absolute;left:50%;top:0;bottom:0;width:0;border-left:2px dotted rgba(20,184,166,.45);"></div>' +
-    '<div style="position:absolute;top:50%;left:0;right:0;height:0;border-top:2px dotted rgba(20,184,166,.45);"></div>' +
-    '<div style="position:absolute;left:6%;top:6%;transform:translateY(-115%);font:700 26px \'IBM Plex Mono\',monospace;color:#0d9488;">área segura</div>';
+    faixa(`left:0;right:0;top:0;height:${z.top}%;`) +
+    faixa(`left:0;right:0;bottom:0;height:${z.bottom}%;`) +
+    (z.right > 8 ? faixa(`top:${z.top}%;bottom:${z.bottom}%;right:0;width:${z.right}%;`) : '') +
+    `<div style="position:absolute;left:${z.left}%;right:${z.right}%;top:${z.top}%;bottom:${z.bottom}%;border:2px dashed rgba(20,184,166,.85);border-radius:6px;"></div>` +
+    rotulo(ui.topo, `left:3%;top:0;height:${z.top}%;`) +
+    rotulo(ui.base, `left:3%;bottom:0;height:${z.bottom}%;`) +
+    rotulo(z.right > 8 ? ui.direita : '', `right:0;width:${z.right}%;top:${z.top}%;bottom:${z.bottom}%;writing-mode:vertical-rl;justify-content:center;`) +
+    // Nome da plataforma na faixa de cima, à direita: o canto superior esquerdo
+    // do cartaz é onde a marca do perfil quase sempre fica.
+    `<div style="position:absolute;right:3%;top:0;height:${z.top}%;display:flex;align-items:center;font:700 24px 'IBM Plex Mono',monospace;color:#0d9488;"><span style="background:rgba(255,255,255,.9);padding:3px 10px;border-radius:6px;">${escapeHtml(z.label)}</span></div>`;
   root.appendChild(m);
 }
 

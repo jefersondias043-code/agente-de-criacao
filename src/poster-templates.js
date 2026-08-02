@@ -62,6 +62,77 @@ const POSTER_FORMATS = {
   '9:16': { w: 1080, h: 1920, label: 'Story 9:16',   hint: 'Stories / Reels' },
 };
 
+/* ============================================================================
+ * ÁREAS SEGURAS DAS REDES — onde a interface do app cobre o cartaz.
+ *
+ * Publicado em Reels, Stories ou TikTok, o cartaz não é visto inteiro: o app
+ * desenha por cima dele a barra de topo, a legenda, o nome do perfil, o áudio,
+ * a barra de navegação e — nos vídeos — a coluna de botões (curtir, comentar,
+ * compartilhar) na borda direita. Título e subtítulo colocados nessas faixas
+ * simplesmente desaparecem na publicação.
+ *
+ * Os valores são PERCENTUAIS do formato, não pixels: assim a mesma zona vale
+ * para 9:16, 4:5 ou 1:1 sem recalcular nada. São medidas de referência para
+ * 1080×1920 — os apps mudam a interface com frequência, então trabalham com
+ * folga em vez de precisão falsa.
+ *
+ * `universal` é o mais restritivo: pega o pior caso de cada borda entre as três
+ * plataformas. É o padrão, porque o mesmo cartaz costuma ir para todas.
+ * ========================================================================== */
+const POSTER_SAFE_ZONES = {
+  universal: {
+    label: 'Todas as redes', hint: 'Reels + Stories + TikTok ao mesmo tempo (mais restrito)',
+    top: 14, bottom: 27, left: 6, right: 18,
+    ui: { topo: 'barra de topo', base: 'legenda e navegação', direita: 'botões de ação' },
+  },
+  reels: {
+    label: 'Instagram Reels', hint: 'Legenda embaixo e coluna de botões à direita',
+    top: 13, bottom: 22, left: 5, right: 16,
+    ui: { topo: 'cabeçalho do Reels', base: 'legenda, perfil e áudio', direita: 'curtir, comentar, enviar' },
+  },
+  stories: {
+    label: 'Instagram Stories', hint: 'Barra de progresso em cima, resposta embaixo',
+    top: 13, bottom: 14, left: 6, right: 6,
+    ui: { topo: 'progresso e perfil', base: 'campo de resposta', direita: '' },
+  },
+  tiktok: {
+    label: 'TikTok', hint: 'Legenda ocupa mais espaço embaixo',
+    top: 10, bottom: 27, left: 5, right: 18,
+    ui: { topo: 'busca e abas', base: 'legenda, perfil e música', direita: 'coluna de ações' },
+  },
+  feed: {
+    label: 'Feed / sem sobreposição', hint: 'Post normal: só a margem de respiro',
+    top: 5, bottom: 5, left: 5, right: 5,
+    ui: { topo: '', base: '', direita: '' },
+  },
+};
+const POSTER_SAFE_DEFAULT = 'universal';
+
+/** Zona ativa de um cartaz (com padrão). */
+function ptSafeZone(p) {
+  const id = (p && p.safeZone) || POSTER_SAFE_DEFAULT;
+  return POSTER_SAFE_ZONES[id] || POSTER_SAFE_ZONES[POSTER_SAFE_DEFAULT];
+}
+
+/** Retângulo seguro em PIXELS do formato — o que os modelos usam para posicionar. */
+function ptSafeRect(p, fmt) {
+  const z = ptSafeZone(p);
+  const w = (fmt && fmt.w) || 1080;
+  const h = (fmt && fmt.h) || 1920;
+  const top = Math.round(h * z.top / 100);
+  const bottom = Math.round(h * z.bottom / 100);
+  const left = Math.round(w * z.left / 100);
+  const right = Math.round(w * z.right / 100);
+  return { top, right, bottom, left, w: w - left - right, h: h - top - bottom, zone: z };
+}
+
+/** CSS de um contêiner absoluto encaixado no retângulo seguro. */
+function ptSafeBoxCss(p, fmt, extra) {
+  const r = ptSafeRect(p, fmt);
+  return `position:absolute;left:${r.left}px;right:${r.right}px;top:${r.top}px;bottom:${r.bottom}px;`
+    + `display:flex;flex-direction:column;box-sizing:border-box;z-index:3;${extra || ''}`;
+}
+
 /* Tokens de design — TEMA POR PORTAL.
  * `PT` é o tema ATIVO (mutável): `applyPortalTheme(portal)` copia para dentro dele
  * o preset do tema do portal antes de cada render, então TODOS os modelos (que leem
@@ -2891,6 +2962,189 @@ function tplDuasColunas(p, fmt, portal) {
 /* Registro de modelos (a ordem define a aparição no seletor do editor).       */
 /* manchete delega a tplManchete() (definido em posters.js) via wrapper.       */
 /* -------------------------------------------------------------------------- */
+/* ==========================================================================
+ * MODELOS PARA REDES SOCIAIS — composição dentro da ÁREA SEGURA.
+ *
+ * O que diferencia esta família das outras: nenhuma informação importante toca
+ * as faixas que o aplicativo cobre com a própria interface. O fundo (foto,
+ * gradiente, cor) segue ocupando o cartaz INTEIRO — é ele que aparece atrás
+ * dos botões e da legenda, e é isso que se quer. O que muda de lugar é o texto.
+ *
+ * Todos leem `ptSafeRect(p, fmt)`, que devolve o retângulo útil da plataforma
+ * escolhida. Trocar de rede reposiciona tudo sem trocar de modelo.
+ *
+ * Os modelos existentes NÃO foram tocados: esta é uma família nova, numa aba
+ * própria do seletor.
+ * ========================================================================== */
+
+/** Fundo do cartaz: foto (com escurecimento para o texto respirar) ou gradiente
+ *  do tema. Ocupa o formato inteiro — inclusive as faixas cobertas pelo app. */
+function _redesFundo(p, fmt, opts) {
+  const o = opts || {};
+  const temFoto = typeof posterImageKeys === 'function' && posterImageKeys(p).length > 0;
+  if (temFoto) {
+    const foto = posterPhotoMosaic(p, { two: o.two || 'row', three: o.three || 'left', gapColor: PT.ink });
+    // O véu carrega SOZINHO o contraste do texto (text-shadow não sobrevive à
+    // exportação), então escurece onde há texto e alivia onde não há — senão a
+    // foto vira uma mancha cinza e o modelo perde a razão de usar imagem.
+    const veu = o.veu || `linear-gradient(180deg,rgba(8,10,14,0.56) 0%,rgba(8,10,14,0.16) 30%,rgba(8,10,14,0.40) 64%,rgba(8,10,14,0.88) 100%)`;
+    return `<div style="position:absolute;inset:0;z-index:0;overflow:hidden;">${foto}</div>
+      <div style="position:absolute;inset:0;z-index:1;background:${veu};pointer-events:none;"></div>`;
+  }
+  return `<div style="position:absolute;inset:0;z-index:0;background:${o.fundo || PT.gradDark};"></div>`;
+}
+
+/** Raiz comum: dimensões do formato + fundo sangrado. */
+function _redesRaiz(p, fmt, conteudo, opts) {
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;position:relative;overflow:hidden;box-sizing:border-box;font-family:${PT.sans};background:${PT.ink};">
+      ${_redesFundo(p, fmt, opts)}
+      ${conteudo}
+    </div>`;
+}
+
+/** Marca + categoria, na primeira linha DENTRO da área segura. */
+function _redesTopo(p, portal, onDark) {
+  const marca = posterShow('header') ? ptMasthead(portal, { onDark: !!onDark, size: 70, nameSize: 27 }) : '';
+  const cat = (posterShow('category') && p.category)
+    ? posterBadge(p.category, PT.red, '#fff') : '';
+  if (!marca && !cat) return '';
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-shrink:0;">
+    ${marca || '<span></span>'}${cat}
+  </div>`;
+}
+
+/** Rodapé (@ + local) na última linha DENTRO da área segura. */
+function _redesRodape(p, portal, onDark) {
+  if (!posterShow('footer')) return '';
+  const cor = onDark ? 'rgba(255,255,255,0.94)' : PT.cream;
+  const linha = onDark ? 'rgba(255,255,255,0.28)' : PT.line;
+  const arroba = posterHandleOnce()
+    ? `<span style="font-size:26px;font-weight:700;letter-spacing:0.02em;color:${cor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(portal.handle || '@portal')}</span>` : '<span></span>';
+  const local = p.location || portal.name || '';
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0;border-top:1.5px solid ${linha};padding-top:20px;">
+    ${arroba}
+    <span style="font-size:24px;font-weight:600;color:${cor};opacity:0.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:52%;">${escapeHtml(local)}</span>
+  </div>`;
+}
+
+/** REDES · Manchete — foto sangrada, texto ancorado na base da área segura
+ *  (logo acima de onde começa a legenda do app). */
+function tplRedesManchete(p, fmt, portal) {
+  const r = ptSafeRect(p, fmt);
+  const headline = p.headline || 'Título principal';
+  const hSize = posterPickSize(headline, [[42, 96], [88, 78], [140, 62]], 52);
+  const corpo = `
+    ${_redesTopo(p, portal, true)}
+    <div style="flex:1;min-height:0;"></div>
+    <div style="flex-shrink:0;">
+      ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:1.0;padding-top:0.24em;letter-spacing:0.004em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      ${posterShow('subtitle') && p.subtitle ? `<p style="font-size:30px;font-weight:500;line-height:1.36;color:rgba(255,255,255,0.93);margin:22px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+    </div>
+    <div style="height:26px;flex-shrink:0;"></div>
+    ${_redesRodape(p, portal, true)}`;
+  // O contraste do título vem SÓ do véu — text-shadow não sobrevive à exportação
+  // (vira laje cinza no html2canvas), então o degradê precisa dar conta sozinho.
+  return _redesRaiz(p, fmt, `<div style="${ptSafeBoxCss(p, fmt)}">${corpo}</div>`, { veu: `linear-gradient(180deg,rgba(8,10,14,0.60) 0%,rgba(8,10,14,0.22) ${Math.round(r.top / fmt.h * 100) + 8}%,rgba(8,10,14,0.74) 58%,rgba(8,10,14,0.94) 100%)` });
+}
+
+/** REDES · Cartão central — o mais seguro de todos: o texto vive num cartão
+ *  centrado dentro da área útil, longe de qualquer borda. */
+function tplRedesCartao(p, fmt, portal) {
+  const headline = p.headline || 'Mensagem principal';
+  const hSize = posterPickSize(headline, [[40, 88], [90, 70], [150, 56]], 46);
+  const corpo = `
+    ${_redesTopo(p, portal, true)}
+    <div style="flex:1;display:flex;align-items:center;min-height:0;">
+      <div style="width:100%;background:rgba(12,14,20,0.80);border:1.5px solid rgba(255,255,255,0.18);border-radius:26px;padding:44px 40px;box-sizing:border-box;">
+        ${posterShow('category') && p.category ? `<div style="font-size:24px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:${PT.orange};margin-bottom:18px;">${escapeHtml(p.category)}</div>` : ''}
+        ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};font-size:${hSize}px;font-weight:800;line-height:1.05;padding-top:0.2em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+        ${posterShow('subtitle') && p.subtitle ? `<p style="font-size:29px;line-height:1.4;color:rgba(255,255,255,0.9);margin:22px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+      </div>
+    </div>
+    <div style="height:24px;flex-shrink:0;"></div>
+    ${_redesRodape(p, portal, true)}`;
+  // Véu leve: quem garante a leitura é o cartão opaco, não o escurecimento.
+  return _redesRaiz(p, fmt, `<div style="${ptSafeBoxCss(p, fmt)}">${corpo}</div>`,
+    { veu: 'linear-gradient(180deg,rgba(8,10,14,0.48) 0%,rgba(8,10,14,0.12) 32%,rgba(8,10,14,0.22) 70%,rgba(8,10,14,0.62) 100%)' });
+}
+
+/** REDES · Texto no topo — para TikTok, onde a legenda come a base da tela.
+ *  Todo o texto fica na metade de cima da área segura. */
+function tplRedesTopo(p, fmt, portal) {
+  const headline = p.headline || 'Título principal';
+  const hSize = posterPickSize(headline, [[40, 92], [88, 74], [140, 60]], 50);
+  const corpo = `
+    ${_redesTopo(p, portal, true)}
+    <div style="flex-shrink:0;margin-top:34px;">
+      ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:${hSize}px;font-weight:800;line-height:1.0;padding-top:0.24em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      ${posterShow('subtitle') && p.subtitle ? `<p style="font-size:30px;line-height:1.38;color:rgba(255,255,255,0.93);margin:24px 0 0 0;background:rgba(10,12,18,0.5);border-left:5px solid ${PT.red};padding:16px 20px;border-radius:0 12px 12px 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+    </div>
+    <div style="flex:1;min-height:0;"></div>
+    ${_redesRodape(p, portal, true)}`;
+  return _redesRaiz(p, fmt, `<div style="${ptSafeBoxCss(p, fmt)}">${corpo}</div>`,
+    { veu: 'linear-gradient(180deg,rgba(8,10,14,0.78) 0%,rgba(8,10,14,0.54) 44%,rgba(8,10,14,0.16) 72%,rgba(8,10,14,0.52) 100%)' });
+}
+
+/** REDES · Citação — aspas grandes e fala centrada, tudo na área útil. */
+function tplRedesCitacao(p, fmt, portal) {
+  const fala = p.headline || 'A frase que sustenta a publicação';
+  const fSize = posterPickSize(fala, [[60, 76], [120, 62], [200, 50]], 42);
+  const autor = p.personName || p.location || '';
+  const cargo = p.personRole || '';
+  const corpo = `
+    ${_redesTopo(p, portal, true)}
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;">
+      <div style="font-family:${PT.serif};font-size:150px;line-height:0.6;color:${PT.orange};margin-bottom:8px;flex-shrink:0;">&ldquo;</div>
+      ${posterShow('headline') ? `<p style="font-family:${PT.serif};font-size:${fSize}px;font-weight:600;line-height:1.24;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;">${escapeHtml(fala)}</p>` : ''}
+      ${autor ? `<div style="margin-top:30px;flex-shrink:0;">
+        <div style="font-size:29px;font-weight:800;color:#fff;">${escapeHtml(autor)}</div>
+        ${cargo ? `<div style="font-size:24px;color:rgba(255,255,255,0.72);margin-top:4px;">${escapeHtml(cargo)}</div>` : ''}
+      </div>` : ''}
+    </div>
+    <div style="height:24px;flex-shrink:0;"></div>
+    ${_redesRodape(p, portal, true)}`;
+  return _redesRaiz(p, fmt, `<div style="${ptSafeBoxCss(p, fmt)}">${corpo}</div>`);
+}
+
+/** REDES · Número em destaque — o dado grande, dentro da área útil. */
+function tplRedesNumero(p, fmt, portal) {
+  const numero = p.figure || p.labelA || '—';
+  const nSize = numero.length > 6 ? 150 : (numero.length > 4 ? 190 : 240);
+  const headline = p.headline || 'O que esse número significa';
+  const corpo = `
+    ${_redesTopo(p, portal, true)}
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;">
+      <div style="font-family:${PT.cond};font-size:${nSize}px;font-weight:900;line-height:0.9;color:${PT.orange};margin:0;letter-spacing:-0.02em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escapeHtml(numero)}</div>
+      ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:60px;font-weight:800;line-height:1.06;padding-top:0.2em;color:#fff;margin:22px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+      ${posterShow('subtitle') && p.subtitle ? `<p style="font-size:28px;line-height:1.4;color:rgba(255,255,255,0.88);margin:20px 0 0 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(p.subtitle)}</p>` : ''}
+    </div>
+    <div style="height:24px;flex-shrink:0;"></div>
+    ${_redesRodape(p, portal, true)}`;
+  return _redesRaiz(p, fmt, `<div style="${ptSafeBoxCss(p, fmt)}">${corpo}</div>`);
+}
+
+/** REDES · Lista — até 4 tópicos, todos dentro da área útil. */
+function tplRedesLista(p, fmt, portal) {
+  const itens = String(p.description || '')
+    .split('\n').map((x) => x.replace(/^[-•\d.)\s]+/, '').trim()).filter(Boolean).slice(0, 4);
+  const headline = p.headline || 'Título da lista';
+  const corpo = `
+    ${_redesTopo(p, portal, true)}
+    <div style="flex-shrink:0;margin-top:26px;">
+      ${posterShow('headline') ? `<h1 style="font-family:${PT.cond};text-transform:uppercase;font-size:66px;font-weight:800;line-height:1.02;padding-top:0.22em;color:#fff;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(headline)}</h1>` : ''}
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:18px;min-height:0;margin:26px 0;">
+      ${(itens.length ? itens : ['Escreva um item por linha no campo Descrição']).map((t, i) => `
+        <div style="display:flex;align-items:flex-start;gap:18px;background:rgba(12,14,20,0.62);border-radius:16px;padding:20px 22px;box-sizing:border-box;">
+          <span style="flex-shrink:0;width:48px;height:48px;border-radius:12px;background:${PT.red};color:#fff;font-weight:900;font-size:26px;display:flex;align-items:center;justify-content:center;">${i + 1}</span>
+          <span style="font-size:29px;line-height:1.32;color:#fff;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;">${escapeHtml(t)}</span>
+        </div>`).join('')}
+    </div>
+    ${_redesRodape(p, portal, true)}`;
+  return _redesRaiz(p, fmt, `<div style="${ptSafeBoxCss(p, fmt)}">${corpo}</div>`);
+}
+
 /* Categorias da biblioteca: dão navegação ao seletor (antes era uma lista
    corrida de 32 itens) e agrupam os modelos por FINALIDADE, não por estilo —
    é assim que o usuário procura ("preciso anunciar uma vaga", não "preciso de
@@ -2908,6 +3162,9 @@ const POSTER_CATEGORIES = [
   { id: 'evento',        label: 'Evento' },
   { id: 'institucional', label: 'Institucional' },
   { id: 'social',        label: 'Social' },
+  // Família própria: composição presa à área segura das redes. Fica por último
+  // para não deslocar as abas que o usuário já conhece.
+  { id: 'redes',         label: 'Redes sociais' },
 ];
 
 const POSTER_TEMPLATES = {
@@ -2976,4 +3233,14 @@ const POSTER_TEMPLATES = {
   homenagem:             { label: 'Homenagem',            cat: 'institucional', usesImages: true,  render: tplHomenagem },
   polaroid:              { label: 'Polaroid',             cat: 'foto',          usesImages: true,  render: tplPolaroid },
   'duas-colunas':        { label: 'Duas colunas',         cat: 'conteudo',      usesImages: false, render: tplDuasColunas },
+
+  // --- Redes sociais (r188): composição dentro da ÁREA SEGURA das plataformas.
+  // Nenhuma informação importante cai sob a legenda, os botões ou a barra do
+  // app. O fundo segue sangrando o cartaz inteiro — é o texto que se protege.
+  'redes-manchete':      { label: 'Reels · Manchete',      cat: 'redes',         usesImages: true,  render: tplRedesManchete },
+  'redes-cartao':        { label: 'Reels · Cartão central', cat: 'redes',        usesImages: true,  render: tplRedesCartao },
+  'redes-topo':          { label: 'TikTok · Texto no topo', cat: 'redes',        usesImages: true,  render: tplRedesTopo },
+  'redes-citacao':       { label: 'Redes · Citação',       cat: 'redes',         usesImages: true,  render: tplRedesCitacao },
+  'redes-numero':        { label: 'Redes · Número',        cat: 'redes',         usesImages: true,  render: tplRedesNumero },
+  'redes-lista':         { label: 'Redes · Lista',         cat: 'redes',         usesImages: true,  render: tplRedesLista },
 };

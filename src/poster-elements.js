@@ -80,7 +80,8 @@ function drawSafeArea(root) {
     : null;
   // Vale para qualquer modelo: basta o cartaz ter uma plataforma escolhida.
   // Em 'livre' cai no guia genérico de composição (comportamento anterior).
-  const zAtiva = (typeof ptSafeZone === 'function' && p) ? ptSafeZone(p) : null;
+  const fmtAtual = (typeof posterActiveFormat === 'function') ? posterActiveFormat() : null;
+  const zAtiva = (typeof ptSafeZone === 'function' && p) ? ptSafeZone(p, fmtAtual) : null;
   const z = (zAtiva && !zAtiva.livre) ? zAtiva : null;
 
   if (!z) {

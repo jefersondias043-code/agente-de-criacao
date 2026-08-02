@@ -80,11 +80,6 @@ const POSTER_FORMATS = {
  * plataformas. É o padrão, porque o mesmo cartaz costuma ir para todas.
  * ========================================================================== */
 const POSTER_SAFE_ZONES = {
-  livre: {
-    label: 'Livre — sem ajuste', hint: 'Composição original do modelo, sem reservar as faixas do app',
-    top: 0, bottom: 0, left: 0, right: 0, livre: true,
-    ui: { topo: '', base: '', direita: '' },
-  },
   universal: {
     label: 'Todas as redes', hint: 'Reels + Stories + TikTok ao mesmo tempo (mais restrito)',
     top: 14, bottom: 27, left: 6, right: 18,
@@ -113,48 +108,21 @@ const POSTER_SAFE_ZONES = {
 };
 const POSTER_SAFE_DEFAULT = 'universal';
 
-/** O formato é o vertical das redes (9:16)?
+/** Zona ativa de um cartaz (com padrão).
  *
- *  A área segura só existe onde o aplicativo desenha a própria interface por
- *  cima do conteúdo, e isso é o feed vertical de tela cheia — Reels, Stories,
- *  TikTok. Num post 4:5, 1:1 ou 3:4 nada cobre o cartaz, então reservar faixas
- *  ali só desperdiçaria área. A decisão é geométrica (proporção), não do nome
- *  do formato: qualquer formato mais alto que 16:9 entra na conta. */
-function ptFormatoDeRede(fmt) {
-  if (!fmt || !fmt.w || !fmt.h) return true;   // sem formato conhecido, não bloqueia
-  return (fmt.h / fmt.w) > 1.6;
-}
-
-/** Zona ativa de um cartaz.
- *
- *  Duas regras se combinam aqui:
- *
- *  1. FORA DO 9:16 NÃO HÁ AJUSTE. Modelo comum volta a ser exatamente o que
- *     era; a família "Redes sociais" cai na margem de respiro do feed, porque
- *     ela é construída sobre um retângulo interno e sem nenhum recuo ficaria
- *     com texto colado na borda.
- *
- *  2. NO 9:16, o padrão é 'livre' — cartaz salvo antes, ou modelo em que o
- *     usuário não escolheu nada, continua como estava até ele pedir. A família
- *     "Redes sociais" é a exceção: ela É a composição em área segura, então cai
- *     no padrão universal mesmo se alguém marcar 'livre'. */
-function ptSafeZone(p, fmt) {
-  const ehRede = (typeof posterEhModeloDeRede === 'function') && p && posterEhModeloDeRede(p.template);
-  if (!ptFormatoDeRede(fmt)) return POSTER_SAFE_ZONES[ehRede ? 'feed' : 'livre'];
-  let id = (p && p.safeZone) || (ehRede ? POSTER_SAFE_DEFAULT : 'livre');
-  if (id === 'livre' && ehRede) id = POSTER_SAFE_DEFAULT;
-  return POSTER_SAFE_ZONES[id] || POSTER_SAFE_ZONES[ehRede ? POSTER_SAFE_DEFAULT : 'livre'];
-}
-
-/** A adaptação automática está ligada para este cartaz neste formato? */
-function ptSafeAtiva(p, fmt) {
-  const z = ptSafeZone(p, fmt);
-  return !!z && !z.livre;
+ *  Só a família "Redes sociais" consulta isto: são os modelos que NASCEM
+ *  compostos dentro do retângulo útil. A biblioteca antiga não passa por aqui —
+ *  a adaptação automática de todos os modelos chegou a existir (r189/r190) e foi
+ *  removida a pedido: fora da família, cada modelo sai na composição original,
+ *  em qualquer formato. */
+function ptSafeZone(p) {
+  const id = (p && p.safeZone) || POSTER_SAFE_DEFAULT;
+  return POSTER_SAFE_ZONES[id] || POSTER_SAFE_ZONES[POSTER_SAFE_DEFAULT];
 }
 
 /** Retângulo seguro em PIXELS do formato — o que os modelos usam para posicionar. */
 function ptSafeRect(p, fmt) {
-  const z = ptSafeZone(p, fmt);
+  const z = ptSafeZone(p);
   const w = (fmt && fmt.w) || 1080;
   const h = (fmt && fmt.h) || 1920;
   const top = Math.round(h * z.top / 100);

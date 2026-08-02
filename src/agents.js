@@ -106,7 +106,8 @@ function buildInterpreterPrompt(content) {
     '  "categoria": "uma categoria jornalística em MAIÚSCULAS (ex.: POLÍTICA, ECONOMIA, SAÚDE, EDUCAÇÃO, SEGURANÇA, ESPORTE, CULTURA, CIDADE, GERAL)",',
     '  "local": "cidade/UF ou lugar citado, ou string vazia se não houver",',
     '  "resumo_factual": "1 a 2 frases neutras contendo só os fatos, sem adjetivos",',
-    '  "fatos": ["cada fato atômico em linguagem NEUTRA: preserve o acontecimento, os nomes, os números e as datas, mas retire adjetivo e advérbio de valor do texto de origem. \'A obra foi um sucesso extraordinário e atendeu 500 famílias\' vira \'A obra atendeu 500 famílias\'"],',
+    '  "fatos": ["cada fato atômico em linguagem NEUTRA, JÁ COM A FONTE quando houver uma. Preserve o acontecimento, os nomes, os números e as datas; retire adjetivo e advérbio de valor. \'A obra foi um sucesso extraordinário e atendeu 500 famílias\' vira \'A obra atendeu 500 famílias\'. \'O governador disse que as obras começam em 1º de agosto\' vira \'Segundo o governador, as obras começam em 1º de agosto\' — NUNCA \'as obras começam em 1º de agosto\'"],',
+    '  "atribuicoes": ["quem afirmou o quê, um por linha, no formato \'FONTE — o que ela afirma\'. Ex.: \'governador Jerônimo Rodrigues — anunciou que as obras da ponte começam em 1º de agosto\'. Entra tudo que veio de declaração, anúncio, nota, relatório, previsão ou estimativa de alguém"],',
     '  "entidades": ["pessoas, órgãos, empresas citados"],',
     '  "datas": ["datas/prazos citados"],',
     '  "numeros": ["números, valores, quantidades citados com sua unidade"],',
@@ -122,6 +123,11 @@ function buildInterpreterPrompt(content) {
     '}',
     '',
     'Regras: mantenha nomes, números e datas EXATAMENTE como no texto. Não traduza. Não arredonde números. Arrays vazios são permitidos.',
+    '',
+    '═══ QUEM DISSE É PARTE DO FATO ═══',
+    'Anúncio, previsão, estimativa, promessa, balanço e avaliação NÃO são acontecimentos: são DECLARAÇÕES de alguém. Se você registrar "as obras começam em 1º de agosto" como fato seco, a matéria vai afirmar isso por conta própria — quando o que existe é um governador tendo dito isso. A obra pode não começar; o que é verificável é que ele anunciou.',
+    'Então: todo item de "fatos" que veio de uma declaração começa por "Segundo X…", "De acordo com X…", "X informou que…". Só ficam SEM fonte os acontecimentos que o material apresenta como ocorridos e observáveis ("a ponte foi interditada", "choveu 80 mm").',
+    'Quando o material NÃO diz de quem veio a informação, registre isso em "lacunas" (ex.: "o material não informa quem anunciou a data") — o redator precisa saber que ali falta dono.',
     '',
     'SEPARE O FATO DO JUÍZO. Este é o ponto mais importante do seu trabalho: o que aconteceu é FATO e vai para "fatos"; como a fonte avaliou o que aconteceu é OPINIÃO DELA e vai para "carga_original". Quem escreve a matéria vai aplicar um tom possivelmente OPOSTO ao da fonte — se o juízo vier grudado no fato, a matéria sai contraditória, elogiando e criticando o mesmo acontecimento.',
     'As CITAÇÕES são exceção: fala entre aspas é reproduzida literalmente, com o juízo de quem falou, porque o fato ali é "fulano disse isso".',
@@ -176,6 +182,7 @@ function normalizeInterpretation(data, content) {
     datas: asList(data.datas),
     numeros: asList(data.numeros),
     citacoes: asList(data.citacoes),
+    atribuicoes: asList(data.atribuicoes),
     contexto: asList(data.contexto),
     angulos: asList(data.angulos),
     cargaOriginal: asList(data.carga_original || data.cargaOriginal),
@@ -218,6 +225,7 @@ function interpretationToBlock(interp) {
   bullets('Datas', interp.datas);
   bullets('Números', interp.numeros);
   bullets('Citações', interp.citacoes);
+  bullets('ATRIBUIÇÕES — quem afirmou o quê (use SEMPRE que escrever a informação)', interp.atribuicoes);
   bullets('Contexto presente no material', interp.contexto);
   bullets('Ângulos editoriais que os fatos sustentam', interp.angulos);
   if (interp.statusProcessual) lines.push(`Fase processual (NÃO promova ninguém além dela): ${interp.statusProcessual}`);
@@ -278,6 +286,10 @@ function buildWriterPrompt(interp, style, tone, comentarios) {
     'Teste prático: se um leitor perguntasse "de onde você tirou isso?", você conseguiria apontar o fato exato? Se sim, mesmo sendo uma INTERPRETAÇÃO dele, pode escrever. Se a resposta for "deduzi" ou "costuma ser assim", corte.',
     '',
     'Se um fato necessário estiver ausente (veja "Lacunas"), escreva sem ele — não preencha com suposição.',
+    '',
+    (typeof EDITORIAL_ATTRIBUTION !== 'undefined' ? EDITORIAL_ATTRIBUTION : ''),
+    '',
+    'A lista "ATRIBUIÇÕES" acima é o seu mapa: cada linha dela diz de quem é a informação. Ao escrever qualquer uma dessas informações, a fonte vai junto.',
     '',
     '═══ QUEM MANDA NO TOM É A ESCOLHA DO USUÁRIO, NÃO O TEXTO DE ORIGEM ═══',
     'O material de entrada tem um tom próprio — e ele pode ser o OPOSTO do que foi pedido. Nesse caso o tom da fonte NÃO tem autoridade nenhuma: quem manda é o tom selecionado, do começo ao fim da matéria.',
@@ -371,6 +383,7 @@ function buildWriterPrompt(interp, style, tone, comentarios) {
     '5. Trocando o tom por outro, quantas frases eu reescreveria? Se forem poucas, o tom está fraco — reforce.',
     '6. Eu me limitei a repetir os fatos, ou também os interpretei e argumentei a partir deles? Matéria sem leitura é boletim.',
     '7. Há acusação, crime ou apuração no texto? Então: usei o termo da fase processual correta, atribuí a informação e registrei o outro lado (ou a ausência dele)?',
+    '7b. ATRIBUIÇÃO: confira a lista "ATRIBUIÇÕES" item a item. Cada uma dessas informações aparece na matéria COM a fonte? Alguma promessa, previsão, número, causa ou avaliação ficou escrita como se fosse do veículo? Devolva a fonte antes de responder.',
     '8. Alguma frase afirma como PROVADO algo que o material não prova? Se sim, reescreva atribuindo ou recue para o que se sustenta.',
     '9. Sobrou alguma palavra de juízo herdada da fonte que puxa para o lado CONTRÁRIO ao tom pedido? Fora dela — sem tirar o acontecimento.',
     '10. Inventei alguma comparação, avaliação sem dono ("foi considerado…") ou consequência para sustentar o tom? Se sim, troque pelo que o material realmente traz.',
@@ -493,6 +506,7 @@ function buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes, 
     '1. REPETIÇÃO: mesma palavra ou raiz reaparecendo perto; parágrafos que abrem com a mesma palavra ou a mesma estrutura; o mesmo sujeito repetido em vez de retomado.',
     '2. REDUNDÂNCIA: informação repetida entre título, subtítulo, lead e corpo. Cada um deve acrescentar algo.',
     '3. PERÍFRASE: "realizou a entrega de" → "entregou"; "por meio da utilização de" → "com"; "no dia de hoje" → "hoje".',
+    '   ATENÇÃO: "segundo o governador", "de acordo com a Secretaria", "informou a empresa" NÃO são perífrase — são a ATRIBUIÇÃO da informação. Nunca corte para enxugar. Se a construção estiver pesada, encurte a forma ("de acordo com o que informou o governador" → "segundo o governador"), jamais o dono da afirmação.',
     '4. FRASE MORTA: sentença que não afirma nada ("A notícia repercutiu", "Vale destacar a importância") — corte.',
     '5. TRANSIÇÃO: parágrafos justapostos sem ligação lógica. Costure pelo sentido, não com muleta ("além disso", "ademais").',
     '6. RITMO: sequências de frases do mesmo comprimento e da mesma estrutura. Varie.',
@@ -529,6 +543,7 @@ function buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes, 
     '1. Algum número, nome, data ou citação da sua versão está ausente da matéria original? Se sim, você inventou — desfaça.',
     '2. Sua versão ficou mais NEUTRA que a original? Se sim, você apagou o tom — devolva a intensidade.',
     '3. Sobrou alguma afirmação que acusa alguém sem atribuição ou sem respaldo nos fatos? Reescreva atribuindo.',
+    '3b. Alguma atribuição ("segundo…", "de acordo com…") sumiu da sua versão em relação à original? Se sim, devolva: a matéria passou a afirmar por conta própria o que era de outra pessoa.',
     blocoComentario
       ? '4. Restou expressão de juízo puxando o RELATO para o lado contrário ao tom? Corrija — sem tocar na camada de comentário, que tem direção própria e pedida.'
       : '4. Restou alguma expressão de juízo puxando para o lado contrário ao tom? A matéria tem que soar como UMA voz do início ao fim.',
@@ -921,6 +936,19 @@ function auditarRiscoJuridico(article, interp) {
     avisos.push({
       tipo: 'sem-atribuicao',
       aviso: 'A matéria trata de crime ou apuração sem nenhuma atribuição visível ("segundo…", "de acordo com…"). Toda informação assim precisa de fonte explícita.',
+    });
+  }
+
+  // 2b) ATRIBUIÇÃO EM QUALQUER PAUTA. A checagem acima só valia para assunto
+  // criminal — e o defeito relatado foi num anúncio de obra, onde a matéria
+  // assumiu a data prometida como se fosse do veículo. Se o interpretador
+  // isolou declarações (há "atribuicoes") e o texto final não traz NENHUMA
+  // marca de fonte, a atribuição se perdeu no caminho.
+  const declaracoes = (i.atribuicoes || []).length;
+  if (!assuntoCriminal && declaracoes && !_temAlgum(texto, atribuicao)) {
+    avisos.push({
+      tipo: 'sem-atribuicao',
+      aviso: `A pauta traz ${declaracoes} informação(ões) declarada(s) por alguém, mas a matéria não usa nenhuma atribuição ("segundo…", "de acordo com…"). Do jeito que está, o texto assume como do veículo o que é de outra pessoa — se a promessa não se cumprir, o erro passa a ser seu.`,
     });
   }
 

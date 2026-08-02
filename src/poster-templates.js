@@ -819,7 +819,44 @@ function posterLogoBlock(portal, size, variant) {
 }
 
 /** Camada de imagem arrastável (zoom + pan), compatível com pan/export. */
+/* ==========================================================================
+ * CAMPO VAZADO (r191) — o slot de foto vira um buraco transparente.
+ *
+ * O cartaz deixa de ser a arte final e passa a ser uma MOLDURA: o PNG sai com
+ * o campo da foto vazado e todo o resto — título, subtítulo, faixas, sombras,
+ * formas — intacto. Importado num editor de vídeo, o vídeo aparece atrás,
+ * exatamente onde estaria a foto.
+ *
+ * É por SLOT, não um modo global de exportação: a escolha é feita compondo o
+ * cartaz e fica visível na tela (xadrez), não escondida no diálogo de salvar.
+ * ========================================================================== */
+
+/* Pixel 1×1 transparente. Um slot vazado SEM foto carregada precisa de um
+   valor "verdadeiro" em p.imageN, porque vários modelos testam `p.image1`
+   direto em vez de passar por posterImageKeys — sem isso o modelo cairia no
+   placeholder "adicione a imagem" e não haveria buraco. O valor nunca é
+   desenhado: posterImageLayer intercepta antes e devolve o marcador do vazado. */
+const POSTER_VAZADO_SRC = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+/** O valor guardado é só o marcador de vazado (não uma foto de verdade)? */
+function posterEhSentinelaVazado(v) { return v === POSTER_VAZADO_SRC; }
+
+/** O slot está marcado como transparente? */
+function posterVazado(p, key) {
+  const v = (p && Array.isArray(p.imagesVazadas)) ? p.imagesVazadas : [];
+  return v.indexOf(key) !== -1;
+}
+
+/** Marcação do buraco. No editor mostra o xadrez (sinal universal de "sem
+ *  fundo"); na exportação o próprio nó é esvaziado e a área sai vazada. */
+function posterCamadaVazada(key) {
+  return `<div data-vazado="${key}" class="pt-vazado" style="width:100%;height:100%;"></div>`;
+}
+
 function posterImageLayer(p, key) {
+  // O vazado vem ANTES do teste de src: o slot pode estar transparente sem
+  // nenhuma foto carregada — é o caso de uso principal (moldura para vídeo).
+  if (posterVazado(p, key)) return posterCamadaVazada(key);
   const src = p[key];
   if (!src) return '';
   const px = p[key + 'PosX'] ?? 50;
@@ -849,7 +886,11 @@ function posterPhotoPlaceholder() {
  * (toggle nas miniaturas) → modelos e mosaico usam só as ativas. */
 function posterImageKeys(p) {
   const off = Array.isArray(p && p.imagesOff) ? p.imagesOff : [];
-  return ['image1', 'image2', 'image3', 'image4'].filter(k => p[k] && !off.includes(k));
+  // Slot VAZADO conta como preenchido: é ele que reserva a área da foto no
+  // modelo. Sem isso, um cartaz só com campos transparentes cairia no
+  // placeholder "adicione a imagem" e não haveria buraco nenhum.
+  return ['image1', 'image2', 'image3', 'image4']
+    .filter(k => (p[k] || posterVazado(p, k)) && !off.includes(k));
 }
 
 /**

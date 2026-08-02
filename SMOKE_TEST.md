@@ -68,6 +68,12 @@ No navegador (http://localhost:8080):
       o guia desenha as faixas reais do app — topo, legenda e coluna de botões — e NÃO aparece
       no PNG exportado. Título, subtítulo, @ e local ficam sempre dentro do retângulo tracejado.
       Os modelos antigos seguem idênticos.
+- [ ] **Cartazes — campo transparente (moldura para vídeo)**: em cada miniatura de imagem há o
+      botão **Transparente**. Ligado, a área da foto vira xadrez no editor e o resto do cartaz
+      (título, subtítulo, faixas, formas, assinatura) continua igual. Exportando, o PNG sai com
+      aquela área **vazada** — abrindo num editor de vídeo, o vídeo aparece atrás do buraco.
+      O formato cai para PNG automaticamente (JPG não guarda transparência), com aviso. Desligar
+      devolve a foto que estava lá. Modelos sem área de foto não são afetados.
 - [ ] **Cartazes — área segura, SÓ no 9:16**: em 3:4, 4:5 e 1:1 o seletor "Área segura da
       plataforma" (Estilo → Formato) não aparece — só a nota explicando que vale para 9:16 —
       e o cartaz sai na composição original de sempre. Trocando para **9:16**, o seletor surge,

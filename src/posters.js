@@ -1017,6 +1017,10 @@ function renderPosterEditor() {
   setupMediaUpload(s, 'image4', 'p-image4', onMediaChange);
   setupMediaUpload(s, 'avatar', 'p-avatar');
   setupMediaReorder();   // arrastar-e-soltar para reordenar as imagens (r103)
+  ['1', '2', '3', '4'].forEach((i) => {
+    const b = $(`#p-image${i}-vazar`);
+    if (b) b.onclick = (e) => { e.stopPropagation(); togglePosterVazado('image' + i); };
+  });
   updateProgressiveVisibility();
   updateMosaicControl();
   updateExtraFields();
@@ -2373,7 +2377,10 @@ function refreshImageToggles() {
     const wrap = $(`#p-image${idx}-upload`);
     const toggle = $(`#p-image${idx}-toggle`);
     if (!wrap) return;
-    const has = !!s[key];
+    const vazado = (typeof posterVazado === 'function') && posterVazado(s, key);
+    const temFoto = !!s[key] && !posterEhSentinelaVazado(s[key]);
+    const has = temFoto || vazado;
+    wrap.classList.toggle('is-vazado', vazado);
     const isOff = off.includes(key);
     wrap.classList.toggle('is-off', has && isOff);
     if (toggle) {
@@ -2382,7 +2389,48 @@ function refreshImageToggles() {
       toggle.setAttribute('aria-pressed', String(!isOff));
       toggle.title = isOff ? 'Ativar imagem neste cartaz' : 'Desativar (sem apagar)';
     }
+    const vz = $(`#p-image${idx}-vazar`);
+    if (vz) {
+      vz.classList.toggle('on', vazado);
+      vz.setAttribute('aria-pressed', String(vazado));
+      vz.textContent = vazado ? 'Transparente ✓' : 'Transparente';
+      vz.title = vazado
+        ? 'Voltar a usar foto neste campo'
+        : 'Deixar este campo transparente (vazado no PNG, para o cartaz virar moldura sobre vídeo)';
+    }
   });
+}
+
+/** Liga/desliga o campo VAZADO de um slot. A foto carregada NÃO é apagada: o
+ *  usuário volta atrás com um toque e ela reaparece. */
+function togglePosterVazado(key) {
+  const p = State.posters.find(x => x.id === State.activePosterId);
+  if (!p) return;
+  const s = (typeof getSlide === 'function') ? getSlide(p) : p;
+  const lista = Array.isArray(s.imagesVazadas) ? s.imagesVazadas.slice() : [];
+  const i = lista.indexOf(key);
+  if (i === -1) {
+    lista.push(key);
+    // Vazar e continuar "desativado" seria contraditório — o slot precisa
+    // aparecer para haver buraco.
+    if (Array.isArray(s.imagesOff)) s.imagesOff = s.imagesOff.filter((k) => k !== key);
+    // Sem foto no slot, entra o pixel-sentinela: é o que faz os modelos que
+    // testam `p.imageN` direto reservarem a área da foto. A foto do usuário,
+    // se houver, NÃO é tocada — ele volta atrás e ela reaparece.
+    if (!s[key]) s[key] = POSTER_VAZADO_SRC;
+  } else {
+    lista.splice(i, 1);
+    if (posterEhSentinelaVazado(s[key])) s[key] = null;
+  }
+  s.imagesVazadas = lista;
+  p.updatedAt = new Date().toISOString();
+  savePosters();
+  refreshImageToggles();
+  renderPosterTemplate(s === p ? p : Object.assign({}, s, { theme: p.theme, custom: p.custom, portalSnapshot: p.portalSnapshot }));
+  requestAnimationFrame(() => { fitPosterPreview(); setupImagePanning($('#p-stage')); });
+  toast(i === -1
+    ? 'Campo transparente: a área sai vazada no PNG.'
+    : 'Campo voltou a usar foto.', 'success');
 }
 
 /**
@@ -3506,7 +3554,8 @@ function hideStageCaptureCover(force) {
   }
 }
 
-async function captureStageCanvas(fmt, scale) {
+async function captureStageCanvas(fmt, scale, opcoes) {
+  const _op = opcoes || {};
   // Sem o html2canvas (CDN bloqueado/offline) a exportação apenas "não
   // acontecia": ReferenceError no console e botão sem reação nenhuma. Confere
   // ANTES de preparar o palco — quem chamou avisa o usuário. Ver ensureLib().
@@ -3640,16 +3689,45 @@ async function captureStageCanvas(fmt, scale) {
     logo.parentNode.insertBefore(lc, logo);
   }
 
+  // --- CAMPO VAZADO: o xadrez é só do editor; na captura o nó fica vazio.
+  // Na PASSADA DOS BURACOS, limpa também o fundo dos ancestrais de cada slot
+  // vazado — é o que estava atrás da foto e precisa sumir para o buraco existir.
+  const vazRestores = [];
+  target.querySelectorAll('[data-vazado]').forEach((no) => {
+    vazRestores.push({ el: no, cls: no.className });
+    no.className = no.className.replace(/\bpt-vazado\b/, '');
+    if (_op.limparAncestrais) {
+      let a = no;
+      while (a && a !== target.parentNode) {
+        const cs = getComputedStyle(a);
+        const temCor = cs.backgroundColor && !/^rgba\(0, 0, 0, 0\)$|^transparent$/.test(cs.backgroundColor);
+        const temImg = cs.backgroundImage && cs.backgroundImage !== 'none';
+        if (temCor || temImg) {
+          vazRestores.push({ el: a, bgColor: a.style.backgroundColor, bgImage: a.style.backgroundImage });
+          a.style.backgroundColor = 'transparent';
+          a.style.backgroundImage = 'none';
+        }
+        if (a === target) break;
+        a = a.parentElement;
+      }
+    }
+  });
+
   try {
     return await html2canvas(target, {
       width: fmt.w,
       height: fmt.h,
       scale: s,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: ('fundo' in _op) ? _op.fundo : '#FFFFFF',
       useCORS: true,
       logging: false,
     });
   } finally {
+    for (const r of vazRestores) {
+      if (r.cls !== undefined) r.el.className = r.cls;
+      if (r.bgColor !== undefined) r.el.style.backgroundColor = r.bgColor;
+      if (r.bgImage !== undefined) r.el.style.backgroundImage = r.bgImage;
+    }
     for (const s of snapshots) {
       if (s.cvs && s.cvs.parentNode) s.cvs.remove();
       if (s.wrapEl) s.wrapEl.style.display = s.display || '';
@@ -3663,14 +3741,109 @@ async function captureStageCanvas(fmt, scale) {
   }
 }
 
+/** Há algum campo transparente no cartaz/slide visível? */
+function posterTemVazado(alvo) {
+  const v = alvo && Array.isArray(alvo.imagesVazadas) ? alvo.imagesVazadas : [];
+  const off = alvo && Array.isArray(alvo.imagesOff) ? alvo.imagesOff : [];
+  return v.some((k) => off.indexOf(k) === -1);
+}
+
+/** Retângulos (em px do cartaz) dos campos vazados presentes no palco. */
+function _vazadoRects(fmt) {
+  const target = $('#p-stage') && $('#p-stage').querySelector('.poster-1440');
+  if (!target) return [];
+  const rb = target.getBoundingClientRect();
+  if (!rb.width) return [];
+  const k = rb.width / fmt.w;                  // o palco é escalado no preview
+  return [...target.querySelectorAll('[data-vazado]')].map((no) => {
+    const bb = no.getBoundingClientRect();
+    const pai = no.parentElement || no;
+    const cs = getComputedStyle(pai);
+    // O raio pode vir em PORCENTAGEM (retrato circular usa border-radius:50%).
+    // Lido como px, um slot de 400px com 50% viraria um canto de 50px em vez de
+    // 200 — o buraco sairia quadrado onde o desenho é redondo.
+    const rawR = cs.borderTopLeftRadius || '0';
+    const raio = rawR.indexOf('%') !== -1
+      ? (parseFloat(rawR) / 100) * Math.min(bb.width, bb.height)
+      : (parseFloat(rawR) || 0);
+    return {
+      x: (bb.left - rb.left) / k, y: (bb.top - rb.top) / k,
+      w: bb.width / k, h: bb.height / k, r: raio / k,
+    };
+  }).filter((r) => r.w > 1 && r.h > 1);
+}
+
+/** Desenha o caminho de um buraco (retângulo, com cantos se o modelo tiver). */
+function _caminhoVazado(ctx, r, s) {
+  const x = r.x * s, y = r.y * s, w = r.w * s, h = r.h * s;
+  const raio = Math.min(r.r * s, w / 2, h / 2);
+  ctx.beginPath();
+  if (raio > 0 && typeof ctx.roundRect === 'function') ctx.roundRect(x, y, w, h, raio);
+  else if (raio > 0 && typeof _mbRoundRect === 'function') _mbRoundRect(ctx, x, y, w, h, raio);
+  else ctx.rect(x, y, w, h);
+}
+
+/**
+ * Captura o cartaz com os campos transparentes REALMENTE vazados.
+ *
+ * Duas passadas, porque uma só não resolve. O que precisa sair do PNG é o que
+ * estava ATRÁS da foto — o fundo do modelo —, e o que precisa FICAR é tudo que
+ * é desenhado por cima dela: título, faixas, véus, molduras. Limpar o fundo dos
+ * ancestrais numa passada única apagaria esse fundo no cartaz inteiro, não só
+ * no buraco.
+ *
+ *   N (normal) — o cartaz como sempre, opaco, com o slot vazio.
+ *   B (buracos) — o mesmo, mas com o fundo dos ancestrais do slot limpo e sem
+ *                 cor de fundo: dentro do buraco isto é exatamente "o que está
+ *                 por cima, composto sobre transparência", com o alfa correto
+ *                 (véu translúcido, antisserrilhado do texto). Fora do buraco é
+ *                 lixo — e por isso não se usa nada de B fora dele.
+ *
+ * Final = N, com a região dos buracos apagada e substituída por B.
+ */
+async function captureStageComVazado(fmt, scale) {
+  const s = Math.max(1, scale || 1);
+  const normal = await captureStageCanvas(fmt, scale);
+  if (!normal) return null;
+  const rects = _vazadoRects(fmt);
+  if (!rects.length) return normal;
+  const buracos = await captureStageCanvas(fmt, scale, { fundo: null, limparAncestrais: true });
+  if (!buracos) return normal;
+
+  const out = document.createElement('canvas');
+  out.width = normal.width; out.height = normal.height;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(normal, 0, 0);
+  // Abre os buracos no cartaz opaco…
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  rects.forEach((r) => { _caminhoVazado(ctx, r, s); ctx.fill(); });
+  ctx.restore();
+  // …e devolve, só ali dentro, o desenho que fica por cima com o alfa certo.
+  ctx.save();
+  ctx.beginPath();
+  rects.forEach((r) => _caminhoVazado(ctx, r, s));
+  ctx.clip();
+  ctx.drawImage(buracos, 0, 0);
+  ctx.restore();
+  return out;
+}
+
 async function exportPoster(p, scale, fileType) {
-  const jpg = fileType === 'jpg' || fileType === 'jpeg';
+  const alvo = (typeof getSlide === 'function') ? getSlide(p) : p;
+  const vazado = posterTemVazado(alvo);
+  // JPG não tem canal alfa: com campo transparente o buraco viraria preto.
+  // Força PNG e avisa, em vez de entregar um arquivo errado em silêncio.
+  const jpg = !vazado && (fileType === 'jpg' || fileType === 'jpeg');
+  if (vazado && (fileType === 'jpg' || fileType === 'jpeg')) {
+    toast('Exportado em PNG: o JPG não guarda transparência.', 'info', 5000);
+  }
   const mime = jpg ? 'image/jpeg' : 'image/png';
   const ext = jpg ? 'jpg' : 'png';
   try {
-    const canvas = await captureStageCanvas(posterActiveFormat(), scale);
+    const canvas = await captureStageComVazado(posterActiveFormat(), scale);
     if (!canvas) { toast(libReady('html2canvas') ? 'Não foi possível exportar.' : libUnavailableMsg('html2canvas'), 'error', 6000); return; }
-    const name = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}.${ext}`;
+    const name = `cartaz-${(p.headline || 'export').slice(0, 40).replace(/[^a-z0-9]/gi, '-').toLowerCase()}${vazado ? '-moldura' : ''}.${ext}`;
     const blob = await canvasToBlob(canvas, mime, jpg ? 0.92 : undefined);
     // Mostra a PRÉVIA + botão salvar/compartilhar. O salvamento vira uma ação
     // nova do usuário → o share nativo do iPhone funciona (não pode ser

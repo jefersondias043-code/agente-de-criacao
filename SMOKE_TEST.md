@@ -83,12 +83,20 @@ No navegador (http://localhost:8080):
       no PNG exportado. Título, subtítulo, @ e local ficam sempre dentro do retângulo tracejado.
       Os modelos antigos seguem idênticos.
 - [ ] **Cartazes — capas de vídeo e thumbnails**: a aba **Capa de vídeo** do seletor de modelos
-      traz 8 modelos; escolher um muda o formato para **16:9** automaticamente (com aviso) —
+      traz **24 modelos** com propostas visuais distintas (impacto, rosto, número, antes/depois,
+      lista, moldura, diagonal, duotone, cartela, passos, dado, mínimo, faixa, mosaico, retrato,
+      revelação, manchete dupla, selo, tabloide, cinema…); escolher um muda o formato para **16:9** automaticamente (com aviso) —
       é a proporção da thumbnail do YouTube, e o único formato deitado. Trocar para **9:16**
       vira a composição (lado a lado → empilhada) e continua servindo como capa de Shorts/Reels.
       Teste de leitura: reduza o preview até ~200px de largura — o título tem de continuar
       legível, e nenhum texto pode encostar no selo do @ do canal. Em Finalizar, a **Resolução**
       passa a mostrar **1920px/3840px** no 16:9 (e segue 1080/2160 nos verticais).
+      **Aproveitamento do conteúdo**: gerando um cartaz a partir de uma matéria e trocando para
+      uma capa, o **local** tem de aparecer (era ignorado por todas as capas), a **categoria**
+      também, e nas capas **Lista** e **Passo a passo** os tópicos saem do corpo do texto.
+      Na capa **Número**, com o campo de destaque vazio, o número é extraído do próprio conteúdo.
+      Teste de corte: com um título de palavra longa ("INVESTIMENTO", "PREFEITURA") em **9:16**,
+      nenhuma palavra pode sair cortada na lateral.
 - [ ] **Cartazes — campo transparente (moldura para vídeo)**: em cada miniatura de imagem há o
       botão **Transparente**. Ligado, a área da foto vira xadrez no editor e o resto do cartaz
       (título, subtítulo, faixas, formas, assinatura) continua igual. Exportando, o PNG sai com

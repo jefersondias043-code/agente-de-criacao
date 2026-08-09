@@ -82,6 +82,13 @@ No navegador (http://localhost:8080):
       o guia desenha as faixas reais do app — topo, legenda e coluna de botões — e NÃO aparece
       no PNG exportado. Título, subtítulo, @ e local ficam sempre dentro do retângulo tracejado.
       Os modelos antigos seguem idênticos.
+- [ ] **Cartazes — capas de vídeo e thumbnails**: a aba **Capa de vídeo** do seletor de modelos
+      traz 8 modelos; escolher um muda o formato para **16:9** automaticamente (com aviso) —
+      é a proporção da thumbnail do YouTube, e o único formato deitado. Trocar para **9:16**
+      vira a composição (lado a lado → empilhada) e continua servindo como capa de Shorts/Reels.
+      Teste de leitura: reduza o preview até ~200px de largura — o título tem de continuar
+      legível, e nenhum texto pode encostar no selo do @ do canal. Em Finalizar, a **Resolução**
+      passa a mostrar **1920px/3840px** no 16:9 (e segue 1080/2160 nos verticais).
 - [ ] **Cartazes — campo transparente (moldura para vídeo)**: em cada miniatura de imagem há o
       botão **Transparente**. Ligado, a área da foto vira xadrez no editor e o resto do cartaz
       (título, subtítulo, faixas, formas, assinatura) continua igual. Exportando, o PNG sai com

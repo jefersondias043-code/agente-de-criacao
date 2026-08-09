@@ -44,9 +44,13 @@ describe('render de todos os modelos × formatos', () => {
   // Fixar o NÚMERO exato de modelos travava a biblioteca: crescer o acervo
   // (que é justamente o objetivo) quebrava o teste sem nada estar errado. O que
   // vale proteger é o contrato — piso de variedade e entradas bem formadas.
-  it('a biblioteca tem variedade e os 4 formatos esperados', () => {
+  it('a biblioteca tem variedade e os formatos esperados', () => {
     expect(Object.keys(P.POSTER_TEMPLATES).length).toBeGreaterThanOrEqual(55);
-    expect(Object.keys(P.POSTER_FORMATS)).toEqual(['3:4', '4:5', '1:1', '9:16']);
+    // 16:9 entrou com as capas de vídeo (r199) e é o ÚNICO deitado — todos os
+    // outros são retrato ou quadrado.
+    expect(Object.keys(P.POSTER_FORMATS)).toEqual(['3:4', '4:5', '1:1', '9:16', '16:9']);
+    const deitados = Object.entries(P.POSTER_FORMATS).filter(([, f]) => f.w > f.h);
+    expect(deitados.map(([k]) => k)).toEqual(['16:9']);
   });
 
   it('todo modelo declara rótulo, categoria válida e render', () => {

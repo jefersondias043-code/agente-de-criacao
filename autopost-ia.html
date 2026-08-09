@@ -898,6 +898,25 @@ input:focus, select:focus, textarea:focus {
 .btn-analise:hover { background: var(--accent); color: var(--on-accent); }
 .btn-analise-sm { padding: 7px 12px; font-size: 11px; }
 .analisecard .final-banner { margin-top: 24px; }
+
+/* A transcrição passou a vir DEPOIS do pacote (é o insumo, não o resultado).
+   Como .iteration só tem margem inferior, sem isto ela encostaria no card do
+   pacote; a linha marca a virada de "o que a IA gerou" para "de onde saiu". */
+.transc-wrap {
+  margin-top: 30px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+}
+.transc-wrap::before {
+  content: 'Conteúdo de origem';
+  display: block;
+  margin-bottom: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faded);
+}
 .analise-loading {
   margin-top: 24px; padding: 24px; text-align: center; color: var(--ink-dim);
   background: var(--bg-card); border: 1px solid var(--line); border-radius: 10px;
@@ -4076,7 +4095,16 @@ function renderItemDetail(item, opts) {
   // A análise de potencial fica AGRUPADA com a transcrição (o botão "Avaliar potencial"
   // está no cabeçalho da transcrição e os resultados aparecem logo abaixo dela).
   const blocoTransc = `<div class="transc-wrap">${transcBox}${renderAnaliseSecao(item)}</div>`;
-  return blocoTransc + avalBox + card + footer;
+  // ORDEM: o PACOTE primeiro, a transcrição por último.
+  //
+  // Ela vinha antes, e isso invertia a razão de o usuário estar nesta tela:
+  // depois de processar, o que ele veio buscar é o pacote — a transcrição é o
+  // insumo, não o resultado. Continua inteira e com as mesmas ações (copiar,
+  // avaliar potencial, enviar para), só que embaixo, onde se consulta a fonte.
+  //
+  // A avaliação fica junto do pacote (é o placar DELE) e antes do card, que é
+  // como ela já vinha — banner de veredito + nota, lido antes do conteúdo.
+  return avalBox + card + blocoTransc + footer;
 }
 
 // =================== ANÁLISE DE POTENCIAL (render) ===================

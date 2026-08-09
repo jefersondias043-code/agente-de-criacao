@@ -1040,6 +1040,62 @@ input:focus, select:focus, textarea:focus {
 .opts-grid .review-field { margin: 0; }
 @media (min-width: 560px) { .opts-grid { grid-template-columns: 1fr 1fr 1fr; } }
 
+/* ========== CATEGORIA DO VÍDEO (nicho, antes de gerar) ========== */
+.cat-hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-faded);
+  font-size: 11px;
+  margin-left: 6px;
+}
+.cat-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-chip {
+  background: var(--surface-deep);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 10px 7px 13px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.cat-chip:hover { border-color: var(--accent); color: var(--ink); }
+.cat-chip[aria-selected="true"] {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--accent-glow);
+  font-weight: 600;
+}
+.cat-chip .cat-emoji { font-size: 13px; line-height: 1; }
+/* A estrela é um botão DENTRO do chip: favoritar não pode selecionar a
+   categoria por tabela — são duas decisões diferentes. */
+.cat-star {
+  background: transparent;
+  border: 0;
+  padding: 0 2px;
+  margin-left: 1px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ink-faded);
+  opacity: .55;
+  transition: opacity .15s, color .15s;
+}
+.cat-chip:hover .cat-star { opacity: 1; }
+.cat-star[data-fav="1"] { color: var(--accent); opacity: 1; }
+.cat-star:focus-visible { outline: 2px solid var(--accent); border-radius: 3px; }
+/* Separa visualmente o bloco de favoritas do resto do catálogo. */
+.cat-sep {
+  flex-basis: 100%;
+  height: 0;
+  border-top: 1px dashed var(--line);
+  margin: 4px 0 2px;
+}
+
 /* Botão "gerar outra versão" (🔄) por item do pacote */
 .regen-btn {
   background: transparent;

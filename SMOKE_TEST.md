@@ -101,6 +101,13 @@ No navegador (http://localhost:8080):
       abas avançadas; preset de composição (aba Layout) troca modelo+tema; o PNG exportado NÃO
       mostra a moldura de seleção/guias/área segura.
 - [ ] **Detector Flop**: iframe carrega `detector-flop.html` (3 abas) com tema claro aplicado.
+- [ ] **AutoPost IA — categoria do vídeo**: na tela de revisão, antes de gerar, aparece a grade
+      **Categoria do vídeo** (fora do bloco recolhido "Opções de geração"). Escolher uma marca o
+      chip; a ★ favorita SEM selecionar a categoria, e a favorita sobe para o topo, separada do
+      resto por um tracejado. Recarregar mantém favoritas e reabre na última categoria usada.
+      Gerando com uma categoria escolhida, hashtags e palavras-chave saem no vocabulário do
+      nicho (ex.: **Culinária** → nome do prato e ingrediente; **Esportes** → time e competição).
+      Com **Automático**, o pacote sai como antes. Vale igual no app embutido e no standalone.
 - [ ] **AutoPost IA** e **Replicador**: iframes carregam com tema claro.
 - [ ] **Configurações**: trocar provedor (Groq/OpenAI/Anthropic) atualiza a lista de modelos.
 - [ ] **Dados e backup**: "Proteger com senha" cifra as chaves (status → "Protegido");

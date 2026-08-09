@@ -124,6 +124,13 @@
           <textarea id="reviewText" aria-label="Texto para gerar o pacote"></textarea>
         </div>
 
+        <!-- CATEGORIA: fica FORA do <details> porque é o sinal de nicho que
+             mais muda hashtag e palavra-chave. Recolhida, ninguém escolheria. -->
+        <div class="review-field cat-field">
+          <label id="catLabel">Categoria do vídeo <span class="cat-hint">ajuda a IA a acertar o nicho</span></label>
+          <div class="cat-grid" id="catGrid" role="listbox" aria-labelledby="catLabel"></div>
+        </div>
+
         <details class="opts" id="review-options">
           <summary>Opções de geração (opcional)</summary>
           <div class="opts-grid">
@@ -222,6 +229,7 @@
 <script src="js/vendor/lamejs.js"></script>
 <!-- Módulos do app (scripts clássicos, ordem = dependência) -->
 <script src="js/core.js"></script>
+<script src="js/categorias.js"></script>
 <script src="js/bridge.js"></script>
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>

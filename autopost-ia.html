@@ -1075,6 +1075,62 @@ input:focus, select:focus, textarea:focus {
 .opts-grid .review-field { margin: 0; }
 @media (min-width: 560px) { .opts-grid { grid-template-columns: 1fr 1fr 1fr; } }
 
+/* ========== CATEGORIA DO VÍDEO (nicho, antes de gerar) ========== */
+.cat-hint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-faded);
+  font-size: 11px;
+  margin-left: 6px;
+}
+.cat-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-chip {
+  background: var(--surface-deep);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 10px 7px 13px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.cat-chip:hover { border-color: var(--accent); color: var(--ink); }
+.cat-chip[aria-selected="true"] {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--accent-glow);
+  font-weight: 600;
+}
+.cat-chip .cat-emoji { font-size: 13px; line-height: 1; }
+/* A estrela é um botão DENTRO do chip: favoritar não pode selecionar a
+   categoria por tabela — são duas decisões diferentes. */
+.cat-star {
+  background: transparent;
+  border: 0;
+  padding: 0 2px;
+  margin-left: 1px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ink-faded);
+  opacity: .55;
+  transition: opacity .15s, color .15s;
+}
+.cat-chip:hover .cat-star { opacity: 1; }
+.cat-star[data-fav="1"] { color: var(--accent); opacity: 1; }
+.cat-star:focus-visible { outline: 2px solid var(--accent); border-radius: 3px; }
+/* Separa visualmente o bloco de favoritas do resto do catálogo. */
+.cat-sep {
+  flex-basis: 100%;
+  height: 0;
+  border-top: 1px dashed var(--line);
+  margin: 4px 0 2px;
+}
+
 /* Botão "gerar outra versão" (🔄) por item do pacote */
 .regen-btn {
   background: transparent;
@@ -1216,6 +1272,13 @@ input:focus, select:focus, textarea:focus {
         <div class="review-field">
           <label id="reviewLabel" for="reviewText">Revise o texto antes de gerar</label>
           <textarea id="reviewText" aria-label="Texto para gerar o pacote"></textarea>
+        </div>
+
+        <!-- CATEGORIA: fica FORA do <details> porque é o sinal de nicho que
+             mais muda hashtag e palavra-chave. Recolhida, ninguém escolheria. -->
+        <div class="review-field cat-field">
+          <label id="catLabel">Categoria do vídeo <span class="cat-hint">ajuda a IA a acertar o nicho</span></label>
+          <div class="cat-grid" id="catGrid" role="listbox" aria-labelledby="catLabel"></div>
         </div>
 
         <details class="opts" id="review-options">
@@ -1742,6 +1805,141 @@ function toast(msg, tipo) {
     el.classList.remove('show');
     setTimeout(() => { try { el.remove(); } catch (_) {} }, 300);
   }, tipo === 'error' ? 4200 : 2600);
+}
+
+</script>
+<script>
+'use strict';
+/* ============================================================
+   CATEGORIA DO VÍDEO — o nicho, informado ANTES de gerar.
+
+   Por que existe: o pacote saía sem nenhuma informação de nicho.
+   `montarBriefing()` mandava `niche: ''` para o gerador, e o prompt
+   já tinha a linha "Nicho/palavras-chave do canal" esperando por ela
+   — só que ela nunca chegava preenchida. Com isso, hashtag e palavra-
+   chave eram deduzidas só do texto transcrito, que muitas vezes não
+   diz a que público aquilo se destina.
+
+   Cada categoria carrega um CONTEXTO, não só um rótulo. Rótulo
+   sozinho ("Culinária") acrescenta pouco; o que muda hashtag e
+   palavra-chave é saber quem assiste e com que vocabulário busca.
+   ============================================================ */
+
+const CATEGORIAS_VIDEO = [
+  { id: 'noticias',    emoji: '📰', label: 'Notícias e política',
+    ctx: 'Jornalismo, política e atualidades. Público busca por fato, local e nomes envolvidos; termos de busca costumam ser o assunto + a cidade/estado. Evite hashtag de entretenimento genérico.' },
+  { id: 'storytime',   emoji: '🎙️', label: 'Relato pessoal (storytime)',
+    ctx: 'História real contada em primeira pessoa. O público procura pela SITUAÇÃO ("chefe tóxico", "cliente mal-educado"), não pelo nome de quem conta. Hashtags de comunidade e de emoção funcionam melhor que as de tema.' },
+  { id: 'comedia',     emoji: '😂', label: 'Comédia e humor',
+    ctx: 'Esquete, piada, imitação, situação cômica. Busca-se pelo formato e pelo bordão; a linguagem é de deboche leve. Palavras-chave curtas e faladas rendem mais que termos formais.' },
+  { id: 'educacao',    emoji: '📚', label: 'Educação e tutoriais',
+    ctx: 'Ensina algo passo a passo. O público busca pela DÚVIDA que tem ("como fazer X", "o que significa Y") — palavras-chave em forma de pergunta e de problema são as que trazem tráfego.' },
+  { id: 'tecnologia',  emoji: '💻', label: 'Ciência e tecnologia',
+    ctx: 'Tecnologia, ciência, IA, gadgets. Público técnico busca por nome de produto, ferramenta e versão. Termos em inglês convivem naturalmente com os em português.' },
+  { id: 'negocios',    emoji: '📈', label: 'Negócios e finanças',
+    ctx: 'Empreendedorismo, carreira, dinheiro, investimento. Busca-se por objetivo financeiro e por dor profissional. Evite promessa de retorno — a plataforma penaliza e o público desconfia.' },
+  { id: 'saude',       emoji: '🩺', label: 'Saúde e bem-estar',
+    ctx: 'Saúde, treino, alimentação, saúde mental. Público busca por sintoma, objetivo e rotina. Cuidado com afirmação de resultado ou promessa de cura: prefira linguagem de experiência.' },
+  { id: 'esportes',    emoji: '⚽', label: 'Esportes',
+    ctx: 'Jogo, atleta, time, campeonato. Busca-se por nome próprio (time, jogador, competição) e por rodada/data — nomes próprios valem mais que termos genéricos.' },
+  { id: 'musica',      emoji: '🎵', label: 'Música e dança',
+    ctx: 'Música, performance, dança, bastidor. Busca-se por artista, música e trend. O nome da faixa e do desafio costumam ser a palavra-chave mais forte.' },
+  { id: 'games',       emoji: '🎮', label: 'Games',
+    ctx: 'Jogos, gameplay, dicas, notícias do setor. Público busca por nome do jogo, plataforma, patch e personagem. Jargão da comunidade é vantagem, não ruído.' },
+  { id: 'moda',        emoji: '💄', label: 'Moda e beleza',
+    ctx: 'Moda, maquiagem, cabelo, cuidados. Busca-se por peça, produto, ocasião e resultado desejado. Nome de marca e tipo de pele/cabelo são termos de alta intenção.' },
+  { id: 'culinaria',   emoji: '🍳', label: 'Culinária',
+    ctx: 'Receita, técnica, ingrediente, restaurante. Público busca pelo NOME DO PRATO e pela restrição ("sem glúten", "barato", "de air fryer"). Ingrediente principal é palavra-chave obrigatória.' },
+  { id: 'viagem',      emoji: '✈️', label: 'Viagem e turismo',
+    ctx: 'Destino, roteiro, dica de viagem. Busca-se pelo lugar e pelo tipo de viagem (barata, em família, primeira vez). Nome do destino é sempre a palavra-chave principal.' },
+  { id: 'automotivo',  emoji: '🚗', label: 'Automotivo',
+    ctx: 'Carro, moto, mecânica, review. Busca-se por marca, modelo, ano e problema específico. Nome do modelo vale mais que qualquer termo genérico.' },
+  { id: 'familia',     emoji: '👨‍👩‍👧', label: 'Família e relacionamentos',
+    ctx: 'Maternidade, paternidade, casal, criação de filhos. Público busca pela FASE ("recém-nascido", "adolescente") e pelo conflito vivido. Tom de identificação supera tom de conselho.' },
+  { id: 'religiao',    emoji: '🙏', label: 'Religião e espiritualidade',
+    ctx: 'Fé, mensagem, reflexão espiritual. Busca-se por passagem, data litúrgica e sentimento. Respeite a linguagem própria da comunidade — termo trocado soa de fora.' },
+  { id: 'pets',        emoji: '🐶', label: 'Pets e animais',
+    ctx: 'Animais de estimação, adestramento, cuidados, resgate. Busca-se por espécie, raça e comportamento ("por que meu cachorro…"). Raça é palavra-chave de alta intenção.' },
+  { id: 'casa',        emoji: '🏠', label: 'Casa, decoração e DIY',
+    ctx: 'Reforma, decoração, organização, faça-você-mesmo. Busca-se por cômodo, orçamento e problema de espaço. "Gastando pouco" e "aluguel" são recortes que puxam busca.' },
+  { id: 'arte',        emoji: '🎨', label: 'Arte e cultura',
+    ctx: 'Arte, literatura, cinema, teatro, processo criativo. Busca-se por obra, autor e técnica. Nome próprio da obra costuma ser o termo mais buscado.' },
+  { id: 'motivacao',   emoji: '🔥', label: 'Motivação e desenvolvimento',
+    ctx: 'Superação, hábitos, produtividade, disciplina. Busca-se pelo obstáculo ("procrastinação", "medo de começar") mais que pela solução. Frase de impacto funciona como palavra-chave.' },
+  { id: 'entretenimento', emoji: '🎬', label: 'Entretenimento e celebridades',
+    ctx: 'Famosos, novela, reality, cultura pop. Busca-se por nome da pessoa e do programa, e pelo acontecimento do momento. Nome próprio é insubstituível aqui.' },
+];
+
+const CATEGORIA_FAVS_KEY = 'autopost_categorias_favoritas';
+const CATEGORIA_ULTIMA_KEY = 'autopost_categoria_ultima';
+
+/** Categoria pelo id (null quando 'auto' ou desconhecida). */
+function categoriaPorId(id) {
+  if (!id || id === 'auto') return null;
+  return CATEGORIAS_VIDEO.find((c) => c.id === id) || null;
+}
+
+/** Ids favoritados, filtrados contra o catálogo (favorito órfão some sozinho). */
+function categoriasFavoritas() {
+  try {
+    const cru = JSON.parse(localStorage.getItem(CATEGORIA_FAVS_KEY) || '[]');
+    if (!Array.isArray(cru)) return [];
+    return cru.filter((id) => categoriaPorId(id));
+  } catch (_) { return []; }
+}
+
+function salvarFavoritas(ids) {
+  try { localStorage.setItem(CATEGORIA_FAVS_KEY, JSON.stringify(ids)); } catch (_) { /* modo privado */ }
+}
+
+/** Liga/desliga o favorito e devolve o estado novo. */
+function alternarFavorita(id) {
+  if (!categoriaPorId(id)) return false;
+  const favs = categoriasFavoritas();
+  const i = favs.indexOf(id);
+  if (i >= 0) favs.splice(i, 1); else favs.push(id);
+  salvarFavoritas(favs);
+  return i < 0;
+}
+
+function categoriaEhFavorita(id) {
+  return categoriasFavoritas().indexOf(id) >= 0;
+}
+
+/** Catálogo na ORDEM DE EXIBIÇÃO: favoritas primeiro, resto na ordem original. */
+function categoriasOrdenadas() {
+  const favs = categoriasFavoritas();
+  const marca = (c) => Object.assign({}, c, { fav: favs.indexOf(c.id) >= 0 });
+  const favoritas = favs.map((id) => marca(categoriaPorId(id))).filter(Boolean);
+  const resto = CATEGORIAS_VIDEO.filter((c) => favs.indexOf(c.id) < 0).map(marca);
+  return favoritas.concat(resto);
+}
+
+/** Última categoria usada — pré-seleciona na próxima vez. */
+function categoriaUltima() {
+  try {
+    const id = localStorage.getItem(CATEGORIA_ULTIMA_KEY);
+    return categoriaPorId(id) ? id : 'auto';
+  } catch (_) { return 'auto'; }
+}
+
+function salvarCategoriaUltima(id) {
+  try {
+    if (id && id !== 'auto') localStorage.setItem(CATEGORIA_ULTIMA_KEY, id);
+    else localStorage.removeItem(CATEGORIA_ULTIMA_KEY);
+  } catch (_) { /* modo privado */ }
+}
+
+/** Linha de nicho para o briefing do gerador (vai em `briefing.niche`). */
+function categoriaParaBriefing(id) {
+  const c = categoriaPorId(id);
+  return c ? `${c.label} — ${c.ctx}` : '';
+}
+
+/** Rótulo curto, para o checklist e para o contexto do juiz. */
+function categoriaLabel(id) {
+  const c = categoriaPorId(id);
+  return c ? c.label : '';
 }
 
 </script>
@@ -4107,8 +4305,69 @@ const LABEL_OBJETIVO = {
   informar: 'Informar com clareza'
 };
 
+// =================== CATEGORIA DO VÍDEO ===================
+// Seleção atual da tela de revisão. 'auto' = usuário não quis dizer, e aí a IA
+// deduz do texto como sempre fez — a categoria acrescenta, nunca obriga.
+let _categoriaSel = 'auto';
+
+// Desenha a grade. Favoritas primeiro, com um tracejado separando do resto:
+// é o que faz o recurso valer a pena para quem sempre publica no mesmo nicho.
+function renderCategorias() {
+  const grid = $('catGrid');
+  if (!grid || typeof categoriasOrdenadas !== 'function') return;
+  const lista = categoriasOrdenadas();
+  const nFav = lista.filter((c) => c.fav).length;
+  const chip = (c, i) => {
+    const sep = (nFav && i === nFav) ? '<div class="cat-sep"></div>' : '';
+    const sel = _categoriaSel === c.id;
+    return `${sep}<div class="cat-chip" role="option" tabindex="0" aria-selected="${sel}" data-cat="${escapeHtml(c.id)}" title="${escapeHtml(c.ctx)}">
+      <span class="cat-emoji" aria-hidden="true">${c.emoji}</span><span>${escapeHtml(c.label)}</span>
+      <button type="button" class="cat-star" data-cat-fav="${escapeHtml(c.id)}" data-fav="${c.fav ? '1' : '0'}"
+        aria-label="${c.fav ? 'Desfavoritar' : 'Favoritar'} ${escapeHtml(c.label)}" aria-pressed="${c.fav}">${c.fav ? '★' : '☆'}</button>
+    </div>`;
+  };
+  const auto = `<div class="cat-chip" role="option" tabindex="0" aria-selected="${_categoriaSel === 'auto'}" data-cat="auto"
+      title="A IA deduz o nicho a partir do próprio conteúdo."><span class="cat-emoji" aria-hidden="true">✨</span><span>Automático</span></div>`;
+  grid.innerHTML = auto + lista.map(chip).join('');
+}
+
+function selecionarCategoria(id) {
+  _categoriaSel = id || 'auto';
+  if (typeof salvarCategoriaUltima === 'function') salvarCategoriaUltima(_categoriaSel);
+  renderCategorias();
+}
+
+// Os chips são focáveis (tabindex), então precisam responder a Enter/Espaço —
+// senão a grade fica visível para o teclado e inoperante nele.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  const fav = e.target.closest && e.target.closest('[data-cat-fav]');
+  if (fav) {
+    e.preventDefault();
+    if (typeof alternarFavorita === 'function') alternarFavorita(fav.dataset.catFav);
+    renderCategorias();
+    return;
+  }
+  const chip = e.target.closest && e.target.closest('[data-cat]');
+  if (chip) { e.preventDefault(); selecionarCategoria(chip.dataset.cat); }
+});
+
 // =================== DELEGAÇÃO DE EVENTOS ===================
 document.addEventListener('click', (e) => {
+  // Favoritar/desfavoritar — ANTES da seleção, porque a estrela vive DENTRO do
+  // chip: sem isto, favoritar selecionaria a categoria de tabela.
+  const favBtn = e.target.closest('[data-cat-fav]');
+  if (favBtn) {
+    e.stopPropagation();
+    if (typeof alternarFavorita === 'function') alternarFavorita(favBtn.dataset.catFav);
+    renderCategorias();
+    return;
+  }
+
+  // Escolher a categoria do vídeo.
+  const catChip = e.target.closest('[data-cat]');
+  if (catChip) { selecionarCategoria(catChip.dataset.cat); return; }
+
   // Recomeçar o assistente (↺ Transcrever outro arquivo / ← Voltar)
   const resetBtn = e.target.closest('[data-wizard-reset]');
   if (resetBtn) {
@@ -4298,6 +4557,10 @@ async function iniciarRevisao() {
     if (lbl) lbl.textContent = fonteTexto
       ? 'Revise o texto — ajuste o que quiser antes de gerar'
       : 'Revise a transcrição — corrija o que o áudio não pegou antes de gerar';
+    // Categoria: reabre já na última usada — quem publica sempre no mesmo nicho
+    // não precisa reescolher, e quem mudou de assunto troca num toque.
+    if (typeof categoriaUltima === 'function') _categoriaSel = categoriaUltima();
+    renderCategorias();
     loading.style.display = 'none'; body.style.display = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {
@@ -4314,7 +4577,10 @@ async function iniciarRevisao() {
 // Lê as opções de saída (plataforma, tom, objetivo) da tela de revisão.
 function lerOpcoesSaida() {
   const val = (id, def) => { const el = $(id); return el ? el.value : def; };
-  return { plataforma: val('optPlataforma', 'auto'), tom: val('optTom', 'auto'), objetivo: val('optObjetivo', 'auto') };
+  return {
+    plataforma: val('optPlataforma', 'auto'), tom: val('optTom', 'auto'),
+    objetivo: val('optObjetivo', 'auto'), categoria: _categoriaSel || 'auto',
+  };
 }
 
 // Monta o briefing (para o gerador) a partir do texto + opções.
@@ -4322,11 +4588,18 @@ function montarBriefing(opcoes, fonteTexto) {
   const checklist = {};
   if (opcoes.plataforma !== 'auto' && LABEL_PLATAFORMA[opcoes.plataforma]) checklist['Plataforma'] = [LABEL_PLATAFORMA[opcoes.plataforma]];
   if (opcoes.objetivo !== 'auto' && LABEL_OBJETIVO[opcoes.objetivo]) checklist['Objetivo'] = [LABEL_OBJETIVO[opcoes.objetivo]];
+  const catLabel = (typeof categoriaLabel === 'function') ? categoriaLabel(opcoes.categoria) : '';
+  if (catLabel) checklist['Categoria do vídeo'] = [catLabel];
   return {
     theme: fonteTexto ? '(o texto abaixo é a única fonte)' : '(a transcrição do áudio/vídeo abaixo é a única fonte)',
     duration: null,
     tone: (opcoes.tom !== 'auto' && LABEL_TOM[opcoes.tom]) ? LABEL_TOM[opcoes.tom] : null,
-    niche: '', extra: '(nenhum)',
+    // O campo `niche` sempre existiu no prompt do gerador ("Nicho/palavras-chave
+    // do canal") e chegava VAZIO — hashtag e palavra-chave saíam deduzidas só do
+    // texto. A categoria entra com o CONTEXTO junto, não só o rótulo: é o que
+    // diz à IA quem assiste e com que vocabulário esse público busca.
+    niche: (typeof categoriaParaBriefing === 'function') ? categoriaParaBriefing(opcoes.categoria) : '',
+    extra: '(nenhum)',
     checklist: Object.keys(checklist).length ? checklist : null
   };
 }
@@ -4337,6 +4610,8 @@ function contextoJuizTexto(texto, opcoes, fonteTexto) {
   if (opcoes.plataforma !== 'auto' && LABEL_PLATAFORMA[opcoes.plataforma]) prefs.push('Plataforma-alvo: ' + LABEL_PLATAFORMA[opcoes.plataforma]);
   if (opcoes.tom !== 'auto' && LABEL_TOM[opcoes.tom]) prefs.push('Tom: ' + LABEL_TOM[opcoes.tom]);
   if (opcoes.objetivo !== 'auto' && LABEL_OBJETIVO[opcoes.objetivo]) prefs.push('Objetivo: ' + LABEL_OBJETIVO[opcoes.objetivo]);
+  const catJuiz = (typeof categoriaLabel === 'function') ? categoriaLabel(opcoes.categoria) : '';
+  if (catJuiz) prefs.push('Categoria do vídeo: ' + catJuiz);
   const linha = prefs.length ? `\nPreferências do usuário (avalie a aderência): ${prefs.join(' · ')}` : '';
   return `Origem do conteúdo: ${fonteTexto ? 'texto/roteiro/transcrição enviado pelo usuário' : 'transcrição automática de áudio/vídeo'}.${linha}
 O conteúdo abaixo é a ÚNICA fonte — o pacote não deve inventar fatos fora dele:
@@ -4468,7 +4743,9 @@ async function regenerarCampoUI(id, campo, btnEl) {
   btnEl.textContent = '⏳';
   btnEl.disabled = true;
   try {
-    const opcoes = item.opcoes || { plataforma: 'auto', tom: 'auto', objetivo: 'auto' };
+    // A categoria vem do item salvo: regenerar um card sem ela devolveria uma
+    // hashtag fora do nicho no meio de um pacote que estava coerente.
+    const opcoes = item.opcoes || { plataforma: 'auto', tom: 'auto', objetivo: 'auto', categoria: 'auto' };
     const briefing = montarBriefing(opcoes, item.fonte === 'texto');
     const novo = await gerarVariacaoCampo(campo, item.transcricao || '', item.pacote || {}, briefing);
 

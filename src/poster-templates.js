@@ -3297,12 +3297,43 @@ function _thumbCurto(txt, maxPalavras, maxChars) {
   return saida.toUpperCase();
 }
 
-/** Corpo de fonte do título: quanto menos texto, maior a palavra. */
-function _thumbTitleSize(txt, fmt) {
-  const n = (txt || '').length;
+/** Corpo de fonte do título.
+ *
+ *  Duas restrições, e vale a MENOR das duas:
+ *
+ *  1. ALTURA — quanto menos texto, maior a palavra (é o que dá o impacto).
+ *  2. LARGURA — a palavra mais longa tem de caber na linha. Sem isto, no
+ *     retrato (1080 de largura) uma palavra como "NINGUÉM" em condensada
+ *     estourava a caixa e saía cortada ao meio: o corpo era escolhido só pela
+ *     altura, e a altura sobrava justamente onde a largura faltava.
+ *
+ *  O 0.54 é a largura média de um caractere em caixa alta condensada, medido
+ *  na Poppins 900 — folgado o bastante para não cortar em palavra comum. */
+function _thumbTitleSize(txt, fmt, fracLargura) {
+  const t = String(txt || '');
+  const n = t.length;
   const base = _thumbDeitado(fmt) ? 0.215 : 0.125;
   const f = n <= 10 ? base : n <= 18 ? base * 0.82 : n <= 28 ? base * 0.66 : base * 0.53;
-  return _thumbU(fmt, f);
+  const porAltura = _thumbU(fmt, f);
+  const maiorPalavra = t.split(/\s+/).reduce((m, w) => Math.max(m, w.length), 1);
+  return _thumbFit(porAltura, t, fmt, fracLargura);
+}
+
+/* LIMITE DE LARGURA — a palavra mais longa tem de caber na linha.
+ *
+ * O 0.80 não é chute: medido na Poppins 900 em caixa alta, um caractere ocupa
+ * ~0.77 do corpo da fonte (NINGUÉM 0.765, CONTOU 0.794). A primeira tentativa
+ * usou 0.54 e não corrigiu nada — 42% de erro, e os títulos continuaram
+ * saindo cortados no retrato, onde a largura é o que falta.
+ *
+ * `frac` é quanto da largura da arte aquele modelo realmente oferece ao
+ * título: quem compõe em painel dá menos que quem usa a arte inteira. */
+function _thumbFit(size, txt, fmt, frac) {
+  const maior = String(txt || '').split(/\s+/).reduce((m, w) => Math.max(m, w.length), 1);
+  const disponivel = fmt.w * (frac || 0.86);
+  // Arredonda: corpo fracionário vira "font-size:139.28px", que confunde
+  // qualquer leitura do CSS gerado e não acrescenta nada na tela.
+  return Math.round(Math.max(_thumbU(fmt, 0.042), Math.min(size, disponivel / (0.80 * maior))));
 }
 
 /* ALTURA QUE A ASSINATURA OCUPA. Todo bloco de conteúdo tem de parar acima
@@ -3315,6 +3346,99 @@ function _thumbReservaMarca(fmt) { return _thumbU(fmt, 0.145); }
  *  painel para fora da arte, em vez de simplesmente reticenciar. */
 function _thumbClamp(n) {
   return `overflow:hidden;display:-webkit-box;-webkit-line-clamp:${n};-webkit-box-orient:vertical;`;
+}
+
+/* ---- PRIMITIVAS DE ACABAMENTO -------------------------------------------
+ *
+ * A família cresceu de 8 para 24 modelos. Sem um vocabulário comum, 24 capas
+ * viram 24 dialetos: mesma informação com espessura de filete diferente,
+ * etiqueta de canto diferente, respiro diferente. As primitivas abaixo são o
+ * acabamento compartilhado — o que dá "cara de peça acabada" — enquanto a
+ * COMPOSIÇÃO (onde entra foto, onde entra bloco, o que é o foco) fica livre
+ * para cada modelo ser realmente diferente do outro.
+ * ------------------------------------------------------------------------ */
+
+/** Dourado do acabamento premium. Não é cor de tema: é o metal que separa uma
+ *  capa "chamativa" de uma capa "cara". Usado em filete, selo e numeral. */
+const THUMB_OURO = '#D9B45B';
+const THUMB_OURO_SOFT = 'rgba(217,180,91,0.18)';
+
+/** Véu sobre a foto. `d` é a direção; `p1..p4` as paradas de opacidade. */
+function _thumbVeu(d, a, b, c, e) {
+  return `linear-gradient(${d},rgba(6,8,12,${a}) 0%,rgba(6,8,12,${b}) 38%,rgba(6,8,12,${c}) 70%,rgba(6,8,12,${e}) 100%)`;
+}
+
+/** Filete: a linha fina que assina o bloco. */
+function _thumbFilete(fmt, cor, larg) {
+  return `<div style="height:${_thumbU(fmt, 0.009)}px;width:${_thumbU(fmt, larg || 0.16)}px;background:${cor || THUMB_OURO};"></div>`;
+}
+
+/** Sobrelinha (kicker): categoria em caixa alta, pequena e espaçada. */
+function _thumbKicker(txt, fmt, cor) {
+  if (!txt || !posterShow('category')) return '';
+  return `<div style="font-size:${_thumbU(fmt, 0.036)}px;font-weight:900;letter-spacing:0.2em;color:${cor || THUMB_OURO};text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(txt)}</div>`;
+}
+
+/** Etiqueta. `estilo`: 'solida' | 'contorno' | 'ouro'. */
+function _thumbEtiqueta(txt, fmt, estilo, corSolida) {
+  if (!txt) return '';
+  const f = _thumbU(fmt, 0.038);
+  const pad = `${_thumbU(fmt, 0.012)}px ${_thumbU(fmt, 0.026)}px`;
+  const r = _thumbU(fmt, 0.008);
+  if (estilo === 'contorno') {
+    return `<span style="display:inline-block;border:${Math.max(2, _thumbU(fmt, 0.0035))}px solid rgba(255,255,255,0.55);color:#fff;font-size:${f}px;font-weight:900;letter-spacing:0.16em;padding:${pad};border-radius:${r}px;text-transform:uppercase;white-space:nowrap;">${escapeHtml(txt)}</span>`;
+  }
+  if (estilo === 'ouro') {
+    return `<span style="display:inline-block;background:${THUMB_OURO};color:#141210;font-size:${f}px;font-weight:900;letter-spacing:0.16em;padding:${pad};border-radius:${r}px;text-transform:uppercase;white-space:nowrap;">${escapeHtml(txt)}</span>`;
+  }
+  return `<span style="display:inline-block;background:${corSolida || PT.red};color:#fff;font-size:${f}px;font-weight:900;letter-spacing:0.14em;padding:${pad};border-radius:${r}px;text-transform:uppercase;white-space:nowrap;">${escapeHtml(txt)}</span>`;
+}
+
+/* LOCAL — o campo que o conteúdo preenche sozinho e que as capas ignoravam.
+ * Medido: 0 de 8 capas usavam `location`, contra 47 de 66 no resto da
+ * biblioteca. Numa capa de vídeo o lugar é informação de gancho ("isso é AQUI,
+ * na minha cidade"), não rodapé. */
+function _thumbLocal(p, fmt, opts) {
+  const o = opts || {};
+  const loc = p.location;
+  if (!loc || !posterShow('location')) return '';
+  const f = _thumbU(fmt, 0.034);
+  const cor = o.cor || 'rgba(255,255,255,0.92)';
+  return `<div style="display:inline-flex;align-items:center;gap:${_thumbU(fmt, 0.012)}px;color:${cor};font-size:${f}px;font-weight:700;letter-spacing:0.04em;max-width:100%;overflow:hidden;">
+    <svg width="${Math.round(f)}" height="${Math.round(f)}" viewBox="0 0 24 24" fill="none" stroke="${o.pino || THUMB_OURO}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:uppercase;">${escapeHtml(loc)}</span>
+  </div>`;
+}
+
+/* TÓPICOS — o corpo da matéria, que as capas também ignoravam (0 de 8).
+ * `description` guarda o texto COMPLETO do conteúdo; para uma capa de lista
+ * ("3 coisas que…") é a melhor matéria-prima que existe, e estava parada. */
+function _thumbTopicos(p, fmt, n, opts) {
+  const o = opts || {};
+  const itens = (typeof posterBullets === 'function') ? posterBullets(p, n || 3) : [];
+  if (!itens.length) return '';
+  const f = _thumbU(fmt, o.tam || 0.046);
+  const gap = _thumbU(fmt, 0.022);
+  return `<div style="display:flex;flex-direction:column;gap:${gap}px;">
+    ${itens.map((t, i) => `<div style="display:flex;align-items:flex-start;gap:${_thumbU(fmt, 0.018)}px;">
+      ${o.numerado === false
+    ? `<span style="flex-shrink:0;width:${_thumbU(fmt, 0.014)}px;height:${_thumbU(fmt, 0.014)}px;border-radius:50%;background:${THUMB_OURO};margin-top:${_thumbU(fmt, 0.016)}px;"></span>`
+    : `<span style="flex-shrink:0;font-family:${PT.cond};font-size:${Math.round(f * 1.05)}px;font-weight:900;color:${THUMB_OURO};line-height:1.1;min-width:${_thumbU(fmt, 0.05)}px;">${i + 1}</span>`}
+      <span style="font-size:${f}px;font-weight:700;line-height:1.16;color:${o.cor || 'rgba(255,255,255,0.94)'};overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(_thumbCurto(t, 8, 44).replace(/^(.)(.*)$/, (m, a2, b2) => a2 + b2.toLowerCase()))}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+/** Número de destaque, com extração automática quando o campo está vazio —
+ *  o conteúdo quase sempre já traz o dado ("mais de 900 mil", "47%"). */
+function _thumbNumeroAuto(p, padrao) {
+  const direto = String(p.figure || '').trim();
+  if (direto) return direto.slice(0, 5);
+  if (typeof posterFigureExtract === 'function') {
+    const achado = posterFigureExtract([p.headline, p.subtitle, p.description].filter(Boolean).join(' '));
+    if (achado && /\d/.test(achado)) return achado.slice(0, 5);
+  }
+  return padrao || '';
 }
 
 /** Raiz da família: fundo (foto ou cor do tema) sangrando a arte inteira. */
@@ -3342,17 +3466,23 @@ function _thumbMarca(p, portal, fmt, canto) {
 }
 
 /** Foto do cartaz, ou um gradiente do tema quando não há imagem. */
-function _thumbFoto(p, fmt, estilo) {
-  const tem = typeof posterImageKeys === 'function' && posterImageKeys(p).length > 0;
-  if (tem) return `<div style="${estilo}overflow:hidden;">${posterPhotoMosaic(p, { two: 'row', three: 'left', gapColor: PT.ink })}</div>`;
-  return `<div style="${estilo}background:${PT.gradDark};"></div>`;
+function _thumbFoto(p, fmt, estilo, opts) {
+  const chaves = (typeof posterImageKeys === 'function') ? posterImageKeys(p) : [];
+  if (!chaves.length) return `<div style="${estilo}background:${PT.gradDark};"></div>`;
+  // UMA foto, não mosaico. O mosaico é herança dos modelos de feed e aqui
+  // trabalha contra: capa vive de um assunto só, e "Rosto" com quatro fotos
+  // deixa de ter rosto. Quem quer grade usa o modelo Mosaico.
+  const conteudo = (opts && opts.mosaico)
+    ? posterPhotoMosaic(p, { two: 'row', three: 'left', gapColor: PT.ink })
+    : posterImageLayer(p, chaves[0]);
+  return `<div style="${estilo}overflow:hidden;">${conteudo}</div>`;
 }
 
 /* --- 1. IMPACTO: a palavra ocupando a arte, sobre foto sangrada. ----------- */
 function tplThumbImpacto(p, fmt, portal) {
   const deitadoImp = _thumbDeitado(fmt);
   const txt = _thumbCurto(p.headline || 'Título curto', 6, 34);
-  const size = _thumbTitleSize(txt, fmt);
+  const size = _thumbTitleSize(txt, fmt, 0.86);
   const pad = _thumbU(fmt, 0.06);
   const apoio = _thumbCurto(p.subtitle || '', 7, 40);
   return _thumbRaiz(p, fmt, `
@@ -3361,6 +3491,7 @@ function tplThumbImpacto(p, fmt, portal) {
     <div style="position:absolute;left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;">
       ${posterShow('category') && p.category ? `<div style="display:inline-block;background:${PT.red};color:#fff;font-size:${_thumbU(fmt, 0.045)}px;font-weight:900;letter-spacing:0.1em;padding:${_thumbU(fmt, 0.014)}px ${_thumbU(fmt, 0.03)}px;border-radius:${_thumbU(fmt, 0.012)}px;margin-bottom:${_thumbU(fmt, 0.028)}px;">${escapeHtml(p.category)}</div>` : ''}
       ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${size}px;font-weight:900;line-height:0.94;padding-top:0.16em;letter-spacing:-0.01em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.022)}px;">${_thumbLocal(p, fmt)}</div>` : ''}
       ${apoio ? `<div style="margin-top:${_thumbU(fmt, 0.026)}px;"><span style="display:inline-block;background:${PT.orange};color:#111;font-size:${_thumbU(fmt, deitadoImp ? 0.052 : 0.038)}px;font-weight:900;padding:${_thumbU(fmt, 0.012)}px ${_thumbU(fmt, 0.026)}px;border-radius:${_thumbU(fmt, 0.01)}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;box-sizing:border-box;">${escapeHtml(apoio)}</span></div>` : ''}
     </div>
     ${_thumbMarca(p, portal, fmt, 'br')}`);
@@ -3372,7 +3503,7 @@ function tplThumbRosto(p, fmt, portal) {
   const txt = _thumbCurto(p.headline || 'A frase', 5, 28);
   // No retrato o painel divide a altura com a foto, a categoria e o convidado —
   // o corpo cheio não cabe e era o que estourava a caixa.
-  const size = _thumbTitleSize(txt, fmt) * 0.86;
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * 0.86, txt, fmt, deitado ? 0.44 : 0.86);
   const pad = _thumbU(fmt, 0.055);
   // Deitado: foto à direita, texto à esquerda. Retrato: foto em cima, texto embaixo.
   const foto = deitado
@@ -3403,6 +3534,7 @@ function tplThumbRosto(p, fmt, portal) {
         <div style="font-size:${_thumbU(fmt, deitado ? 0.05 : 0.038)}px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personName)}</div>
         ${p.personRole && deitado ? `<div style="font-size:${_thumbU(fmt, 0.038)}px;color:rgba(255,255,255,0.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personRole)}</div>` : ''}
       </div>` : ''}
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.022)}px;flex-shrink:0;">${_thumbLocal(p, fmt)}</div>` : ''}
     </div>
     ${_thumbMarca(p, portal, fmt, deitado ? 'br' : 'bl')}`);
 }
@@ -3410,10 +3542,10 @@ function tplThumbRosto(p, fmt, portal) {
 /* --- 3. NÚMERO: o algarismo é o assunto ("7 ERROS"). ----------------------- */
 function tplThumbNumero(p, fmt, portal) {
   const deitado = _thumbDeitado(fmt);
-  const num = String(p.figure || '7').trim().slice(0, 4);
+  const num = _thumbNumeroAuto(p, '7');
   const txt = _thumbCurto(p.headline || 'Erros comuns', 5, 26);
-  const numSize = _thumbU(fmt, deitado ? 0.62 : 0.34);
-  const txtSize = _thumbU(fmt, deitado ? 0.13 : 0.088);
+  const numSize = _thumbU(fmt, deitado ? 0.62 : 0.24);
+  const txtSize = _thumbFit(_thumbU(fmt, deitado ? 0.13 : 0.075), txt, fmt, deitado ? 0.52 : 0.86);
   const pad = _thumbU(fmt, 0.055);
   return _thumbRaiz(p, fmt, `
     ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
@@ -3423,6 +3555,7 @@ function tplThumbNumero(p, fmt, portal) {
       <div style="min-width:0;">
         ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${txtSize}px;font-weight:900;line-height:0.96;padding-top:0.14em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
         ${p.subtitle ? `<div style="margin-top:${_thumbU(fmt, 0.024)}px;font-size:${_thumbU(fmt, 0.05)}px;font-weight:700;color:rgba(255,255,255,0.84);${_thumbClamp(2)}">${escapeHtml(p.subtitle)}</div>` : ''}
+        ${p.category || p.location ? `<div style="margin-top:${_thumbU(fmt, 0.022)}px;display:flex;align-items:center;gap:${_thumbU(fmt, 0.022)}px;flex-wrap:wrap;">${_thumbKicker(p.category, fmt)}${_thumbLocal(p, fmt)}</div>` : ''}
       </div>
     </div>
     ${_thumbMarca(p, portal, fmt, 'br')}`);
@@ -3457,6 +3590,7 @@ function tplThumbVersus(p, fmt, portal) {
       <span style="font-family:${PT.cond};font-size:${vsSize}px;font-weight:900;color:#fff;line-height:1;">VS</span>
     </div>
     ${rot(a, posA)}${rot(b, posB)}
+    ${p.location ? `<div style="position:absolute;left:0;right:0;bottom:${_thumbReservaMarca(fmt)}px;z-index:7;display:flex;justify-content:center;">${_thumbLocal(p, fmt)}</div>` : ''}
     ${posterShow('headline') && p.headline ? `<div style="position:absolute;left:${_thumbU(fmt, 0.04)}px;right:${_thumbU(fmt, 0.04)}px;top:${_thumbU(fmt, 0.05)}px;z-index:7;text-align:center;">
       <span style="display:inline-block;background:#fff;color:#111;font-family:${PT.cond};font-size:${_thumbU(fmt, deitado ? 0.085 : 0.05)}px;font-weight:900;text-transform:uppercase;padding:${_thumbU(fmt, 0.012)}px ${_thumbU(fmt, 0.03)}px;border-radius:${_thumbU(fmt, 0.01)}px;max-width:100%;box-sizing:border-box;${_thumbClamp(2)}">${escapeHtml(_thumbCurto(p.headline, 5, 26))}</span>
     </div>` : ''}
@@ -3466,16 +3600,18 @@ function tplThumbVersus(p, fmt, portal) {
 /* --- 5. PERGUNTA: curiosidade, com o ponto de interrogação como grafismo. -- */
 function tplThumbPergunta(p, fmt, portal) {
   const txt = _thumbCurto(p.headline || 'Por que ninguém conta isso', 7, 40);
-  const size = _thumbTitleSize(txt, fmt) * 0.92;
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * 0.92, txt, fmt, 0.86);
   const pad = _thumbU(fmt, 0.06);
   return _thumbRaiz(p, fmt, `
     ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
     <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(6,8,12,0.72) 0%,rgba(6,8,12,0.42) 46%,rgba(6,8,12,0.88) 100%);"></div>
     <div style="position:absolute;right:${_thumbU(fmt, 0.02)}px;top:${_thumbU(fmt, 0.01)}px;z-index:2;font-family:${PT.cond};font-size:${_thumbU(fmt, 0.44)}px;font-weight:900;line-height:0.9;color:rgba(255,255,255,0.11);">?</div>
     <div style="position:absolute;left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;">
+      ${p.category ? `<div style="margin-bottom:${_thumbU(fmt, 0.02)}px;">${_thumbKicker(p.category, fmt)}</div>` : ''}
       ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:0.98;padding-top:0.16em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
       <div style="margin-top:${_thumbU(fmt, 0.03)}px;height:${_thumbU(fmt, 0.012)}px;width:${_thumbU(fmt, 0.22)}px;background:${PT.orange};"></div>
       ${p.subtitle ? `<div style="margin-top:${_thumbU(fmt, 0.028)}px;font-size:${_thumbU(fmt, 0.05)}px;font-weight:700;color:rgba(255,255,255,0.86);${_thumbClamp(2)}">${escapeHtml(p.subtitle)}</div>` : ''}
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.02)}px;">${_thumbLocal(p, fmt)}</div>` : ''}
     </div>
     ${_thumbMarca(p, portal, fmt, 'br')}`);
 }
@@ -3486,7 +3622,7 @@ function tplThumbEpisodio(p, fmt, portal) {
   const ep = String(p.figure || '01').trim().slice(0, 4);
   const txt = _thumbCurto(p.headline || 'Nome do episódio', 6, 34);
   // No retrato o 0.8 deixava o título abaixo do mínimo legível numa thumbnail.
-  const size = _thumbTitleSize(txt, fmt) * (deitado ? 0.8 : 1);
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * (deitado ? 0.8 : 1), txt, fmt, deitado ? 0.6 : 0.86);
   const pad = _thumbU(fmt, 0.06);
   return _thumbRaiz(p, fmt, `
     ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
@@ -3498,6 +3634,7 @@ function tplThumbEpisodio(p, fmt, portal) {
       </div>
       ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:0.98;padding-top:0.16em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
       ${p.personName ? `<div style="margin-top:${_thumbU(fmt, 0.028)}px;font-size:${_thumbU(fmt, 0.048)}px;font-weight:700;color:${PT.orange};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personName)}</div>` : ''}
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.018)}px;">${_thumbLocal(p, fmt)}</div>` : ''}
     </div>
     ${_thumbMarca(p, portal, fmt, 'br')}`);
 }
@@ -3508,14 +3645,15 @@ function tplThumbUrgente(p, fmt, portal) {
   // Capa de urgência vive de poucas palavras: no retrato o bloco tem menos
   // altura, então o texto encurta em vez de ser cortado no meio.
   const txt = _thumbCurto(p.headline || 'Agora', deitado ? 6 : 4, deitado ? 32 : 22);
-  const size = _thumbTitleSize(txt, fmt) * 0.9;
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * 0.9, txt, fmt, 0.8);
   const pad = _thumbU(fmt, 0.055);
   const faixaH = _thumbU(fmt, 0.1);
   return _thumbRaiz(p, fmt, `
     ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
     <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(6,8,12,0.52) 0%,rgba(6,8,12,0.22) 40%,rgba(6,8,12,0.90) 100%);"></div>
     <div style="position:absolute;left:0;right:0;top:0;height:${faixaH}px;z-index:5;background:${PT.red};display:flex;align-items:center;padding:0 ${pad}px;box-sizing:border-box;">
-      <span style="font-family:${PT.cond};font-size:${Math.round(faixaH * 0.5)}px;font-weight:900;letter-spacing:0.16em;color:#fff;text-transform:uppercase;">${escapeHtml(p.category || 'Urgente')}</span>
+      <span style="font-family:${PT.cond};font-size:${Math.round(faixaH * 0.5)}px;font-weight:900;letter-spacing:0.16em;color:#fff;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.category || 'Urgente')}</span>
+      ${_thumbLocal(p, fmt, { pino: '#fff' })}
     </div>
     <div style="position:absolute;left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;">
       ${posterShow('headline') ? `<div style="background:rgba(8,10,14,0.90);border-left:${_thumbU(fmt, 0.012)}px solid ${PT.red};padding:${_thumbU(fmt, 0.018)}px ${_thumbU(fmt, 0.024)}px;">
@@ -3529,7 +3667,7 @@ function tplThumbUrgente(p, fmt, portal) {
 function tplThumbFala(p, fmt, portal) {
   const deitado = _thumbDeitado(fmt);
   const fala = _thumbCurto(p.headline || 'A frase que vale o corte', 9, 52);
-  const size = _thumbU(fmt, deitado ? 0.115 : 0.05);
+  const size = _thumbFit(_thumbU(fmt, deitado ? 0.115 : 0.045), fala, fmt, deitado ? 0.5 : 0.86);
   const pad = _thumbU(fmt, 0.055);
   const foto = deitado
     ? 'position:absolute;left:0;top:0;bottom:0;width:44%;z-index:0;'
@@ -3546,13 +3684,348 @@ function tplThumbFala(p, fmt, portal) {
     <div style="${caixa}z-index:2;background:${PT.ink};"></div>
     <div style="${caixaTexto}z-index:4;display:flex;flex-direction:column;justify-content:center;padding:${pad}px;box-sizing:border-box;overflow:hidden;">
       <div style="font-family:${PT.serif};font-size:${_thumbU(fmt, deitado ? 0.2 : 0.1)}px;line-height:0.5;color:${PT.orange};flex-shrink:0;">&ldquo;</div>
-      ${posterShow('headline') ? `<div style="margin-top:${_thumbU(fmt, 0.02)}px;font-family:${PT.serif};font-size:${size}px;font-weight:700;line-height:1.14;color:#fff;flex-shrink:0;${_thumbClamp(deitado ? 5 : 4)}">${escapeHtml(fala)}</div>` : ''}
+      ${posterShow('headline') ? `<div style="margin-top:${_thumbU(fmt, 0.02)}px;font-family:${PT.serif};font-size:${size}px;font-weight:700;line-height:1.14;color:#fff;flex-shrink:0;${_thumbClamp(deitado ? 5 : 2)}">${escapeHtml(fala)}</div>` : ''}
       ${p.personName ? `<div style="margin-top:${_thumbU(fmt, 0.032)}px;border-top:${_thumbU(fmt, 0.005)}px solid rgba(255,255,255,0.24);padding-top:${_thumbU(fmt, 0.022)}px;flex-shrink:0;">
         <div style="font-size:${_thumbU(fmt, deitado ? 0.05 : 0.038)}px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personName)}</div>
         ${p.personRole ? `<div style="font-size:${_thumbU(fmt, deitado ? 0.038 : 0.029)}px;color:rgba(255,255,255,0.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personRole)}</div>` : ''}
       </div>` : ''}
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.02)}px;flex-shrink:0;">${_thumbLocal(p, fmt)}</div>` : ''}
     </div>
     ${_thumbMarca(p, portal, fmt, deitado ? 'bl' : 'bl')}`);
+}
+
+/* --- 9. LISTA: o corpo da matéria vira os tópicos da capa. ---------------- */
+function tplThumbLista(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const n = _thumbNumeroAuto(p, String((posterBullets(p, 5) || []).length || 3));
+  const txt = _thumbCurto(p.headline || 'O que você precisa saber', 5, 26);
+  const pad = _thumbU(fmt, 0.06);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu(deitado ? '90deg' : '180deg', 0.95, 0.9, 0.72, 0.94)};"></div>
+    <div style="position:absolute;left:${pad}px;${deitado ? `top:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;width:56%;` : `top:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;`}z-index:5;display:flex;flex-direction:column;justify-content:center;gap:${_thumbU(fmt, 0.03)}px;overflow:hidden;">
+      <div style="display:flex;align-items:baseline;gap:${_thumbU(fmt, 0.022)}px;flex-shrink:0;">
+        <span style="font-family:${PT.cond};font-size:${_thumbU(fmt, 0.17)}px;font-weight:900;line-height:0.85;color:${THUMB_OURO};">${escapeHtml(n)}</span>
+        <span style="font-family:${PT.cond};font-size:${_thumbFit(_thumbU(fmt, 0.075), txt, fmt, deitado ? 0.36 : 0.52)}px;font-weight:900;line-height:1;padding-top:0.16em;color:#fff;text-transform:uppercase;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${escapeHtml(txt)}</span>
+      </div>
+      ${_thumbFilete(fmt, THUMB_OURO, 0.1)}
+      <div style="flex-shrink:1;min-height:0;overflow:hidden;">${_thumbTopicos(p, fmt, deitado ? 3 : 4)}</div>
+      ${_thumbLocal(p, fmt)}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 10. MOLDURA: respiro editorial, foto emoldurada, acabamento em ouro. -- */
+function tplThumbMoldura(p, fmt, portal) {
+  const m = _thumbU(fmt, 0.055);
+  const txt = _thumbCurto(p.headline || 'Título da capa', 6, 34);
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * (_thumbDeitado(fmt) ? 0.72 : 1.05), txt, fmt, 0.72);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu('180deg', 0.62, 0.34, 0.52, 0.92)};"></div>
+    <div style="position:absolute;inset:${m}px;z-index:3;border:${Math.max(2, _thumbU(fmt, 0.004))}px solid rgba(255,255,255,0.34);"></div>
+    <div style="position:absolute;inset:${m + _thumbU(fmt, 0.012)}px;z-index:3;border:${Math.max(1, _thumbU(fmt, 0.002))}px solid ${THUMB_OURO_SOFT};"></div>
+    <div style="position:absolute;left:${m * 2}px;right:${m * 2}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;text-align:center;">
+      ${p.category ? `<div style="margin-bottom:${_thumbU(fmt, 0.024)}px;">${_thumbKicker(p.category, fmt)}</div>` : ''}
+      ${posterShow('headline') ? `<div style="font-family:${PT.serif};font-size:${Math.round(size)}px;font-weight:800;line-height:1.04;color:#fff;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+      <div style="display:flex;justify-content:center;margin-top:${_thumbU(fmt, 0.026)}px;">${_thumbFilete(fmt, THUMB_OURO, 0.09)}</div>
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.022)}px;display:flex;justify-content:center;">${_thumbLocal(p, fmt)}</div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'bl')}`);
+}
+
+/* --- 11. DIAGONAL: corte inclinado separando foto e bloco de cor. --------- */
+function tplThumbDiagonal(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const txt = _thumbCurto(p.headline || 'Título em diagonal', 5, 28);
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * (deitado ? 0.8 : 0.92), txt, fmt, deitado ? 0.38 : 0.86);
+  const pad = _thumbU(fmt, 0.055);
+  // clip-path em bloco SÓLIDO o html2canvas ignora; o corte vem de um gradiente
+  // de parada dura, que ele pinta igual.
+  const corte = deitado
+    ? `linear-gradient(102deg, ${PT.ink} 0%, ${PT.ink} 46%, rgba(0,0,0,0) 46.6%)`
+    : `linear-gradient(188deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 44%, ${PT.ink} 44.6%)`;
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu('180deg', 0.36, 0.18, 0.28, 0.6)};"></div>
+    <div style="position:absolute;inset:0;z-index:2;background:${corte};"></div>
+    <div style="position:absolute;${deitado ? `left:${pad}px;top:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;width:40%;` : `left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;top:47%;`}z-index:5;display:flex;flex-direction:column;justify-content:center;gap:${_thumbU(fmt, 0.024)}px;overflow:hidden;">
+      ${_thumbKicker(p.category, fmt)}
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:0.96;padding-top:0.14em;color:#fff;text-transform:uppercase;${_thumbClamp(deitado ? 4 : 2)}">${escapeHtml(txt)}</div>` : ''}
+      ${deitado ? _thumbFilete(fmt, PT.orange, 0.12) : ''}
+      ${_thumbLocal(p, fmt)}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 12. DUOTONE: lavagem de cor forte sobre a foto, texto em negativo. --- */
+function tplThumbDuotone(p, fmt, portal) {
+  const txt = _thumbCurto(p.headline || 'Título forte', 5, 26);
+  const size = _thumbTitleSize(txt, fmt) * 0.94;
+  const pad = _thumbU(fmt, 0.06);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(146deg, rgba(11,20,33,0.90) 0%, rgba(227,6,19,0.62) 55%, rgba(255,122,0,0.72) 100%);"></div>
+    <div style="position:absolute;left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;">
+      ${p.category ? `<div style="margin-bottom:${_thumbU(fmt, 0.024)}px;">${_thumbEtiqueta(p.category, fmt, 'contorno')}</div>` : ''}
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:0.92;padding-top:0.16em;color:#fff;text-transform:uppercase;letter-spacing:-0.012em;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+      ${p.subtitle ? `<div style="margin-top:${_thumbU(fmt, 0.024)}px;font-size:${_thumbU(fmt, 0.044)}px;font-weight:700;color:rgba(255,255,255,0.92);${_thumbClamp(2)}">${escapeHtml(p.subtitle)}</div>` : ''}
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.022)}px;">${_thumbLocal(p, fmt, { pino: '#fff' })}</div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 13. CARTELA: cartão central serifado — o mais sóbrio da família. ----- */
+function tplThumbCartela(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const txt = _thumbCurto(p.headline || 'Título editorial', 7, 42);
+  const size = _thumbFit(_thumbU(fmt, deitado ? 0.1 : 0.078), txt, fmt, deitado ? 0.74 : 0.72);
+  const m = _thumbU(fmt, deitado ? 0.1 : 0.07);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu('180deg', 0.58, 0.42, 0.46, 0.7)};"></div>
+    <div style="position:absolute;left:${m}px;right:${m}px;top:50%;transform:translateY(-50%);z-index:5;background:rgba(12,14,20,0.90);border:${Math.max(1, _thumbU(fmt, 0.002))}px solid ${THUMB_OURO_SOFT};padding:${_thumbU(fmt, 0.05)}px ${_thumbU(fmt, 0.055)}px;text-align:center;">
+      ${p.category ? `<div style="margin-bottom:${_thumbU(fmt, 0.022)}px;">${_thumbKicker(p.category, fmt)}</div>` : ''}
+      <div style="font-family:${PT.serif};font-size:${size}px;font-weight:800;line-height:1.08;color:#fff;${_thumbClamp(3)}">${escapeHtml(txt)}</div>
+      ${p.subtitle ? `<div style="margin-top:${_thumbU(fmt, 0.022)}px;font-size:${_thumbU(fmt, 0.038)}px;font-weight:600;color:rgba(255,255,255,0.78);${_thumbClamp(2)}">${escapeHtml(p.subtitle)}</div>` : ''}
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.024)}px;display:flex;justify-content:center;">${_thumbLocal(p, fmt)}</div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 14. PASSOS: tutorial — a sequência é o gancho. ----------------------- */
+function tplThumbPassos(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const txt = _thumbCurto(p.headline || 'Como fazer', 4, 22);
+  const pad = _thumbU(fmt, 0.055);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu(deitado ? '90deg' : '180deg', 0.92, 0.82, 0.6, 0.9)};"></div>
+    <div style="position:absolute;left:${pad}px;${deitado ? `top:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;width:58%;` : `right:${pad}px;top:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;`}z-index:5;display:flex;flex-direction:column;justify-content:center;gap:${_thumbU(fmt, 0.028)}px;overflow:hidden;">
+      <div style="flex-shrink:0;">${_thumbEtiqueta('Passo a passo', fmt, 'ouro')}</div>
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${_thumbFit(_thumbU(fmt, deitado ? 0.145 : 0.092), txt, fmt, deitado ? 0.55 : 0.76)}px;font-weight:900;line-height:0.94;padding-top:0.14em;color:#fff;text-transform:uppercase;flex-shrink:0;${_thumbClamp(2)}">${escapeHtml(txt)}</div>` : ''}
+      <div style="flex-shrink:1;min-height:0;overflow:hidden;">${_thumbTopicos(p, fmt, deitado ? 3 : 4, { tam: 0.042 })}</div>
+      ${_thumbLocal(p, fmt)}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 15. DADO: o número com unidade e contexto — capa de análise. -------- */
+function tplThumbDado(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const n = _thumbNumeroAuto(p, '47%');
+  const txt = _thumbCurto(p.headline || 'O dado que explica tudo', 6, 32);
+  const pad = _thumbU(fmt, 0.06);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu('180deg', 0.88, 0.7, 0.66, 0.94)};"></div>
+    <div style="position:absolute;left:${pad}px;right:${pad}px;top:50%;transform:translateY(-50%);z-index:5;display:flex;flex-direction:column;align-items:${deitado ? 'flex-start' : 'center'};gap:${_thumbU(fmt, 0.022)}px;${deitado ? '' : 'text-align:center;'}">
+      ${_thumbKicker(p.category, fmt)}
+      <div style="font-family:${PT.cond};font-size:${_thumbU(fmt, deitado ? 0.44 : 0.26)}px;font-weight:900;line-height:0.82;padding-top:0.06em;color:${THUMB_OURO};">${escapeHtml(n)}</div>
+      ${_thumbFilete(fmt, 'rgba(255,255,255,0.5)', 0.14)}
+      ${posterShow('headline') ? `<div style="font-size:${_thumbU(fmt, deitado ? 0.062 : 0.05)}px;font-weight:800;line-height:1.14;color:#fff;${_thumbClamp(2)}">${escapeHtml(txt)}</div>` : ''}
+      ${_thumbLocal(p, fmt)}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 16. MÍNIMO: quase tudo é respiro. O contrário do "chamativo". ------- */
+function tplThumbMinimo(p, fmt, portal) {
+  const txt = _thumbCurto(p.headline || 'Menos é mais', 4, 22);
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * (_thumbDeitado(fmt) ? 0.78 : 1.1), txt, fmt, 0.78);
+  const pad = _thumbU(fmt, 0.1);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(8,10,14,0.86) 0%,rgba(8,10,14,0.78) 100%);"></div>
+    <div style="position:absolute;left:${pad}px;right:${pad}px;top:50%;transform:translateY(-50%);z-index:5;">
+      ${_thumbFilete(fmt, THUMB_OURO, 0.06)}
+      ${posterShow('headline') ? `<div style="margin-top:${_thumbU(fmt, 0.03)}px;font-family:${PT.serif};font-size:${Math.round(size)}px;font-weight:300;line-height:1.1;color:#fff;letter-spacing:-0.01em;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+      <div style="margin-top:${_thumbU(fmt, 0.03)}px;display:flex;align-items:center;gap:${_thumbU(fmt, 0.02)}px;flex-wrap:wrap;">
+        ${_thumbKicker(p.category, fmt, 'rgba(255,255,255,0.6)')}
+        ${_thumbLocal(p, fmt, { cor: 'rgba(255,255,255,0.6)', pino: 'rgba(255,255,255,0.6)' })}
+      </div>
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 17. FAIXA: barra sólida de borda a borda, com a categoria. ---------- */
+function tplThumbFaixa(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const txt = _thumbCurto(p.headline || 'Título na faixa', 6, 32);
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * (deitado ? 0.82 : 1.1), txt, fmt, 0.72);
+  const barra = _thumbU(fmt, deitado ? 0.09 : 0.055);
+  const pad = _thumbU(fmt, 0.055);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu('180deg', 0.34, 0.2, 0.5, 0.92)};"></div>
+    <div style="position:absolute;left:0;top:0;bottom:0;width:${barra}px;z-index:4;background:${PT.gradSolid};"></div>
+    <div style="position:absolute;left:${barra + pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;">
+      ${p.category ? `<div style="margin-bottom:${_thumbU(fmt, 0.022)}px;">${_thumbEtiqueta(p.category, fmt, 'solida', PT.ink)}</div>` : ''}
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:0.95;padding-top:0.15em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+      ${p.subtitle ? `<div style="margin-top:${_thumbU(fmt, 0.022)}px;font-size:${_thumbU(fmt, 0.042)}px;font-weight:700;color:rgba(255,255,255,0.9);${_thumbClamp(1)}">${escapeHtml(p.subtitle)}</div>` : ''}
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.02)}px;">${_thumbLocal(p, fmt)}</div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 18. MOSAICO: várias fotos — capa de compilado/retrospectiva. -------- */
+function tplThumbMosaico(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const txt = _thumbCurto(p.headline || 'Retrospectiva', 4, 24);
+  const chaves = (typeof posterImageKeys === 'function') ? posterImageKeys(p) : [];
+  const cel = (i, css) => (chaves[i]
+    ? `<div style="${css}overflow:hidden;">${posterImageLayer(p, chaves[i])}</div>`
+    : `<div style="${css}background:${i % 2 ? PT.navy2 : PT.ink};"></div>`);
+  const g = Math.max(2, _thumbU(fmt, 0.004));
+  const grade = deitado
+    ? [`position:absolute;left:0;top:0;width:${`calc(50% - ${g}px)`};height:${`calc(50% - ${g}px)`};z-index:0;`,
+      `position:absolute;right:0;top:0;width:50%;height:${`calc(50% - ${g}px)`};z-index:0;`,
+      `position:absolute;left:0;bottom:0;width:${`calc(50% - ${g}px)`};height:50%;z-index:0;`,
+      `position:absolute;right:0;bottom:0;width:50%;height:50%;z-index:0;`]
+    : [`position:absolute;left:0;top:0;right:0;height:${`calc(28% - ${g}px)`};z-index:0;`,
+      `position:absolute;left:0;top:28%;width:${`calc(50% - ${g}px)`};height:${`calc(28% - ${g}px)`};z-index:0;`,
+      `position:absolute;right:0;top:28%;width:50%;height:${`calc(28% - ${g}px)`};z-index:0;`,
+      `position:absolute;left:0;bottom:0;right:0;height:44%;z-index:0;`];
+  return _thumbRaiz(p, fmt, `
+    ${grade.map((css, i) => cel(i, css)).join('')}
+    <div style="position:absolute;inset:0;z-index:2;background:${_thumbVeu('180deg', 0.5, 0.34, 0.62, 0.95)};"></div>
+    <div style="position:absolute;left:${_thumbU(fmt, 0.055)}px;right:${_thumbU(fmt, 0.055)}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;">
+      ${p.category ? `<div style="margin-bottom:${_thumbU(fmt, 0.02)}px;">${_thumbEtiqueta(p.category, fmt, 'ouro')}</div>` : ''}
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${_thumbFit(_thumbU(fmt, deitado ? 0.155 : 0.1), txt, fmt, 0.86)}px;font-weight:900;line-height:0.94;padding-top:0.14em;color:#fff;text-transform:uppercase;${_thumbClamp(2)}">${escapeHtml(txt)}</div>` : ''}
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.02)}px;">${_thumbLocal(p, fmt)}</div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 19. CÍRCULO: retrato recortado — capa de entrevista/perfil. --------- */
+function tplThumbCirculo(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const d = _thumbU(fmt, deitado ? 0.62 : 0.26);
+  const txt = _thumbCurto(p.headline || 'Quem é', 5, 28);
+  const pad = _thumbU(fmt, 0.06);
+  const chaves = (typeof posterImageKeys === 'function') ? posterImageKeys(p) : [];
+  const retrato = chaves.length
+    ? `<div style="width:${d}px;height:${d}px;border-radius:50%;overflow:hidden;border:${_thumbU(fmt, 0.008)}px solid ${THUMB_OURO};flex-shrink:0;">${posterImageLayer(p, chaves[0])}</div>`
+    : `<div style="width:${d}px;height:${d}px;border-radius:50%;background:${PT.navy2};border:${_thumbU(fmt, 0.008)}px solid ${THUMB_OURO};flex-shrink:0;"></div>`;
+  return _thumbRaiz(p, fmt, `
+    <div style="position:absolute;inset:0;z-index:0;background:${PT.gradDark};"></div>
+    <div style="position:absolute;inset:0;z-index:4;display:flex;${deitado ? 'flex-direction:row' : 'flex-direction:column'};align-items:center;gap:${_thumbU(fmt, 0.045)}px;padding:${pad}px;padding-bottom:${_thumbReservaMarca(fmt)}px;box-sizing:border-box;overflow:hidden;">
+      ${retrato}
+      <div style="min-width:0;flex:1;${deitado ? '' : 'text-align:center;'}">
+        ${_thumbKicker(p.category, fmt)}
+        ${posterShow('headline') ? `<div style="margin-top:${_thumbU(fmt, 0.018)}px;font-family:${PT.cond};font-size:${_thumbFit(_thumbU(fmt, deitado ? 0.115 : 0.072), txt, fmt, deitado ? 0.48 : 0.74)}px;font-weight:900;line-height:0.98;padding-top:0.15em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+        ${p.personName ? `<div style="margin-top:${_thumbU(fmt, 0.02)}px;font-size:${_thumbU(fmt, 0.044)}px;font-weight:800;color:${THUMB_OURO};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personName)}</div>` : ''}
+        ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.016)}px;${deitado ? '' : 'display:flex;justify-content:center;'}">${_thumbLocal(p, fmt)}</div>` : ''}
+      </div>
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 20. REVELAÇÃO: metade escondida por um bloco — curiosidade. --------- */
+function tplThumbRevelacao(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const txt = _thumbCurto(p.headline || 'O que ninguém mostrou', 6, 32);
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * (deitado ? 0.78 : 0.86), txt, fmt, deitado ? 0.4 : 0.76);
+  const pad = _thumbU(fmt, 0.055);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu('180deg', 0.3, 0.14, 0.2, 0.44)};"></div>
+    <div style="position:absolute;${deitado ? 'right:0;top:0;bottom:0;width:46%;' : 'left:0;right:0;bottom:0;height:46%;'}z-index:3;background:${PT.ink};"></div>
+    <div style="position:absolute;${deitado ? `right:46%;top:0;bottom:0;width:${_thumbU(fmt, 0.012)}px;` : `left:0;right:0;bottom:46%;height:${_thumbU(fmt, 0.008)}px;`}z-index:4;background:${THUMB_OURO};"></div>
+    <div style="position:absolute;${deitado ? `right:${pad}px;top:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;width:${`calc(46% - ${pad * 2}px)`};` : `left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;top:57%;`}z-index:5;display:flex;flex-direction:column;justify-content:center;gap:${_thumbU(fmt, 0.022)}px;overflow:hidden;">
+      ${_thumbKicker(p.category, fmt)}
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:0.96;padding-top:0.14em;color:#fff;text-transform:uppercase;${_thumbClamp(deitado ? 4 : 2)}">${escapeHtml(txt)}</div>` : ''}
+      ${p.subtitle ? `<div style="font-size:${_thumbU(fmt, 0.04)}px;font-weight:700;color:rgba(255,255,255,0.84);${_thumbClamp(deitado ? 2 : 1)}">${escapeHtml(p.subtitle)}</div>` : ''}
+      ${_thumbLocal(p, fmt)}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'bl')}`);
+}
+
+/* --- 21. MANCHETE DUPLA: peso fino contra peso pesado, na mesma frase. --- */
+function tplThumbManchete(p, fmt, portal) {
+  const bruto = String(p.headline || 'A frase que muda tudo').trim().replace(/\s+/g, ' ');
+  const partes = bruto.split(' ');
+  const corte = Math.max(1, Math.ceil(partes.length / 2));
+  const linha1 = _thumbCurto(partes.slice(0, corte).join(' '), 4, 20);
+  const linha2 = _thumbCurto(partes.slice(corte).join(' '), 4, 20) || _thumbCurto(p.subtitle || '', 4, 20);
+  const s = Math.min(_thumbFit(_thumbU(fmt, _thumbDeitado(fmt) ? 0.15 : 0.095), linha1, fmt, 0.78),
+    _thumbFit(_thumbU(fmt, _thumbDeitado(fmt) ? 0.15 : 0.095), linha2, fmt, 0.62));
+  const pad = _thumbU(fmt, 0.06);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu('180deg', 0.7, 0.42, 0.5, 0.92)};"></div>
+    <div style="position:absolute;left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;">
+      ${_thumbKicker(p.category, fmt)}
+      ${posterShow('headline') ? `<div style="margin-top:${_thumbU(fmt, 0.018)}px;font-family:${PT.cond};font-size:${s}px;font-weight:300;line-height:0.98;padding-top:0.15em;color:#fff;text-transform:uppercase;${_thumbClamp(1)}">${escapeHtml(linha1)}</div>` : ''}
+      ${linha2 ? `<div style="font-family:${PT.cond};font-size:${Math.round(s * 1.18)}px;font-weight:900;line-height:0.94;padding-top:0.15em;color:${THUMB_OURO};text-transform:uppercase;${_thumbClamp(2)}">${escapeHtml(linha2)}</div>` : ''}
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.022)}px;">${_thumbLocal(p, fmt)}</div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 22. SELO: medalha circular em ouro — especial, ranking, prêmio. ---- */
+function tplThumbSelo(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const d = _thumbU(fmt, deitado ? 0.34 : 0.16);
+  const n = _thumbNumeroAuto(p, '1');
+  const txt = _thumbCurto(p.headline || 'O melhor do ano', 5, 28);
+  const pad = _thumbU(fmt, 0.06);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu('180deg', 0.72, 0.5, 0.56, 0.93)};"></div>
+    <div style="position:absolute;left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;display:flex;align-items:flex-end;gap:${_thumbU(fmt, 0.035)}px;">
+      <div style="width:${d}px;height:${d}px;border-radius:50%;border:${_thumbU(fmt, 0.012)}px solid ${THUMB_OURO};display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(12,14,20,0.72);">
+        <span style="font-family:${PT.cond};font-size:${Math.round(d * 0.52)}px;font-weight:900;color:${THUMB_OURO};line-height:1;">${escapeHtml(n)}</span>
+      </div>
+      <div style="min-width:0;flex:1;">
+        ${_thumbKicker(p.category, fmt)}
+        ${posterShow('headline') ? `<div style="margin-top:${_thumbU(fmt, 0.016)}px;font-family:${PT.cond};font-size:${_thumbFit(_thumbU(fmt, deitado ? 0.11 : 0.07), txt, fmt, deitado ? 0.56 : 0.52)}px;font-weight:900;line-height:0.96;padding-top:0.15em;color:#fff;text-transform:uppercase;${_thumbClamp(deitado ? 3 : 2)}">${escapeHtml(txt)}</div>` : ''}
+        ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.016)}px;">${_thumbLocal(p, fmt)}</div>` : ''}
+      </div>
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'bl')}`);
+}
+
+/* --- 23. TABLOIDE: faixa em cima e embaixo, foto no meio — banca. ------- */
+function tplThumbTabloide(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const topo = _thumbU(fmt, deitado ? 0.13 : 0.08);
+  const txt = _thumbCurto(p.headline || 'Manchete de capa', 6, 34);
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * (deitado ? 0.74 : 1.05), txt, fmt, 0.8);
+  const pad = _thumbU(fmt, 0.05);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu('180deg', 0.4, 0.2, 0.34, 0.72)};"></div>
+    <div style="position:absolute;left:0;right:0;top:0;height:${topo}px;z-index:4;background:${PT.ink};display:flex;align-items:center;justify-content:space-between;padding:0 ${pad}px;box-sizing:border-box;gap:${_thumbU(fmt, 0.02)}px;">
+      <span style="font-family:${PT.cond};font-size:${Math.round(topo * 0.4)}px;font-weight:900;letter-spacing:0.18em;color:#fff;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.category || 'Especial')}</span>
+      ${_thumbLocal(p, fmt)}
+    </div>
+    <div style="position:absolute;left:0;right:0;top:${topo}px;height:${_thumbU(fmt, 0.006)}px;z-index:4;background:${THUMB_OURO};"></div>
+    <div style="position:absolute;left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;background:rgba(10,12,18,0.88);border-left:${_thumbU(fmt, 0.01)}px solid ${THUMB_OURO};padding:${_thumbU(fmt, 0.022)}px ${_thumbU(fmt, 0.028)}px;">
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:0.98;padding-top:0.15em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+      ${p.subtitle ? `<div style="margin-top:${_thumbU(fmt, 0.016)}px;font-size:${_thumbU(fmt, 0.038)}px;font-weight:700;color:rgba(255,255,255,0.86);${_thumbClamp(1)}">${escapeHtml(p.subtitle)}</div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 24. CINEMA: barras pretas e título centrado — capa de documentário. - */
+function tplThumbCinema(p, fmt, portal) {
+  const barra = _thumbU(fmt, _thumbDeitado(fmt) ? 0.12 : 0.16);
+  const txt = _thumbCurto(p.headline || 'O documentário', 5, 30);
+  const size = _thumbFit(_thumbTitleSize(txt, fmt) * (_thumbDeitado(fmt) ? 0.7 : 1.0), txt, fmt, 0.78);
+  const pad = _thumbU(fmt, 0.08);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:${_thumbVeu('180deg', 0.44, 0.22, 0.3, 0.6)};"></div>
+    <div style="position:absolute;left:0;right:0;top:0;height:${barra}px;z-index:4;background:#000;"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:${barra}px;z-index:4;background:#000;"></div>
+    <div style="position:absolute;left:${pad}px;right:${pad}px;top:50%;transform:translateY(-50%);z-index:5;text-align:center;">
+      ${p.category ? `<div style="margin-bottom:${_thumbU(fmt, 0.02)}px;">${_thumbKicker(p.category, fmt, 'rgba(255,255,255,0.72)')}</div>` : ''}
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:1.0;padding-top:0.14em;color:#fff;text-transform:uppercase;letter-spacing:0.03em;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+      <div style="display:flex;justify-content:center;margin-top:${_thumbU(fmt, 0.024)}px;">${_thumbFilete(fmt, THUMB_OURO, 0.07)}</div>
+      ${p.location ? `<div style="margin-top:${_thumbU(fmt, 0.02)}px;display:flex;justify-content:center;">${_thumbLocal(p, fmt)}</div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
 }
 
 const POSTER_TEMPLATES = {
@@ -3643,4 +4116,20 @@ const POSTER_TEMPLATES = {
   'thumb-episodio':      { label: 'Capa · Episódio',       cat: 'thumb',         usesImages: true,  render: tplThumbEpisodio },
   'thumb-urgente':       { label: 'Capa · Urgente',        cat: 'thumb',         usesImages: true,  render: tplThumbUrgente },
   'thumb-fala':          { label: 'Capa · Fala',           cat: 'thumb',         usesImages: true,  render: tplThumbFala },
+  'thumb-lista':         { label: 'Capa · Lista',          cat: 'thumb',         usesImages: true,  render: tplThumbLista },
+  'thumb-moldura':       { label: 'Capa · Moldura',        cat: 'thumb',         usesImages: true,  render: tplThumbMoldura },
+  'thumb-diagonal':      { label: 'Capa · Diagonal',       cat: 'thumb',         usesImages: true,  render: tplThumbDiagonal },
+  'thumb-duotone':       { label: 'Capa · Duotone',        cat: 'thumb',         usesImages: true,  render: tplThumbDuotone },
+  'thumb-cartela':       { label: 'Capa · Cartela',        cat: 'thumb',         usesImages: true,  render: tplThumbCartela },
+  'thumb-passos':        { label: 'Capa · Passo a passo',  cat: 'thumb',         usesImages: true,  render: tplThumbPassos },
+  'thumb-dado':          { label: 'Capa · Dado',           cat: 'thumb',         usesImages: true,  render: tplThumbDado },
+  'thumb-minimo':        { label: 'Capa · Mínimo',         cat: 'thumb',         usesImages: true,  render: tplThumbMinimo },
+  'thumb-faixa':         { label: 'Capa · Faixa lateral',  cat: 'thumb',         usesImages: true,  render: tplThumbFaixa },
+  'thumb-mosaico':       { label: 'Capa · Mosaico',        cat: 'thumb',         usesImages: true,  render: tplThumbMosaico },
+  'thumb-circulo':       { label: 'Capa · Retrato',        cat: 'thumb',         usesImages: true,  render: tplThumbCirculo },
+  'thumb-revelacao':     { label: 'Capa · Revelação',      cat: 'thumb',         usesImages: true,  render: tplThumbRevelacao },
+  'thumb-manchete':      { label: 'Capa · Manchete dupla', cat: 'thumb',         usesImages: true,  render: tplThumbManchete },
+  'thumb-selo':          { label: 'Capa · Selo',           cat: 'thumb',         usesImages: true,  render: tplThumbSelo },
+  'thumb-tabloide':      { label: 'Capa · Tabloide',       cat: 'thumb',         usesImages: true,  render: tplThumbTabloide },
+  'thumb-cinema':        { label: 'Capa · Cinema',         cat: 'thumb',         usesImages: true,  render: tplThumbCinema },
 };

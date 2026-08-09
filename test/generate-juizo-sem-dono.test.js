@@ -129,6 +129,67 @@ describe('a camada de comentário opinativo é tratada à parte', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// RUÍDO — o outro jeito de estragar esta checagem.
+//
+// O próprio agents.js registra a regra: "aviso que sempre aparece é aviso que
+// ninguém lê". Uma varredura de falso positivo pegou um caso que teria feito
+// exatamente isso: a auditoria acusava "Para o prefeito, o programa demonstra o
+// compromisso…" — a construção que o BLOCO DE REGRAS ensina como certa. A lista
+// SAFETY_MARCADORES_ATRIBUICAO cobre atribuição de FATO ("segundo", "informou");
+// juízo se atribui de outro jeito, e isso faltava.
+// ---------------------------------------------------------------------------
+describe('matéria correta não é acusada', () => {
+  const art = (lead, corpo) => ({ titulo: 'T', subtitulo: 'S', lead, corpo, resumo: '', hashtags: [] });
+  const legitimas = {
+    'fato observado, sem juízo': art(
+      'Um caminhão tombou na BR-110 na manhã desta terça-feira.',
+      ['O motorista foi levado ao hospital municipal. A pista ficou interditada por duas horas.']),
+    'atribuída em todo parágrafo': art(
+      'Segundo a Secretaria de Saúde, o posto do centro passa a abrir aos sábados.',
+      ['De acordo com a pasta, o atendimento vai das 8h às 12h.',
+        'A secretaria informou que a medida atende 400 famílias por mês.']),
+    'juízo atribuído por "Para X," e "Na avaliação de"': art(
+      'A prefeitura entregou 50 cestas básicas no Calabar.',
+      ['Para o prefeito, a ação é um exemplo de gestão eficaz e deve se repetir.',
+        'Na avaliação da Secretaria de Assistência, o programa demonstra o compromisso com a periferia.']),
+    'crítica ancorada, sem elogio de fórmula': art(
+      'A obra da praça central está parada há oito meses, segundo moradores.',
+      ['A prefeitura não informou nova data. Oito meses sem máquina no canteiro é obra parada, não obra em andamento.']),
+    'comentário de lacuna': art(
+      'Segundo a prefeitura, seis veículos foram comprados por R$ 900 mil.',
+      ['A prefeitura não divulgou o modelo dos veículos nem quais secretarias serão atendidas.']),
+    'citação direta': art(
+      'O prefeito falou sobre a compra em entrevista nesta segunda.',
+      ['"A frota estava sucateada", disse o prefeito. Ele afirmou que os veículos chegam em janeiro.']),
+    'pauta policial correta': art(
+      'Segundo a Polícia Civil, um suspeito foi detido na quarta-feira.',
+      ['O delegado informou que o inquérito segue em andamento. A defesa não foi localizada.']),
+    'esportiva': art(
+      'O time venceu por 2 a 0 no estádio municipal, no domingo.',
+      ['Os gols saíram no segundo tempo. O próximo jogo é no dia 12.']),
+  };
+
+  Object.entries(legitimas).forEach(([nome, a]) => {
+    it(`"${nome}" — em todos os modos de comentário`, () => {
+      ['', 'positivos', 'negativos', 'ambos'].forEach((c) => {
+        const av = A.auditarRiscoJuridico(a, interpAcajutiba, c || undefined)
+          .filter((x) => x.tipo === 'juizo-sem-dono');
+        expect(av.map((x) => x.aviso), `${nome} / modo "${c || 'sem'}"`).toEqual([]);
+      });
+    });
+  });
+
+  it('"Para X," só vale como atribuição no começo da frase, com vírgula', () => {
+    // Sem esse cuidado o dativo comum ("para a população") viraria atribuição e
+    // a checagem passaria a engolir parágrafo que deveria acusar.
+    const dativo = art('A prefeitura comprou seis veículos.',
+      ['A nova frota vai melhorar o atendimento para a população. É um passo importante para o município.']);
+    expect(A.auditarRiscoJuridico(dativo, interpAcajutiba)
+      .some((x) => x.tipo === 'juizo-sem-dono'), 'o dativo não pode blindar o parágrafo').toBe(true);
+  });
+});
+
 describe('os marcadores de juízo', () => {
   it('cobrem as construções que apareceram no texto real', () => {
     ['é um exemplo de', 'é um sinal de', 'passo importante', 'é um reconhecimento', 'gestão eficaz']

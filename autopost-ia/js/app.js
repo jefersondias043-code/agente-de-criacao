@@ -31,8 +31,69 @@ const LABEL_OBJETIVO = {
   informar: 'Informar com clareza'
 };
 
+// =================== CATEGORIA DO VÍDEO ===================
+// Seleção atual da tela de revisão. 'auto' = usuário não quis dizer, e aí a IA
+// deduz do texto como sempre fez — a categoria acrescenta, nunca obriga.
+let _categoriaSel = 'auto';
+
+// Desenha a grade. Favoritas primeiro, com um tracejado separando do resto:
+// é o que faz o recurso valer a pena para quem sempre publica no mesmo nicho.
+function renderCategorias() {
+  const grid = $('catGrid');
+  if (!grid || typeof categoriasOrdenadas !== 'function') return;
+  const lista = categoriasOrdenadas();
+  const nFav = lista.filter((c) => c.fav).length;
+  const chip = (c, i) => {
+    const sep = (nFav && i === nFav) ? '<div class="cat-sep"></div>' : '';
+    const sel = _categoriaSel === c.id;
+    return `${sep}<div class="cat-chip" role="option" tabindex="0" aria-selected="${sel}" data-cat="${escapeHtml(c.id)}" title="${escapeHtml(c.ctx)}">
+      <span class="cat-emoji" aria-hidden="true">${c.emoji}</span><span>${escapeHtml(c.label)}</span>
+      <button type="button" class="cat-star" data-cat-fav="${escapeHtml(c.id)}" data-fav="${c.fav ? '1' : '0'}"
+        aria-label="${c.fav ? 'Desfavoritar' : 'Favoritar'} ${escapeHtml(c.label)}" aria-pressed="${c.fav}">${c.fav ? '★' : '☆'}</button>
+    </div>`;
+  };
+  const auto = `<div class="cat-chip" role="option" tabindex="0" aria-selected="${_categoriaSel === 'auto'}" data-cat="auto"
+      title="A IA deduz o nicho a partir do próprio conteúdo."><span class="cat-emoji" aria-hidden="true">✨</span><span>Automático</span></div>`;
+  grid.innerHTML = auto + lista.map(chip).join('');
+}
+
+function selecionarCategoria(id) {
+  _categoriaSel = id || 'auto';
+  if (typeof salvarCategoriaUltima === 'function') salvarCategoriaUltima(_categoriaSel);
+  renderCategorias();
+}
+
+// Os chips são focáveis (tabindex), então precisam responder a Enter/Espaço —
+// senão a grade fica visível para o teclado e inoperante nele.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  const fav = e.target.closest && e.target.closest('[data-cat-fav]');
+  if (fav) {
+    e.preventDefault();
+    if (typeof alternarFavorita === 'function') alternarFavorita(fav.dataset.catFav);
+    renderCategorias();
+    return;
+  }
+  const chip = e.target.closest && e.target.closest('[data-cat]');
+  if (chip) { e.preventDefault(); selecionarCategoria(chip.dataset.cat); }
+});
+
 // =================== DELEGAÇÃO DE EVENTOS ===================
 document.addEventListener('click', (e) => {
+  // Favoritar/desfavoritar — ANTES da seleção, porque a estrela vive DENTRO do
+  // chip: sem isto, favoritar selecionaria a categoria de tabela.
+  const favBtn = e.target.closest('[data-cat-fav]');
+  if (favBtn) {
+    e.stopPropagation();
+    if (typeof alternarFavorita === 'function') alternarFavorita(favBtn.dataset.catFav);
+    renderCategorias();
+    return;
+  }
+
+  // Escolher a categoria do vídeo.
+  const catChip = e.target.closest('[data-cat]');
+  if (catChip) { selecionarCategoria(catChip.dataset.cat); return; }
+
   // Recomeçar o assistente (↺ Transcrever outro arquivo / ← Voltar)
   const resetBtn = e.target.closest('[data-wizard-reset]');
   if (resetBtn) {
@@ -222,6 +283,10 @@ async function iniciarRevisao() {
     if (lbl) lbl.textContent = fonteTexto
       ? 'Revise o texto — ajuste o que quiser antes de gerar'
       : 'Revise a transcrição — corrija o que o áudio não pegou antes de gerar';
+    // Categoria: reabre já na última usada — quem publica sempre no mesmo nicho
+    // não precisa reescolher, e quem mudou de assunto troca num toque.
+    if (typeof categoriaUltima === 'function') _categoriaSel = categoriaUltima();
+    renderCategorias();
     loading.style.display = 'none'; body.style.display = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {
@@ -238,7 +303,10 @@ async function iniciarRevisao() {
 // Lê as opções de saída (plataforma, tom, objetivo) da tela de revisão.
 function lerOpcoesSaida() {
   const val = (id, def) => { const el = $(id); return el ? el.value : def; };
-  return { plataforma: val('optPlataforma', 'auto'), tom: val('optTom', 'auto'), objetivo: val('optObjetivo', 'auto') };
+  return {
+    plataforma: val('optPlataforma', 'auto'), tom: val('optTom', 'auto'),
+    objetivo: val('optObjetivo', 'auto'), categoria: _categoriaSel || 'auto',
+  };
 }
 
 // Monta o briefing (para o gerador) a partir do texto + opções.
@@ -246,11 +314,18 @@ function montarBriefing(opcoes, fonteTexto) {
   const checklist = {};
   if (opcoes.plataforma !== 'auto' && LABEL_PLATAFORMA[opcoes.plataforma]) checklist['Plataforma'] = [LABEL_PLATAFORMA[opcoes.plataforma]];
   if (opcoes.objetivo !== 'auto' && LABEL_OBJETIVO[opcoes.objetivo]) checklist['Objetivo'] = [LABEL_OBJETIVO[opcoes.objetivo]];
+  const catLabel = (typeof categoriaLabel === 'function') ? categoriaLabel(opcoes.categoria) : '';
+  if (catLabel) checklist['Categoria do vídeo'] = [catLabel];
   return {
     theme: fonteTexto ? '(o texto abaixo é a única fonte)' : '(a transcrição do áudio/vídeo abaixo é a única fonte)',
     duration: null,
     tone: (opcoes.tom !== 'auto' && LABEL_TOM[opcoes.tom]) ? LABEL_TOM[opcoes.tom] : null,
-    niche: '', extra: '(nenhum)',
+    // O campo `niche` sempre existiu no prompt do gerador ("Nicho/palavras-chave
+    // do canal") e chegava VAZIO — hashtag e palavra-chave saíam deduzidas só do
+    // texto. A categoria entra com o CONTEXTO junto, não só o rótulo: é o que
+    // diz à IA quem assiste e com que vocabulário esse público busca.
+    niche: (typeof categoriaParaBriefing === 'function') ? categoriaParaBriefing(opcoes.categoria) : '',
+    extra: '(nenhum)',
     checklist: Object.keys(checklist).length ? checklist : null
   };
 }
@@ -261,6 +336,8 @@ function contextoJuizTexto(texto, opcoes, fonteTexto) {
   if (opcoes.plataforma !== 'auto' && LABEL_PLATAFORMA[opcoes.plataforma]) prefs.push('Plataforma-alvo: ' + LABEL_PLATAFORMA[opcoes.plataforma]);
   if (opcoes.tom !== 'auto' && LABEL_TOM[opcoes.tom]) prefs.push('Tom: ' + LABEL_TOM[opcoes.tom]);
   if (opcoes.objetivo !== 'auto' && LABEL_OBJETIVO[opcoes.objetivo]) prefs.push('Objetivo: ' + LABEL_OBJETIVO[opcoes.objetivo]);
+  const catJuiz = (typeof categoriaLabel === 'function') ? categoriaLabel(opcoes.categoria) : '';
+  if (catJuiz) prefs.push('Categoria do vídeo: ' + catJuiz);
   const linha = prefs.length ? `\nPreferências do usuário (avalie a aderência): ${prefs.join(' · ')}` : '';
   return `Origem do conteúdo: ${fonteTexto ? 'texto/roteiro/transcrição enviado pelo usuário' : 'transcrição automática de áudio/vídeo'}.${linha}
 O conteúdo abaixo é a ÚNICA fonte — o pacote não deve inventar fatos fora dele:
@@ -392,7 +469,9 @@ async function regenerarCampoUI(id, campo, btnEl) {
   btnEl.textContent = '⏳';
   btnEl.disabled = true;
   try {
-    const opcoes = item.opcoes || { plataforma: 'auto', tom: 'auto', objetivo: 'auto' };
+    // A categoria vem do item salvo: regenerar um card sem ela devolveria uma
+    // hashtag fora do nicho no meio de um pacote que estava coerente.
+    const opcoes = item.opcoes || { plataforma: 'auto', tom: 'auto', objetivo: 'auto', categoria: 'auto' };
     const briefing = montarBriefing(opcoes, item.fonte === 'texto');
     const novo = await gerarVariacaoCampo(campo, item.transcricao || '', item.pacote || {}, briefing);
 

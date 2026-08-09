@@ -903,6 +903,29 @@ function _temAlgum(texto, termos) {
   return (termos || []).some((x) => t.includes(String(x).toLowerCase()));
 }
 
+/* Atribuição de OPINIÃO — as construções que a lista de marcadores não pega.
+ *
+ * SAFETY_MARCADORES_ATRIBUICAO cobre a atribuição de FATO ("segundo", "de
+ * acordo com", "informou"). Juízo costuma ser atribuído de outro jeito: "Para o
+ * prefeito, …", "Na avaliação da Secretaria, …". Sem isto, a checagem de juízo
+ * sem dono acusava exatamente a forma que o próprio bloco de regras ensina como
+ * certa — e aviso que acusa o texto correto é aviso que o usuário aprende a
+ * ignorar.
+ *
+ * O "Para X," exige começo de frase e vírgula logo adiante, senão casaria com o
+ * dativo comum ("melhorar o atendimento para a população") e a checagem passaria
+ * a engolir parágrafo que deveria acusar. */
+const _RE_ATRIBUICAO_OPINIAO = [
+  /(^|[.!?…]\s+|["»]\s*)para\s+(o|a|os|as)\s+[^,.;:!?]{2,40},/i,
+  /\bn[ao]\s+(avaliação|avaliacao|opinião|opiniao|visão|visao|leitura|entendimento|análise|analise)\s+d/i,
+  /\b(afirmou|disse|declarou|informou|anunciou|apontou|destacou|ressaltou|defendeu|garantiu|prometeu|explicou|acrescentou|avaliou|considerou|estimou|sustentou|reconheceu|comemorou|celebrou)\b/i,
+];
+
+/** O parágrafo diz de quem é o que ele afirma? */
+function _paragrafoTemDono(p, marcadores) {
+  return _temAlgum(p, marcadores) || _RE_ATRIBUICAO_OPINIAO.some((re) => re.test(String(p || '')));
+}
+
 /**
  * Aponta padrões de risco no texto final. Devolve [{ tipo, aviso }] — lista
  * vazia quando nada chamou atenção. É conservador de propósito: prefere não
@@ -978,7 +1001,7 @@ function auditarRiscoJuridico(article, interp, comentarios) {
     .filter((p) => typeof p === 'string' && p.trim());
   const orfaos = [];
   paragrafos.forEach((p, idx) => {
-    if (_temAlgum(p, atribuicao)) return;          // a fonte cobre este parágrafo
+    if (_paragrafoTemDono(p, atribuicao)) return;   // a fonte cobre este parágrafo
     const achado = procurados.find((m) => p.toLowerCase().includes(m));
     if (achado) orfaos.push({ n: idx + 1, frase: achado });
   });

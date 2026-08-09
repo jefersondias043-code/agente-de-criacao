@@ -54,12 +54,17 @@
  * data-zoomscale / object-position p/ pan + flatten do exportPoster()).
  * ==========================================================================*/
 
-/* Formatos de publicação (largura fixa 1080; altura varia). */
+/* Formatos de publicação. Os de rede social têm largura 1080 e altura variável;
+ * o 16:9 é o único DEITADO — é a capa de vídeo, e por isso inverte as medidas. */
 const POSTER_FORMATS = {
   '3:4':  { w: 1080, h: 1440, label: 'Retrato 3:4',  hint: 'Feed (padrão)' },
   '4:5':  { w: 1080, h: 1350, label: 'Vertical 4:5', hint: 'Instagram' },
   '1:1':  { w: 1080, h: 1080, label: 'Quadrado 1:1', hint: 'Feed' },
   '9:16': { w: 1080, h: 1920, label: 'Story 9:16',   hint: 'Stories / Reels' },
+  // DEITADO — o formato da capa de vídeo. Faltava: todos os outros são retrato
+  // ou quadrado, então não havia como fazer uma thumbnail de verdade. 1920×1080
+  // é o padrão do YouTube (o mínimo recomendado é 1280×720).
+  '16:9': { w: 1920, h: 1080, label: 'Vídeo 16:9',   hint: 'YouTube / capa' },
 };
 
 /* ============================================================================
@@ -3235,7 +3240,320 @@ const POSTER_CATEGORIES = [
   // Família própria: composição presa à área segura das redes. Fica por último
   // para não deslocar as abas que o usuário já conhece.
   { id: 'redes',         label: 'Redes sociais' },
+  // Capas de vídeo: leitura a ~210px, texto curto e enorme. Aba própria porque
+  // o critério de "bom" é outro — não é uma variação dos modelos de feed.
+  { id: 'thumb',         label: 'Capa de vídeo' },
 ];
+
+/* ==========================================================================
+ * CAPAS DE VÍDEO E THUMBNAILS (r199) — família própria, não adaptação.
+ *
+ * Por que os modelos existentes não serviam: eles são feitos para o feed, onde
+ * o cartaz é visto grande e o leitor tem tempo. Uma thumbnail é vista com ~210px
+ * de largura na barra lateral do YouTube, no meio de outras vinte, e disputa
+ * meio segundo de atenção. Isso muda TODAS as decisões:
+ *
+ *   • TEXTO CURTO E ENORME. Duas a cinco palavras ocupando um terço da altura.
+ *     Manchete de jornal (12 palavras) some nesse tamanho.
+ *   • CONTRASTE POR BLOCO SÓLIDO, não por véu. Aqui não há como "chegar perto
+ *     para ler": ou a palavra sai de dentro de uma laje opaca, ou não se lê.
+ *     (Também é o que sobrevive ao html2canvas — sombra de texto vira mancha.)
+ *   • UM FOCO SÓ. Um número, uma seta, um rosto, um "vs". Dois focos viram zero.
+ *   • ROSTO GRANDE. Em capa de vídeo o rosto é o que segura o olho, então os
+ *     modelos com foto reservam metade da arte para ele em vez de sangrar tudo.
+ *
+ * FORMATO. A capa nasce deitada (16:9, YouTube), mas a mesma arte serve de capa
+ * de Shorts/Reels (9:16) e de podcast (1:1). Por isso cada modelo lê a proporção
+ * e vira a composição: lado a lado quando é deitado, empilhado quando é retrato.
+ * Nenhum deles depende de um formato específico para funcionar.
+ *
+ * ESCALA. Todo tamanho sai de uma FRAÇÃO da altura do formato, nunca de pixels
+ * fixos: 1920×1080 e 1080×1920 têm alturas muito diferentes, e um corpo de fonte
+ * cravado ficaria gigante num e minúsculo no outro.
+ * ========================================================================== */
+
+/** A arte é deitada? Decide entre composição lado a lado e empilhada. */
+function _thumbDeitado(fmt) { return (fmt.w / fmt.h) >= 1.2; }
+
+/** Medida proporcional à altura da arte — o que mantém a leitura igual em
+ *  qualquer formato. `f` é a fração (0.12 = 12% da altura). */
+function _thumbU(fmt, f) { return Math.round(fmt.h * f); }
+
+/** Só as primeiras palavras: thumbnail com frase inteira não é thumbnail.
+ *  Não corta no meio da palavra — corta na palavra. */
+function _thumbCurto(txt, maxPalavras, maxChars) {
+  const limpo = String(txt || '').trim().replace(/\s+/g, ' ');
+  if (!limpo) return '';
+  const palavras = limpo.split(' ');
+  let saida = palavras.slice(0, maxPalavras).join(' ');
+  if (saida.length > maxChars) {
+    saida = '';
+    for (const w of palavras) {
+      if ((saida + ' ' + w).trim().length > maxChars) break;
+      saida = (saida + ' ' + w).trim();
+    }
+    if (!saida) saida = palavras[0].slice(0, maxChars);
+  }
+  return saida.toUpperCase();
+}
+
+/** Corpo de fonte do título: quanto menos texto, maior a palavra. */
+function _thumbTitleSize(txt, fmt) {
+  const n = (txt || '').length;
+  const base = _thumbDeitado(fmt) ? 0.215 : 0.125;
+  const f = n <= 10 ? base : n <= 18 ? base * 0.82 : n <= 28 ? base * 0.66 : base * 0.53;
+  return _thumbU(fmt, f);
+}
+
+/* ALTURA QUE A ASSINATURA OCUPA. Todo bloco de conteúdo tem de parar acima
+ * dela: no 9:16 o painel de texto é mais alto, e sem esta reserva o nome do
+ * convidado saía por cima do selo do canal — defeito que só apareceu ao
+ * renderizar em retrato, porque no 16:9 sobrava altura. */
+function _thumbReservaMarca(fmt) { return _thumbU(fmt, 0.145); }
+
+/** Trava o texto a N linhas. Sem isto um título longo empurra o resto do
+ *  painel para fora da arte, em vez de simplesmente reticenciar. */
+function _thumbClamp(n) {
+  return `overflow:hidden;display:-webkit-box;-webkit-line-clamp:${n};-webkit-box-orient:vertical;`;
+}
+
+/** Raiz da família: fundo (foto ou cor do tema) sangrando a arte inteira. */
+function _thumbRaiz(p, fmt, conteudo, opts) {
+  const o = opts || {};
+  return `
+    <div class="poster-1440" style="width:${fmt.w}px;height:${fmt.h}px;position:relative;overflow:hidden;box-sizing:border-box;font-family:${PT.sans};background:${o.fundo || PT.ink};">
+      ${conteudo}
+    </div>`;
+}
+
+/** Faixa do canal — a marca, discreta, num canto. Em thumbnail ela é assinatura,
+ *  não cabeçalho: grande demais rouba o espaço que o título precisa. */
+function _thumbMarca(p, portal, fmt, canto) {
+  if (!posterShow('footer') && !posterShow('header')) return '';
+  const h = _thumbU(fmt, 0.052);
+  const arroba = portal.handle || portal.name || '';
+  if (!arroba) return '';
+  const pos = canto === 'br'
+    ? `right:${_thumbU(fmt, 0.045)}px;bottom:${_thumbU(fmt, 0.045)}px;`
+    : `left:${_thumbU(fmt, 0.045)}px;bottom:${_thumbU(fmt, 0.045)}px;`;
+  return `<div data-thumb-marca="1" style="position:absolute;${pos}z-index:6;background:rgba(10,12,18,0.82);border:2px solid rgba(255,255,255,0.22);border-radius:${Math.round(h / 2)}px;padding:${Math.round(h * 0.24)}px ${Math.round(h * 0.5)}px;">
+    <span style="font-size:${Math.round(h * 0.56)}px;font-weight:800;letter-spacing:0.02em;color:#fff;white-space:nowrap;">${escapeHtml(arroba)}</span>
+  </div>`;
+}
+
+/** Foto do cartaz, ou um gradiente do tema quando não há imagem. */
+function _thumbFoto(p, fmt, estilo) {
+  const tem = typeof posterImageKeys === 'function' && posterImageKeys(p).length > 0;
+  if (tem) return `<div style="${estilo}overflow:hidden;">${posterPhotoMosaic(p, { two: 'row', three: 'left', gapColor: PT.ink })}</div>`;
+  return `<div style="${estilo}background:${PT.gradDark};"></div>`;
+}
+
+/* --- 1. IMPACTO: a palavra ocupando a arte, sobre foto sangrada. ----------- */
+function tplThumbImpacto(p, fmt, portal) {
+  const deitadoImp = _thumbDeitado(fmt);
+  const txt = _thumbCurto(p.headline || 'Título curto', 6, 34);
+  const size = _thumbTitleSize(txt, fmt);
+  const pad = _thumbU(fmt, 0.06);
+  const apoio = _thumbCurto(p.subtitle || '', 7, 40);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(6,8,12,0.30) 0%,rgba(6,8,12,0.12) 38%,rgba(6,8,12,0.82) 100%);"></div>
+    <div style="position:absolute;left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;">
+      ${posterShow('category') && p.category ? `<div style="display:inline-block;background:${PT.red};color:#fff;font-size:${_thumbU(fmt, 0.045)}px;font-weight:900;letter-spacing:0.1em;padding:${_thumbU(fmt, 0.014)}px ${_thumbU(fmt, 0.03)}px;border-radius:${_thumbU(fmt, 0.012)}px;margin-bottom:${_thumbU(fmt, 0.028)}px;">${escapeHtml(p.category)}</div>` : ''}
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${size}px;font-weight:900;line-height:0.94;padding-top:0.16em;letter-spacing:-0.01em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+      ${apoio ? `<div style="margin-top:${_thumbU(fmt, 0.026)}px;"><span style="display:inline-block;background:${PT.orange};color:#111;font-size:${_thumbU(fmt, deitadoImp ? 0.052 : 0.038)}px;font-weight:900;padding:${_thumbU(fmt, 0.012)}px ${_thumbU(fmt, 0.026)}px;border-radius:${_thumbU(fmt, 0.01)}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;box-sizing:border-box;">${escapeHtml(apoio)}</span></div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 2. ROSTO: metade foto, metade bloco de cor com a palavra. ------------- */
+function tplThumbRosto(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const txt = _thumbCurto(p.headline || 'A frase', 5, 28);
+  // No retrato o painel divide a altura com a foto, a categoria e o convidado —
+  // o corpo cheio não cabe e era o que estourava a caixa.
+  const size = _thumbTitleSize(txt, fmt) * 0.86;
+  const pad = _thumbU(fmt, 0.055);
+  // Deitado: foto à direita, texto à esquerda. Retrato: foto em cima, texto embaixo.
+  const foto = deitado
+    ? 'position:absolute;right:0;top:0;bottom:0;width:52%;z-index:0;'
+    : 'position:absolute;left:0;right:0;top:0;height:44%;z-index:0;';
+  const painel = deitado
+    ? `position:absolute;left:0;top:0;bottom:0;width:52%;z-index:2;`
+    : `position:absolute;left:0;right:0;bottom:0;height:56%;z-index:2;`;
+  // O painel de TEXTO termina acima da assinatura; o painel de FUNDO segue até
+  // a borda. Reservar com padding não bastava: `overflow:hidden` recorta na
+  // borda do padding, então o conteúdo invadia a reserva e saía por cima do
+  // selo do canal. Encurtar a caixa é o que realmente segura.
+  const painelTexto = deitado
+    ? `position:absolute;left:0;top:0;bottom:0;width:52%;`
+    : `position:absolute;left:0;right:0;bottom:${_thumbReservaMarca(fmt)}px;top:44%;`;
+  // A emenda ganha um degradê curto para a foto não "cortar" em linha reta.
+  const emenda = deitado
+    ? `position:absolute;left:48%;top:0;bottom:0;width:10%;z-index:3;background:linear-gradient(90deg,${PT.ink} 0%,rgba(0,0,0,0) 100%);`
+    : `position:absolute;left:0;right:0;top:36%;height:12%;z-index:3;background:linear-gradient(0deg,${PT.ink} 0%,rgba(0,0,0,0) 100%);`;
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, foto)}
+    <div style="${painel}background:${PT.ink};"></div>
+    <div style="${emenda}"></div>
+    <div style="${painelTexto}display:flex;flex-direction:column;justify-content:center;padding:${pad}px;box-sizing:border-box;overflow:hidden;z-index:4;">
+      ${posterShow('category') && p.category ? `<div style="font-size:${_thumbU(fmt, 0.046)}px;font-weight:900;letter-spacing:0.12em;color:${PT.orange};margin-bottom:${_thumbU(fmt, 0.022)}px;text-transform:uppercase;flex-shrink:0;">${escapeHtml(p.category)}</div>` : ''}
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:0.95;padding-top:0.16em;color:#fff;text-transform:uppercase;flex-shrink:0;${_thumbClamp(deitado ? 4 : 2)}">${escapeHtml(txt)}</div>` : ''}
+      ${p.personName ? `<div style="margin-top:${_thumbU(fmt, 0.03)}px;border-left:${_thumbU(fmt, 0.012)}px solid ${PT.red};padding-left:${_thumbU(fmt, 0.022)}px;flex-shrink:0;">
+        <div style="font-size:${_thumbU(fmt, deitado ? 0.05 : 0.038)}px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personName)}</div>
+        ${p.personRole && deitado ? `<div style="font-size:${_thumbU(fmt, 0.038)}px;color:rgba(255,255,255,0.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personRole)}</div>` : ''}
+      </div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, deitado ? 'br' : 'bl')}`);
+}
+
+/* --- 3. NÚMERO: o algarismo é o assunto ("7 ERROS"). ----------------------- */
+function tplThumbNumero(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const num = String(p.figure || '7').trim().slice(0, 4);
+  const txt = _thumbCurto(p.headline || 'Erros comuns', 5, 26);
+  const numSize = _thumbU(fmt, deitado ? 0.62 : 0.34);
+  const txtSize = _thumbU(fmt, deitado ? 0.13 : 0.088);
+  const pad = _thumbU(fmt, 0.055);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(6,8,12,0.92) 0%,rgba(6,8,12,0.74) 52%,rgba(6,8,12,0.34) 100%);"></div>
+    <div style="position:absolute;inset:0;z-index:4;display:flex;${deitado ? 'flex-direction:row;align-items:center' : 'flex-direction:column;justify-content:center'};gap:${_thumbU(fmt, 0.04)}px;padding:${pad}px;padding-bottom:${_thumbReservaMarca(fmt)}px;box-sizing:border-box;overflow:hidden;">
+      <div style="font-family:${PT.cond};font-size:${numSize}px;font-weight:900;line-height:0.78;padding-top:0.1em;color:${PT.orange};flex-shrink:0;">${escapeHtml(num)}</div>
+      <div style="min-width:0;">
+        ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${txtSize}px;font-weight:900;line-height:0.96;padding-top:0.14em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+        ${p.subtitle ? `<div style="margin-top:${_thumbU(fmt, 0.024)}px;font-size:${_thumbU(fmt, 0.05)}px;font-weight:700;color:rgba(255,255,255,0.84);${_thumbClamp(2)}">${escapeHtml(p.subtitle)}</div>` : ''}
+      </div>
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 4. VERSUS: dois lados, uma comparação. ------------------------------- */
+function tplThumbVersus(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const a = _thumbCurto(p.labelA || 'Antes', 2, 12);
+  const b = _thumbCurto(p.labelB || 'Depois', 2, 12);
+  const rotSize = _thumbU(fmt, deitado ? 0.1 : 0.062);
+  const vsSize = _thumbU(fmt, deitado ? 0.17 : 0.1);
+  const chaves = (typeof posterImageKeys === 'function') ? posterImageKeys(p) : [];
+  // Duas fotos quando houver; com uma só, ela fica de um lado e o outro é bloco.
+  const lado = (i, css) => (chaves[i]
+    ? `<div style="${css}overflow:hidden;">${posterImageLayer(p, chaves[i])}</div>`
+    : `<div style="${css}background:${i ? PT.navy2 : PT.ink};"></div>`);
+  const meia = deitado
+    ? ['position:absolute;left:0;top:0;bottom:0;width:50%;z-index:0;', 'position:absolute;right:0;top:0;bottom:0;width:50%;z-index:0;']
+    : ['position:absolute;left:0;right:0;top:0;height:50%;z-index:0;', 'position:absolute;left:0;right:0;bottom:0;height:50%;z-index:0;'];
+  const rot = (t, css) => `<div style="${css}z-index:5;background:rgba(8,10,14,0.86);padding:${_thumbU(fmt, 0.016)}px ${_thumbU(fmt, 0.034)}px;border-radius:${_thumbU(fmt, 0.012)}px;">
+    <span style="font-family:${PT.cond};font-size:${rotSize}px;font-weight:900;color:#fff;text-transform:uppercase;white-space:nowrap;">${escapeHtml(t)}</span></div>`;
+  // Em retrato o título ocupa o topo, então os rótulos descem: ANTES fica logo
+  // acima da divisa e DEPOIS logo abaixo dela, cada um sobre a sua metade.
+  const posA = deitado ? `position:absolute;left:${_thumbU(fmt, 0.05)}px;bottom:${_thumbReservaMarca(fmt)}px;` : `position:absolute;left:${_thumbU(fmt, 0.05)}px;top:${_thumbU(fmt, 0.34)}px;`;
+  const posB = deitado ? `position:absolute;right:${_thumbU(fmt, 0.05)}px;bottom:${_thumbReservaMarca(fmt)}px;` : `position:absolute;right:${_thumbU(fmt, 0.05)}px;top:${_thumbU(fmt, 0.56)}px;`;
+  return _thumbRaiz(p, fmt, `
+    ${lado(0, meia[0])}${lado(1, meia[1])}
+    <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(${deitado ? '180deg' : '90deg'},rgba(6,8,12,0.16) 0%,rgba(6,8,12,0.60) 100%);"></div>
+    <div style="position:absolute;${deitado ? 'left:50%;top:0;bottom:0;width:' + _thumbU(fmt, 0.012) + 'px;transform:translateX(-50%)' : 'top:50%;left:0;right:0;height:' + _thumbU(fmt, 0.008) + 'px;transform:translateY(-50%)'};z-index:4;background:#fff;"></div>
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:6;background:${PT.red};border:${_thumbU(fmt, 0.01)}px solid #fff;border-radius:50%;width:${vsSize * 1.7}px;height:${vsSize * 1.7}px;display:flex;align-items:center;justify-content:center;">
+      <span style="font-family:${PT.cond};font-size:${vsSize}px;font-weight:900;color:#fff;line-height:1;">VS</span>
+    </div>
+    ${rot(a, posA)}${rot(b, posB)}
+    ${posterShow('headline') && p.headline ? `<div style="position:absolute;left:${_thumbU(fmt, 0.04)}px;right:${_thumbU(fmt, 0.04)}px;top:${_thumbU(fmt, 0.05)}px;z-index:7;text-align:center;">
+      <span style="display:inline-block;background:#fff;color:#111;font-family:${PT.cond};font-size:${_thumbU(fmt, deitado ? 0.085 : 0.05)}px;font-weight:900;text-transform:uppercase;padding:${_thumbU(fmt, 0.012)}px ${_thumbU(fmt, 0.03)}px;border-radius:${_thumbU(fmt, 0.01)}px;max-width:100%;box-sizing:border-box;${_thumbClamp(2)}">${escapeHtml(_thumbCurto(p.headline, 5, 26))}</span>
+    </div>` : ''}
+    ${_thumbMarca(p, portal, fmt, 'bl')}`);
+}
+
+/* --- 5. PERGUNTA: curiosidade, com o ponto de interrogação como grafismo. -- */
+function tplThumbPergunta(p, fmt, portal) {
+  const txt = _thumbCurto(p.headline || 'Por que ninguém conta isso', 7, 40);
+  const size = _thumbTitleSize(txt, fmt) * 0.92;
+  const pad = _thumbU(fmt, 0.06);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(6,8,12,0.72) 0%,rgba(6,8,12,0.42) 46%,rgba(6,8,12,0.88) 100%);"></div>
+    <div style="position:absolute;right:${_thumbU(fmt, 0.02)}px;top:${_thumbU(fmt, 0.01)}px;z-index:2;font-family:${PT.cond};font-size:${_thumbU(fmt, 0.44)}px;font-weight:900;line-height:0.9;color:rgba(255,255,255,0.11);">?</div>
+    <div style="position:absolute;left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;">
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:0.98;padding-top:0.16em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+      <div style="margin-top:${_thumbU(fmt, 0.03)}px;height:${_thumbU(fmt, 0.012)}px;width:${_thumbU(fmt, 0.22)}px;background:${PT.orange};"></div>
+      ${p.subtitle ? `<div style="margin-top:${_thumbU(fmt, 0.028)}px;font-size:${_thumbU(fmt, 0.05)}px;font-weight:700;color:rgba(255,255,255,0.86);${_thumbClamp(2)}">${escapeHtml(p.subtitle)}</div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 6. EPISÓDIO: série/podcast, com selo de numeração. ------------------- */
+function tplThumbEpisodio(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const ep = String(p.figure || '01').trim().slice(0, 4);
+  const txt = _thumbCurto(p.headline || 'Nome do episódio', 6, 34);
+  // No retrato o 0.8 deixava o título abaixo do mínimo legível numa thumbnail.
+  const size = _thumbTitleSize(txt, fmt) * (deitado ? 0.8 : 1);
+  const pad = _thumbU(fmt, 0.06);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(${deitado ? '90deg' : '180deg'},rgba(6,8,12,0.93) 0%,rgba(6,8,12,0.72) 48%,rgba(6,8,12,0.30) 100%);"></div>
+    <div style="position:absolute;left:${pad}px;${deitado ? 'top:50%;transform:translateY(-50%);max-width:64%;' : 'bottom:' + _thumbReservaMarca(fmt) + 'px;right:' + pad + 'px;'}z-index:5;">
+      <div style="display:flex;align-items:center;gap:${_thumbU(fmt, 0.022)}px;margin-bottom:${_thumbU(fmt, 0.028)}px;">
+        <span style="background:${PT.red};color:#fff;font-family:${PT.cond};font-size:${_thumbU(fmt, 0.062)}px;font-weight:900;letter-spacing:0.06em;padding:${_thumbU(fmt, 0.012)}px ${_thumbU(fmt, 0.026)}px;border-radius:${_thumbU(fmt, 0.01)}px;white-space:nowrap;">EP ${escapeHtml(ep)}</span>
+        ${posterShow('category') && p.category ? `<span style="font-size:${_thumbU(fmt, 0.044)}px;font-weight:900;letter-spacing:0.12em;color:rgba(255,255,255,0.82);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.category)}</span>` : ''}
+      </div>
+      ${posterShow('headline') ? `<div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:0.98;padding-top:0.16em;color:#fff;text-transform:uppercase;${_thumbClamp(3)}">${escapeHtml(txt)}</div>` : ''}
+      ${p.personName ? `<div style="margin-top:${_thumbU(fmt, 0.028)}px;font-size:${_thumbU(fmt, 0.048)}px;font-weight:700;color:${PT.orange};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personName)}</div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 7. URGENTE: capa de vídeo de notícia, contraste máximo. -------------- */
+function tplThumbUrgente(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  // Capa de urgência vive de poucas palavras: no retrato o bloco tem menos
+  // altura, então o texto encurta em vez de ser cortado no meio.
+  const txt = _thumbCurto(p.headline || 'Agora', deitado ? 6 : 4, deitado ? 32 : 22);
+  const size = _thumbTitleSize(txt, fmt) * 0.9;
+  const pad = _thumbU(fmt, 0.055);
+  const faixaH = _thumbU(fmt, 0.1);
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, 'position:absolute;inset:0;z-index:0;')}
+    <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(6,8,12,0.52) 0%,rgba(6,8,12,0.22) 40%,rgba(6,8,12,0.90) 100%);"></div>
+    <div style="position:absolute;left:0;right:0;top:0;height:${faixaH}px;z-index:5;background:${PT.red};display:flex;align-items:center;padding:0 ${pad}px;box-sizing:border-box;">
+      <span style="font-family:${PT.cond};font-size:${Math.round(faixaH * 0.5)}px;font-weight:900;letter-spacing:0.16em;color:#fff;text-transform:uppercase;">${escapeHtml(p.category || 'Urgente')}</span>
+    </div>
+    <div style="position:absolute;left:${pad}px;right:${pad}px;bottom:${_thumbReservaMarca(fmt)}px;z-index:5;">
+      ${posterShow('headline') ? `<div style="background:rgba(8,10,14,0.90);border-left:${_thumbU(fmt, 0.012)}px solid ${PT.red};padding:${_thumbU(fmt, 0.018)}px ${_thumbU(fmt, 0.024)}px;">
+        <div style="font-family:${PT.cond};font-size:${Math.round(size)}px;font-weight:900;line-height:1.04;color:#fff;text-transform:uppercase;${_thumbClamp(deitado ? 3 : 2)}">${escapeHtml(txt)}</div>
+      </div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, 'br')}`);
+}
+
+/* --- 8. FALA: corte de entrevista, a frase entre aspas + quem disse. ------ */
+function tplThumbFala(p, fmt, portal) {
+  const deitado = _thumbDeitado(fmt);
+  const fala = _thumbCurto(p.headline || 'A frase que vale o corte', 9, 52);
+  const size = _thumbU(fmt, deitado ? 0.115 : 0.05);
+  const pad = _thumbU(fmt, 0.055);
+  const foto = deitado
+    ? 'position:absolute;left:0;top:0;bottom:0;width:44%;z-index:0;'
+    : 'position:absolute;left:0;right:0;top:0;height:46%;z-index:0;';
+  const caixa = deitado
+    ? `position:absolute;right:0;top:0;bottom:0;width:56%;`
+    : `position:absolute;left:0;right:0;bottom:0;height:54%;`;
+  // Mesma separação do "Rosto": fundo até a borda, texto parando acima do selo.
+  const caixaTexto = deitado
+    ? `position:absolute;right:0;top:0;bottom:${_thumbReservaMarca(fmt)}px;width:56%;`
+    : `position:absolute;left:0;right:0;bottom:${_thumbReservaMarca(fmt)}px;top:46%;`;
+  return _thumbRaiz(p, fmt, `
+    ${_thumbFoto(p, fmt, foto)}
+    <div style="${caixa}z-index:2;background:${PT.ink};"></div>
+    <div style="${caixaTexto}z-index:4;display:flex;flex-direction:column;justify-content:center;padding:${pad}px;box-sizing:border-box;overflow:hidden;">
+      <div style="font-family:${PT.serif};font-size:${_thumbU(fmt, deitado ? 0.2 : 0.1)}px;line-height:0.5;color:${PT.orange};flex-shrink:0;">&ldquo;</div>
+      ${posterShow('headline') ? `<div style="margin-top:${_thumbU(fmt, 0.02)}px;font-family:${PT.serif};font-size:${size}px;font-weight:700;line-height:1.14;color:#fff;flex-shrink:0;${_thumbClamp(deitado ? 5 : 4)}">${escapeHtml(fala)}</div>` : ''}
+      ${p.personName ? `<div style="margin-top:${_thumbU(fmt, 0.032)}px;border-top:${_thumbU(fmt, 0.005)}px solid rgba(255,255,255,0.24);padding-top:${_thumbU(fmt, 0.022)}px;flex-shrink:0;">
+        <div style="font-size:${_thumbU(fmt, deitado ? 0.05 : 0.038)}px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personName)}</div>
+        ${p.personRole ? `<div style="font-size:${_thumbU(fmt, deitado ? 0.038 : 0.029)}px;color:rgba(255,255,255,0.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.personRole)}</div>` : ''}
+      </div>` : ''}
+    </div>
+    ${_thumbMarca(p, portal, fmt, deitado ? 'bl' : 'bl')}`);
+}
 
 const POSTER_TEMPLATES = {
   manchete:              { label: 'Manchete',             cat: 'noticia',       usesImages: true,  render: (p, fmt, portal) => tplManchete(p, fmt, portal) },
@@ -3313,4 +3631,16 @@ const POSTER_TEMPLATES = {
   'redes-citacao':       { label: 'Redes · Citação',       cat: 'redes',         usesImages: true,  render: tplRedesCitacao },
   'redes-numero':        { label: 'Redes · Número',        cat: 'redes',         usesImages: true,  render: tplRedesNumero },
   'redes-lista':         { label: 'Redes · Lista',         cat: 'redes',         usesImages: true,  render: tplRedesLista },
+
+  // --- Capas de vídeo e thumbnails (r199): família própria, feita para ser
+  // lida a ~210px de largura. Nasce no 16:9 (YouTube) e vira composição
+  // empilhada nos formatos retrato (capa de Shorts/Reels) sem trocar de modelo.
+  'thumb-impacto':       { label: 'Capa · Impacto',        cat: 'thumb',         usesImages: true,  render: tplThumbImpacto },
+  'thumb-rosto':         { label: 'Capa · Rosto',          cat: 'thumb',         usesImages: true,  render: tplThumbRosto },
+  'thumb-numero':        { label: 'Capa · Número',         cat: 'thumb',         usesImages: true,  render: tplThumbNumero },
+  'thumb-versus':        { label: 'Capa · Antes e depois', cat: 'thumb',         usesImages: true,  render: tplThumbVersus },
+  'thumb-pergunta':      { label: 'Capa · Pergunta',       cat: 'thumb',         usesImages: true,  render: tplThumbPergunta },
+  'thumb-episodio':      { label: 'Capa · Episódio',       cat: 'thumb',         usesImages: true,  render: tplThumbEpisodio },
+  'thumb-urgente':       { label: 'Capa · Urgente',        cat: 'thumb',         usesImages: true,  render: tplThumbUrgente },
+  'thumb-fala':          { label: 'Capa · Fala',           cat: 'thumb',         usesImages: true,  render: tplThumbFala },
 };

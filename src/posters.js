@@ -1174,6 +1174,16 @@ function renderPosterEditor() {
         if ($('#p-format')) $('#p-format').value = '9:16';
         if (typeof toast === 'function') toast('Formato ajustado para 9:16 — é a proporção das áreas seguras de Reels, Stories e TikTok.', 'info', 5000);
       }
+      // Mesma ideia para as CAPAS DE VÍDEO: elas nascem deitadas (16:9 é a
+      // thumbnail do YouTube). Nos formatos retrato o modelo continua válido —
+      // vira capa de Shorts/Reels —, então isto é só o ponto de partida, e o
+      // usuário troca em seguida se quiser.
+      if (id === 'p-template' && posterEhCapaDeVideo(s.template)
+          && !posterEhCapaDeVideo(tplAntes) && newFmt !== '16:9') {
+        newFmt = '16:9';
+        if ($('#p-format')) $('#p-format').value = '16:9';
+        if (typeof toast === 'function') toast('Formato ajustado para 16:9 — é a proporção da capa de vídeo do YouTube. Para capa de Shorts/Reels, troque para 9:16.', 'info', 6000);
+      }
       s.format = newFmt;
       // FORMATO é propriedade do CONJUNTO no carrossel: sincroniza TODOS os
       // slides + o nível do carrossel (o usuário muda uma vez e vale p/ todos).
@@ -2709,6 +2719,12 @@ function posterEhModeloDeRede(tplId) {
   return !!(t && t.cat === 'redes');
 }
 
+/** O modelo é uma capa de vídeo/thumbnail? */
+function posterEhCapaDeVideo(tplId) {
+  const t = (typeof POSTER_TEMPLATES !== 'undefined') && POSTER_TEMPLATES[tplId];
+  return !!(t && t.cat === 'thumb');
+}
+
 /** Formato (dimensões) do cartaz/slide ativo (em carrossel, o do slide visível). */
 function posterActiveFormat() {
   const p = State.posters.find(x => x.id === State.activePosterId);
@@ -3715,9 +3731,19 @@ function _savePosterProject(p) {
  * (posterMaiorLadoExportavel): guardar imagem menor do que a maior exportação
  * possível obrigaria a ampliar na hora de exportar. */
 const POSTER_EXPORT_SCALES = [
-  { v: 1, label: '1080px', hint: 'arquivo leve' },
-  { v: 2, label: '2160px', hint: 'máxima definição' },
+  { v: 1, hint: 'arquivo leve' },
+  { v: 2, hint: 'máxima definição' },
 ];
+
+/** Rótulo da resolução — a LARGURA que o arquivo vai ter, no formato escolhido.
+ *
+ *  Era fixo ("1080px"/"2160px"), o que valia enquanto todo formato tinha 1080 de
+ *  largura. Com o 16:9 (1920×1080) o rótulo passaria a mentir: 1× ali entrega
+ *  1920px. Calcular evita que a tela prometa um número e o arquivo traga outro. */
+function posterExportLabel(escala, fmt) {
+  const larg = (fmt && fmt.w) || 1080;
+  return (larg * (escala || 1)) + 'px';
+}
 const POSTER_EXPORT_SCALE_DEFAULT = 2;
 
 /* Qualidade do JPG. O PNG é sem perda e é o padrão; quem escolhe JPG ainda
@@ -3775,7 +3801,7 @@ function openPosterExportSettings(p) {
       <div class="exps-group">
         <div class="exps-label">Resolução</div>
         <div class="exps-seg" data-seg="scale">
-          ${POSTER_EXPORT_SCALES.map((e) => `<button type="button" data-v="${e.v}" title="${escapeHtml(e.hint)}"${e.v === selScale ? ' class="sel"' : ''}>${escapeHtml(e.label)}</button>`).join('')}
+          ${POSTER_EXPORT_SCALES.map((e) => `<button type="button" data-v="${e.v}" title="${escapeHtml(e.hint)}"${e.v === selScale ? ' class="sel"' : ''}>${escapeHtml(posterExportLabel(e.v, FORMATS[selFmt]))}</button>`).join('')}
         </div>
       </div>
       <div class="exps-group">
@@ -3810,6 +3836,12 @@ function openPosterExportSettings(p) {
   backdrop.querySelectorAll('.exps-fmt').forEach((btn) => { btn.onclick = () => {
     selFmt = btn.dataset.fmt;
     backdrop.querySelectorAll('.exps-fmt').forEach((b) => b.classList.toggle('sel', b === btn));
+    // A largura final muda com a proporção (16:9 é o único deitado) — sem isto
+    // o rótulo continuaria mostrando a largura do formato anterior.
+    const segEscala = backdrop.querySelector('[data-seg="scale"]');
+    if (segEscala) segEscala.querySelectorAll('button').forEach((b) => {
+      b.textContent = posterExportLabel(Number(b.dataset.v), FORMATS[selFmt]);
+    });
   }; });
   backdrop.querySelectorAll('.exps-seg').forEach((seg) => {
     seg.querySelectorAll('button').forEach((btn) => { btn.onclick = () => {

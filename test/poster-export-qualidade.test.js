@@ -35,7 +35,7 @@ beforeAll(() => {
   clearStorage();
   P = loadModules(['catalogs.js', 'core.js', 'posters.js', 'poster-templates.js'], [
     'POSTER_FORMATS', 'POSTER_EXPORT_SCALES', 'POSTER_EXPORT_SCALE_DEFAULT',
-    'POSTER_JPG_QUALITY', 'posterMaiorLadoExportavel', 'ptEscalaMaximaExport',
+    'POSTER_JPG_QUALITY', 'posterMaiorLadoExportavel', 'ptEscalaMaximaExport', 'posterExportLabel',
     'fileToBase64Compressed',
   ]);
 });
@@ -44,9 +44,24 @@ describe('as resoluções oferecidas', () => {
   it('continuam sendo duas — o usuário pediu para manter a escolha', () => {
     expect(P.POSTER_EXPORT_SCALES).toHaveLength(2);
     expect(P.POSTER_EXPORT_SCALES.map((e) => e.v)).toEqual([1, 2]);
-    P.POSTER_EXPORT_SCALES.forEach((e) => {
-      expect(e.label, 'cada opção diz quantos pixels entrega').toMatch(/^\d+px$/);
-      expect(e.hint).toBeTruthy();
+    P.POSTER_EXPORT_SCALES.forEach((e) => expect(e.hint).toBeTruthy());
+  });
+
+  it('o rótulo diz a largura REAL do formato escolhido', () => {
+    // Era fixo ("1080px"/"2160px"). Com o 16:9 (1920 de largura) isso passaria a
+    // mentir — a tela prometeria 1080 e o arquivo sairia com 1920.
+    const retrato = P.POSTER_FORMATS['4:5'], deitado = P.POSTER_FORMATS['16:9'];
+    expect(P.posterExportLabel(1, retrato)).toBe('1080px');
+    expect(P.posterExportLabel(2, retrato)).toBe('2160px');
+    expect(P.posterExportLabel(1, deitado)).toBe('1920px');
+    expect(P.posterExportLabel(2, deitado)).toBe('3840px');
+  });
+
+  it('cada opção continua dizendo quantos pixels entrega', () => {
+    Object.values(P.POSTER_FORMATS).forEach((f) => {
+      P.POSTER_EXPORT_SCALES.forEach((e) => {
+        expect(P.posterExportLabel(e.v, f)).toMatch(/^\d+px$/);
+      });
     });
   });
 

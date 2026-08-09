@@ -564,6 +564,28 @@ const EDITORIAL_ATTRIBUTION = [
   '✓ TAMBÉM CERTO: "As obras da ponte devem começar em 1º de agosto, de acordo com o anúncio do governo do estado."',
   '',
   'ATENÇÃO: atribuir NÃO é encher o texto de "segundo" em toda frase — isso emperra a leitura. É garantir que o leitor sempre saiba de quem é cada afirmação. Uma fonte bem posicionada cobre o parágrafo inteiro.',
+  '',
+  '─── JUÍZO DE VALOR TAMBÉM TEM DONO ───',
+  '',
+  'A regra acima costuma ser aplicada só a data, número e promessa — e aí a matéria atribui o fato certinho no primeiro parágrafo e passa os seguintes ELOGIANDO por conta própria. O leitor entende que quem está avaliando é o veículo.',
+  '',
+  'AVALIAÇÃO NÃO É DESCRIÇÃO. Estas construções parecem relato e são julgamento — nenhuma delas é verificável, então nenhuma pode ficar órfã:',
+  '"é um exemplo de…", "é um sinal de…", "é um passo importante", "é um marco", "é um avanço", "é uma conquista", "demonstra o compromisso de…", "reforça o compromisso…", "é um reconhecimento do esforço…", "é motivo de orgulho", "é louvável", "é inegável que", "sem dúvida", "gestão eficaz", "gestão responsável".',
+  '',
+  'A ARMADILHA DO MATERIAL INSTITUCIONAL: quando a origem é release, nota oficial ou anúncio, o material JÁ VEM elogioso. Esse elogio é da fonte — ele não vira avaliação do veículo por ser reescrito com outras palavras. Reescrever "o prefeito destacou que a gestão é eficaz" como "é um exemplo de gestão eficaz" TROCA O AUTOR da opinião. É o erro mais comum em pauta de prefeitura, e o mais grave: transforma o veículo em porta-voz.',
+  '',
+  'DIANTE DE UM JUÍZO, TRÊS SAÍDAS — nesta ordem:',
+  '1. TEM DONO NO MATERIAL → atribua: "Segundo o prefeito, a compra é um exemplo de gestão eficaz.", "Para a Secretaria, o investimento demonstra o compromisso com a saúde."',
+  '2. NÃO TEM DONO → corte. Um juízo sem dono não é informação; é enfeite que compromete o veículo.',
+  '3. NUNCA invente um dono ("para especialistas", "na avaliação de moradores") que o material não traz.',
+  '',
+  'E A MATÉRIA PODE FICAR MAIS CURTA. Se o material tem um fato só, escreva o fato só. Encher parágrafo com juízo sem dono para alcançar tamanho é pior do que entregar um texto menor e correto — e é exatamente assim que o erro costuma entrar.',
+  '',
+  'EXEMPLO — o caso real que motivou esta regra:',
+  'MATERIAL: o prefeito de Acajutiba anunciou a compra de seis veículos, mais de R$ 900 mil, e disse que a aquisição mostra uma gestão eficaz e responsável.',
+  '✗ ERRADO (o portal vira quem elogia): "A aquisição dos veículos é um passo importante para a melhoria dos serviços públicos. É um exemplo de como a gestão pública pode ser eficaz. O investimento é um sinal de que a prefeitura está comprometida com a população."',
+  '✓ CERTO (o elogio volta para quem o fez): "Segundo o prefeito, a nova frota deve melhorar o atendimento à população e é um exemplo de gestão eficaz. Ele afirmou ainda que o investimento demonstra o compromisso da prefeitura com os moradores."',
+  '✓ TAMBÉM CERTO (sem dono, some): "A prefeitura informou que os seis veículos custaram mais de R$ 900 mil. O material não detalha quais secretarias serão atendidas."',
 ].join('\n');
 
 const EDITORIAL_SAFETY = [
@@ -622,6 +644,40 @@ const SAFETY_MARCADORES_ATRIBUICAO = [
   'informou', 'apontou', 'denúncia', 'denuncia', 'acusado', 'suspeito',
   'investigado', 'indiciado', 'réu', 'apurou', 'relatou',
 ];
+/* JUÍZO DE VALOR — as construções que avaliam sem dizer quem avalia.
+ *
+ * O defeito relatado em uso real: numa matéria sobre a compra de veículos, o
+ * lead atribuía direito ("Segundo o prefeito…") e os três parágrafos seguintes
+ * seguiam afirmando "é um exemplo de gestão eficaz", "é um sinal de que a
+ * prefeitura está comprometida", "é um passo importante" — sem dono nenhum. O
+ * leitor entende que quem está elogiando é o portal, quando na verdade eram
+ * palavras do prefeito.
+ *
+ * O que estas expressões têm em comum: parecem descrição e são julgamento.
+ * Nenhuma delas é verificável, então nenhuma pode ficar sem dono.
+ *
+ * Nenhum item pode ser trecho de outro (há teste travando isso): marcador que
+ * casa dentro de outro conta duas vezes e distorce o diagnóstico. */
+const SAFETY_MARCADORES_JUIZO = [
+  'é um exemplo de', 'e um exemplo de', 'é um sinal de', 'e um sinal de',
+  'passo importante', 'é um reconhecimento', 'e um reconhecimento',
+  'é um marco', 'e um marco', 'é um avanço', 'e um avanco',
+  'é uma conquista', 'e uma conquista', 'grande iniciativa', 'motivo de orgulho',
+  'demonstra o compromisso', 'reforça o compromisso', 'reforca o compromisso',
+  'gestão eficaz', 'gestao eficaz', 'gestão responsável', 'gestao responsavel',
+  'é louvável', 'e louvavel', 'é inegável', 'e inegavel', 'sem dúvida', 'sem duvida',
+];
+
+/* Subconjunto VAZIO: elogio de fórmula, que não diz nada nem quando é opinião
+ * assumida. As regras de comentário opinativo já o proíbem com todas as letras
+ * ("elogio genérico não vale nada"), então ele é defeito NOS DOIS MODOS — com
+ * ou sem a camada de comentário ligada. */
+const SAFETY_JUIZO_VAZIO = [
+  'é um exemplo de', 'e um exemplo de', 'é um sinal de', 'e um sinal de',
+  'passo importante', 'grande iniciativa', 'é um marco', 'e um marco',
+  'demonstra o compromisso', 'reforça o compromisso', 'reforca o compromisso',
+];
+
 /* Vocabulário que indica assunto criminal/judicial em pauta. */
 const SAFETY_TERMOS_CRIMINAIS = [
   'crime', 'roubo', 'furto', 'homicídio', 'homicidio', 'assassinato', 'corrupção',
@@ -813,6 +869,12 @@ const COMENTARIO_BASE = [
   '• O material de origem NÃO decide a direção. Pauta institucional e elogiosa recebe a direção pedida do mesmo jeito — é justamente aí que a escolha do usuário tem valor.',
   '• A lista "Ângulos editoriais" e o tom da fonte também não decidem: são insumo neutro. Quem decide a direção do comentário é a instrução abaixo, e só ela.',
   '• Ao terminar, releia cada comentário e pergunte: este está na direção pedida? Qualquer um que não esteja, reescreva antes de responder.',
+  '',
+  'DE QUEM É ESTA OPINIÃO — e de quem ela NUNCA pode ser',
+  '• O comentário é leitura DO VEÍCULO sobre o fato. Por isso ele só pode existir onde o fato já foi relatado e atribuído: primeiro o leitor sabe o que aconteceu e quem disse, só então lê a sua leitura.',
+  '• NÃO É COMENTÁRIO reescrever com outras palavras o elogio (ou a queixa) que a FONTE já fez. Isso não é opinião do veículo: é a opinião da fonte com o autor trocado — e o leitor passa a atribuir ao portal o que o prefeito, a empresa ou o órgão disse. Quando o juízo veio da fonte, ele volta para ela com "segundo", "para", "na avaliação de" — e o comentário, se couber, é OUTRA coisa, sua.',
+  '• Pauta institucional é onde isso mais acontece: o release já vem cheio de "passo importante", "compromisso", "exemplo de gestão". Repetir esse vocabulário é assinar o release.',
+  '• PARÁGRAFO SÓ DE JUÍZO NÃO EXISTE. Se um parágrafo não tem fato relatado, ele não tem o que comentar — e vira elogio (ou ataque) solto no ar. Falta fato? O comentário é sobre a LACUNA, e o parágrafo diz qual fato falta.',
   '',
   'A REGRA QUE NÃO SE QUEBRA: COMENTÁRIO COMENTA, NÃO INFORMA',
   '• Ele só se apoia em algo que está literalmente no material. Vale o mesmo teste do resto da matéria: "de onde você tirou isso?" precisa ter resposta apontável.',

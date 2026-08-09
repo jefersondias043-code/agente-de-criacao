@@ -161,6 +161,7 @@ function buildPrompt(style, tone, content, comentarios) {
     '7. Eu me limitei a repetir o Conteúdo, ou também o interpretei e argumentei a partir dele? Matéria sem leitura é boletim.',
     '8. Há acusação, crime ou apuração? Usei o termo da fase processual correta, atribuí a informação e registrei o outro lado (ou a ausência dele)?',
     '8b. ATRIBUIÇÃO: percorra as afirmações uma a uma. Alguma promessa, previsão, número, causa ou avaliação está escrita como se fosse do veículo, quando na verdade é de alguém? Devolva a fonte ("segundo…", "de acordo com…"). O leitor tem de saber de quem é cada afirmação.',
+    '8c. JUÍZO SEM DONO: leia cada parágrafo isolado. Ele avalia alguma coisa ("é um exemplo de…", "é um passo importante", "é um sinal de…", "demonstra o compromisso…", "gestão eficaz")? O dono do juízo precisa estar NAQUELE parágrafo — fonte citada no primeiro não cobre o terceiro. Sem dono, corte a frase: matéria mais curta é melhor do que o veículo assinando a opinião de outro.',
     '9. Sobrou alguma palavra de juízo herdada do Conteúdo puxando para o lado CONTRÁRIO ao tom pedido? Fora dela — sem tirar o acontecimento.',
     '10. Inventei comparação, avaliação sem dono ou consequência para sustentar o tom? Troque pelo que o Conteúdo traz.',
     '11. Dois parágrafos dizem a mesma coisa com outras palavras? Funda-os e traga um aspecto novo.',

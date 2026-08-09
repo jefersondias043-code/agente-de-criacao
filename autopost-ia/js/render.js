@@ -233,7 +233,16 @@ function renderItemDetail(item, opts) {
   // A análise de potencial fica AGRUPADA com a transcrição (o botão "Avaliar potencial"
   // está no cabeçalho da transcrição e os resultados aparecem logo abaixo dela).
   const blocoTransc = `<div class="transc-wrap">${transcBox}${renderAnaliseSecao(item)}</div>`;
-  return blocoTransc + avalBox + card + footer;
+  // ORDEM: o PACOTE primeiro, a transcrição por último.
+  //
+  // Ela vinha antes, e isso invertia a razão de o usuário estar nesta tela:
+  // depois de processar, o que ele veio buscar é o pacote — a transcrição é o
+  // insumo, não o resultado. Continua inteira e com as mesmas ações (copiar,
+  // avaliar potencial, enviar para), só que embaixo, onde se consulta a fonte.
+  //
+  // A avaliação fica junto do pacote (é o placar DELE) e antes do card, que é
+  // como ela já vinha — banner de veredito + nota, lido antes do conteúdo.
+  return avalBox + card + blocoTransc + footer;
 }
 
 // =================== ANÁLISE DE POTENCIAL (render) ===================

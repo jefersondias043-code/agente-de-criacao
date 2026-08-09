@@ -101,6 +101,11 @@ No navegador (http://localhost:8080):
       abas avançadas; preset de composição (aba Layout) troca modelo+tema; o PNG exportado NÃO
       mostra a moldura de seleção/guias/área segura.
 - [ ] **Detector Flop**: iframe carrega `detector-flop.html` (3 abas) com tema claro aplicado.
+- [ ] **AutoPost IA — ordem do resultado**: gerado o pacote, a tela mostra primeiro o placar da
+      revisão, depois o **pacote** (título, legenda, hashtags, palavras-chave) e só então, sob o
+      rótulo **CONTEÚDO DE ORIGEM**, a transcrição — com "Copiar" e "🔍 Avaliar potencial" ainda
+      no cabeçalho dela, e a análise aparecendo logo abaixo. Vale igual ao reabrir um item em
+      "Meus pacotes".
 - [ ] **AutoPost IA — categoria do vídeo**: na tela de revisão, antes de gerar, aparece a grade
       **Categoria do vídeo** (fora do bloco recolhido "Opções de geração"). Escolher uma marca o
       chip; a ★ favorita SEM selecionar a categoria, e a favorita sobe para o topo, separada do

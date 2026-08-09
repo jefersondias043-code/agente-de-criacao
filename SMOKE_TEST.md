@@ -46,6 +46,14 @@ No navegador (http://localhost:8080):
       causa e avaliação; acontecimento observado ("a ponte foi interditada") dispensa. Se o
       texto voltar sem nenhuma atribuição e a pauta tinha declarações, o resultado mostra o
       ponto de atenção "A pauta traz N informação(ões) declarada(s)…".
+- [ ] **Gerar — Juízo sem dono**: numa pauta institucional (release de prefeitura, anúncio de
+      compra), ler os parágrafos do corpo **um a um**, como quem chega neles sem ter lido o
+      anterior. Nenhum pode avaliar sem dizer quem avalia — "é um exemplo de gestão eficaz",
+      "é um passo importante", "é um sinal de que a prefeitura está comprometida" têm de sair
+      com "Segundo o prefeito…" ou não sair. Atribuir só no lead NÃO basta: o leitor entende
+      cada parágrafo como voz do portal. Se escapar, o resultado mostra o ponto de atenção
+      "O(s) parágrafo(s) Nº … avalia(m) sem dizer quem avalia". Matéria mais curta é resultado
+      aceitável — encher com elogio sem dono não é.
 - [ ] **Gerar — Comentários**: o seletor tem 4 opções e começa em "Sem comentários"; trocar
       atualiza a legenda e a escolha sobrevive ao recarregar. Com uma direção ativa, o resultado
       e o histórico ganham o selo "Comentários: …". Gerando com **Negativos** sobre uma pauta

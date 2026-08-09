@@ -384,6 +384,7 @@ function buildWriterPrompt(interp, style, tone, comentarios) {
     '6. Eu me limitei a repetir os fatos, ou também os interpretei e argumentei a partir deles? Matéria sem leitura é boletim.',
     '7. Há acusação, crime ou apuração no texto? Então: usei o termo da fase processual correta, atribuí a informação e registrei o outro lado (ou a ausência dele)?',
     '7b. ATRIBUIÇÃO: confira a lista "ATRIBUIÇÕES" item a item. Cada uma dessas informações aparece na matéria COM a fonte? Alguma promessa, previsão, número, causa ou avaliação ficou escrita como se fosse do veículo? Devolva a fonte antes de responder.',
+    '7c. JUÍZO SEM DONO — PARÁGRAFO A PARÁGRAFO: leia cada parágrafo isolado, como quem chega nele sem ter lido o anterior. Ele avalia alguma coisa ("é um exemplo de…", "é um passo importante", "é um sinal de…", "demonstra o compromisso…", "gestão eficaz")? Se avalia, o dono do juízo está NAQUELE parágrafo? Fonte citada no primeiro parágrafo NÃO cobre o terceiro. Se o juízo veio da fonte, devolva o dono; se não veio de ninguém, apague a frase — a matéria pode ficar mais curta, e isso é melhor do que o veículo assinar a opinião de outro.',
     '8. Alguma frase afirma como PROVADO algo que o material não prova? Se sim, reescreva atribuindo ou recue para o que se sustenta.',
     '9. Sobrou alguma palavra de juízo herdada da fonte que puxa para o lado CONTRÁRIO ao tom pedido? Fora dela — sem tirar o acontecimento.',
     '10. Inventei alguma comparação, avaliação sem dono ("foi considerado…") ou consequência para sustentar o tom? Se sim, troque pelo que o material realmente traz.',
@@ -544,6 +545,7 @@ function buildEditorPrompt(article, interp, style, tone, conflitos, repeticoes, 
     '2. Sua versão ficou mais NEUTRA que a original? Se sim, você apagou o tom — devolva a intensidade.',
     '3. Sobrou alguma afirmação que acusa alguém sem atribuição ou sem respaldo nos fatos? Reescreva atribuindo.',
     '3b. Alguma atribuição ("segundo…", "de acordo com…") sumiu da sua versão em relação à original? Se sim, devolva: a matéria passou a afirmar por conta própria o que era de outra pessoa.',
+    '3c. Percorra os parágrafos UM A UM. Existe algum que avalia sem dono no próprio parágrafo ("é um exemplo de…", "é um passo importante", "é um sinal de…", "demonstra o compromisso…")? Atribuição no parágrafo anterior não vale — o leitor lê cada parágrafo como voz do veículo. Devolva o dono ou corte a frase. Cortar é permitido mesmo que o texto encurte.',
     blocoComentario
       ? '4. Restou expressão de juízo puxando o RELATO para o lado contrário ao tom? Corrija — sem tocar na camada de comentário, que tem direção própria e pedida.'
       : '4. Restou alguma expressão de juízo puxando para o lado contrário ao tom? A matéria tem que soar como UMA voz do início ao fim.',
@@ -907,7 +909,7 @@ function _temAlgum(texto, termos) {
  * avisar a encher a tela de alarme falso, porque aviso que sempre aparece é
  * aviso que ninguém lê.
  */
-function auditarRiscoJuridico(article, interp) {
+function auditarRiscoJuridico(article, interp, comentarios) {
   const texto = articleAllText(article);
   const t = texto.toLowerCase();
   const i = interp || {};
@@ -949,6 +951,44 @@ function auditarRiscoJuridico(article, interp) {
     avisos.push({
       tipo: 'sem-atribuicao',
       aviso: `A pauta traz ${declaracoes} informação(ões) declarada(s) por alguém, mas a matéria não usa nenhuma atribuição ("segundo…", "de acordo com…"). Do jeito que está, o texto assume como do veículo o que é de outra pessoa — se a promessa não se cumprir, o erro passa a ser seu.`,
+    });
+  }
+
+  // 2c) JUÍZO DE VALOR SEM DONO — PARÁGRAFO A PARÁGRAFO.
+  //
+  // A checagem 2b olha o texto INTEIRO: um único "segundo o prefeito" no lead
+  // já a satisfazia. Foi exatamente assim que passou a matéria relatada — lead
+  // atribuído, e depois três parágrafos afirmando "é um passo importante", "é
+  // um exemplo de gestão eficaz", "é um sinal de que a prefeitura está
+  // comprometida", sem dono nenhum. Nenhum aviso era emitido.
+  //
+  // Aqui a unidade é o parágrafo, que é como o leitor lê: uma fonte bem posta
+  // cobre o parágrafo dela, não a matéria toda.
+  //
+  // Os dois modos são tratados diferente de propósito. Com a camada de
+  // comentário LIGADA o usuário pediu opinião do veículo, e acusar todo
+  // parágrafo opinativo seria brigar com o recurso — então só o elogio de
+  // fórmula é cobrado, que as próprias regras de comentário já proíbem.
+  const juizoTodos = (typeof SAFETY_MARCADORES_JUIZO !== 'undefined') ? SAFETY_MARCADORES_JUIZO : [];
+  const juizoVazio = (typeof SAFETY_JUIZO_VAZIO !== 'undefined') ? SAFETY_JUIZO_VAZIO : [];
+  const comComentario = (typeof comentarioAtivo === 'function') && comentarioAtivo(comentarios);
+  const procurados = comComentario ? juizoVazio : juizoTodos;
+  const paragrafos = [article && article.lead]
+    .concat((article && article.corpo) || [])
+    .filter((p) => typeof p === 'string' && p.trim());
+  const orfaos = [];
+  paragrafos.forEach((p, idx) => {
+    if (_temAlgum(p, atribuicao)) return;          // a fonte cobre este parágrafo
+    const achado = procurados.find((m) => p.toLowerCase().includes(m));
+    if (achado) orfaos.push({ n: idx + 1, frase: achado });
+  });
+  if (orfaos.length) {
+    const quais = orfaos.map((o) => `${o.n}º ("${o.frase}")`).join(', ');
+    avisos.push({
+      tipo: 'juizo-sem-dono',
+      aviso: comComentario
+        ? `Elogio de fórmula sem fato ao lado no(s) parágrafo(s) ${quais}. Comentário opinativo é leitura SUA sobre um fato relatado — repetir o vocabulário do release ("passo importante", "exemplo de gestão") devolve ao leitor a opinião da fonte assinada pelo veículo.`
+        : `O(s) parágrafo(s) ${quais} avalia(m) sem dizer quem avalia. Quem lê entende que a opinião é do veículo. Se o juízo veio da fonte, devolva o dono ("Segundo o prefeito…"); se não veio de ninguém, corte — a matéria pode ficar mais curta.`,
     });
   }
 
@@ -1094,7 +1134,7 @@ async function runContentPipeline({ content, style, tone, comentarios, onStage, 
 
   // Auditoria de risco jurídico sobre o texto FINAL — não reescreve nada,
   // devolve pontos para o usuário conferir antes de publicar.
-  const riscos = auditarRiscoJuridico(articleFinal, interpretation);
+  const riscos = auditarRiscoJuridico(articleFinal, interpretation, comentarios);
 
   const contentText = articleToPlainText(articleFinal);
 

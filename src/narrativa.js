@@ -936,6 +936,21 @@ function renderNarrDiagnostico() {
   const d = narrColetar();
   const diag = diagnosticarNarrativa(d);
 
+  // TELA VAZIA NÃO LEVA VEREDITO. Abrir a ferramenta e receber "SITUAÇÃO" com
+  // três X vermelhos é a mesma intimidação que os cinco campos em branco
+  // causavam: o usuário ainda não escreveu nada, não há o que diagnosticar. O
+  // painel entra quando existe matéria-prima — e aí ele ajuda, em vez de
+  // repreender.
+  const vazia = !String(d.ideia || '').trim() && !String(d.desejo || '').trim()
+    && !String(d.obstaculo || '').trim() && !String(d.risco || '').trim();
+  if (vazia) {
+    host.innerHTML = '';
+    const btn0 = $('#n-submit');
+    if (btn0) { btn0.disabled = false; btn0.title = ''; }
+    if (typeof renderNarrPerguntaFoco === 'function') renderNarrPerguntaFoco(diag);
+    return diag;
+  }
+
   const checks = diag.perguntas.map((p) => `
     <div class="narr-check narr-${p.status}">
       <span class="narr-check-icon">${narrStatusIcone(p.status)}</span>
@@ -966,18 +981,58 @@ function renderNarrDiagnostico() {
     <div class="narr-checks">${checks}</div>
     ${avisos}`;
 
-  // A trava: enquanto for situação, a ferramenta não escreve. É o ponto inteiro
-  // do lema — conteúdo bem escrito sobre uma situação continua sendo situação.
+  // O BOTÃO NÃO TRAVA MAIS. A trava existia para impedir que a ferramenta
+  // escrevesse sobre uma situação — o que continua valendo —, mas ela cobrava
+  // isso do jeito mais caro possível: cinco campos em branco e um botão morto,
+  // sem dizer como sair dali. Agora quem responde as três perguntas primeiro é
+  // a IA, lendo a ideia; se ainda faltar alguma, a ferramenta pergunta UMA
+  // coisa, na hora do clique. O lema continua inteiro — muda quem carrega o
+  // peso de satisfazê-lo.
   const btn = $('#n-submit');
-  if (btn) {
-    btn.disabled = !diag.pronto;
-    btn.title = diag.pronto ? '' : 'Responda às três perguntas antes de escrever.';
-  }
+  if (btn) { btn.disabled = false; btn.title = ''; }
   const hint = $('#n-submit-hint');
-  if (hint) {
-    hint.textContent = diag.pronto ? '⌘/Ctrl + Enter' : 'Responda às três perguntas para liberar';
-  }
+  if (hint) hint.textContent = '⌘/Ctrl + Enter';
+  if (typeof renderNarrPerguntaFoco === 'function') renderNarrPerguntaFoco(diag);
   return diag;
+}
+
+/* PERGUNTA FOCADA — o substituto do formulário.
+ *
+ * Quando falta uma das três respostas, a ferramenta mostra UMA pergunta, com o
+ * texto do lema que explica por que ela importa, e um campo só. Responder ali
+ * grava no rascunho e segue. Cinco campos vazios de uma vez é o que fazia a
+ * ferramenta parecer difícil; uma pergunta por vez é uma conversa. */
+function renderNarrPerguntaFoco(diag) {
+  const alvo = $('#n-pergunta-foco');
+  if (!alvo) return;
+  const falta = (diag.perguntas || []).find((q) => q.status === 'faltando');
+  // Só cobra depois que existe matéria-prima. Numa tela vazia, uma pergunta
+  // aberta é exatamente o formulário que esta mudança veio eliminar.
+  const temIdeia = String(narrativaDraft().ideia || '').trim().length >= 12;
+  if (!falta || !temIdeia) { alvo.innerHTML = ''; return; }
+  const campo = falta.id;
+  alvo.innerHTML = `
+    <div class="narr-foco">
+      <div class="narr-foco-tit">${escapeHtml(falta.pergunta || falta.papel)}</div>
+      <div class="narr-foco-dica">${escapeHtml(falta.dica || falta.mensagem || '')}</div>
+      <textarea class="textarea textarea-answer" id="n-foco-input" rows="2"
+        placeholder="${escapeHtml(falta.dica || 'Responda em uma linha')}"></textarea>
+      <button type="button" class="btn btn-sm" id="n-foco-ok">Pronto, continuar</button>
+    </div>`;
+  const input = $('#n-foco-input');
+  const ok = $('#n-foco-ok');
+  const gravar = () => {
+    const v = String(input.value || '').trim();
+    if (!v) { toast('Escreva uma linha para continuar.', 'error'); return; }
+    const d = narrativaDraft();
+    d[campo] = v;
+    const espelho = $('#n-' + campo);
+    if (espelho) espelho.value = v;
+    saveNarrativaDraft();
+    renderNarrDiagnostico();
+  };
+  if (ok) ok.onclick = gravar;
+  if (input) input.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); gravar(); } };
 }
 
 /** Preenche os campos com o que a IA devolveu, respeitando o que já existe
@@ -1366,10 +1421,29 @@ function renderNarrativa() {
 
     // --- IA 3: escrever o conteúdo ---
     if ($('#n-submit')) $('#n-submit').onclick = async () => {
-      const d = narrColetar();
-      const diag = diagnosticarNarrativa(d);
+      let d = narrColetar();
+      let diag = diagnosticarNarrativa(d);
+
+      // UM CLIQUE, NÃO ONZE CAMPOS. Se as três perguntas ainda não têm resposta,
+      // a ferramenta lê a ideia e responde por conta própria antes de qualquer
+      // cobrança. Só se AINDA faltar alguma é que o usuário é chamado — e para
+      // uma pergunta, não para um formulário.
+      if (!diag.pronto && String(d.ideia || '').trim().length >= 12) {
+        const btn0 = $('#n-submit');
+        try {
+          const r = await narrChamarIA(btn0, 'Lendo a sua ideia…', buildExtracaoNarrativaPrompt(d.ideia));
+          const obj = (typeof extractJSON === 'function') ? extractJSON(r && r.content) : null;
+          if (obj) narrAplicarSugestao(obj);
+        } catch (err) { /* segue: o usuário responde à mão */ }
+        d = narrColetar();
+        diag = diagnosticarNarrativa(d);
+      }
+
       if (!diag.pronto) {
-        toast('Ainda é uma situação: responda às três perguntas antes de escrever.', 'error', 6000);
+        renderNarrDiagnostico();
+        const foco = $('#n-foco-input');
+        if (foco) { foco.scrollIntoView({ behavior: 'smooth', block: 'center' }); foco.focus(); }
+        toast('Falta uma resposta para a história existir — é só uma linha.', 'info', 6000);
         return;
       }
       const perfis = State.portals || [];

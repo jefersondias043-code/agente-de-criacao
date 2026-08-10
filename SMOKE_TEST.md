@@ -27,14 +27,18 @@ No navegador (http://localhost:8080):
       acendendo em sequência e o resultado traz hashtags copiáveis + chip "Design sugerido". No
       modo **Rápido**, gerar mostra spinner simples (sem selos) e o resultado NÃO traz hashtags
       nem chip de design (paridade com o comportamento anterior ao pipeline).
-- [ ] **Narrativa**: com os campos vazios, o painel mostra **Situação** e o botão
-      "Escrever conteúdo" fica **desabilitado**. Preencher desejo + obstáculo + risco vira
-      **História** e libera o botão. Responder "nada" no obstáculo (ou "é só pedir ajuda")
-      volta a travar — é o lema aplicado, não um bug. O diagnóstico funciona **sem chave de
-      API e offline**. Trocar de ferramenta e voltar preserva o rascunho; recarregar a página
-      também. Com chave configurada: "Achar a história com IA" preenche só os campos vazios,
-      "Afiar com IA" reescreve as três respostas e oferece **Desfazer**, e o conteúdo gerado
-      entra no histórico e na barra "Enviar para".
+- [ ] **Narrativa — um campo, um clique**: ao abrir, a tela mostra **só** o campo "Conte a sua
+      história" e o botão **Criar conteúdo** (habilitado). Nada de veredito nem X vermelho na
+      tela vazia. As seções **A história em detalhe**, **Ajustes** e **O lema** começam
+      fechadas — tudo continua lá para quem quiser.
+      Escrever uma ideia e clicar **uma vez**: a ferramenta lê a ideia, responde sozinha às três
+      perguntas do lema (confira em "A história em detalhe") e escreve o conteúdo.
+      Se a ideia for vaga demais, aparece **UMA** pergunta focada (não um formulário) com o
+      texto do lema explicando por que ela importa; responder ali e o fluxo segue.
+      O lema continua valendo: uma situação sem obstáculo ou sem risco não vira conteúdo —
+      só que agora a ferramenta ajuda a chegar lá em vez de travar o botão.
+      Diagnóstico segue **sem chave de API e offline**; rascunho sobrevive a trocar de
+      ferramenta e a recarregar. "Afiar as respostas" e o histórico continuam disponíveis.
 - [ ] **Narrativa — elenco**: "Adicionar personagem" cria a linha e já foca o nome; digitar não
       perde o foco. Personagem sem desejo declarado vira aviso (nunca trava — os três portões
       continuam sendo do protagonista). Trocar o formato muda o limite de elenco (Reels avisa

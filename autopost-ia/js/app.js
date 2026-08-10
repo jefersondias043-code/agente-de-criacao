@@ -325,6 +325,9 @@ function montarBriefing(opcoes, fonteTexto) {
     // texto. A categoria entra com o CONTEXTO junto, não só o rótulo: é o que
     // diz à IA quem assiste e com que vocabulário esse público busca.
     niche: (typeof categoriaParaBriefing === 'function') ? categoriaParaBriefing(opcoes.categoria) : '',
+    // O rótulo da categoria, sozinho. Serve para a conferência saber qual
+    // palavra NÃO cabe na posição de assunto — é o nome do balcão, não do prato.
+    categoriaTexto: catLabel,
     extra: '(nenhum)',
     checklist: Object.keys(checklist).length ? checklist : null
   };
@@ -407,7 +410,7 @@ async function gerarPacoteFinal() {
       // Conferência determinística: as hashtags saíram DESTE conteúdo ou são as
       // que caberiam em qualquer vídeo do nicho? O juiz é uma LLM e às vezes
       // aprova um conjunto genérico; esta conta não.
-      const auditoria = auditarHashtags(pacote, texto);
+      const auditoria = auditarHashtags(pacote, texto, briefing.categoriaTexto);
       const notaEfetiva = avaliacao.nota_total - penalidadeHashtags(auditoria);
 
       if (!melhor || notaEfetiva > melhor.notaEfetiva) melhor = { pacote, avaliacao, notaEfetiva };
@@ -491,10 +494,10 @@ async function regenerarCampoUI(id, campo, btnEl) {
     // é justamente aqui que clica quem não gostou das tags, e devolver outro
     // conjunto genérico seria repetir o problema com palavras diferentes.
     if (campo === 'hashtags') {
-      const a = auditarHashtags({ hashtags: novo }, conteudo);
+      const a = auditarHashtags({ hashtags: novo }, conteudo, briefing.categoriaTexto);
       if (!a.ok) {
         const outra = await gerarVariacaoCampo(campo, conteudo, item.pacote || {}, briefing, a.problemas);
-        const b = auditarHashtags({ hashtags: outra }, conteudo);
+        const b = auditarHashtags({ hashtags: outra }, conteudo, briefing.categoriaTexto);
         if (Array.isArray(outra) && outra.length && penalidadeHashtags(b) <= penalidadeHashtags(a)) novo = outra;
       }
     }

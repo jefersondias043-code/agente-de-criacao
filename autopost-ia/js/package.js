@@ -123,7 +123,7 @@ As hashtags novas TÊM de sair deste conteúdo: assunto concreto, nomes próprio
 const RUBRICA_PACOTE = [
   { id: 'titulo',             nome: 'Título com gancho forte',            desc: 'Abre loop / curiosidade real, 50–80 caracteres, sem clickbait barato, linguagem de fala natural.' },
   { id: 'legenda',            nome: 'Legenda otimizada',                  desc: '150–300 caracteres; os primeiros 80–100 prendem; termina com pergunta que puxa comentário; não embute as hashtags.' },
-  { id: 'hashtags',           nome: 'Hashtags específicas deste conteúdo', desc: 'Exatamente 5 na fórmula 1 ampla · 1 assunto · 2 nicho · 1 intenção; buscáveis; sem acento/espaço. DERIVADAS do conteúdo: pelo menos 3 carregam um termo que aparece nele (assunto, nome próprio, lugar, objeto, situação). Conjunto que serviria para qualquer vídeo da mesma categoria, ou tag de plataforma (fyp, parati, viral, reels), é falha grave — nota 0-3.' },
+  { id: 'hashtags',           nome: 'Hashtags específicas deste conteúdo', desc: 'Exatamente 5 na fórmula 1 ampla · 1 assunto · 2 nicho · 1 intenção; buscáveis; sem acento/espaço. DERIVADAS do conteúdo: pelo menos 3 carregam um termo que aparece nele (assunto, nome próprio, lugar, objeto, situação). Conjunto que serviria para qualquer vídeo da mesma categoria, ou tag de plataforma (fyp, parati, viral, reels), é falha grave — nota 0-3. A de ASSUNTO não pode ser o nome da categoria escolhida: nessa posição ela sairia igual em todo conteúdo do nicho.' },
   { id: 'palavras_chave',     nome: 'Palavras-chave de SEO',              desc: '8–12 termos de busca reais e variados (amplos + nicho), sem repetir as hashtags, ligados ao conteúdo informado.' },
   { id: 'coerencia',          nome: 'Coerência geral da publicação',      desc: 'Título, legenda, hashtags e palavras-chave falam do MESMO conteúdo, sem contradição nem promessa que o vídeo não entrega.' },
   { id: 'engajamento',        nome: 'Potencial de engajamento',           desc: 'O conjunto provoca ação: comentar, compartilhar, salvar ou assistir até o fim.' },
@@ -256,7 +256,41 @@ function hashtagAncorada(tag, palavras) {
 // pacote genérico, não para reprovar um conjunto bom por uma palavra.
 const MIN_HASHTAGS_ANCORADAS = 2;
 
-function auditarHashtags(pacote, conteudo) {
+/* A TAG DE ASSUNTO NÃO É O NOME DO NICHO.
+ *
+ * Relatado: com a categoria selecionada, a tag de assunto vem fixa — todo
+ * conteúdo daquele nicho sai com a mesma. A regra anterior dizia, com todas as
+ * letras, que ali uma tag reaproveitável entre vídeos era aceitável; com o
+ * rótulo da categoria escrito no prompt, o caminho mais curto era copiá-lo.
+ *
+ * A verificação abaixo é DE PROPÓSITO a mais estreita possível: olha só a
+ * posição de assunto e só compara com as palavras do rótulo da categoria. Não
+ * proíbe vocabulário nenhum além dessas — uma tentativa anterior de guiar a
+ * variação por lista de proibições produziu hashtags sem relação com o conteúdo
+ * e teve de ser desfeita. Aqui não há lista: há uma palavra que não cabe
+ * naquela posição, que é justamente o nome do balcão. */
+function palavrasDaCategoria(texto) {
+  return [...new Set(String(texto || '')
+    .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 4))];
+}
+
+function hashtagEhNomeDaCategoria(tag, categoriaTexto) {
+  const t = _normalizarTag(tag);
+  return !!t && palavrasDaCategoria(categoriaTexto).indexOf(t) >= 0;
+}
+
+/** A hashtag marcada como "assunto", quando a IA marcou os tipos. Depois de uma
+ *  edição manual as tags viram texto puro e o tipo se perde — aí não há o que
+ *  conferir, e conferir errado seria pior. */
+function hashtagDeAssunto(pacote) {
+  const lista = Array.isArray(pacote && pacote.hashtags) ? pacote.hashtags : [];
+  const achada = lista.find((h) => h && typeof h === 'object' && h.tipo === 'assunto');
+  return achada ? String(achada.tag || '') : '';
+}
+
+function auditarHashtags(pacote, conteudo, categoriaTexto) {
   const tags = (Array.isArray(pacote && pacote.hashtags) ? pacote.hashtags : [])
     .map((h) => (typeof h === 'string' ? h : (h && h.tag) || ''))
     .filter(Boolean);
@@ -264,14 +298,20 @@ function auditarHashtags(pacote, conteudo) {
   const genericas = tags.filter(hashtagEhGenerica);
   const ancoradas = tags.filter((t) => !hashtagEhGenerica(t) && hashtagAncorada(t, palavras));
 
+  const assunto = hashtagDeAssunto(pacote);
+  const assuntoEhNicho = !!assunto && hashtagEhNomeDaCategoria(assunto, categoriaTexto);
+
   const problemas = [];
+  if (assuntoEhNicho) {
+    problemas.push(`a hashtag de assunto (#${_normalizarTag(assunto)}) é o nome da categoria escolhida. Nessa posição ela sai igual em TODO conteúdo deste nicho — e é a posição que deveria dizer que tipo de história é esta. Troque pelo que acontece neste vídeo.`);
+  }
   if (genericas.length) {
     problemas.push(`${genericas.length} hashtag(s) de plataforma (${genericas.map((t) => '#' + _normalizarTag(t)).join(' ')}): elas cabem em qualquer vídeo e ninguém as busca procurando este assunto. Troque por termos tirados do conteúdo.`);
   }
   if (tags.length && ancoradas.length < MIN_HASHTAGS_ANCORADAS) {
     problemas.push(`só ${ancoradas.length} de ${tags.length} hashtags trazem um termo que aparece no conteúdo — o mínimo é ${MIN_HASHTAGS_ANCORADAS}, e o alvo é 3. O conjunto atual serviria para qualquer vídeo da mesma categoria. Use o assunto concreto, os nomes próprios, o lugar e a situação do conteúdo.`);
   }
-  return { tags, genericas, ancoradas, problemas, ok: problemas.length === 0 };
+  return { tags, genericas, ancoradas, assunto, assuntoEhNicho, problemas, ok: problemas.length === 0 };
 }
 
 /** Desconto de desempate: entre duas versões, a que personaliza ganha. Não é
@@ -279,7 +319,7 @@ function auditarHashtags(pacote, conteudo) {
 function penalidadeHashtags(auditoria) {
   if (!auditoria) return 0;
   const faltando = Math.max(0, MIN_HASHTAGS_ANCORADAS - auditoria.ancoradas.length);
-  return auditoria.genericas.length * 5 + faltando * 5;
+  return auditoria.genericas.length * 5 + faltando * 5 + (auditoria.assuntoEhNicho ? 5 : 0);
 }
 
 // =================== VARIAÇÃO DE UM ÚNICO ITEM (regeneração por card) ===================

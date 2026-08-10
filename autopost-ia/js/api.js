@@ -142,16 +142,17 @@ Antes de escrever qualquer hashtag, levante no conteúdo:
 - a situação específica vivida (o que exatamente acontece)
 - o que a pessoa sente ou procura ao assistir
 
-A categoria informada pelo usuário serve para você entender o público e o vocabulário de busca dele. Ela NÃO é fonte de hashtag: não transforme o nome da categoria em tag e não use um conjunto "padrão do nicho". Dois vídeos da mesma categoria, com assuntos diferentes, têm de receber hashtags diferentes.
+SOBRE A CATEGORIA / NICHO INFORMADO: ele descreve QUEM assiste e COMO essa pessoa busca. É pano de fundo para você calibrar o vocabulário — nunca a fonte da hashtag. Não transforme o nome da categoria em tag, não copie os termos citados na descrição dela (são ilustração de como aquele público busca, não tags prontas) e não recorra a um conjunto "padrão do nicho". Dois vídeos da mesma categoria, com assuntos diferentes, têm de receber hashtags diferentes.
 
 Devolva EXATAMENTE 5, nesta distribuição:
-1. AMPLA — a maior porta de entrada DO ASSUNTO deste vídeo (não da categoria escolhida, não da plataforma). É por onde alguém interessado no tema chegaria.
-2. ASSUNTO — o formato/tipo deste conteúdo. É o ÚNICO lugar onde uma tag reaproveitável entre vídeos é aceitável.
+1. AMPLA — a porta de entrada DO ASSUNTO DESTE VÍDEO. Não é o nome da categoria escolhida, não é o tema geral do canal e não é a plataforma: é por onde alguém interessado NO QUE ACONTECE AQUI chegaria.
+2. ASSUNTO — o formato exato deste vídeo: o que ele É. Um relato? um passo a passo? um bastidor? uma comparação? uma resposta a alguém? um antes e depois? Vídeos diferentes do mesmo nicho têm formatos diferentes — não devolva sempre a mesma tag de assunto.
 3 e 4. NICHO (duas) — as mais específicas do conjunto. É aqui que entram o nome próprio, o lugar, o objeto, a profissão ou a situação exata que aparecem no conteúdo.
-5. INTENÇÃO / EMOÇÃO — o que a pessoa sente ao assistir ou o estado que ela procura.
+5. INTENÇÃO / EMOÇÃO — o que a pessoa sente COM ESTA HISTÓRIA. Não a emoção típica da categoria (essa caberia em qualquer vídeo dela), mas a que ESTE conteúdo provoca.
 
 PROVA OBRIGATÓRIA ANTES DE DEVOLVER:
 - Pelo menos 3 das 5 precisam carregar um termo tirado do conteúdo. Se o mesmo conjunto serviria para outro vídeo da mesma categoria com assunto diferente, ele está errado — refaça.
+- AMPLA, ASSUNTO e INTENÇÃO são as que mais escorregam para o piloto automático do nicho: as duas de nicho mudam sozinhas de um vídeo para outro, essas três não. Confira uma a uma se cada uma mudaria caso o conteúdo fosse outro dentro da mesma categoria. Se não mudaria, ela veio da categoria e não do vídeo — troque.
 - NUNCA use tag de plataforma ou de alcance vazio: fyp, foryou, foryoupage, parati, paravoce, viral, viralizar, tiktok, reels, shorts, explorar, trending, tendencia, seguidores, curtidas. Ninguém busca por elas procurando este assunto.
 
 EXEMPLO DE RACIOCÍNIO (as tags abaixo pertencem ÀQUELE vídeo; não as reaproveite):

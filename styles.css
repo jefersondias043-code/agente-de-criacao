@@ -2806,3 +2806,26 @@ body.pe-full #view-posters { animation: none; }
   background-position: 0 0, 7px 7px;
   background-color: #fff;
 }
+
+
+/* ===== NARRATIVA — campo único e pergunta focada (r201) =====
+   A ferramenta pedia 11 decisões antes de liberar o botão. Agora a tela tem um
+   campo e um botão; quando falta uma das três respostas do lema, aparece UMA
+   pergunta aqui — não um formulário. */
+.narr-hero { padding-bottom: 1rem; }
+.narr-hero .textarea { font-size: 1.02rem; line-height: 1.5; }
+.narr-foco {
+  margin-top: 0.9rem;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--accent);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  background: var(--accent-glow, rgba(0,0,0,0.03));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.narr-foco-tit { font-weight: 700; font-size: 0.98rem; color: var(--ink); }
+.narr-foco-dica { font-size: 0.84rem; color: var(--ink-soft, var(--muted)); }
+.narr-foco .textarea { margin: 0; }
+.narr-foco .btn { align-self: flex-start; }

@@ -50,8 +50,12 @@ function causoLimparResultado() {
 }
 
 /** Como a mesa avaliou. Fica recolhido: quem quer a história não quer a ata,
- *  mas quem recebeu um causo fraco precisa poder ver onde ele falhou. */
-function causoPainelDaMesa(item) {
+ *  mas quem recebeu um causo fraco precisa poder ver onde ele falhou — e agir.
+ *
+ *  `opcoes.aberto` mantém a ata aberta depois de re-renderizar: quem clicou num
+ *  botão de dentro dela não pode ver o painel se fechar na própria cara. */
+function causoPainelDaMesa(item, opcoes) {
+  const o = opcoes || {};
   const j = item.juizo || {};
   const avaliadas = j.avaliadas || [];
   if (!avaliadas.length) return '';
@@ -66,17 +70,120 @@ function causoPainelDaMesa(item) {
       </div>`;
   }).join('');
   const especialistas = (item.criticas || []).map((c) => (CAUSO_CRITICOS[c.critico] || {}).label || c.critico);
+  const reprovadas = (j.ordens || []).length;
+
+  /* A ata dizia o que ficou fraco e parava aí: para agir sobre o diagnóstico, a
+   * única saída era gerar outro causo do zero, jogando fora o texto bom. Daqui
+   * a revisão parte do TEXTO QUE ESTÁ NA TELA. */
+  const acoes = reprovadas ? `
+      <div class="causo-mesa-acoes">
+        <div class="text-xs text-mute">
+          A revisão parte do causo que está aí — não da sua ideia — e mexe só ${reprovadas === 1 ? 'nesse ponto' : `nesses ${reprovadas} pontos`}. Depois a mesa lê de novo.
+        </div>
+        <div class="flex gap-1 flex-wrap">
+          <button class="btn btn-sm" id="c-revisar" type="button">
+            Revisar ${reprovadas === 1 ? 'o ponto fraco' : `os ${reprovadas} pontos fracos`}
+          </button>
+          ${item.anterior ? '<button class="btn btn-ghost btn-sm" id="c-desfazer" type="button">Desfazer revisão</button>' : ''}
+        </div>
+      </div>` : (item.anterior ? `
+      <div class="causo-mesa-acoes">
+        <div class="text-xs text-mute">Nada reprovado agora.</div>
+        <button class="btn btn-ghost btn-sm" id="c-desfazer" type="button">Desfazer revisão</button>
+      </div>` : '');
+
   return `
-    <details class="causo-mesa">
+    <details class="causo-mesa"${o.aberto ? ' open' : ''}>
       <summary>Como a mesa avaliou${j.aprovado ? '' : ' · entregue com ressalva'}</summary>
       <div class="causo-mesa-body">
         <div class="text-xs text-mute mb-1">Leram: ${escapeHtml(especialistas.join(' · '))}. A nota que vale é a mais baixa — média não esconde defeito.</div>
         ${linhas}
+        ${acoes}
       </div>
     </details>`;
 }
 
-function renderCausoResultado(item) {
+/* A REVISÃO A PEDIDO.
+ *
+ * Uma armadilha que só aparece aqui: o causo em revisão JÁ ESTÁ no histórico, e
+ * o histórico é a memória da mesa. Sem tirar o próprio item da memória, o
+ * crítico de originalidade compararia o texto com ele mesmo e acusaria
+ * "abertura repetida" em toda revisão — falso positivo garantido, criado pela
+ * própria arquitetura. */
+function causoMemoriaExceto(id) {
+  return causoMemoriaDe((State.causos || []).filter((x) => x && x.id !== id));
+}
+
+async function revisarCausoAtual(item) {
+  const btn = $('#c-revisar');
+  if (!btn || btn.disabled) return;
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> A mesa revisa…';
+  const dsc = $('#c-revisar-status');
+
+  try {
+    const antes = {
+      conteudo: item.conteudo, juizo: item.juizo,
+      criticas: item.criticas, assinatura: item.assinatura,
+    };
+    const res = await revisarCausoExistente({
+      texto: item.conteudo,
+      dossie: item.dossie,
+      ordens: (item.juizo && item.juizo.ordens) || [],
+      juizoAnterior: item.juizo,
+      memoria: causoMemoriaExceto(item.id),
+      call: callLLM,
+      onEtapa: (_k, titulo) => { if (dsc) dsc.textContent = titulo; },
+    });
+
+    // Um passo atrás, como o "Desfazer" da Narrativa. Guardar a cadeia inteira
+    // seria histórico de versões — outra funcionalidade, com outra tela.
+    item.anterior = antes;
+    item.conteudo = res.conteudo;
+    item.juizo = res.juizo;
+    item.criticas = res.criticas;
+    // A assinatura alimenta a memória da mesa: deixá-la para trás guardaria a
+    // abertura de uma versão que não existe mais.
+    item.assinatura = res.assinatura;
+    item.revisoes = (item.revisoes || 0) + 1;
+    item.atualizadoEm = new Date().toISOString();
+    saveCausos();
+    renderCausoResultado(item, { mesaAberta: true });
+    renderCausoHistorico();
+
+    const pior = (res.juizo.reprovadas || [])[0];
+    if (res.juizo.aprovado) {
+      toast('Revisado — a mesa aprovou.', 'success', 6000);
+    } else if (res.melhorou) {
+      toast(`Revisado. Melhorou, mas ${pior ? pior.dimensao : 'um ponto'} ainda está em ${pior ? pior.nota : '?'}/10.`, 'success', 7000);
+    } else {
+      toast(`A revisão não melhorou${pior ? `: ${pior.dimensao} continua em ${pior.nota}/10` : ''}. Dá para desfazer.`, 'info', 8000);
+    }
+  } catch (err) {
+    toast(err.message || 'Não foi possível revisar.', 'error', 6000);
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+}
+
+function desfazerRevisaoCauso(item) {
+  const a = item.anterior;
+  if (!a) return;
+  item.conteudo = a.conteudo;
+  item.juizo = a.juizo;
+  item.criticas = a.criticas;
+  item.assinatura = a.assinatura;
+  item.anterior = null;
+  item.revisoes = Math.max(0, (item.revisoes || 1) - 1);
+  saveCausos();
+  renderCausoResultado(item, { mesaAberta: true });
+  renderCausoHistorico();
+  toast('Versão anterior restaurada.', 'success');
+}
+
+function renderCausoResultado(item, opcoes) {
+  const o = opcoes || {};
   const area = $('#c-result-area');
   if (!area) return;
   _causoResultadoVisivel = true;
@@ -98,8 +205,13 @@ function renderCausoResultado(item) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
       </button>
     </div>
-    ${causoPainelDaMesa(item)}
-    <div class="text-xs text-mute mt-2">${escapeHtml((causoGenero(item.dossie && item.dossie.genero).label) + (item.dossie && item.dossie.estrutura ? ' · ' + item.dossie.estrutura : ''))}</div>`;
+    ${causoPainelDaMesa(item, { aberto: !!o.mesaAberta })}
+    <div class="text-xs text-mute mt-2" id="c-revisar-status">${escapeHtml((causoGenero(item.dossie && item.dossie.genero).label) + (item.dossie && item.dossie.estrutura ? ' · ' + item.dossie.estrutura : '') + (item.revisoes ? ` · revisado ${item.revisoes}×` : ''))}</div>`;
+
+  const revisar = $('#c-revisar');
+  if (revisar) revisar.onclick = () => revisarCausoAtual(item);
+  const desfazer = $('#c-desfazer');
+  if (desfazer) desfazer.onclick = () => desfazerRevisaoCauso(item);
 
   const copy = $('#c-result-copy');
   if (copy) copy.onclick = () => copyText(item.conteudo).then(() => toast('Copiado.', 'success'));

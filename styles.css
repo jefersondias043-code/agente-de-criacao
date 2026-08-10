@@ -2901,3 +2901,14 @@ body.pe-full #view-posters { animation: none; }
 .causo-nota-porque { grid-column: 1 / -1; font-size: 0.8rem; color: var(--ink-soft, var(--muted)); }
 .causo-nota-baixa .causo-nota-valor { color: var(--danger, #b42318); }
 .causo-nota-baixa .causo-nota-dim { color: var(--ink); font-weight: 600; }
+
+/* Rodapé da ata: agir sobre o diagnóstico sem sair do painel. */
+.causo-mesa-acoes {
+  margin-top: 0.6rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.causo-mesa-acoes .btn { align-self: flex-start; }

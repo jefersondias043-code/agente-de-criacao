@@ -35,7 +35,7 @@ beforeAll(() => {
       'julgarCauso', 'escolherConceito', 'causoMemoriaDe', 'normalizarConceitos',
       'normalizarDossie', 'normalizarCritica', 'buildConceitosPrompt', 'buildDossiePrompt',
       'buildContarPrompt', 'buildCriticoPrompt', 'buildReescreverCausoPrompt',
-      'runCausoPipeline']);
+      'runCausoPipeline', 'avaliarCauso', 'revisarCausoExistente']);
 });
 
 /* Um causo que soa contado: frases de fôlego irregular, emendas de fala,
@@ -549,7 +549,7 @@ describe('a ferramenta na plataforma', () => {
   it('a ata da mesa fica à mão, recolhida', () => {
     // Quem quer a história não quer a ata; quem recebeu um causo fraco precisa
     // poder ver em que dimensão ele falhou.
-    expect(js).toMatch(/<details class="causo-mesa">/);
+    expect(js).toMatch(/<details class="causo-mesa"/);
     expect(js).toMatch(/média não esconde defeito/);
     expect(ler('styles.css')).toMatch(/\.causo-nota-baixa/);
   });
@@ -558,5 +558,173 @@ describe('a ferramenta na plataforma', () => {
     const core = ler('src/core.js');
     expect(core).toMatch(/causos: 'agp\.causos'/);
     expect(core).toMatch(/causos: loadJSON\(STORAGE_KEYS\.causos, \[\]\)/);
+  });
+});
+
+// O BOTÃO DE REVISAR OS PONTOS FRACOS
+//
+// A ata acertava os pontos fracos e parava aí: para agir sobre o diagnóstico, a
+// única saída era gerar outro causo do zero — jogando fora o texto bom que já
+// existia. Agora a ata tem um botão que parte do TEXTO QUE ESTÁ NA TELA, manda
+// corrigir só o que o juiz reprovou, e põe a mesa para ler de novo.
+//
+// A releitura não é luxo: sem ela, a ata exibiria as notas de um texto que não
+// está mais na tela — e a precisão da ata é justamente o que se quer preservar.
+describe('a revisão a pedido', () => {
+  const juizoRuim = {
+    pior: 40, aprovado: false,
+    reprovadas: [{ dimensao: 'autenticidade', nota: 4, minimo: 8 }],
+    ordens: [{ dimensao: 'autenticidade', problema: 'a voz some no meio', ordem: 'manter quem conta presente', nota: 4 }],
+  };
+
+  const notasBoas = (dims, nota) => ({ notas: dims.map((d) => ({ dimensao: d, nota: nota || 9 })) });
+  const releituraBoa = () => [
+    notasBoas(['coerencia', 'causalidade', 'personagens', 'final']),
+    notasBoas(['oralidade', 'ritmo', 'brasilidade', 'autenticidade']),
+    notasBoas(['originalidade']),
+    notasBoas(['exagero', 'humor']),
+  ];
+
+  it('reescreve e a mesa lê de novo: 1 + 4 chamadas', async () => {
+    const call = dublar([CAUSO_BOM].concat(releituraBoa()));
+    const r = await C.revisarCausoExistente({
+      texto: 'Era uma noite escura. Ninguém acreditou.',
+      dossie: DOSSIE, ordens: juizoRuim.ordens, juizoAnterior: juizoRuim, call,
+    });
+    expect(call.chamadas()).toBe(5);
+    expect(r.conteudo).toBe(CAUSO_BOM);
+    expect(r.juizo.aprovado).toBe(true);
+    expect(r.melhorou).toBe(true);
+  });
+
+  it('parte do texto pronto, não da ideia do usuário', async () => {
+    const anterior = 'Era uma noite escura. Ninguém acreditou.';
+    const call = dublar([CAUSO_BOM].concat(releituraBoa()));
+    await C.revisarCausoExistente({ texto: anterior, dossie: DOSSIE, ordens: juizoRuim.ordens, juizoAnterior: juizoRuim, call });
+    expect(call.prompts[0]).toContain(anterior);
+    expect(call.prompts[0]).toMatch(/lista fechada de problemas/);
+  });
+
+  it('manda corrigir SÓ o que foi reprovado', async () => {
+    const call = dublar([CAUSO_BOM].concat(releituraBoa()));
+    await C.revisarCausoExistente({ texto: 'x'.repeat(40), dossie: DOSSIE, ordens: juizoRuim.ordens, juizoAnterior: juizoRuim, call });
+    const p = call.prompts[0];
+    expect(p).toContain('a voz some no meio');
+    expect(p).toContain('manter quem conta presente');
+    // Nenhuma dimensão que passou pode entrar na lista de correções.
+    expect(p).not.toMatch(/\[coerencia\]|\[ritmo\]|\[humor\]/);
+  });
+
+  it('a assinatura acompanha o texto novo — é ela que alimenta a memória', () => {
+    // Deixá-la para trás guardaria na memória da mesa a abertura de uma versão
+    // que não existe mais, e a mesa evitaria repetir uma frase que ninguém leu.
+    const call = dublar([CAUSO_BOM].concat(releituraBoa()));
+    return C.revisarCausoExistente({ texto: 'Era uma noite escura. Ninguém acreditou.', dossie: DOSSIE, ordens: juizoRuim.ordens, juizoAnterior: juizoRuim, call })
+      .then((r) => {
+        expect(r.assinatura).toEqual(C.causoAssinatura(CAUSO_BOM));
+        expect(r.assinatura.abertura).not.toContain('noite escura');
+      });
+  });
+
+  it('quando não melhora, diz que não melhorou — e entrega assim mesmo', async () => {
+    // Quem pediu a revisão foi o usuário; esconder o resultado dele seria
+    // decidir no lugar dele. O desfazer é a rede de proteção, não o silêncio.
+    const call = dublar([CAUSO_BOM,
+      notasBoas(['coerencia', 'causalidade', 'personagens', 'final']),
+      { notas: [{ dimensao: 'oralidade', nota: 9 }, { dimensao: 'ritmo', nota: 9 },
+        { dimensao: 'brasilidade', nota: 9 }, { dimensao: 'autenticidade', nota: 3, problema: 'continua sem voz' }] },
+      notasBoas(['originalidade']), notasBoas(['exagero', 'humor'])]);
+    const r = await C.revisarCausoExistente({ texto: 'texto anterior qualquer', dossie: DOSSIE, ordens: juizoRuim.ordens, juizoAnterior: juizoRuim, call });
+    expect(r.melhorou).toBe(false);
+    expect(r.conteudo, 'a versão nova é entregue mesmo assim').toBe(CAUSO_BOM);
+    expect(r.juizo.aprovado).toBe(false);
+  });
+
+  it('reescrita vazia não substitui nada — lança, e o texto anterior fica de pé', async () => {
+    const call = dublar(['   ']);
+    await expect(C.revisarCausoExistente({ texto: 'o causo bom', dossie: DOSSIE, ordens: juizoRuim.ordens, call }))
+      .rejects.toThrow(/continua aí/i);
+  });
+
+  it('sem nada reprovado, não há o que revisar', async () => {
+    const call = dublar([CAUSO_BOM]);
+    await expect(C.revisarCausoExistente({ texto: 'x', dossie: DOSSIE, ordens: [], call }))
+      .rejects.toThrow(/não apontou nada/i);
+    expect(call.chamadas()).toBe(0);
+  });
+
+  it('a releitura usa os críticos do gênero, como a geração', async () => {
+    const call = dublar([CAUSO_BOM].concat(releituraBoa()));
+    await C.revisarCausoExistente({ texto: 'x'.repeat(40), dossie: DOSSIE, ordens: juizoRuim.ordens, call });
+    const juntos = call.prompts.join('\n');
+    expect(juntos).toContain(C.CAUSO_CRITICOS.exagero.persona);
+    expect(juntos).not.toContain(C.CAUSO_CRITICOS.misterio.persona);
+  });
+});
+
+describe('a avaliação mora num lugar só', () => {
+  it('avaliarCauso devolve conferência, críticas e juízo', async () => {
+    const call = dublar([
+      { notas: [{ dimensao: 'coerencia', nota: 9 }] },
+      { notas: [{ dimensao: 'oralidade', nota: 9 }] },
+      { notas: [{ dimensao: 'originalidade', nota: 9 }] },
+      { notas: [{ dimensao: 'exagero', nota: 9 }] },
+    ]);
+    const r = await C.avaliarCauso({ texto: CAUSO_BOM, dossie: DOSSIE, call });
+    expect(call.chamadas()).toBe(4);
+    expect(r.criticosIds).toEqual(['narrativa', 'oralidade', 'originalidade', 'exagero']);
+    expect(r.juizo.avaliadas.length).toBe(4);
+    expect(r.local.achados).toEqual([]);
+  });
+
+  it('a geração e a revisão usam a MESMA avaliação', () => {
+    // Duas cópias divergiriam no primeiro ajuste, e a ata passaria a medir uma
+    // coisa enquanto a geração mede outra.
+    const motor = ler('src/causos-motor.js');
+    const chamadas = (motor.match(/await avaliarCauso\(/g) || []).length;
+    expect(chamadas, 'geração e revisão precisam chamar a mesma função').toBe(2);
+    expect((motor.match(/Promise\.all\(criticosIds/g) || []).length, 'crítica em dois lugares').toBe(1);
+  });
+});
+
+describe('a ata virou lugar de agir', () => {
+  const js = ler('src/causos.js');
+
+  it('o botão só existe quando há ponto reprovado', () => {
+    expect(js).toMatch(/const reprovadas = \(j\.ordens \|\| \[\]\)\.length;/);
+    expect(js).toMatch(/const acoes = reprovadas \?/);
+  });
+
+  it('a ata fica aberta depois de revisar', () => {
+    // Quem clicou num botão de dentro do painel não pode ver o painel se
+    // fechar na própria cara.
+    expect(js).toMatch(/causoPainelDaMesa\(item, \{ aberto: !!o\.mesaAberta \}\)/);
+    expect(js).toMatch(/renderCausoResultado\(item, \{ mesaAberta: true \}\)/);
+  });
+
+  it('a memória da revisão EXCLUI o próprio causo', () => {
+    // Sem isto, o crítico de originalidade compararia o texto com ele mesmo e
+    // acusaria "abertura repetida" em toda revisão.
+    expect(js).toMatch(/function causoMemoriaExceto/);
+    expect(js).toMatch(/\(State\.causos \|\| \[\]\)\.filter\(\(x\) => x && x\.id !== id\)/);
+    expect(js).toMatch(/memoria: causoMemoriaExceto\(item\.id\)/);
+  });
+
+  it('guarda um passo atrás e sabe desfazer', () => {
+    expect(js).toMatch(/item\.anterior = antes;/);
+    expect(js).toMatch(/function desfazerRevisaoCauso/);
+    expect(js).toMatch(/item\.anterior = null;/);
+  });
+
+  it('o texto, o juízo, as críticas e a assinatura andam juntos', () => {
+    ['item.conteudo = res.conteudo', 'item.juizo = res.juizo',
+      'item.criticas = res.criticas', 'item.assinatura = res.assinatura'].forEach((t) => {
+      expect(js, t).toContain(t);
+    });
+  });
+
+  it('diz a verdade quando a revisão não melhora', () => {
+    expect(js).toMatch(/A revisão não melhorou/);
+    expect(js).toMatch(/Dá para desfazer/);
   });
 });

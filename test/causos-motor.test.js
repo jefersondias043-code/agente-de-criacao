@@ -31,7 +31,7 @@ beforeAll(() => {
   C = loadModules(['catalogs.js', 'core.js', 'poster-templates.js', 'agents.js', 'causos-motor.js'],
     ['CAUSO_GENEROS', 'CAUSO_DIMENSOES', 'CAUSO_CRITICOS', 'causoGenero', 'causoDimensao',
       'causoCriticosDe', 'causoCliches', 'causoOralidade', 'causoContinuidade',
-      'causoOriginalidade', 'causoAssinatura', 'causoCurvaDoExagero', 'conferirCausoLocal',
+      'causoOriginalidade', 'causoAssinatura', 'causoCurvaDoExagero', 'causoAbsurdoPresente', 'conferirCausoLocal',
       'julgarCauso', 'escolherConceito', 'causoMemoriaDe', 'normalizarConceitos',
       'normalizarDossie', 'normalizarCritica', 'buildConceitosPrompt', 'buildDossiePrompt',
       'buildContarPrompt', 'buildCriticoPrompt', 'buildReescreverCausoPrompt',
@@ -367,7 +367,24 @@ describe('a doutrina da mesa', () => {
   });
 
   it('o impossível entra como se fosse normal', () => {
-    expect(C.buildContarPrompt(DOSSIE, {})).toMatch(/coisa mais normal do mundo/);
+    expect(C.buildContarPrompt(DOSSIE, {})).toMatch(/ninguém na história acha aquilo estranho/);
+  });
+
+  it('a doutrina diz para que o causo existe — e é para divertir', () => {
+    // Faltava isto: nenhum prompt dizia que o objetivo era fazer rir, e
+    // "verdadeiro" estava sendo lido como "sóbrio".
+    [C.buildConceitosPrompt('x', {}), C.buildDossiePrompt({ genero: 'pescador' }, 'x', {}),
+      C.buildContarPrompt(DOSSIE, {})].forEach((p, i) => {
+      expect(p, `prompt ${i}`).toMatch(/Para DIVERTIR/);
+      expect(p, `prompt ${i}`).toMatch(/que mentira mais absurda/);
+    });
+  });
+
+  it('a seriedade é do contador, não da história', () => {
+    // O reenquadramento que libera o absurdo sem perder a autenticidade.
+    const p = C.buildContarPrompt(DOSSIE, {});
+    expect(p).toMatch(/QUEM É SÉRIO AQUI É O CONTADOR, NÃO A HISTÓRIA/);
+    expect(p).toMatch(/bem escrita e sóbria é o defeito mais comum/);
   });
 
   it('o dossiê pede gente, não ficha de cadastro', () => {
@@ -415,7 +432,8 @@ describe('a mesa inteira', () => {
     notasBoas(['coerencia', 'causalidade', 'personagens', 'final']),
     notasBoas(['oralidade', 'ritmo', 'brasilidade', 'autenticidade']),
     notasBoas(['originalidade']),
-    notasBoas(['exagero', 'humor']),
+    notasBoas(['humor', 'absurdo', 'ritmo']),
+    notasBoas(['exagero', 'absurdo']),
   ];
 
   it('roda concepção → dossiê → contar → críticos e entrega', async () => {
@@ -424,8 +442,8 @@ describe('a mesa inteira', () => {
     expect(r.conteudo).toBe(CAUSO_BOM);
     expect(r.etapas).toEqual(['conceitos', 'dossie', 'contar', 'criticos']);
     expect(r.juizo.aprovado).toBe(true);
-    // 3 sequenciais + 4 críticos em paralelo.
-    expect(call.chamadas()).toBe(7);
+    // 3 sequenciais + 5 críticos em paralelo (o de humor passou a ler sempre).
+    expect(call.chamadas()).toBe(8);
   });
 
   it('convoca o especialista do gênero, e só ele', async () => {
@@ -442,12 +460,14 @@ describe('a mesa inteira', () => {
       { notas: [{ dimensao: 'coerencia', nota: 3, problema: 'não se sustenta', correcao: 'amarrar o meio' }] },
       { notas: [{ dimensao: 'oralidade', nota: 4, problema: 'soa escrito', correcao: 'variar as frases' }] },
       { notas: [{ dimensao: 'originalidade', nota: 2, problema: 'clichê', correcao: 'outra abertura' }] },
+      { notas: [{ dimensao: 'humor', nota: 8 }, { dimensao: 'absurdo', nota: 8 }] },
       { notas: [{ dimensao: 'exagero', nota: 8 }] },
       CAUSO_BOM,
       notasBoas(['coerencia', 'causalidade', 'personagens', 'final']),
       notasBoas(['oralidade', 'ritmo', 'brasilidade', 'autenticidade']),
       notasBoas(['originalidade']),
-      notasBoas(['exagero', 'humor']),
+      notasBoas(['humor', 'absurdo', 'ritmo']),
+      notasBoas(['exagero', 'absurdo']),
     ]);
     const r = await C.runCausoPipeline({ ideia: 'pescador', call });
     expect(r.etapas).toContain('reescrita');
@@ -462,7 +482,7 @@ describe('a mesa inteira', () => {
     const call = dublar([
       CONCEITOS, DOSSIE, bom,
       { notas: [{ dimensao: 'coerencia', nota: 3, correcao: 'x' }] },
-      { notas: [] }, { notas: [] }, { notas: [] },
+      { notas: [] }, { notas: [] }, { notas: [] }, { notas: [] },
       'Era uma noite escura. Ninguém acreditou. E nunca mais foi visto.',   // pior
     ]);
     const r = await C.runCausoPipeline({ ideia: 'pescador', call });
@@ -476,7 +496,8 @@ describe('a mesa inteira', () => {
       new Error('sem quota'),
       notasBoas(['oralidade', 'ritmo', 'brasilidade', 'autenticidade']),
       notasBoas(['originalidade']),
-      notasBoas(['exagero', 'humor']),
+      notasBoas(['humor', 'absurdo', 'ritmo']),
+      notasBoas(['exagero', 'absurdo']),
     ]);
     const r = await C.runCausoPipeline({ ideia: 'pescador', call });
     expect(r.conteudo).toBeTruthy();
@@ -492,7 +513,7 @@ describe('a mesa inteira', () => {
     const call = dublar([
       CONCEITOS, DOSSIE, 'Era uma noite escura.',
       { notas: [{ dimensao: 'coerencia', nota: 2, correcao: 'x' }] },
-      { notas: [] }, { notas: [] }, { notas: [] },
+      { notas: [] }, { notas: [] }, { notas: [] }, { notas: [] },
       'Era uma noite escura de novo.',
     ]);
     const r = await C.runCausoPipeline({ ideia: 'x', call });
@@ -589,4 +610,151 @@ describe('o aviso de chave não fica na frente de quem quer trabalhar', () => {
       .toMatch(/const apiKey = State\.apiKeys\[provider\]/);
   });
 
+});
+
+// A MESA EXISTE PARA DIVERTIR
+//
+// Relatado: os causos saíam com postura séria. Não era ajuste de prompt — eram
+// cinco causas somadas, e a dominante estava no CÓDIGO:
+//
+//   1. `escolherConceito` pontuava novidade de forma, concretude, virada e
+//      risco — nada sobre graça. E o prompt mandava variar a natureza ("uma
+//      engraçada, outra de emoção"), então 1 em 4 conceitos era cômico e ele
+//      concorria por critérios cegos à comédia.
+//   2. `humor` tinha piso 6 e `autenticidade`, 8: o refino corria para o sóbrio.
+//   3. o crítico de humor lia em 2 dos 5 gêneros.
+//   4. a curva do exagero só era medida em história de pescador.
+//   5. nenhum prompt dizia que o objetivo era fazer rir.
+describe('a graça deixou de ser opcional', () => {
+  const comGraca = { titulo: 'A', premissa: 'curta', absurdo: 'o boi subiu no telhado e ficou lá', graca: 'a teimosia do dono' };
+  const semGraca = { titulo: 'B', premissa: 'uma premissa bem mais longa e desenvolvida que a outra, com muito detalhe', quer: 'algo', virada: 'algo muda', risco: 'melodrama' };
+
+  it('a escolha prefere o conceito que tem a mentira e o riso declarados', () => {
+    // Era a causa dominante: um conceito emocional bem desenvolvido ganhava de
+    // um absurdo enxuto, porque a pontuação não olhava a graça.
+    const r = C.escolherConceito(C.normalizarConceitos({ conceitos: [semGraca, comGraca] }), {});
+    expect(r.escolhido.titulo).toBe('A');
+  });
+
+  it('os dois campos atravessam a normalização', () => {
+    const [c] = C.normalizarConceitos({ conceitos: [comGraca] });
+    expect(c.absurdo).toBe('o boi subiu no telhado e ficou lá');
+    expect(c.graca).toBe('a teimosia do dono');
+  });
+
+  it('o prompt de conceitos pede os quatro de rir, não um de cada humor', () => {
+    const p = C.buildConceitosPrompt('uma história de pescador', {});
+    expect(p).toMatch(/AS QUATRO SÃO DE RIR/);
+    expect(p, 'a variação por natureza é o que trazia o sério').not.toMatch(/outra de medo, outra absurda, outra de emoção/);
+    expect(p).toMatch(/"absurdo":/);
+    expect(p).toMatch(/"graca":/);
+    expect(p).toMatch(/Ficar séria demais/);
+  });
+
+  it('o dossiê carrega o impossível adiante, mesmo se a IA esquecer de repetir', () => {
+    const d = C.normalizarDossie({ titulo: 'x' }, comGraca);
+    expect(d.absurdo).toBe('o boi subiu no telhado e ficou lá');
+    expect(d.graca).toBe('a teimosia do dono');
+  });
+
+  it('o contador recebe o impossível como matéria obrigatória', () => {
+    const d = Object.assign({}, DOSSIE, { absurdo: 'o peixe chamou ele pelo nome', graca: 'a cara de quem ouviu' });
+    const p = C.buildContarPrompt(d, {});
+    expect(p).toContain('o peixe chamou ele pelo nome');
+    expect(p).toMatch(/Isto ACONTECE na história, e ninguém acha estranho/);
+    expect(p).toMatch(/Não explique, não justifique/);
+    expect(p).toMatch(/Não anuncie a graça/);
+  });
+});
+
+describe('quem olha a graça, e com que rigor', () => {
+  it('o crítico de humor lê em TODOS os gêneros', () => {
+    // Em assombração e lenda ninguém olhava a graça, e a história saía sóbria
+    // sem que nada no processo reclamasse.
+    C.CAUSO_GENEROS.forEach((g) => {
+      expect(C.causoCriticosDe(g.id), g.id).toContain('humor');
+    });
+  });
+
+  it('e não é convocado duas vezes quando já é o especialista', () => {
+    ['engracado', 'vida'].forEach((g) => {
+      const cs = C.causoCriticosDe(g);
+      expect(cs.filter((x) => x === 'humor').length, g).toBe(1);
+    });
+    expect(C.causoCriticosDe('pescador').length).toBe(5);
+    expect(C.causoCriticosDe('engracado').length).toBe(4);
+  });
+
+  it('o especialista do gênero continua entrando por cima', () => {
+    expect(C.causoCriticosDe('pescador')).toContain('exagero');
+    expect(C.causoCriticosDe('assombracao')).toContain('misterio');
+  });
+
+  it('o piso do humor subiu, e o absurdo virou dimensão própria', () => {
+    expect(C.causoDimensao('humor').minimo).toBeGreaterThanOrEqual(7);
+    const abs = C.causoDimensao('absurdo');
+    expect(abs, 'sem dimensão de absurdo ninguém reprova história sóbria').toBeTruthy();
+    expect(abs.minimo).toBeGreaterThanOrEqual(7);
+  });
+
+  it('alguém pontua o absurdo — e mais de um, de propósito', () => {
+    // `julgarCauso` fica com a pior avaliação: dois olhares sobre a mesma
+    // dimensão é rede, não desperdício.
+    const quemPontua = Object.keys(C.CAUSO_CRITICOS)
+      .filter((id) => C.CAUSO_CRITICOS[id].dimensoes.indexOf('absurdo') >= 0);
+    expect(quemPontua).toContain('humor');
+    expect(quemPontua.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('a autenticidade não foi afrouxada para caber o absurdo', () => {
+    // É o que faz o causo soar real, e não estava em questão.
+    expect(C.causoDimensao('autenticidade').minimo).toBe(8);
+  });
+});
+
+describe('a medição pega a história que ficou sóbria', () => {
+  const dossieComAbsurdo = Object.assign({}, DOSSIE, { absurdo: 'o peixe chamou ele pelo nome' });
+
+  it('acusa quando o impossível combinado não chegou ao texto', () => {
+    const sobrio = 'Zé Macambira voltou do rio. Sentou na venda do Tonho e ficou quieto a tarde toda.';
+    const r = C.causoAbsurdoPresente(sobrio, dossieComAbsurdo);
+    expect(r.problemas.join(' ')).toMatch(/não aparece na história/);
+    expect(r.problemas.join(' ')).toMatch(/bem escrito e sério/);
+  });
+
+  it('passa quando o impossível está lá', () => {
+    expect(C.causoAbsurdoPresente(CAUSO_BOM, dossieComAbsurdo).problemas).toEqual([]);
+  });
+
+  it('sem absurdo declarado, não há o que conferir', () => {
+    const r = C.causoAbsurdoPresente('qualquer texto', { absurdo: '' });
+    expect(r.problemas).toEqual([]);
+    expect(r.conferido).toBe(false);
+  });
+
+  it('o achado entra na conferência como problema de absurdo', () => {
+    const sobrio = 'Zé Macambira voltou do rio. Sentou na venda do Tonho e ficou quieto a tarde toda.';
+    const r = C.conferirCausoLocal(sobrio, dossieComAbsurdo, { genero: 'pescador' });
+    expect(r.achados.map((a) => a.dimensao)).toContain('absurdo');
+  });
+
+  it('e derruba a nota alta que um crítico tenha dado ao absurdo', () => {
+    // O falso positivo da autoavaliação: a IA diz que está absurdo, a conta
+    // mostra que o impossível combinado nem está no texto.
+    const sobrio = 'Zé Macambira voltou do rio. Sentou na venda do Tonho e ficou quieto a tarde toda.';
+    const local = C.conferirCausoLocal(sobrio, dossieComAbsurdo, { genero: 'pescador' });
+    const j = C.julgarCauso([{ critico: 'humor', notas: [{ dimensao: 'absurdo', nota: 10 }] }], local.achados);
+    expect(j.avaliadas.find((a) => a.dimensao === 'absurdo').nota).toBeLessThan(7);
+    expect(j.aprovado).toBe(false);
+  });
+
+  it('a curva do exagero passou a valer em qualquer gênero', () => {
+    // Antes só rodava em pescador; nos outros quatro ninguém media se o
+    // absurdo chegava pronto na primeira frase.
+    const invertida = 'O boi era gigante, nunca visto, monstruoso, não cabia no curral. '
+      + 'Ele saiu andando. O sol estava alto. Chegou na venda. Sentou no degrau. '
+      + 'Pediu uma pinga. Ficou quieto. Foi para casa. Dormiu cedo. Acordou tarde.';
+    const r = C.conferirCausoLocal(invertida, { genero: 'assombracao' }, { genero: 'assombracao' });
+    expect(r.achados.map((a) => a.dimensao)).toContain('exagero');
+  });
 });

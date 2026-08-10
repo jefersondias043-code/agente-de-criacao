@@ -35,7 +35,8 @@ let A;
 beforeAll(() => {
   const nomes = ['REGRAS_HASHTAGS', 'RUBRICA_PACOTE', 'HASHTAGS_GENERICAS', 'hashtagEhGenerica',
     'palavrasDoConteudo', 'hashtagAncorada', 'auditarHashtags', 'penalidadeHashtags',
-    'MIN_HASHTAGS_ANCORADAS'];
+    'MIN_HASHTAGS_ANCORADAS', 'hashtagsJaUsadas', 'blocoTagsJaUsadas', 'HASHTAGS_MEMORIA',
+    'MAX_HASHTAGS_REPETIDAS'];
   (0, eval)([api, pkg].join('\n;\n') + `\n;globalThis.__AP__ = { ${nomes.join(', ')} };`);
   A = globalThis.__AP__;
 });
@@ -74,7 +75,7 @@ describe('o prompt não entrega mais um cardápio de hashtags', () => {
   });
 
   it('diz explicitamente que a categoria é contexto, não fonte de hashtag', () => {
-    expect(A.REGRAS_HASHTAGS).toMatch(/NÃO é fonte de hashtag/);
+    expect(A.REGRAS_HASHTAGS).toMatch(/nunca a fonte da hashtag/);
     expect(A.REGRAS_HASHTAGS).toMatch(/Dois vídeos da mesma categoria.*hashtags diferentes/s);
   });
 
@@ -191,6 +192,150 @@ describe('o veredito sobre um conjunto de hashtags', () => {
   });
 });
 
+// SEGUNDO RELATO, mais fino que o primeiro: no modo automático as hashtags
+// variam bem; com um NICHO selecionado, as duas de nicho continuam variando,
+// mas a AMPLA, a de ASSUNTO e a de INTENÇÃO repetem de um pacote para o outro,
+// mesmo com conteúdo novo.
+//
+// Faz sentido: escolher a categoria injeta no prompt um texto FIXO, igual em
+// toda geração daquele nicho, e são justamente essas três posições que não
+// estavam obrigadas a sair do conteúdo. Pior: com as duas de nicho ancoradas, o
+// mínimo de 2 âncoras era cumprido — a conferência dava o pacote por bom
+// enquanto três das cinco tags estavam congeladas.
+//
+// Medido com uma IA dublada com esse exato vício, três conteúdos diferentes no
+// mesmo nicho (r205 → agora):
+//
+//   o prompt avisa o que já saiu       nunca → a partir do 2º pacote
+//   a conferência pega a repetição     nunca → a partir do 2º pacote
+describe('o que já saiu não volta', () => {
+  const pkgHist = (tags, categoria) => ({
+    opcoes: { categoria }, pacote: { hashtags: tags.map((t) => ({ tag: t, tipo: 'nicho' })) },
+  });
+
+  it('junta o que saiu nos pacotes anteriores DO MESMO nicho', () => {
+    const hist = [
+      pkgHist(['historias', 'storytime', 'motorista', 'onibus', 'emocionante'], 'storytime'),
+      pkgHist(['historias', 'storytime', 'assistencia', 'arrumar', 'emocionante'], 'storytime'),
+      pkgHist(['futebol', 'gol', 'campeonato', 'time', 'euforia'], 'esportes'),
+    ];
+    const r = A.hashtagsJaUsadas(hist, 'storytime');
+    expect(r.pacotes, 'o pacote de esportes não é deste nicho').toBe(2);
+    expect(r.recorrentes).toContain('historias');
+    expect(r.recorrentes).toContain('emocionante');
+    expect(r.recorrentes).not.toContain('futebol');
+    expect(r.contagem.get('historias'), 'saiu nos dois').toBe(2);
+  });
+
+  it('no modo automático olha os últimos pacotes em geral', () => {
+    // É o modo em que o usuário disse que as tags variam bem — a memória aqui
+    // serve só para não estreitar de novo.
+    const hist = [pkgHist(['a', 'b'], 'storytime'), pkgHist(['c'], 'esportes')];
+    expect(A.hashtagsJaUsadas(hist, 'auto').pacotes).toBe(2);
+    expect(A.hashtagsJaUsadas(hist, null).pacotes).toBe(2);
+  });
+
+  it('olha um número limitado de pacotes para trás', () => {
+    const hist = Array.from({ length: 20 }, (_, i) => pkgHist(['t' + i], 'storytime'));
+    expect(A.hashtagsJaUsadas(hist, 'storytime').pacotes).toBe(A.HASHTAGS_MEMORIA);
+  });
+
+  it('sem histórico, o prompt não ganha bloco nenhum', () => {
+    // Primeira geração do nicho: não há o que evitar, e um bloco vazio só
+    // gastaria contexto.
+    expect(A.blocoTagsJaUsadas(A.hashtagsJaUsadas([], 'storytime')).trim()).toBe('');
+    expect(A.blocoTagsJaUsadas(null).trim()).toBe('');
+  });
+
+  it('com histórico, o prompt diz o que já saiu e por que não repetir', () => {
+    const hist = [pkgHist(['historias', 'storytime', 'emocionante'], 'storytime')];
+    const bloco = A.blocoTagsJaUsadas(A.hashtagsJaUsadas(hist, 'storytime'));
+    expect(bloco).toContain('#historias');
+    expect(bloco).toMatch(/AMPLA.*ASSUNTO.*INTENÇÃO/s);
+    expect(bloco, 'reutilizar é permitido quando o conteúdo pede').toMatch(/exigir literalmente/);
+  });
+
+  it('avisa já no SEGUNDO pacote — esperar a terceira vez é deixar passar o defeito', () => {
+    const hist = [pkgHist(['historias', 'storytime', 'emocionante'], 'storytime')];
+    expect(A.hashtagsJaUsadas(hist, 'storytime').recorrentes.length).toBeGreaterThan(0);
+  });
+
+  it('repetir as três congeladas é reprovado', () => {
+    const hist = [
+      pkgHist(['historias', 'storytime', 'motorista', 'onibus', 'emocionante'], 'storytime'),
+      pkgHist(['historias', 'storytime', 'assistencia', 'arrumar', 'emocionante'], 'storytime'),
+    ];
+    const recentes = A.hashtagsJaUsadas(hist, 'storytime');
+    const novo = pacoteCom(['historias', 'storytime', 'professora', 'material', 'emocionante']);
+    const r = A.auditarHashtags(novo, 'A professora comprou o material escolar do aluno.', recentes);
+    expect(r.ok).toBe(false);
+    expect(r.repetidas.sort()).toEqual(['emocionante', 'historias', 'storytime']);
+    expect(r.problemas.join(' ')).toMatch(/já vinham saindo nos pacotes anteriores/);
+  });
+
+  it('duas coincidindo passa — sobreposição existe e não é vício', () => {
+    const hist = [pkgHist(['historias', 'storytime', 'emocionante'], 'storytime')];
+    const recentes = A.hashtagsJaUsadas(hist, 'storytime');
+    const novo = pacoteCom(['historias', 'storytime', 'professora', 'material', 'gratidao']);
+    const r = A.auditarHashtags(novo, 'A professora comprou o material escolar do aluno.', recentes);
+    expect(r.repetidas.length).toBe(A.MAX_HASHTAGS_REPETIDAS);
+    expect(r.ok, r.problemas.join(' | ')).toBe(true);
+  });
+
+  it('tag que o conteúdo de agora justifica não conta como repetição', () => {
+    // Um canal que fala de padaria toda semana vai usar #padaria toda semana, e
+    // está certo. O que não pode é a tag voltar SEM o conteúdo pedir.
+    const hist = [
+      pkgHist(['padaria', 'storytime', 'emocionante'], 'storytime'),
+      pkgHist(['padaria', 'storytime', 'emocionante'], 'storytime'),
+    ];
+    const recentes = A.hashtagsJaUsadas(hist, 'storytime');
+    const r = A.auditarHashtags(
+      pacoteCom(['padaria', 'storytime', 'forno', 'paodequeijo', 'emocionante']),
+      'A padaria da esquina abriu o forno mais cedo para o pão de queijo do velório.',
+      recentes);
+    expect(r.repetidas, '#padaria está no conteúdo de agora').not.toContain('padaria');
+    expect(r.repetidas.sort()).toEqual(['emocionante', 'storytime']);
+  });
+
+  it('sem memória informada, a conferência continua funcionando como antes', () => {
+    const r = A.auditarHashtags(pacoteCom(['assistenciatecnica', 'maquinadelavar']), CONTEUDO);
+    expect(r.repetidas).toEqual([]);
+    expect(r.ok).toBe(true);
+  });
+});
+
+describe('as três posições que escorregavam', () => {
+  it('a de assunto deixou de ser declarada reaproveitável', () => {
+    // A regra anterior dizia, com todas as letras, que a tag de ASSUNTO era "o
+    // único lugar onde uma tag reaproveitável entre vídeos é aceitável" — um
+    // convite a devolver sempre a mesma.
+    expect(A.REGRAS_HASHTAGS).not.toMatch(/ÚNICO lugar onde uma tag reaproveitável/);
+    expect(A.REGRAS_HASHTAGS).toMatch(/não devolva sempre a mesma tag de assunto/);
+  });
+
+  it('a ampla é do assunto do vídeo, não do nome da categoria', () => {
+    expect(A.REGRAS_HASHTAGS).toMatch(/Não é o nome da categoria escolhida/);
+  });
+
+  it('a de intenção é a emoção DESTA história, não a típica do nicho', () => {
+    expect(A.REGRAS_HASHTAGS).toMatch(/Não a emoção típica da categoria/);
+  });
+
+  it('a prova final aponta justamente para essas três', () => {
+    expect(A.REGRAS_HASHTAGS).toMatch(/AMPLA, ASSUNTO e INTENÇÃO são as que mais escorregam/);
+  });
+
+  it('o texto da categoria entra como pano de fundo, não como vocabulário', () => {
+    // A linha do briefing chamava-se "Nicho/palavras-chave do canal" e trazia um
+    // texto IGUAL em toda geração daquele nicho — convite direto à repetição.
+    expect(pkg, 'a linha antiga não pode voltar ao briefing')
+      .not.toMatch(/push\(`Nicho\/palavras-chave do canal/);
+    expect(pkg).toMatch(/NÃO é fonte de hashtag nem de palavra-chave/);
+    expect(A.REGRAS_HASHTAGS).toMatch(/não copie os termos citados na descrição dela/);
+  });
+});
+
 describe('a conferência muda o que é entregue', () => {
   it('entre duas versões, a que personaliza ganha o desempate', () => {
     const generico = A.auditarHashtags(pacoteCom(['fyp', 'viral', 'parati', 'storytime', 'relato']), CONTEUDO);
@@ -201,8 +346,16 @@ describe('a conferência muda o que é entregue', () => {
     expect(88 - A.penalidadeHashtags(generico)).toBeLessThan(82 - A.penalidadeHashtags(derivado));
   });
 
-  it('a geração roda a conferência com o conteúdo em mãos', () => {
-    expect(app).toMatch(/const auditoria = auditarHashtags\(pacote, texto\)/);
+  it('a geração roda a conferência com o conteúdo e a memória em mãos', () => {
+    expect(app).toMatch(/const auditoria = auditarHashtags\(pacote, texto, briefing\.tagsRecentes\)/);
+  });
+
+  it('o briefing carrega o que já saiu no nicho — a IA não tem como lembrar sozinha', () => {
+    // Cada geração é uma conversa nova para o modelo: sem esta lista, ele não
+    // tem como saber que está entregando as mesmas tags de sempre.
+    expect(app).toMatch(/tagsRecentes: \(typeof hashtagsJaUsadas === 'function'\)/);
+    expect(app).toMatch(/hashtagsJaUsadas\(typeof histLoad === 'function' \? histLoad\(\) : \[\], opcoes\.categoria\)/);
+    expect(pkg).toMatch(/\$\{blocoTagsJaUsadas\(briefing\.tagsRecentes\)\}/);
   });
 
   it('nota alta com hashtag genérica não encerra o trabalho', () => {

@@ -96,39 +96,31 @@ const NARR_FORMATOS = [
     id: 'reels',
     label: 'Reels / TikTok — roteiro falado',
     desc: '30 a 60 segundos, com marcação de tempo e fala pronta para gravar.',
-    estrutura: [
-      '0–3s GANCHO: uma frase só, que já expõe o DESEJO ou o RISCO. Proibido: saudação, "hoje eu vou falar sobre", "você sabia que".',
-      '3–10s CONTEXTO MÍNIMO: o estritamente necessário para entender quem quer o quê.',
-      '10–25s OBSTÁCULO: mostre a força que impede. A tensão cresce aqui — não resolva nada ainda.',
-      '25–45s O QUE ESTÁ EM JOGO: a decisão e o preço. Diga o que ele perde se der errado.',
-      '45–60s FECHAMENTO: uma frase que devolve o tema a quem assiste, seguida de uma chamada natural (comentar, salvar, seguir).',
-      'Escreva a FALA — o que sai da boca —, não a descrição da cena. Marque cada bloco com o tempo.',
+    entrega: [
+      'Marque cada bloco com o intervalo de tempo ("0–3s", "3–10s"…), somando 30 a 60 segundos.',
+      'Escreva a FALA — o que sai da boca —, não a descrição da cena.',
+      'Nada de saudação nem anúncio do que virá: o tempo é curto demais para pigarro.',
     ],
     elencoMax: 2,
   },
   {
     id: 'carrossel',
     label: 'Carrossel — 8 a 10 slides',
-    desc: 'Um slide por beat, com texto curto o bastante para caber na arte.',
-    estrutura: [
-      'Slide 1 — GANCHO: no máximo 8 palavras. É o slide que decide se o resto será visto.',
-      'Slide 2 — QUEM E O QUE QUER: apresente o protagonista pelo desejo, não pelo currículo.',
-      'Slides 3 e 4 — O OBSTÁCULO: por que não é simples. Um obstáculo por slide, o segundo pior que o primeiro.',
-      'Slides 5 e 6 — O QUE ESTÁ EM JOGO: o preço, a escolha, o que se perde.',
-      'Slides 7 e 8 — A VIRADA: o que mudou e o que isso custou.',
-      'Último slide — FECHAMENTO: a frase que a pessoa quer repetir + a chamada.',
-      'Formate como "SLIDE 1 —" em cada bloco. Máximo de 30 palavras por slide.',
+    desc: 'Um slide por passo, com texto curto o bastante para caber na arte.',
+    entrega: [
+      'Formate como "SLIDE 1 —" em cada bloco, de 8 a 10 slides.',
+      'Máximo de 30 palavras por slide; o primeiro, no máximo 8 palavras — é o que cabe na arte e decide se o resto será visto.',
+      'Cada slide precisa deixar uma pergunta aberta que o seguinte responde.',
     ],
     elencoMax: 3,
   },
   {
     id: 'legenda',
     label: 'Legenda de post',
-    desc: 'Instagram/Facebook: primeira linha que segura, corpo curto, chamada no fim.',
-    estrutura: [
-      'PRIMEIRA LINHA: sozinha, é o gancho — precisa funcionar antes do "ver mais".',
-      'CORPO: 3 a 6 parágrafos curtos. Desejo → obstáculo → o que está em jogo → virada.',
-      'FECHAMENTO: uma frase de sentido + uma pergunta genuína que dê vontade de responder.',
+    desc: 'Instagram/Facebook: primeira linha que segura, corpo curto, fecho.',
+    entrega: [
+      'A PRIMEIRA LINHA fica sozinha e precisa funcionar antes do "ver mais".',
+      'Corpo em parágrafos curtos, de 3 a 6.',
       'Depois do texto, sugira de 5 a 8 hashtags em uma única linha.',
     ],
     elencoMax: 3,
@@ -137,27 +129,22 @@ const NARR_FORMATOS = [
     id: 'stories',
     label: 'Sequência de Stories',
     desc: '4 a 6 telas encadeadas, cada uma puxando a próxima.',
-    estrutura: [
+    entrega: [
       'Uma tela por bloco, marcada como "TELA 1", "TELA 2"…',
       'Cada tela cabe em 2 linhas de texto na vertical — escreva curto de verdade.',
-      'TELA 1: o desejo, dito como se você estivesse contando para um amigo.',
-      'TELAS DO MEIO: o obstáculo e o que está em jogo, uma informação nova por tela.',
-      'ÚLTIMA TELA: a virada e uma interação (caixinha de pergunta, enquete ou "responde aqui").',
-      'Cada tela deve terminar em um gancho que obrigue a tocar na próxima.',
+      'Cada tela termina num ponto que obriga a tocar na próxima.',
+      'A última tela abre uma interação (caixinha, enquete ou resposta direta).',
     ],
     elencoMax: 2,
   },
   {
     id: 'youtube',
     label: 'Roteiro de vídeo longo',
-    desc: 'YouTube: estrutura em atos, com marcação de blocos.',
-    estrutura: [
-      'ABERTURA (0–30s): o desejo e o risco na mesma respiração. Sem apresentação pessoal antes disso.',
-      'ATO 1 — O DESEJO: quem quer, o que quer e por que isso importa agora.',
-      'ATO 2 — O OBSTÁCULO: a oposição, em escalada. Cada tentativa que falha aumenta o custo.',
-      'ATO 3 — O PREÇO: a decisão, o que foi arriscado, o que se perdeu no caminho.',
-      'FECHAMENTO: o sentido do que aconteceu + a chamada.',
-      'Marque cada bloco com o nome do ato. Escreva a fala corrida, não tópicos.',
+    desc: 'YouTube: blocos marcados, fala corrida.',
+    entrega: [
+      'Marque os blocos com um nome curto em maiúsculas.',
+      'Escreva a fala corrida, não tópicos.',
+      'Nada de apresentação pessoal antes de a história começar.',
     ],
     elencoMax: 5,
   },
@@ -165,25 +152,19 @@ const NARR_FORMATOS = [
     id: 'thread',
     label: 'Thread — X / Threads',
     desc: '6 a 9 posts numerados, cada um sustentando o próximo.',
-    estrutura: [
-      'Numere os posts como "1/", "2/"…',
-      'Post 1: o gancho — desejo ou risco, em no máximo 200 caracteres.',
-      'Posts seguintes: um beat por post. Desejo → obstáculo → escalada → o que está em jogo → virada.',
-      'Cada post precisa fazer sentido sozinho e ainda assim puxar o próximo.',
-      'Último post: fechamento + chamada.',
+    entrega: [
+      'Numere os posts como "1/", "2/"…, de 6 a 9 no total.',
+      'Cada post no máximo 280 caracteres, faz sentido sozinho e ainda assim puxa o próximo.',
     ],
     elencoMax: 3,
   },
   {
     id: 'newsletter',
     label: 'Newsletter / artigo de blog',
-    desc: 'Texto corrido, com título, abertura em cena e fechamento.',
-    estrutura: [
-      'TÍTULO: concreto, sem promessa vazia.',
-      'ABERTURA: comece por uma CENA, não por contexto. O leitor entra no meio do desejo.',
-      'DESENVOLVIMENTO: obstáculo, escalada e o preço — em parágrafos curtos.',
-      'FECHAMENTO: o que isso significa para quem lê.',
-      'De 400 a 800 palavras, salvo indicação de tamanho diferente.',
+    desc: 'Texto corrido, com título e parágrafos curtos.',
+    entrega: [
+      'Comece por um TÍTULO concreto, sem promessa vazia.',
+      'Parágrafos curtos. De 400 a 800 palavras, salvo indicação de tamanho diferente.',
     ],
     elencoMax: 5,
   },
@@ -191,26 +172,21 @@ const NARR_FORMATOS = [
     id: 'ganchos',
     label: 'Só os ganchos — 10 variações',
     desc: 'Dez primeiras frases diferentes para testar a mesma história.',
-    estrutura: [
+    entrega: [
       'Devolva 10 ganchos numerados, um por linha, sem explicação.',
-      'Varie o ângulo: 3 partindo do desejo, 3 do obstáculo, 3 do risco, 1 partindo do fim da história.',
-      'Máximo de 15 palavras cada. Nenhum pode começar com pergunta retórica batida ("você já parou para pensar").',
-      'Nenhum gancho pode entregar o desfecho.',
+      'Máximo de 15 palavras cada. Nenhum entrega o desfecho.',
+      'Varie o ângulo de entrada: cada um começa por um ponto diferente da história.',
     ],
     elencoMax: 1,
   },
   {
     id: 'dialogo',
     label: 'Diálogo / esquete — duas vozes ou mais',
-    desc: 'Cena falada entre os personagens, com rubricas curtas. Precisa de elenco.',
-    estrutura: [
+    desc: 'Cena falada entre os personagens, com rubricas curtas.',
+    entrega: [
       'Escreva como cena: "NOME:" antes de cada fala, rubrica de ação entre parênteses e curta.',
-      'ABERTURA: entre no meio da conversa, já em atrito. Nada de cumprimento nem apresentação.',
-      'MEIO: o desejo do protagonista bate no que o outro personagem quer. É esse choque que segura a cena.',
-      'VIRADA: alguém diz o que estava calado — e o que está em jogo aparece na fala, não na narração.',
-      'FECHAMENTO: uma última fala curta que deixa a decisão no ar ou a devolve para quem assiste.',
-      'Ninguém explica a própria motivação em voz alta: a intenção aparece no que a pessoa faz e evita dizer.',
-      'Se nenhum outro personagem tiver sido declarado, escreva como monólogo com fala relatada — não invente um personagem.',
+      'Entre no meio da conversa, já em atrito. Nada de cumprimento nem apresentação.',
+      'Se não houver outro personagem declarado, escreva como monólogo com fala relatada — não invente um personagem.',
     ],
     elencoMax: 3,
   },
@@ -598,65 +574,17 @@ function narrBlocoElenco(n) {
   return linhas.join('\n');
 }
 
-/**
- * Prompt de PRODUÇÃO: transforma a estrutura validada em conteúdo publicável.
- * O lema entra como regra de escrita — não como enfeite —, e a estrutura do
- * formato define onde cada elemento cai no tempo.
- */
-function buildNarrativaPrompt(opcoes) {
-  const o = opcoes || {};
-  const n = o.narrativa || {};
-  const f = narrFormato(o.formatoId);
-  const t = narrTom(o.tomId);
-  const tam = narrTamanho(o.tamanhoId);
-  const perfil = o.perfil || null;
-
-  const linhas = [];
-  linhas.push('Você é roteirista e redator de conteúdo digital. Escreva em português do Brasil.');
-  linhas.push('');
-  linhas.push(narrBlocoLema());
-  linhas.push('');
-  linhas.push(narrBlocoHistoria(n));
-  const elenco = narrBlocoElenco(n);
-  if (elenco) { linhas.push(''); linhas.push(elenco); }
-  linhas.push('');
-  linhas.push(`== FORMATO: ${f.label} ==`);
-  linhas.push(f.desc);
-  f.estrutura.forEach((e) => linhas.push('- ' + e));
-  linhas.push('');
-  linhas.push(`== TOM: ${t.label} ==`);
-  linhas.push(t.desc);
-  linhas.push(`Extensão: ${tam.label} — ${tam.desc}`);
-  if (perfil && (perfil.name || perfil.handle || perfil.tagline)) {
-    linhas.push('');
-    linhas.push('== PERFIL QUE PUBLICA ==');
-    if (perfil.name) linhas.push(`Nome: ${perfil.name}`);
-    if (perfil.handle) linhas.push(`@: ${perfil.handle}`);
-    if (perfil.tagline) linhas.push(`Assinatura editorial: ${perfil.tagline}`);
-    linhas.push('Escreva na voz desse perfil, sem citar estes dados literalmente.');
-  }
-  if (o.cta) {
-    linhas.push('');
-    linhas.push(`== AÇÃO DESEJADA NO FIM ==\n${o.cta}`);
-  }
-  linhas.push('');
-  linhas.push('== REGRAS DE EXECUÇÃO ==');
-  linhas.push('1. O desejo tem de aparecer nos primeiros segundos/linhas. É ele que impulsiona tudo.');
-  linhas.push('2. O obstáculo NÃO pode ser resolvido por acaso, por sorte nem com facilidade — isso apaga o conflito.');
-  linhas.push('3. O que está em jogo precisa ser dito com todas as letras em algum momento.');
-  linhas.push('4. Use apenas os fatos da história acima. Não invente números, nomes, datas nem citações.');
-  linhas.push('5. Nada de clichê de abertura ("você já parou para pensar", "hoje eu vou falar sobre", "prepare-se").');
-  linhas.push('6. Frases curtas. Voz ativa. Corte qualquer adjetivo que não mude o sentido.');
-  linhas.push('7. No máximo 2 emojis no total, e só se o tom pedir.');
-  if (elenco) {
-    linhas.push('8. Todo personagem citado tem de estar no elenco acima, com o nome escrito igual. Ninguém novo entra com nome próprio.');
-    linhas.push('9. Devolva SOMENTE o conteúdo final, seguindo a estrutura do formato. Sem introdução, sem explicação, sem comentário sobre o texto.');
-  } else {
-    linhas.push('8. Devolva SOMENTE o conteúdo final, seguindo a estrutura do formato. Sem introdução, sem explicação, sem comentário sobre o texto.');
-  }
-
-  return { prompt: linhas.join('\n'), formato: f, tom: t, tamanho: tam };
-}
+/* O PROMPT DE PRODUÇÃO SAIU DAQUI.
+ *
+ * Ele era uma chamada só: história + estrutura fixa do formato → roteiro. O que
+ * saía era correto e sem força — e a estrutura fixa era o motivo. Todo material
+ * entrava na mesma fôrma (gancho → problema → solução → chamada), inclusive os
+ * que pediam outra coisa.
+ *
+ * Agora quem escreve é o motor (src/narrativa-motor.js): lê o material, descobre
+ * que história existe nele e que DESENHO essa história pede, escreve, critica o
+ * que escreveu e reescreve antes de mostrar. O formato voltou a ser só embalagem
+ * — ver o campo `entrega` de NARR_FORMATOS. */
 
 /**
  * Prompt de EXTRAÇÃO: lê a ideia bruta e tenta responder às três perguntas.
@@ -1441,7 +1369,7 @@ function renderNarrativa() {
           </svg>
           <div class="flex-1">
             <strong>Configure sua chave de API</strong>
-            <div class="text-sm text-soft">O diagnóstico funciona sem chave. Para extrair, afiar e escrever, adicione a chave da ${escapeHtml(nome)}.</div>
+            <div class="text-sm text-soft">O diagnóstico funciona sem chave. Para ler o material, escrever e revisar, adicione a chave da ${escapeHtml(nome)}.</div>
           </div>
           <button class="btn btn-ghost btn-sm" data-go="settings">Configurar</button>
         </div>`;
@@ -1553,77 +1481,116 @@ function renderNarrativa() {
       }
     };
 
-    // --- IA 3: escrever o conteúdo ---
+    // --- O MOTOR: ler → escrever → criticar → reescrever → entregar ---
+    //
+    // Um clique continua sendo um clique. O que mudou está atrás dele: a
+    // primeira versão do roteiro deixou de ser a entrega e virou rascunho.
     if ($('#n-submit')) $('#n-submit').onclick = async () => {
       let d = narrColetar();
-      let diag = diagnosticarNarrativa(d);
 
-      // UM CLIQUE, NÃO ONZE CAMPOS. Se as três perguntas ainda não têm resposta,
-      // a ferramenta lê a ideia e responde por conta própria antes de qualquer
-      // cobrança. Só se AINDA faltar alguma é que o usuário é chamado — e para
-      // uma pergunta, não para um formulário.
+      // Ideia nova descarta a história derivada da anterior (r204). Sem isto, o
+      // material novo era escrito por cima das respostas do material velho.
       const ideiaNova = narrIdeiaMudou(d);
       if (ideiaNova) narrDescartarDerivados(d);
 
-      if ((ideiaNova || !diag.pronto) && String(d.ideia || '').trim().length >= 12) {
-        const btn0 = $('#n-submit');
-        try {
-          const r = await narrChamarIA(btn0, 'Lendo a sua ideia…', buildExtracaoNarrativaPrompt(d.ideia));
-          const obj = (typeof extractJSON === 'function') ? extractJSON(r && r.content) : null;
-          // `forcar` quando a ideia é outra: o que estava ali é de uma história
-          // que não existe mais, e preservá-lo é justamente o defeito.
-          if (obj) narrAplicarSugestao(obj, { forcar: ideiaNova });
-        } catch (err) { /* segue: o usuário responde à mão */ }
+      const material = String(d.ideia || '').trim();
+      if (material.length < 12) {
+        renderNarrDiagnostico();
+        toast('Escreva ou anexe o material primeiro.', 'info', 5000);
+        return;
+      }
+
+      const perfis = State.portals || [];
+      const perfil = (d.perfilIndex >= 0 && perfis[d.perfilIndex]) ? perfis[d.perfilIndex] : null;
+      const formato = narrFormato(d.formatoId);
+      const tom = narrTom(d.tomId);
+      const tamanho = narrTamanho(d.tamanhoId);
+
+      const btn = $('#n-submit');
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Trabalhando…';
+      // As etapas ficam à vista porque a espera ficou maior: quem enxerga o
+      // trabalho acontecendo espera; quem olha para um botão parado desiste.
+      $('#n-result-area').innerHTML = `
+        <div class="empty">
+          <div class="spinner spinner-lg" style="color: var(--accent); border-right-color: transparent; margin: 0 auto 1rem;"></div>
+          <div class="empty-title" id="n-loading-title">Lendo o material…</div>
+          <div class="empty-desc" id="n-loading-desc">${escapeHtml(formato.label)} · ${escapeHtml(tom.label)}</div>
+          <div class="pipeline-steps" id="n-pipeline">
+            <span class="pipeline-step" data-step="leitura">Leitura</span>
+            <span class="pipeline-step" data-step="escrita">Escrita</span>
+            <span class="pipeline-step" data-step="critica">Crítica</span>
+            <span class="pipeline-step" data-step="reescrita">Reescrita</span>
+          </div>
+        </div>`;
+      const onEtapa = (chave, titulo, desc) => {
+        const t = $('#n-loading-title'), dsc = $('#n-loading-desc');
+        if (t) t.textContent = titulo;
+        if (dsc) dsc.textContent = desc;
+        $$('#n-pipeline .pipeline-step').forEach((el) => {
+          if (el.dataset.step === chave) el.classList.add('active');
+          else if (el.classList.contains('active')) el.classList.replace('active', 'done');
+        });
+      };
+
+      // A leitura do motor é a mesma extração de antes: o que ela responde vai
+      // para os campos internos, que continuam alimentando o diagnóstico e o
+      // histórico. Se ainda não houver história, a ferramenta faz UMA pergunta.
+      let diag = null;
+      const aposLeitura = (plano) => {
+        narrAplicarSugestao({
+          protagonista: plano.protagonista, desejo: plano.desejo,
+          obstaculo: plano.obstaculo, risco: plano.risco,
+          elenco: (plano.personagens || []).map((p) => ({ nome: p.nome, papel: 'antagonista', quer: p.quer })),
+        }, { forcar: ideiaNova });
         const atual = narrativaDraft();
         atual.ideiaOrigem = atual.ideia;
         saveNarrativaDraft();
         d = narrColetar();
         diag = diagnosticarNarrativa(d);
-      }
+        return diag.pronto;
+      };
 
-      if (!diag.pronto) {
-        renderNarrDiagnostico();
-        const foco = $('#n-foco-input');
-        if (foco) { foco.scrollIntoView({ behavior: 'smooth', block: 'center' }); foco.focus(); }
-        toast('Falta uma resposta para a história existir — é só uma linha.', 'info', 6000);
-        return;
-      }
-      const perfis = State.portals || [];
-      const perfil = (d.perfilIndex >= 0 && perfis[d.perfilIndex]) ? perfis[d.perfilIndex] : null;
-      const built = buildNarrativaPrompt({
-        narrativa: d, formatoId: d.formatoId, tomId: d.tomId, tamanhoId: d.tamanhoId,
-        perfil, cta: d.cta,
-      });
-
-      const btn = $('#n-submit');
-      const original = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Escrevendo…';
-      $('#n-result-area').innerHTML = `
-        <div class="empty">
-          <div class="spinner spinner-lg" style="color: var(--accent); border-right-color: transparent; margin: 0 auto 1rem;"></div>
-          <div class="empty-title">Escrevendo…</div>
-          <div class="empty-desc">${escapeHtml(built.formato.label)} · ${escapeHtml(built.tom.label)}</div>
-        </div>`;
       try {
-        const r = await callLLM(built.prompt);
+        const res = await runNarrativaPipeline({
+          material, formato, tom, tamanho, perfil, cta: d.cta,
+          lema: NARR_LEMA, onEtapa, aposLeitura, call: callLLM,
+        });
+
+        if (res.abortado) {
+          renderNarrDiagnostico();
+          narrLimparResultado();
+          const foco = $('#n-foco-input');
+          if (foco) { foco.scrollIntoView({ behavior: 'smooth', block: 'center' }); foco.focus(); }
+          toast('Falta uma resposta para a história existir — é só uma linha.', 'info', 6000);
+          return;
+        }
+
         const item = {
           id: uuid(),
           createdAt: new Date().toISOString(),
           titulo: narrativaTitulo(d),
           narrativa: Object.assign({}, d),
-          formato: built.formato.label,
-          tom: built.tom.label,
-          conteudo: cleanText(r.content),
-          model: r.model,
-          score: diag.score,
+          formato: formato.label,
+          tom: tom.label,
+          conteudo: res.conteudo,
+          model: res.model,
+          score: (diag && diag.score) || 0,
+          // Rastro do trabalho: qual desenho foi escolhido, o que a crítica
+          // apontou e se houve reescrita. Não aparece na tela; serve para
+          // entender um resultado ruim sem ter de reproduzir a geração.
+          plano: res.plano,
+          criticaResumo: (res.critica && res.critica.resumo) || '',
+          reescreveu: !!res.reescreveu,
+          etapas: res.etapas,
         };
         State.narrativas = State.narrativas || [];
         State.narrativas.unshift(item);
         saveNarrativas();
         renderNarrResultado(item);
         renderNarrHistorico();
-        toast('Conteúdo pronto.', 'success');
+        toast(res.reescreveu ? 'Conteúdo pronto — passou por revisão.' : 'Conteúdo pronto.', 'success');
       } catch (err) {
         toast(err.message || 'Não foi possível escrever o conteúdo.', 'error', 6000);
         $('#n-result-area').innerHTML = `

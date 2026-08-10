@@ -15,8 +15,8 @@ const read = (f) => fs.readFileSync(path.join(srcDir, f), 'utf8');
 
 let N;
 beforeAll(() => {
-  const code = ['catalogs.js', 'core.js', 'narrativa.js'].map(read).join('\n;\n')
-    + '\n;globalThis.__NARR__ = { diagnosticarNarrativa, buildNarrativaPrompt,'
+  const code = ['catalogs.js', 'core.js', 'narrativa.js', 'narrativa-motor.js'].map(read).join('\n;\n')
+    + '\n;globalThis.__NARR__ = { diagnosticarNarrativa, narrFormato, narrTom, buildRoteiroPrompt,'
     + ' buildExtracaoNarrativaPrompt, buildAfiacaoNarrativaPrompt, narrativaTitulo,'
     + ' narrativaVazia, narrElenco, narrPapel, narrBlocoElenco,'
     + ' NARR_LEMA, NARR_FORMATOS, NARR_TONS, NARR_PERGUNTAS, NARR_PAPEIS };';
@@ -191,43 +191,33 @@ describe('acentuação e caixa não mudam o veredito', () => {
   });
 });
 
-describe('prompt de produção', () => {
-  it('carrega o lema, a história e a estrutura do formato', () => {
-    const { prompt, formato } = N.buildNarrativaPrompt({
-      narrativa: HISTORIA, formatoId: 'carrossel', tomId: 'direto', tamanhoId: 'medio',
+/* O PROMPT DE PRODUÇÃO SAIU DE CENA.
+ *
+ * Era uma chamada só, e a estrutura vinha do FORMATO: cada formato trazia
+ * "GANCHO → CONTEXTO → OBSTÁCULO → FECHAMENTO", e todo material entrava nessa
+ * fôrma. Este bloco chegou a EXIGIR isso — afirmava que os beats fixos do
+ * formato apareciam no prompt —, o que hoje seria proteger o defeito.
+ *
+ * Quem escreve agora é o motor, e as garantias que este bloco cuidava (o lema
+ * presente, os fatos da história, a proibição de inventar, a voz do perfil)
+ * passaram para test/narrativa-motor.test.js, sobre o prompt do roteirista.
+ * O que fica aqui é a fronteira: o formato só carrega embalagem. */
+describe('o formato virou embalagem', () => {
+  it('nenhum formato carrega mais os beats da história', () => {
+    N.NARR_FORMATOS.forEach((f) => {
+      expect(f.entrega, f.id).toBeTruthy();
+      expect(f.estrutura, `${f.id} ainda traz uma fôrma pronta`).toBeUndefined();
     });
-    expect(prompt).toContain(N.NARR_LEMA);
-    expect(prompt).toContain(HISTORIA.desejo);
-    expect(prompt).toContain(HISTORIA.obstaculo);
-    expect(prompt).toContain(HISTORIA.risco);
-    expect(prompt).toContain(HISTORIA.protagonista);
-    expect(formato.id).toBe('carrossel');
-    formato.estrutura.forEach((e) => expect(prompt).toContain(e));
   });
 
-  it('proíbe resolver o conflito com facilidade e inventar fatos', () => {
-    const { prompt } = N.buildNarrativaPrompt({ narrativa: HISTORIA });
-    expect(prompt).toMatch(/não pode ser resolvido por acaso/i);
-    expect(prompt).toMatch(/não invente/i);
+  it('a entrega fala de marcação e tamanho, não de gancho e desfecho', () => {
+    const tudo = N.NARR_FORMATOS.map((f) => f.entrega.join(' ')).join(' ').toLowerCase();
+    expect(tudo).toMatch(/slide|tempo|linha|post|numer|palavras/);
+    expect(tudo, 'beat de história voltou para a embalagem').not.toMatch(/gancho:|obstáculo:|virada:/);
   });
 
-  it('formato desconhecido cai no primeiro formato em vez de quebrar', () => {
-    const { formato } = N.buildNarrativaPrompt({ narrativa: HISTORIA, formatoId: 'inexistente' });
-    expect(formato.id).toBe(N.NARR_FORMATOS[0].id);
-  });
-
-  it('inclui a voz do perfil quando há um selecionado', () => {
-    const { prompt } = N.buildNarrativaPrompt({
-      narrativa: HISTORIA,
-      perfil: { name: 'Municípios Bahia', handle: '@mb', tagline: 'Notícias que conectam.' },
-    });
-    expect(prompt).toContain('Municípios Bahia');
-    expect(prompt).toContain('Notícias que conectam.');
-  });
-
-  it('sem perfil não deixa cabeçalho órfão no prompt', () => {
-    const { prompt } = N.buildNarrativaPrompt({ narrativa: HISTORIA, perfil: null });
-    expect(prompt).not.toContain('PERFIL QUE PUBLICA');
+  it('formato desconhecido continua caindo no primeiro', () => {
+    expect(N.narrFormato('inexistente').id).toBe(N.NARR_FORMATOS[0].id);
   });
 });
 
@@ -372,34 +362,44 @@ describe('elenco no prompt', () => {
     ],
   };
 
-  it('leva nomes, papéis e desejos declarados', () => {
-    const { prompt } = N.buildNarrativaPrompt({ narrativa: COM_ELENCO, formatoId: 'carrossel' });
-    expect(prompt).toContain('== ELENCO (além do protagonista) ==');
-    expect(prompt).toContain('Paulo — Antagonista');
-    expect(prompt).toContain('quer vender o ponto');
-    expect(prompt).toContain('Seu Vitor — Aliado');
+  // Quem escreve agora é o motor: as mesmas garantias, no prompt do roteirista.
+  const planoComElenco = {
+    protagonista: COM_ELENCO.protagonista, desejo: COM_ELENCO.desejo,
+    obstaculo: COM_ELENCO.obstaculo, risco: COM_ELENCO.risco,
+    personagens: [
+      { nome: 'Paulo', quer: 'quer vender o ponto', jeitoDeFalar: 'seco', sabe: 'o valor do ponto' },
+      { nome: 'Seu Vitor', quer: '' },
+    ],
+    estrutura: { beats: [] }, fatos: [], mostrar: [],
+  };
+  const promptComElenco = () => N.buildRoteiroPrompt(planoComElenco, { formato: N.narrFormato('carrossel'), tom: N.narrTom('direto') });
+
+  it('leva nomes e o que cada um quer', () => {
+    const p = promptComElenco();
+    expect(p).toContain('== QUEM FALA ==');
+    expect(p).toContain('Paulo');
+    expect(p).toContain('quer vender o ponto');
+    expect(p).toContain('Seu Vitor');
   });
 
   it('proíbe inventar personagem e manda usar os nomes como estão', () => {
-    const { prompt } = N.buildNarrativaPrompt({ narrativa: COM_ELENCO });
-    expect(prompt).toMatch(/Não crie personagens além dos listados/i);
-    expect(prompt).toMatch(/nomes exatamente como estão/i);
-    expect(prompt).toMatch(/Ninguém novo entra com nome próprio/i);
+    const p = promptComElenco();
+    expect(p).toMatch(/Não crie personagens além dos listados/i);
+    expect(p).toMatch(/nomes exatamente como estão/i);
   });
 
   it('mantém o protagonista no centro', () => {
-    const { prompt } = N.buildNarrativaPrompt({ narrativa: COM_ELENCO });
-    expect(prompt).toMatch(/é o desejo DELE que impulsiona/i);
+    expect(promptComElenco()).toMatch(/é o desejo DELE que impulsiona/i);
   });
 
   it('personagem sem desejo declarado não vira convite para inventar', () => {
-    const { prompt } = N.buildNarrativaPrompt({ narrativa: COM_ELENCO });
-    expect(prompt).toMatch(/não foi declarado — não invente/i);
+    expect(promptComElenco()).toMatch(/não foi declarado — não invente/i);
   });
 
   it('sem elenco, nem o cabeçalho aparece', () => {
-    const { prompt } = N.buildNarrativaPrompt({ narrativa: HISTORIA });
-    expect(prompt).not.toContain('ELENCO');
+    const semGente = Object.assign({}, planoComElenco, { personagens: [] });
+    const p = N.buildRoteiroPrompt(semGente, { formato: N.narrFormato('reels'), tom: N.narrTom('direto') });
+    expect(p).not.toContain('QUEM FALA');
     expect(N.narrBlocoElenco(HISTORIA)).toBe('');
   });
 
@@ -420,12 +420,12 @@ describe('elenco no prompt', () => {
 });
 
 describe('catálogos e rascunho', () => {
-  it('todo formato tem rótulo, descrição, estrutura e limite de elenco', () => {
+  it('todo formato tem rótulo, descrição, embalagem e limite de elenco', () => {
     N.NARR_FORMATOS.forEach((f) => {
       expect(f.id, f.id).toBeTruthy();
       expect(f.label, f.id).toBeTruthy();
       expect(f.desc, f.id).toBeTruthy();
-      expect(Array.isArray(f.estrutura) && f.estrutura.length, f.id).toBeTruthy();
+      expect(Array.isArray(f.entrega) && f.entrega.length, f.id).toBeTruthy();
       expect(typeof f.elencoMax, f.id).toBe('number');
       expect(f.elencoMax, f.id).toBeGreaterThan(0);
     });

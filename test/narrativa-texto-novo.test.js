@@ -32,9 +32,9 @@ const js = ler('src/narrativa.js');
 let N;
 beforeAll(() => {
   clearStorage();
-  N = loadModules(['catalogs.js', 'core.js', 'poster-templates.js', 'narrativa.js'],
+  N = loadModules(['catalogs.js', 'core.js', 'poster-templates.js', 'narrativa.js', 'narrativa-motor.js'],
     ['State', 'narrativaVazia', 'narrativaDraft', 'narrIdeiaMudou', 'narrDescartarDerivados',
-      'narrRestaurarDraft', 'narrAplicarSugestao', 'narrColetar', 'buildNarrativaPrompt',
+      'narrRestaurarDraft', 'narrAplicarSugestao', 'narrColetar', 'buildRoteiroPrompt', 'narrFormato', 'narrTom',
       'renderNarrResultado', 'narrLimparResultado', 'narrEsquecerResultadoDeOutraHistoria']);
 });
 
@@ -168,13 +168,18 @@ describe('o clique amarra as duas pontas', () => {
   it('ideia nova: descarta antes de ler, e força a leitura por cima', () => {
     expect(js).toMatch(/const ideiaNova = narrIdeiaMudou\(d\);/);
     expect(js).toMatch(/if \(ideiaNova\) narrDescartarDerivados\(d\);/);
-    expect(js).toMatch(/narrAplicarSugestao\(obj, \{ forcar: ideiaNova \}\)/);
+    expect(js).toMatch(/\{ forcar: ideiaNova \}/);
   });
 
-  it('ideia nova reabre a leitura mesmo com o diagnóstico dizendo "pronto"', () => {
-    // Só `!diag.pronto` não bastava: com as respostas velhas no lugar, o
-    // diagnóstico dizia que estava tudo pronto e a ideia nova nunca era lida.
-    expect(js).toMatch(/if \(\(ideiaNova \|\| !diag\.pronto\) &&/);
+  it('a leitura do material roda em TODO clique', () => {
+    // Antes, a leitura só acontecia quando a ideia era nova ou o diagnóstico
+    // reclamava — e com as respostas velhas no lugar o diagnóstico dizia
+    // "pronto", então o material novo nunca era lido. Agora a leitura é a
+    // primeira etapa do motor: acontece sempre, e a marca de origem é o que
+    // decide se o que ela responde entra por cima ou preserva o que havia.
+    expect(js).not.toMatch(/if \(\(ideiaNova \|\| !diag\.pronto\)/);
+    expect(js).toMatch(/await runNarrativaPipeline\(/);
+    expect(js).toMatch(/const aposLeitura = \(plano\)/);
   });
 
   it('e marca a origem depois de ler — senão descartaria de novo a cada clique', () => {
@@ -262,12 +267,11 @@ describe('o que não pode quebrar junto', () => {
   });
 
   it('o prompt de escrita continua sendo montado da história, e só dela', () => {
-    const built = N.buildNarrativaPrompt({
-      narrativa: { protagonista: 'Dona Lúcia', desejo: 'terminar a faculdade aos 60 anos',
+    const p = N.buildRoteiroPrompt(
+      { protagonista: 'Dona Lúcia', desejo: 'terminar a faculdade aos 60 anos',
         obstaculo: 'a bolsa foi cortada', risco: 'o respeito da família' },
-      formatoId: null, tomId: null, tamanhoId: null,
-    });
-    expect(built.prompt).toContain('terminar a faculdade aos 60 anos');
-    expect(built.prompt).not.toContain('padaria');
+      { formato: N.narrFormato('reels'), tom: N.narrTom('direto') });
+    expect(p).toContain('terminar a faculdade aos 60 anos');
+    expect(p).not.toContain('padaria');
   });
 });

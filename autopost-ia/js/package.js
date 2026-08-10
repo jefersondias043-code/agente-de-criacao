@@ -67,15 +67,12 @@ Os tipos de hashtag válidos são EXATAMENTE: "ampla", "assunto", "nicho", "inte
   const linhasBrief = [`Resumo da história: ${briefing.theme}`];
   if (briefing.duration) linhasBrief.push(`Duração-alvo: ${briefing.duration}s`);
   if (briefing.tone) linhasBrief.push(`Tom: ${briefing.tone}`);
-  // "Nicho/palavras-chave do canal" convidava a reaproveitar o texto da
-  // categoria como vocabulário pronto — e o texto da categoria é IGUAL em toda
-  // geração daquele nicho. Daí saía a repetição.
-  if (briefing.niche) linhasBrief.push(`Público do canal (pano de fundo, NÃO é fonte de hashtag nem de palavra-chave): ${briefing.niche}`);
+  if (briefing.niche) linhasBrief.push(`Nicho/palavras-chave do canal: ${briefing.niche}`);
   linhasBrief.push(`Detalhes extras: ${briefing.extra || '(nenhum)'}`);
 
   const ctxChecklistPkg = checklistParaTexto(briefing.checklist);
   if (ctxChecklistPkg) {
-    linhasBrief.push(`\nPreferências do checklist (formato, nicho, emoção, objetivo, plataforma) — use pra calibrar tom e enquadramento; hashtags e palavras-chave continuam saindo do CONTEÚDO:\n${ctxChecklistPkg}`);
+    linhasBrief.push(`\nPreferências do checklist (formato, nicho, emoção, objetivo, plataforma) — use pra calibrar título, legenda, hashtags e palavras-chave:\n${ctxChecklistPkg}`);
   }
 
   let user = `==== BRIEFING ORIGINAL ====
@@ -83,7 +80,7 @@ ${linhasBrief.join('\n')}
 
 ==== ROTEIRO FINAL APROVADO ====
 ${roteiroFinal}
-${blocoTagsJaUsadas(briefing.tagsRecentes)}
+
 ==== TAREFA ====
 Gere o pacote de publicação completo (título + legenda + 5 hashtags estratificadas + ~10 palavras-chave) seguindo TODAS as regras acima. Devolva APENAS o JSON.`;
 
@@ -259,74 +256,13 @@ function hashtagAncorada(tag, palavras) {
 // pacote genérico, não para reprovar um conjunto bom por uma palavra.
 const MIN_HASHTAGS_ANCORADAS = 2;
 
-/* MEMÓRIA DO QUE JÁ SAIU.
- *
- * Segundo relato do usuário, mais fino que o primeiro: no modo automático as
- * hashtags variam bem; com um NICHO selecionado, as duas de nicho continuam
- * variando, mas a ampla, a de assunto e a de intenção repetem de um pacote para
- * o outro mesmo com conteúdo novo. Faz sentido — escolher a categoria injeta no
- * prompt um texto FIXO (o mesmo em toda geração daquele nicho), e são
- * justamente essas três posições que não estavam obrigadas a sair do conteúdo.
- *
- * Instrução resolve metade. A outra metade é o modelo não ter como saber o que
- * já usou: cada geração é uma conversa nova. Daqui sai a lista do que saiu nos
- * últimos pacotes DAQUELE nicho, que vira aviso no prompt e conferência depois. */
-const HASHTAGS_MEMORIA = 6;          // quantos pacotes recentes olhar para trás
-// Basta ter saído UMA vez para entrar na lista do que não deve voltar: a
-// repetição já incomoda no segundo pacote, e esperar a terceira aparição
-// significaria deixar passar exatamente o pacote que o usuário reclamou.
-const MIN_PACOTES_RECORRENCIA = 1;
-const MAX_HASHTAGS_REPETIDAS = 2;    // até 2 repetidas de 5 é sobreposição normal
-const MAX_TAGS_NO_AVISO = 12;        // a lista no prompt não pode virar parede de texto
-
-/** Tags dos últimos pacotes do MESMO nicho, com em quantos deles cada uma saiu.
- *  Sem categoria (modo automático), olha os últimos pacotes em geral. */
-function hashtagsJaUsadas(itens, categoria, limite) {
-  const recentes = (Array.isArray(itens) ? itens : [])
-    .filter((it) => it && it.pacote && Array.isArray(it.pacote.hashtags) && it.pacote.hashtags.length)
-    .filter((it) => !categoria || categoria === 'auto' || ((it.opcoes || {}).categoria === categoria))
-    .slice(0, limite || HASHTAGS_MEMORIA);
-
-  const contagem = new Map();
-  recentes.forEach((it) => {
-    const doPacote = new Set(it.pacote.hashtags
-      .map((h) => _normalizarTag(typeof h === 'string' ? h : (h && h.tag)))
-      .filter(Boolean));
-    doPacote.forEach((t) => contagem.set(t, (contagem.get(t) || 0) + 1));
-  });
-
-  const recorrentes = [...contagem.entries()]
-    .filter(([, n]) => n >= MIN_PACOTES_RECORRENCIA)
-    .sort((a, b) => b[1] - a[1])
-    .map(([t]) => t);
-  return { pacotes: recentes.length, contagem, recorrentes, tags: [...contagem.keys()] };
-}
-
-/** O aviso que entra no prompt. Vazio quando ainda não há histórico do nicho. */
-function blocoTagsJaUsadas(recentes) {
-  const rec = ((recentes && recentes.recorrentes) || []).slice(0, MAX_TAGS_NO_AVISO);
-  if (!rec.length) return '\n';
-  return `
-==== HASHTAGS JÁ USADAS NOS ÚLTIMOS PACOTES DESTE NICHO ====
-${rec.map((t) => '#' + t).join(' ')}
-
-Estas saíram repetidas vezes. Repetir de novo entrega o mesmo pacote com outro texto — e é a AMPLA, a de ASSUNTO e a de INTENÇÃO que costumam escorregar assim. Só reutilize uma delas se o conteúdo de agora exigir literalmente aquela palavra; caso contrário, encontre a tag que ESTE vídeo pede.
-`;
-}
-
-function auditarHashtags(pacote, conteudo, recentes) {
+function auditarHashtags(pacote, conteudo) {
   const tags = (Array.isArray(pacote && pacote.hashtags) ? pacote.hashtags : [])
     .map((h) => (typeof h === 'string' ? h : (h && h.tag) || ''))
     .filter(Boolean);
   const palavras = palavrasDoConteudo(conteudo);
   const genericas = tags.filter(hashtagEhGenerica);
   const ancoradas = tags.filter((t) => !hashtagEhGenerica(t) && hashtagAncorada(t, palavras));
-
-  // Repetida = já recorrente no histórico do nicho E sem apoio no conteúdo de
-  // agora. Uma tag que o conteúdo novo justifica não é vício, é acerto.
-  const recorrentes = (recentes && recentes.recorrentes) || [];
-  const repetidas = tags.filter((t) => recorrentes.indexOf(_normalizarTag(t)) >= 0
-    && !hashtagAncorada(t, palavras));
 
   const problemas = [];
   if (genericas.length) {
@@ -335,10 +271,7 @@ function auditarHashtags(pacote, conteudo, recentes) {
   if (tags.length && ancoradas.length < MIN_HASHTAGS_ANCORADAS) {
     problemas.push(`só ${ancoradas.length} de ${tags.length} hashtags trazem um termo que aparece no conteúdo — o mínimo é ${MIN_HASHTAGS_ANCORADAS}, e o alvo é 3. O conjunto atual serviria para qualquer vídeo da mesma categoria. Use o assunto concreto, os nomes próprios, o lugar e a situação do conteúdo.`);
   }
-  if (repetidas.length > MAX_HASHTAGS_REPETIDAS) {
-    problemas.push(`${repetidas.length} hashtags (${repetidas.map((t) => '#' + _normalizarTag(t)).join(' ')}) já vinham saindo nos pacotes anteriores deste nicho e não têm apoio no conteúdo de agora. O conteúdo mudou; a ampla, a de assunto e a de intenção têm de mudar com ele.`);
-  }
-  return { tags, genericas, ancoradas, repetidas, problemas, ok: problemas.length === 0 };
+  return { tags, genericas, ancoradas, problemas, ok: problemas.length === 0 };
 }
 
 /** Desconto de desempate: entre duas versões, a que personaliza ganha. Não é
@@ -346,8 +279,7 @@ function auditarHashtags(pacote, conteudo, recentes) {
 function penalidadeHashtags(auditoria) {
   if (!auditoria) return 0;
   const faltando = Math.max(0, MIN_HASHTAGS_ANCORADAS - auditoria.ancoradas.length);
-  const repetidas = Math.max(0, (auditoria.repetidas || []).length - MAX_HASHTAGS_REPETIDAS);
-  return auditoria.genericas.length * 5 + faltando * 5 + repetidas * 4;
+  return auditoria.genericas.length * 5 + faltando * 5;
 }
 
 // =================== VARIAÇÃO DE UM ÚNICO ITEM (regeneração por card) ===================
@@ -401,10 +333,7 @@ RESPONDA APENAS COM JSON: {"hashtags":[{"tag":"...","tipo":"ampla|assunto|nicho|
     const correcao = (problemas && problemas.length)
       ? `\n\n==== CONFERÊNCIA DA TENTATIVA ANTERIOR (verificação automática) ====\n${problemas.map((p) => '- ' + p).join('\n')}\nO conjunto novo tem de sair deste conteúdo.`
       : '';
-    // Quem clica em "outra versão" quer outras tags — e as que já vinham saindo
-    // no nicho são as primeiras que não podem voltar.
-    const jaUsadas = blocoTagsJaUsadas(briefing && briefing.tagsRecentes);
-    const r = await callLLM(sys, contexto + correcao + jaUsadas + '\n\nGere 5 novas hashtags estratificadas. Devolva APENAS o JSON.', true, 400);
+    const r = await callLLM(sys, contexto + correcao + '\n\nGere 5 novas hashtags estratificadas. Devolva APENAS o JSON.', true, 400);
     return Array.isArray(r && r.hashtags) ? r.hashtags : [];
   }
 

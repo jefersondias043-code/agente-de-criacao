@@ -31,7 +31,8 @@ beforeAll(() => {
   C = loadModules(['catalogs.js', 'core.js', 'poster-templates.js', 'agents.js', 'causos-motor.js'],
     ['CAUSO_GENEROS', 'CAUSO_DIMENSOES', 'CAUSO_CRITICOS', 'causoGenero', 'causoDimensao',
       'causoCriticosDe', 'causoCliches', 'causoOralidade', 'causoContinuidade',
-      'causoOriginalidade', 'causoAssinatura', 'causoCurvaDoExagero', 'causoAbsurdoPresente', 'conferirCausoLocal',
+      'causoOriginalidade', 'causoAssinatura', 'causoCurvaDoExagero', 'causoAbsurdoPresente',
+      'causoFantasia', 'CAUSO_FANTASIA', 'conferirCausoLocal',
       'julgarCauso', 'escolherConceito', 'causoMemoriaDe', 'normalizarConceitos',
       'normalizarDossie', 'normalizarCritica', 'buildConceitosPrompt', 'buildDossiePrompt',
       'buildContarPrompt', 'buildCriticoPrompt', 'buildReescreverCausoPrompt',
@@ -58,7 +59,9 @@ const DOSSIE = {
   mundo: { lugar: 'beira do rio', pontos: ['a venda do Tonho', 'a ponte velha'], costume: 'todo mundo espera a canoa', detalhes: ['o cachorro'] },
   voz: { quem: 'um sobrinho do Zé, já velho', relacao: 'estava lá', porqueConta: 'ninguém mais lembra' },
   beats: ['a canoa chega torta', 'o silêncio na venda', 'a frase do peixe'],
-  curvaExagero: ['a canoa torta', 'o peixe grande', 'o peixe falando'],
+  // A escada é de TAMANHO. A versão anterior terminava em "o peixe falando" —
+  // fantasia, exatamente o que faz o espectador sair do vídeo.
+  curvaExagero: ['a canoa voltou torta', 'o peixe não coube no balde', 'o peixe entortou o motor e ninguém conseguiu pesar'],
   obrigatorio: ['o cachorro'], proibido: ['moral no fim'],
   final: 'ninguém ri, e fica assim',
 };
@@ -366,8 +369,27 @@ describe('a doutrina da mesa', () => {
     expect(C.buildContarPrompt(DOSSIE, {})).toMatch(/Nunca reproduza uma lenda conhecida/);
   });
 
-  it('o impossível entra como se fosse normal', () => {
-    expect(C.buildContarPrompt(DOSSIE, {})).toMatch(/ninguém na história acha aquilo estranho/);
+  it('o exagero parte do real — não do impossível', () => {
+    // Correção de rota: a doutrina anterior mandava o impossível acontecer e
+    // dava "o peixe fala" como exemplo. A ferramenta obedeceu e passou a
+    // entregar reino encantado, que é o que faz o espectador sair do vídeo.
+    const p = C.buildContarPrompt(DOSSIE, {});
+    expect(p).toMatch(/o absurdo é de TAMANHO, não de natureza/);
+    expect(p).toMatch(/A coisa EXISTE; o que não existe é aquele tamanho/);
+    expect(p, 'o exemplo que estragou não pode voltar').not.toMatch(/o peixe fala/);
+  });
+
+  it('a dúvida é o produto — e está escrita como teste', () => {
+    const p = C.buildContarPrompt(DOSSIE, {});
+    expect(p).toMatch(/TESTE DA PULGA ATRÁS DA ORELHA/);
+    expect(p).toMatch(/SEM SABER se acredita/);
+    expect(p).toMatch(/ela para de ouvir/);
+  });
+
+  it('a fantasia é proibida com nome e sobrenome', () => {
+    const p = C.buildContarPrompt(DOSSIE, {});
+    ['fada', 'magia', 'reino encantado', 'bicho que fala'].forEach((x) => expect(p, x).toContain(x));
+    expect(p).toMatch(/assombração, ela NUNCA é confirmada/);
   });
 
   it('a doutrina diz para que o causo existe — e é para divertir', () => {
@@ -384,7 +406,7 @@ describe('a doutrina da mesa', () => {
     // O reenquadramento que libera o absurdo sem perder a autenticidade.
     const p = C.buildContarPrompt(DOSSIE, {});
     expect(p).toMatch(/QUEM É SÉRIO AQUI É O CONTADOR, NÃO A HISTÓRIA/);
-    expect(p).toMatch(/bem escrita e sóbria é o defeito mais comum/);
+    expect(p).toMatch(/bem escrita e sóbria é um defeito/);
   });
 
   it('o dossiê pede gente, não ficha de cadastro', () => {
@@ -756,5 +778,128 @@ describe('a medição pega a história que ficou sóbria', () => {
       + 'Pediu uma pinga. Ficou quieto. Foi para casa. Dormiu cedo. Acordou tarde.';
     const r = C.conferirCausoLocal(invertida, { genero: 'assombracao' }, { genero: 'assombracao' });
     expect(r.achados.map((a) => a.dimensao)).toContain('exagero');
+  });
+});
+
+// O EXAGERO É DE TAMANHO, NÃO DE NATUREZA
+//
+// Correção de rota, e de um erro meu: a doutrina anterior mandava "a coisa
+// IMPOSSÍVEL acontece" e dava como exemplo "o peixe fala, o boi sobe no
+// telhado". A ferramenta obedeceu e passou a entregar reino encantado e fada.
+//
+// O relato do usuário explica por quê: no instante em que a história sai do
+// mundo real, quem assiste ganha CERTEZA de que é mentira e pula o vídeo. O
+// que sustenta o causo é a dúvida — "será que é verdade?". Um peixe que não
+// coube na canoa mantém a dúvida; um peixe que conversa a destrói.
+describe('a mentira parte do real', () => {
+  it('a doutrina põe a dúvida como teste, e o tamanho como regra', () => {
+    [C.buildConceitosPrompt('x', {}), C.buildDossiePrompt({ genero: 'pescador' }, 'x', {}),
+      C.buildContarPrompt(DOSSIE, {})].forEach((p, i) => {
+      expect(p, `prompt ${i}`).toMatch(/TESTE DA PULGA ATRÁS DA ORELHA/);
+      expect(p, `prompt ${i}`).toMatch(/o absurdo é de TAMANHO, não de natureza/);
+    });
+  });
+
+  it('os exemplos são de coisas que existem, no tamanho errado', () => {
+    const p = C.buildContarPrompt(DOSSIE, {});
+    expect(p).toMatch(/não coube na canoa/);
+    expect(p).toMatch(/duzentos litros/);
+    expect(p, 'nada de exemplo fora do mundo').not.toMatch(/peixe fala|boi sobe no telhado|defunto senta/);
+  });
+
+  it('o conceito declara de que coisa REAL o exagero parte', () => {
+    const p = C.buildConceitosPrompt('uma história de pescador', {});
+    expect(p).toMatch(/a coisa REAL de que ele parte/);
+    expect(p).toMatch(/NÃO invente coisa que não existe no mundo/);
+  });
+
+  it('a assombração nunca é confirmada — a dúvida é o causo', () => {
+    const p = C.buildContarPrompt(DOSSIE, {});
+    expect(p).toMatch(/NUNCA é confirmada/);
+    expect(p).toMatch(/podia ser o boi do vizinho/);
+    // E o especialista em mistério cobra isso.
+    expect(C.CAUSO_CRITICOS.misterio.olhar.join(' ')).toMatch(/A assombração foi CONFIRMADA/);
+  });
+
+  it('o especialista em exagero policia a fronteira do mundo real', () => {
+    const c = C.CAUSO_CRITICOS.exagero;
+    expect(c.persona).toMatch(/NUNCA sai do mundo real/);
+    expect(c.olhar.join(' ')).toMatch(/parte de uma coisa que EXISTE/);
+    expect(c.olhar.join(' ')).toMatch(/será que é verdade/);
+  });
+});
+
+describe('a fantasia é medida, não só proibida', () => {
+  it('reconhece o que tira a pessoa do vídeo', () => {
+    ['Foi uma fada que apareceu na estrada.', 'O velho tinha um feitiço guardado.',
+      'Ali era um reino encantado.', 'Passou um disco voador por cima do curral.',
+      'O homem virou lobisomem na esquina.'].forEach((t) => {
+      expect(C.causoFantasia(t).problemas.length, t).toBeGreaterThan(0);
+    });
+  });
+
+  it('pega bicho falando, que foi o exemplo que eu mesmo plantei', () => {
+    ['O peixe disse o nome dele.', 'A vaca falou que não ia sair dali.',
+      'O cachorro respondeu de mau humor.'].forEach((t) => {
+      expect(C.causoFantasia(t).problemas.join(' '), t).toMatch(/bicho falando/);
+    });
+  });
+
+  it('papagaio fica de fora — papagaio fala mesmo', () => {
+    expect(C.causoFantasia('O papagaio falou o nome do delegado.').problemas).toEqual([]);
+  });
+
+  it('exagero de tamanho passa limpo', () => {
+    ['O peixe não coube na canoa e entortou o motor.',
+      'A vaca deu duzentos litros num dia só.',
+      'Choveu três meses sem parar naquele ano.',
+      'Ele comeu quarenta ovos numa sentada e foi trabalhar.'].forEach((t) => {
+      expect(C.causoFantasia(t).problemas, t).toEqual([]);
+    });
+  });
+
+  it('o causo bom da suíte continua limpo', () => {
+    // Ele diz que o peixe "sabia o nome" — o pescador AFIRMANDO isso é a
+    // mentira dele, não um bicho falando na cena.
+    expect(C.causoFantasia(CAUSO_BOM).problemas).toEqual([]);
+  });
+
+  it('não confunde palavra parecida', () => {
+    // "fada" dentro de "enfadado", "magia" dentro de "imagina".
+    expect(C.causoFantasia('O homem estava enfadado e nem imaginava o tamanho daquilo.').problemas).toEqual([]);
+  });
+
+  it('a fantasia entra na conferência como problema de absurdo', () => {
+    const r = C.conferirCausoLocal('Uma fada apareceu na beira do rio e resolveu tudo.', DOSSIE, { genero: 'pescador' });
+    expect(r.achados.map((a) => a.dimensao)).toContain('absurdo');
+    expect(r.fantasia.achadas).toContain('fada');
+  });
+
+  it('e derruba a nota alta que o crítico deu ao absurdo', () => {
+    const local = C.conferirCausoLocal('O saci apareceu e o cachorro falou com ele.', DOSSIE, { genero: 'pescador' });
+    const j = C.julgarCauso([{ critico: 'exagero', notas: [{ dimensao: 'absurdo', nota: 10 }] }], local.achados);
+    expect(j.avaliadas.find((a) => a.dimensao === 'absurdo').nota).toBeLessThan(7);
+    expect(j.aprovado).toBe(false);
+  });
+
+  it('quem REESCREVE também recebe a regra — senão troca a fada por um duende', () => {
+    // Achado medindo os prompts de verdade: o reescritor era o único que
+    // escreve prosa sem a doutrina. Recebia "tire a fada" e podia obedecer à
+    // ordem reincidindo no mesmo defeito, porque ninguém dizia por quê.
+    const p = C.buildReescreverCausoPrompt(
+      'Uma fada saiu da água.',
+      [{ dimensao: 'absurdo', problema: 'saiu do mundo real', ordem: 'tire a fada' }], DOSSIE);
+    expect(p).toMatch(/o absurdo é de TAMANHO, não de natureza/);
+    expect(p, 'a lista do proibido tem de vir junto').toMatch(/PROIBIDO, sem exceção/);
+  });
+
+  it('todo prompt que escreve prosa carrega a doutrina; o do crítico não precisa', () => {
+    const escrevem = [C.buildConceitosPrompt('x', {}), C.buildDossiePrompt({ genero: 'pescador' }, 'x', {}),
+      C.buildContarPrompt(DOSSIE, {}),
+      C.buildReescreverCausoPrompt('t', [{ dimensao: 'ritmo', ordem: 'apertar' }], DOSSIE)];
+    escrevem.forEach((p, i) => expect(p, `prompt gerativo ${i}`).toMatch(/Para DIVERTIR/));
+    // O crítico julga pelas dimensões dele; a pergunta da dimensão `absurdo` já
+    // carrega a fronteira, e a conferência do código não depende dele.
+    expect(C.causoDimensao('absurdo').pergunta).toMatch(/sem sair do mundo/);
   });
 });

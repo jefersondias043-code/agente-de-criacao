@@ -81,7 +81,7 @@ const CAUSO_DIMENSOES = [
   { id: 'exagero', pergunta: 'O absurdo cresce, ou já chega pronto?', minimo: 6 },
   { id: 'ritmo', pergunta: 'Existe parte arrastada?', minimo: 6 },
   { id: 'humor', pergunta: 'A graça funciona — dá vontade de rir ou de contar de novo?', minimo: 7 },
-  { id: 'absurdo', pergunta: 'A mentira cresce até dar vontade de dizer "não acredito"?', minimo: 7 },
+  { id: 'absurdo', pergunta: 'O exagero parte de algo real e cresce sem sair do mundo — dá para duvidar sem descartar?', minimo: 7 },
   { id: 'misterio', pergunta: 'A curiosidade se sustenta sem explicar tudo?', minimo: 6 },
   { id: 'final', pergunta: 'O encerramento recompensa a espera?', minimo: 7 },
   { id: 'brasilidade', pergunta: 'Há identidade cultural sem caricatura?', minimo: 7 },
@@ -279,7 +279,51 @@ function causoCurvaDoExagero(texto) {
   return { problemas, densidades };
 }
 
-/* O IMPOSSÍVEL COMBINADO CHEGOU AO TEXTO?
+/* FANTASIA — o defeito que faz a pessoa sair do vídeo.
+ *
+ * O exagero de um causo é de TAMANHO: um peixe grande demais, uma vaca que deu
+ * duzentos litros. A coisa existe; o tamanho é que é mentira, e é aí que mora a
+ * dúvida — "será que é verdade?".
+ *
+ * Fantasia é outra coisa: fada, magia, bicho que fala, gente que voa. Quem ouve
+ * reconhece na primeira frase, ganha CERTEZA de que nunca aconteceu, e para de
+ * ouvir. Não é exagero forte demais — é exagero do tipo errado, e destrói
+ * exatamente o que sustenta o causo.
+ *
+ * (Este verificador nasceu de um erro meu: a doutrina anterior mandava o
+ * impossível acontecer, e dava "o peixe fala" como exemplo. A ferramenta
+ * obedeceu e passou a entregar reino encantado.) */
+const CAUSO_FANTASIA = [
+  'fada', 'fadas', 'duende', 'duendes', 'saci', 'curupira', 'bruxa', 'bruxo',
+  'feiticeira', 'feitico', 'magia', 'magico', 'magica', 'encantamento',
+  'reino encantado', 'castelo encantado', 'varinha', 'pocao', 'unicornio',
+  'dragao', 'sereia', 'elfo', 'duende', 'genio da lampada', 'tapete voador',
+  'superpoder', 'poderes magicos', 'disco voador', 'alienigena', 'extraterrestre',
+  'nave espacial', 'viagem no tempo', 'maquina do tempo', 'portal', 'teletransporte',
+  'imortal', 'ressuscitou', 'ressucitou', 'vampiro', 'lobisomem', 'zumbi',
+];
+
+/* Bicho que fala. O papagaio fica de fora: papagaio fala mesmo. */
+const _CAUSO_BICHOS = 'peixe|vaca|boi|touro|cachorro|cadela|cavalo|egua|galinha|galo|porco|gato|burro|jumento|onca|cobra|bode|carneiro|pato|sapo';
+const _CAUSO_FALAR = 'falou|disse|respondeu|perguntou|gritou|explicou|contou|avisou|reclamou|xingou';
+const CAUSO_BICHO_FALANTE = new RegExp(
+  `\\b(?:o|a|um|uma)?\\s*(${_CAUSO_BICHOS})\\b[^.!?\\n]{0,25}?\\b(${_CAUSO_FALAR})\\b`, 'i');
+
+function causoFantasia(texto) {
+  const t = _cNorm(texto);
+  const achadas = CAUSO_FANTASIA.filter((f) => new RegExp(`(^|[^a-z0-9])${f}([^a-z0-9]|$)`).test(t));
+  const problemas = [];
+  if (achadas.length) {
+    problemas.push(`a história saiu do mundo real: "${[...new Set(achadas)].join('", "')}". Quem ouve reconhece a invenção e para de ouvir. O exagero tem de ser de TAMANHO — uma coisa que existe, num tamanho que ninguém acredita.`);
+  }
+  const bicho = CAUSO_BICHO_FALANTE.exec(String(texto || ''));
+  if (bicho) {
+    problemas.push(`bicho falando ("${bicho[0].trim()}") — isso é fantasia, e mata a dúvida na hora. O bicho pode fazer coisa espantosa; falar, não.`);
+  }
+  return { problemas, achadas };
+}
+
+/* O EXAGERO COMBINADO CHEGOU AO TEXTO?
  *
  * A mesa decide, no dossiê, qual é a coisa impossível daquela história. Se
  * nenhuma palavra dela aparece no texto, a história ficou sóbria pelo caminho —
@@ -293,7 +337,7 @@ function causoAbsurdoPresente(texto, dossie) {
   if (_cMencionado(absurdo, texto)) return { problemas: [], conferido: true };
   return {
     conferido: true,
-    problemas: [`a coisa impossível combinada ("${absurdo}") não aparece na história. Sem ela sobra um texto bem escrito e sério — que é o oposto do que este causo tem de ser.`],
+    problemas: [`o exagero combinado ("${absurdo}") não aparece na história. Sem ele sobra um texto bem escrito e sério — que é o oposto do que este causo tem de ser.`],
   };
 }
 
@@ -312,15 +356,17 @@ function conferirCausoLocal(texto, dossie, opcoes) {
   // gêneros ninguém media se o absurdo chegava pronto na primeira frase.
   const exag = causoCurvaDoExagero(texto);
   const abs = causoAbsurdoPresente(texto, dossie);
+  const fant = causoFantasia(texto);
 
   const achados = []
     .concat(oral.problemas.map((p) => ({ dimensao: 'oralidade', texto: p })))
     .concat(cont.problemas.map((p) => ({ dimensao: 'coerencia', texto: p })))
     .concat(orig.problemas.map((p) => ({ dimensao: 'originalidade', texto: p })))
     .concat(exag.problemas.map((p) => ({ dimensao: 'exagero', texto: p })))
-    .concat(abs.problemas.map((p) => ({ dimensao: 'absurdo', texto: p })));
+    .concat(abs.problemas.map((p) => ({ dimensao: 'absurdo', texto: p })))
+    .concat(fant.problemas.map((p) => ({ dimensao: 'absurdo', texto: p })));
 
-  return { achados, oralidade: oral, continuidade: cont, originalidade: orig, exagero: exag, absurdo: abs, ok: achados.length === 0 };
+  return { achados, oralidade: oral, continuidade: cont, originalidade: orig, exagero: exag, absurdo: abs, fantasia: fant, ok: achados.length === 0 };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -395,9 +441,19 @@ function causoBlocoDoutrina() {
   return [
     '== PARA QUE ESTE CAUSO EXISTE ==',
     'Para DIVERTIR. Quem ouve tem de rir, ou balançar a cabeça e pensar "que mentira mais absurda". Se a história termina e ninguém sorriu nem duvidou, ela falhou — por melhor que esteja escrita.',
-    'A coisa IMPOSSÍVEL acontece: o peixe fala, o boi sobe no telhado, o defunto senta na mesa. E ninguém na história acha aquilo estranho. É a naturalidade diante do absurdo que faz graça.',
-    'QUEM É SÉRIO AQUI É O CONTADOR, NÃO A HISTÓRIA. Ele jura que aconteceu, com cara de quem não está mentindo, e defende cada detalhe. A seriedade dele é o que faz o absurdo funcionar — e é a única seriedade permitida.',
-    'Uma história bem escrita e sóbria é o defeito mais comum aqui. Se você terminar de escrever e o texto parecer digno, respeitoso e comovente, você errou o alvo.',
+    '',
+    'O TESTE DA PULGA ATRÁS DA ORELHA — o mais importante de todos:',
+    'Quem ouve tem de terminar SEM SABER se acredita. "Será que é verdade? Será que é mentira?" é o estado exato em que a pessoa precisa ficar.',
+    'No instante em que ela tem CERTEZA de que aquilo nunca aconteceu, ela para de ouvir. E ela ganha essa certeza na hora em que a história sai do mundo real.',
+    '',
+    'POR ISSO: o absurdo é de TAMANHO, não de natureza. A coisa EXISTE; o que não existe é aquele tamanho.',
+    'Um peixe que não coube na canoa e entortou o motor. Uma vaca que deu duzentos litros num dia só. Uma chuva que não parou por três meses. Um homem que comeu quarenta ovos numa sentada e foi trabalhar. Tudo isso é gente, bicho e trabalho de todo dia — no tamanho errado.',
+    '',
+    'PROIBIDO, sem exceção: fada, duende, saci, bruxa, magia, feitiço, reino encantado, poder sobrenatural, bicho que fala, gente que voa, viagem no tempo, disco voador, defunto que levanta e conversa. Nada disso existe no cotidiano de ninguém — quem ouve reconhece na primeira frase, sabe que é invenção e pula fora.',
+    'Se a história tiver assombração, ela NUNCA é confirmada: foi um barulho, uma luz, um vulto que podia ser o boi do vizinho. A dúvida é que faz o causo; a confirmação mata.',
+    '',
+    'QUEM É SÉRIO AQUI É O CONTADOR, NÃO A HISTÓRIA. Ele jura que aconteceu, com cara de quem não está mentindo, e defende cada detalhe com número, nome e lugar. A seriedade dele é o que sustenta a dúvida — e é a única seriedade permitida.',
+    'Uma história bem escrita e sóbria é um defeito. Uma história de fantasia é um defeito PIOR: a primeira é chata, a segunda faz a pessoa sair.',
     '',
     '== A REGRA ACIMA DE TODAS ==',
     'NÃO tente parecer folclórico. Tentar é o caminho mais curto para a caricatura — o "ô sinhô" de mentira, o sotaque escrito errado de propósito, o interior de cartão-postal.',
@@ -439,7 +495,8 @@ function buildConceitosPrompt(ideia, memoria) {
     '== TAREFA ==',
     'Proponha QUATRO histórias possíveis a partir dessa ideia. Diferentes de verdade: não quatro versões da mesma coisa, mas quatro caminhos que levariam a histórias que ninguém confundiria uma com a outra.',
     'AS QUATRO SÃO DE RIR. Não varie entre engraçada, triste e comovente — varie DE ONDE VEM O RISO e QUAL É A MENTIRA. Uma pode rir da teimosia de alguém; outra, de um mal-entendido que ninguém desfaz; outra, do absurdo tratado com naturalidade; outra, da reação de quem estava junto.',
-    'Cada uma precisa ter uma coisa IMPOSSÍVEL acontecendo — e ninguém na história achando aquilo estranho. É por isso que quem ouve termina dizendo "que mentira mais absurda".',
+    'Cada uma precisa ter um EXAGERO que parte de algo real: uma coisa que existe na vida de qualquer um, levada a um tamanho que ninguém acredita. Peixe grande demais, vaca leiteira demais, chuva longa demais, sujeito teimoso demais.',
+    'NÃO invente coisa que não existe no mundo — fada, magia, bicho falando, gente voando. Quem ouve reconhece a invenção na primeira frase e para de ouvir. O alvo é a pessoa terminar sem saber se acredita.',
     'Para cada uma, diga também qual é o RISCO dela: o jeito mais provável de essa história sair banal. "Ficar séria demais" é o risco mais comum aqui.',
     '',
     'Gêneros possíveis (escolha o que couber em cada conceito):',
@@ -455,7 +512,7 @@ function buildConceitosPrompt(ideia, memoria) {
     '      "quem": "de quem é a história",',
     '      "quer": "o que essa pessoa quer",',
     '      "virada": "o que muda no meio do caminho",',
-    '      "absurdo": "a coisa IMPOSSÍVEL que acontece nesta história",',
+    '      "absurdo": "o exagero: diga a coisa REAL de que ele parte e o tamanho mentiroso a que chega (ex.: um peixe → um peixe que não coube na canoa e entortou o motor)",',
     '      "graca": "de onde vem o riso: a pessoa, a contradição, o tempo da frase, a reação de quem estava junto",',
     '      "estrutura": "o desenho de como contar, nomeado por você",',
     '      "porqueFunciona": "por que essa é boa de ouvir",',
@@ -489,7 +546,7 @@ function buildDossiePrompt(conceito, ideia, memoria) {
     c.quem ? `De quem é: ${c.quem}` : '',
     c.quer ? `O que quer: ${c.quer}` : '',
     c.virada ? `A virada: ${c.virada}` : '',
-    c.absurdo ? `A COISA IMPOSSÍVEL: ${c.absurdo}` : '',
+    c.absurdo ? `O EXAGERO (parte de algo real): ${c.absurdo}` : '',
     c.graca ? `De onde vem o riso: ${c.graca}` : '',
     c.estrutura ? `Desenho: ${c.estrutura}` : '',
     c.risco ? `RISCO A EVITAR: ${c.risco}` : '',
@@ -519,7 +576,7 @@ function buildDossiePrompt(conceito, ideia, memoria) {
     '  "curvaExagero": ["se for história de exagero: o que é quase normal, depois estranho, depois improvável, depois inacreditável"],',
     '  "obrigatorio": ["coisas que a história PRECISA ter"],',
     '  "proibido": ["coisas que estragariam esta história"],',
-    '  "absurdo": "a coisa impossível que acontece — repita e concretize a do conceito",',
+    '  "absurdo": "o exagero, concretizado: a coisa real de que parte e o tamanho mentiroso a que chega. Nada fora do mundo — sem magia, sem bicho falando, sem sobrenatural confirmado",',
     '  "graca": "de onde vem o riso nesta versão",',
     '  "final": "o que acontece no fim, e o que fica sem explicação"',
     '}',
@@ -587,9 +644,11 @@ function buildContarPrompt(dossie, opcoes) {
   }
   if (d.absurdo) {
     linhas.push('');
-    linhas.push('== A COISA IMPOSSÍVEL ==');
+    linhas.push('== O EXAGERO ==');
     linhas.push(d.absurdo);
     linhas.push('Isto ACONTECE na história, e ninguém acha estranho. Não explique, não justifique, não sugira que foi sonho ou engano. Conte como quem conta que choveu.');
+    linhas.push('Sustente com detalhe de gente que estava lá: número, nome, hora, quem viu. É o detalhe que segura a dúvida de pé.');
+    linhas.push('E não saia do mundo: o exagero é de tamanho, nunca de natureza. Nada de magia, bicho que fala, gente que voa ou sobrenatural confirmado — na hora em que a história vira fantasia, quem ouve tem certeza de que é mentira e vai embora.');
   }
   if (d.graca) {
     linhas.push('');
@@ -668,9 +727,11 @@ const CAUSO_CRITICOS = {
   },
   exagero: {
     label: 'Especialista em exagero',
-    persona: 'Você entende de mentira contada com convicção. Sabe que o prazer da história de pescador não está no peixe: está em ver o homem sustentando o tamanho do peixe com cara séria.',
+    persona: 'Você entende de mentira contada com convicção. Sabe que o prazer da história de pescador não está no peixe: está em ver o homem sustentando o tamanho do peixe com cara séria. E sabe que a mentira boa NUNCA sai do mundo real — ela infla o que existe.',
     dimensoes: ['exagero', 'absurdo'],
     olhar: [
+      'O exagero parte de uma coisa que EXISTE, ou a história inventou coisa que não existe no mundo (magia, bicho falando, gente voando)? Isto é o mais grave: quem ouve ganha certeza de que é mentira e para de ouvir.',
+      'Depois de ouvir, dá para ficar em dúvida — "será que é verdade?" — ou dá para ter certeza de que não é?',
       'O exagero CRESCE, ou já chega pronto na primeira frase?',
       'A escada está inteira: quase normal → estranho → improvável → absurdo → inacreditável?',
       'Quem conta sustenta a mentira com naturalidade, ou entrega o jogo?',
@@ -688,6 +749,7 @@ const CAUSO_CRITICOS = {
       'O susto vem do que se vê ou do que não se vê?',
       'Tem testemunho que não bate com o outro? Barulho, pegada, porta, ausência?',
       'O fim fecha demais? Causo de assombração que explica tudo vira boletim de ocorrência.',
+      'A assombração foi CONFIRMADA? Se o texto mostra o fantasma e garante que era um, acabou a dúvida e acabou o causo. Tem de restar a chance de ter sido o boi do vizinho, o vento, a cachaça.',
     ],
   },
   humor: {
@@ -752,6 +814,14 @@ function buildReescreverCausoPrompt(texto, ordens, dossie) {
   const linhas = [];
   linhas.push('Você é quem corrige o causo. Recebe a história e uma lista fechada de problemas.');
   linhas.push('Isto NÃO é uma história nova: é esta mesma, sem esses defeitos. O que não está na lista, você não toca.');
+  linhas.push('');
+  /* O REESCRITOR TAMBÉM ESCREVE — logo, também precisa da doutrina.
+   *
+   * Sem ela, o reescritor recebia "tire a fada daqui" e podia devolver um
+   * duende: obedecia à ordem e reincidia no mesmo defeito, porque ninguém lhe
+   * disse por que fada é proibida. Era o único prompt de escrita da mesa sem a
+   * regra que a ferramenta inteira existe para cumprir. */
+  linhas.push(causoBlocoDoutrina());
   linhas.push('');
   linhas.push('== A HISTÓRIA ==');
   linhas.push(String(texto || ''));

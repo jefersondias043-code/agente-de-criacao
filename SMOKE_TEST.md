@@ -27,23 +27,18 @@ No navegador (http://localhost:8080):
       acendendo em sequência e o resultado traz hashtags copiáveis + chip "Design sugerido". No
       modo **Rápido**, gerar mostra spinner simples (sem selos) e o resultado NÃO traz hashtags
       nem chip de design (paridade com o comportamento anterior ao pipeline).
-- [ ] **Narrativa — um campo, um clique**: ao abrir, a tela mostra **só** o campo "Conte a sua
-      história" e o botão **Criar conteúdo** (habilitado). Nada de veredito nem X vermelho na
-      tela vazia. As seções **A história em detalhe**, **Ajustes** e **O lema** começam
-      fechadas — tudo continua lá para quem quiser.
-      Escrever uma ideia e clicar **uma vez**: a ferramenta lê a ideia, responde sozinha às três
-      perguntas do lema (confira em "A história em detalhe") e escreve o conteúdo.
-      Se a ideia for vaga demais, aparece **UMA** pergunta focada (não um formulário) com o
-      texto do lema explicando por que ela importa; responder ali e o fluxo segue.
-      O lema continua valendo: uma situação sem obstáculo ou sem risco não vira conteúdo —
-      só que agora a ferramenta ajuda a chegar lá em vez de travar o botão.
-      Diagnóstico segue **sem chave de API e offline**; rascunho sobrevive a trocar de
-      ferramenta e a recarregar. "Afiar as respostas" e o histórico continuam disponíveis.
-- [ ] **Narrativa — elenco**: "Adicionar personagem" cria a linha e já foca o nome; digitar não
-      perde o foco. Personagem sem desejo declarado vira aviso (nunca trava — os três portões
-      continuam sendo do protagonista). Trocar o formato muda o limite de elenco (Reels avisa
-      com 3 personagens; vídeo longo, não). O formato **Diálogo** cobra pelo menos um personagem.
-      Recarregar a página e reabrir do histórico devolvem o elenco inteiro.
+- [ ] **Narrativa — um campo só**: ao abrir, a tela tem **apenas** o campo "O que você quer
+      criar?", o botão **Anexar arquivo** e o botão **Criar conteúdo**. Nenhuma sanfona, nenhum
+      seletor, nenhum veredito na tela vazia.
+      **Anexar** funciona como na Gerar e no AutoPost: PDF, imagem (OCR), áudio, vídeo ou TXT
+      viram texto na ideia, somando ao que já estiver escrito. Vídeo/áudio **grande** mostra o
+      cartão com o botão **Transcrever** (o toque é o que destrava o áudio no iPhone).
+      Escrever (ou anexar) e clicar **uma vez**: a IA lê o material, monta a história e escreve
+      o conteúdo. Se a ideia for vaga demais, aparece **UMA** pergunta focada; responder ali e
+      o fluxo segue. O lema continua valendo — situação sem obstáculo ou sem risco não vira
+      conteúdo —, mas quem trabalha para chegar lá é a ferramenta.
+- [ ] **Narrativa — histórico**: o relógio no topo abre o histórico; reabrir uma história
+      devolve o conteúdo gerado. O rascunho sobrevive a trocar de ferramenta e a recarregar.
 - [ ] **Gerar — Atribuição**: numa pauta de anúncio (ex.: "o governador anunciou que as obras
       começam em 1º de agosto"), a matéria NÃO pode afirmar a data por conta própria — tem de
       sair "Segundo o governador…", "De acordo com…". Vale para promessa, previsão, número,

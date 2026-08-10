@@ -31,9 +31,11 @@ beforeAll(() => {
     ['diagnosticarNarrativa', 'NARR_PERGUNTAS', 'buildExtracaoNarrativaPrompt', 'buildNarrativaPrompt']);
 });
 
-/** Um controle está "à vista" quando não vive dentro de um <details>. */
+/** Um controle está "à vista" quando não está escondido nem é o seletor de
+ *  arquivo (que vive `hidden` por trás do botão "Anexar", como nas outras
+ *  ferramentas). */
 const aVista = () => [...doc.querySelectorAll('input, textarea, select')]
-  .filter((el) => !el.closest('details'))
+  .filter((el) => !el.closest('[hidden]') && !el.hasAttribute('hidden') && el.type !== 'file')
   .map((el) => el.id);
 
 describe('a tela pede uma decisão, não onze', () => {
@@ -41,21 +43,21 @@ describe('a tela pede uma decisão, não onze', () => {
     expect(aVista()).toEqual(['n-ideia']);
   });
 
-  it('tudo o mais continua existindo, recolhido', () => {
-    // Simplificar não é remover: quem quiser ajustar formato, tom, elenco ou as
-    // três respostas continua podendo — só não é obrigado a passar por ali.
-    const todos = [...doc.querySelectorAll('input, textarea, select')].map((el) => el.id);
-    ['n-protagonista', 'n-desejo', 'n-obstaculo', 'n-risco',
-      'n-formatoId', 'n-tomId', 'n-tamanhoId', 'n-perfil', 'n-publico', 'n-cta']
-      .forEach((id) => expect(todos, id).toContain(id));
+  it('não sobrou nenhuma seção de configuração na tela', () => {
+    // Recolher já não bastava: uma tela com três sanfonas ao lado do campo
+    // continua sendo uma tela de configuração.
+    expect(doc.querySelectorAll('details').length).toBe(0);
   });
 
-  it('as seções avançadas começam FECHADAS', () => {
-    ['n-detalhe', 'n-ajustes', 'n-lema'].forEach((id) => {
-      const d = doc.getElementById(id);
-      expect(d, id).toBeTruthy();
-      expect(d.hasAttribute('open'), `${id} não pode abrir por padrão`).toBe(false);
-    });
+  it('os campos da história continuam existindo, fora da vista', () => {
+    // Eles são o ESTADO que a IA preenche e que o prompt lê — sumir com eles
+    // quebraria a qualidade; mostrá-los é a complexidade que saiu.
+    const interno = doc.getElementById('n-interno');
+    expect(interno, 'o porta-estado precisa existir').toBeTruthy();
+    expect(interno.hasAttribute('hidden')).toBe(true);
+    ['n-protagonista', 'n-desejo', 'n-obstaculo', 'n-risco', 'n-formatoId',
+      'n-tomId', 'n-tamanhoId', 'n-perfil', 'n-publico', 'n-cta']
+      .forEach((id) => expect(interno.querySelector('#' + id), id).toBeTruthy());
   });
 
   it('o botão não nasce travado', () => {
@@ -78,6 +80,36 @@ describe('a tela pede uma decisão, não onze', () => {
 
   it('as abas História/Conteúdo sumiram — era navegação a mais', () => {
     expect(vista).not.toContain('n-mtabs');
+  });
+});
+
+describe('o campo tem anexo, como nas outras ferramentas', () => {
+  // A Narrativa era a única que só aceitava texto digitado.
+  it('tem o botão e o seletor de arquivo', () => {
+    expect(doc.getElementById('n-attach-btn'), 'sem botão de anexar').toBeTruthy();
+    const inp = doc.getElementById('n-attach-input');
+    expect(inp, 'sem seletor de arquivo').toBeTruthy();
+    expect(inp.hasAttribute('hidden'), 'o seletor fica atrás do botão').toBe(true);
+  });
+
+  it('aceita os MESMOS tipos das outras ferramentas', () => {
+    // Sem reusar INGEST_ACCEPT, a Narrativa aceitaria uma lista própria que
+    // envelheceria sozinha.
+    expect(js).toMatch(/nAttachInput\.accept = INGEST_ACCEPT/);
+  });
+
+  it('usa o mesmo pipeline de ingestão (PDF, OCR, áudio, vídeo)', () => {
+    expect(js).toMatch(/ingestFileNative\(f, entregar\)/);
+  });
+
+  it('mídia grande espera um toque — é o gesto que destrava o áudio no iPhone', () => {
+    expect(js).toMatch(/_genEhMidiaGrande/);
+    expect(js).toMatch(/data-attach-go/);
+    expect(doc.getElementById('n-attach-pending'), 'sem área do cartão pendente').toBeTruthy();
+  });
+
+  it('o texto extraído entra na ideia, sem apagar o que já estava', () => {
+    expect(js).toMatch(/cur \? \(cur \+ '\\n\\n' \+ text\) : text/);
   });
 });
 

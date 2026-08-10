@@ -27,8 +27,9 @@ const doc = new JSDOM(`<body><section>${vista.slice(vista.indexOf('>') + 1)}</se
 let N;
 beforeAll(() => {
   clearStorage();
-  N = loadModules(['catalogs.js', 'core.js', 'poster-templates.js', 'narrativa.js'],
-    ['diagnosticarNarrativa', 'NARR_PERGUNTAS', 'buildExtracaoNarrativaPrompt', 'buildNarrativaPrompt']);
+  N = loadModules(['catalogs.js', 'core.js', 'poster-templates.js', 'narrativa.js', 'narrativa-motor.js'],
+    ['diagnosticarNarrativa', 'NARR_PERGUNTAS', 'buildExtracaoNarrativaPrompt', 'buildRoteiroPrompt',
+      'narrFormato', 'narrTom']);
 });
 
 /** Um controle está "à vista" quando não está escondido nem é o seletor de
@@ -114,20 +115,26 @@ describe('o campo tem anexo, como nas outras ferramentas', () => {
 });
 
 describe('um clique basta', () => {
-  it('o gerar lê a ideia com IA antes de cobrar qualquer coisa', () => {
-    expect(js).toMatch(/buildExtracaoNarrativaPrompt\(d\.ideia\)/);
-    expect(js).toMatch(/Lendo a sua ideia…/);
+  it('o gerar lê o material com IA antes de cobrar qualquer coisa', () => {
+    // A leitura virou a primeira etapa do motor — e continua vindo ANTES de
+    // qualquer cobrança ao usuário.
+    expect(js).toMatch(/await runNarrativaPipeline\(/);
+    expect(js).toMatch(/aposLeitura/);
   });
 
-  it('a extração roda ANTES da cobrança, não depois', () => {
-    const iExtrai = js.indexOf('buildExtracaoNarrativaPrompt(d.ideia)');
+  it('a leitura roda ANTES da cobrança, não depois', () => {
+    const iLe = js.indexOf('const aposLeitura = (plano)');
     const iCobra = js.indexOf('Falta uma resposta para a história existir');
-    expect(iExtrai).toBeGreaterThan(0);
-    expect(iExtrai).toBeLessThan(iCobra);
+    expect(iLe).toBeGreaterThan(0);
+    expect(iLe).toBeLessThan(iCobra);
   });
 
-  it('falha da IA não trava o usuário — ele ainda pode responder à mão', () => {
-    expect(js).toMatch(/catch \(err\) \{ \/\* segue: o usuário responde à mão \*\/ \}/);
+  it('falha no meio do caminho não some com o que já havia', () => {
+    // A crítica é melhoria, não requisito; a reescrita que falha deixa o
+    // rascunho de pé. O usuário nunca fica sem nada por causa de uma etapa.
+    const motor = readFileSync(join(raiz, 'src/narrativa-motor.js'), 'utf8');
+    expect(motor).toMatch(/catch \(_\) \{ novo = ''; \}/);
+    expect(motor).toMatch(/if \(!novo\) break;/);
   });
 });
 
@@ -172,10 +179,11 @@ describe('a qualidade do resultado não foi afrouxada', () => {
   });
 
   it('o prompt de escrita continua levando a história inteira', () => {
-    const built = N.buildNarrativaPrompt({ narrativa: base, formatoId: null, tomId: null, tamanhoId: null });
-    expect(built.prompt).toContain('reabrir a barraca da feira');
-    expect(built.prompt).toContain('a licença foi cassada');
-    expect(built.prompt).toContain('a aposentadoria de dez anos');
+    // Quem escreve agora é o motor; a garantia é a mesma.
+    const p = N.buildRoteiroPrompt(base, { formato: N.narrFormato('reels'), tom: N.narrTom('direto') });
+    expect(p).toContain('reabrir a barraca da feira');
+    expect(p).toContain('a licença foi cassada');
+    expect(p).toContain('a aposentadoria de dez anos');
   });
 
   it('o extrator continua proibido de inventar', () => {

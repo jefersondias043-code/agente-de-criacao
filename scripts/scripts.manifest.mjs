@@ -15,6 +15,7 @@ export const SCRIPTS = [
   'agents.js',
   'generate.js',
   'narrativa.js',
+  'narrativa-motor.js',
   'extract.js',
   'posters.js',
   'poster-templates.js',

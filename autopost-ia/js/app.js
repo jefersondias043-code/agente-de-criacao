@@ -326,12 +326,7 @@ function montarBriefing(opcoes, fonteTexto) {
     // diz à IA quem assiste e com que vocabulário esse público busca.
     niche: (typeof categoriaParaBriefing === 'function') ? categoriaParaBriefing(opcoes.categoria) : '',
     extra: '(nenhum)',
-    checklist: Object.keys(checklist).length ? checklist : null,
-    // O que já saiu nos últimos pacotes DESTE nicho. Cada geração é uma conversa
-    // nova para a IA — sem esta lista ela não tem como saber que está repetindo.
-    tagsRecentes: (typeof hashtagsJaUsadas === 'function')
-      ? hashtagsJaUsadas(typeof histLoad === 'function' ? histLoad() : [], opcoes.categoria)
-      : null,
+    checklist: Object.keys(checklist).length ? checklist : null
   };
 }
 
@@ -412,7 +407,7 @@ async function gerarPacoteFinal() {
       // Conferência determinística: as hashtags saíram DESTE conteúdo ou são as
       // que caberiam em qualquer vídeo do nicho? O juiz é uma LLM e às vezes
       // aprova um conjunto genérico; esta conta não.
-      const auditoria = auditarHashtags(pacote, texto, briefing.tagsRecentes);
+      const auditoria = auditarHashtags(pacote, texto);
       const notaEfetiva = avaliacao.nota_total - penalidadeHashtags(auditoria);
 
       if (!melhor || notaEfetiva > melhor.notaEfetiva) melhor = { pacote, avaliacao, notaEfetiva };
@@ -496,10 +491,10 @@ async function regenerarCampoUI(id, campo, btnEl) {
     // é justamente aqui que clica quem não gostou das tags, e devolver outro
     // conjunto genérico seria repetir o problema com palavras diferentes.
     if (campo === 'hashtags') {
-      const a = auditarHashtags({ hashtags: novo }, conteudo, briefing.tagsRecentes);
+      const a = auditarHashtags({ hashtags: novo }, conteudo);
       if (!a.ok) {
         const outra = await gerarVariacaoCampo(campo, conteudo, item.pacote || {}, briefing, a.problemas);
-        const b = auditarHashtags({ hashtags: outra }, conteudo, briefing.tagsRecentes);
+        const b = auditarHashtags({ hashtags: outra }, conteudo);
         if (Array.isArray(outra) && outra.length && penalidadeHashtags(b) <= penalidadeHashtags(a)) novo = outra;
       }
     }

@@ -1165,3 +1165,22 @@ input:focus, select:focus, textarea:focus {
   html { scroll-behavior: auto; }
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+
+/* ===== BOTÃO LIMPAR (×) NOS CAMPOS (r203) =====
+   Mesma ideia do app principal: começar de novo sem apagar à mão. */
+.clearable { position: relative; display: block; }
+.clearable > .field-clear {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  width: 26px; height: 26px; padding: 0;
+  display: none; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: var(--bg-card); color: var(--ink-dim);
+  cursor: pointer; opacity: 0.55;
+  transition: opacity .15s, color .15s, border-color .15s;
+}
+.clearable.has-value > .field-clear { display: inline-flex; }
+.clearable > .field-clear svg { width: 13px; height: 13px; }
+.clearable > .field-clear:hover { opacity: 1; color: var(--fail); border-color: var(--fail); }
+.clearable-inline > .field-clear { top: 50%; transform: translateY(-50%); }
+.clearable.has-value > textarea, .clearable.has-value > input { padding-right: 40px; }

@@ -6,6 +6,7 @@
 export const SCRIPTS = [
   'catalogs.js',
   'core.js',
+  'clear-field.js',
   'crypto.js',
   'storage.js',
   'apikey-sync.js',

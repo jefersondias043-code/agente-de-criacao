@@ -1,4 +1,4 @@
-const CACHE = 'agp-v202';
+const CACHE = 'agp-v203';
 const URLS = [
   './',
   './index.html',
@@ -20,6 +20,7 @@ const URLS = [
   // scripts:start — gerado de scripts/scripts.manifest.mjs (npm run sync:manifest)
   './src/catalogs.js',
   './src/core.js',
+  './src/clear-field.js',
   './src/crypto.js',
   './src/storage.js',
   './src/apikey-sync.js',

@@ -88,7 +88,10 @@
       <div class="smartbox" id="smartbox">
         <input type="file" id="transcricaoFile" accept="image/*,audio/*,video/*,application/pdf,.pdf,.docx,text/plain,.txt,.md,.png,.jpg,.jpeg,.webp,.heic,.heif" hidden />
 
-        <textarea id="transcricaoTexto" placeholder="Digite ou cole seu texto aqui — ou anexe áudio, vídeo, imagem, PDF ou texto." aria-label="Texto do conteúdo"></textarea>
+        <!-- data-no-clear: esta caixa já tem o seu próprio × (#textClearBtn,
+             .sb-clear), desenhado junto da smartbox. Sem isto o mecanismo
+             genérico somaria um segundo botão em cima do primeiro. -->
+        <textarea data-no-clear id="transcricaoTexto" placeholder="Digite ou cole seu texto aqui — ou anexe áudio, vídeo, imagem, PDF ou texto." aria-label="Texto do conteúdo"></textarea>
 
         <button type="button" id="textClearBtn" class="sb-clear" title="Limpar texto" aria-label="Limpar texto" style="display:none;">✕</button>
 
@@ -229,6 +232,7 @@
 <script src="js/vendor/lamejs.js"></script>
 <!-- Módulos do app (scripts clássicos, ordem = dependência) -->
 <script src="js/core.js"></script>
+<script src="js/clear-field.js"></script>
 <script src="js/categorias.js"></script>
 <script src="js/bridge.js"></script>
 <script src="js/config.js"></script>

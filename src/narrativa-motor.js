@@ -351,8 +351,12 @@ function buildLeituraPrompt(material, lema) {
     'Esses são exemplos de VARIEDADE, não um cardápio: se este material pedir outro desenho, use o outro e explique por quê.',
     'Os beats devem citar o que acontece NESTE material, com as pessoas e as coisas dele — não rótulos genéricos.',
     '',
-    '== REGRA INEGOCIÁVEL ==',
-    'Campo que o material não sustenta volta como string vazia (""). Buraco declarado é informação útil; buraco preenchido com invenção é defeito.',
+    '== O QUE É LER E O QUE É INVENTAR (a distinção que decide este trabalho) ==',
+    'INVENTAR é acrescentar FATO que não está no material: um número, um nome, uma data, uma fala, um acontecimento. Isso é proibido, sempre.',
+    'LER é dizer o que os fatos do material significam: quem quer o quê, o que atrapalha, o que essa pessoa perde se der errado. Isso é o SEU TRABALHO — e é esperado que você faça mesmo quando o material não diz com todas as letras.',
+    'Exemplo da diferença: se o material conta que alguém gastou a reserva da aposentadoria numa causa, o que está em jogo é a aposentadoria — dizer isso é ler, não inventar. Já afirmar de quanto era a reserva, quando ninguém disse, é inventar.',
+    'Portanto: deduza o desejo, o obstáculo e o que está em jogo a partir dos fatos, sem acrescentar fato nenhum.',
+    'Só devolva string vazia quando o material realmente não permitir NEM a dedução — e, nesse caso, diga em "naoTem" o que ficou faltando.',
     '',
     'Devolva SOMENTE um objeto JSON, sem cercas de código:',
     '{',
@@ -474,6 +478,19 @@ function buildRoteiroPrompt(plano, opcoes) {
   linhas.push('- O meio responde "por que eu continuaria?". A cada trecho, uma informação nova que muda o que se sabia — nunca a mesma ideia repetida com outras palavras.');
   linhas.push('- O fim responde "por que valeu a pena?". Entregue o que a abertura prometeu, e entregue de um jeito que não dava para adivinhar no começo.');
   linhas.push('- Nada de gancho artificial grudado na frente. A própria história começa no ponto mais interessante — é ela o gancho.');
+  linhas.push('');
+  // Quando a leitura não conseguiu nem deduzir, o roteirista não pode nem
+  // inventar nem anunciar a falta: escreve com o que existe. Antes disso, a
+  // ferramenta parava e cobrava a resposta do usuário — o formulário voltando
+  // pela porta dos fundos.
+  const faltando = ['desejo', 'obstaculo', 'risco'].filter((k) => !p[k]);
+  if (faltando.length) {
+    linhas.push('');
+    linhas.push('== O QUE O MATERIAL NÃO ENTREGOU ==');
+    linhas.push(`Não foi possível deduzir: ${faltando.join(', ')}.`);
+    linhas.push('Escreva assim mesmo, com o que existe. Não invente fato para tapar o buraco e NÃO comente a ausência no texto — faça o peso da história aparecer pelo que o material dá.');
+  }
+
   linhas.push('');
   linhas.push('== REGRAS DE ESCRITA ==');
   linhas.push('1. Use apenas os fatos acima. Não invente número, nome, data nem citação.');

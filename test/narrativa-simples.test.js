@@ -122,11 +122,11 @@ describe('um clique basta', () => {
     expect(js).toMatch(/aposLeitura/);
   });
 
-  it('a leitura roda ANTES da cobrança, não depois', () => {
+  it('a leitura do material é a primeira coisa que acontece', () => {
     const iLe = js.indexOf('const aposLeitura = (plano)');
-    const iCobra = js.indexOf('Falta uma resposta para a história existir');
+    const iEscreve = js.indexOf('await runNarrativaPipeline(');
     expect(iLe).toBeGreaterThan(0);
-    expect(iLe).toBeLessThan(iCobra);
+    expect(iLe).toBeLessThan(iEscreve);
   });
 
   it('falha no meio do caminho não some com o que já havia', () => {
@@ -138,23 +138,49 @@ describe('um clique basta', () => {
   });
 });
 
-describe('quando ainda falta algo, pergunta UMA coisa', () => {
-  it('existe a pergunta focada', () => {
-    expect(js).toMatch(/function renderNarrPerguntaFoco/);
-    expect(doc.getElementById('n-pergunta-foco')).toBeTruthy();
+/* A PERGUNTA FOCADA SAIU DE CENA.
+ *
+ * Ela era o último pedaço do formulário: faltando uma das três respostas, a
+ * ferramenta parava e cobrava do usuário ("o que ele está disposto a
+ * arriscar?") antes de escrever qualquer coisa. Fazia sentido quando a
+ * ferramenta só sabia montar roteiro a partir de resposta pronta.
+ *
+ * Não faz mais: quem é roteirista agora é a ferramenta. Ela DEDUZ o que está em
+ * jogo a partir dos fatos do material — deduzir não é inventar, é ler — e quem
+ * cobra a qualidade dessa dedução é a crítica do motor, que pergunta
+ * exatamente isso e manda reescrever. A cobrança saiu do usuário e entrou na IA. */
+describe('a ferramenta não cobra mais nada do usuário', () => {
+  it('a pergunta focada não existe mais no código nem na tela', () => {
+    expect(js).not.toMatch(/function renderNarrPerguntaFoco/);
+    expect(html).not.toContain('n-pergunta-foco');
+    expect(html).not.toContain('n-foco-input');
   });
 
-  it('mostra só a PRIMEIRA pergunta que falta', () => {
-    expect(js).toMatch(/\.find\(\(q\) => q\.status === 'faltando'\)/);
+  it('o clique nunca para para pedir uma resposta', () => {
+    expect(js).not.toContain('Falta uma resposta para a história existir');
+    expect(js, 'a leitura não pode mais barrar o resto').toMatch(/return true;\s*\n\s*\};/);
   });
 
-  it('não aparece na tela vazia — seria o formulário de volta', () => {
-    expect(js).toMatch(/if \(!falta \|\| !temIdeia\)/);
+  it('a leitura recebe a diferença entre ler e inventar', () => {
+    // É o que substitui a cobrança: em vez de pedir o risco ao usuário, a
+    // ferramenta deduz o risco dos fatos — e continua proibida de inventar fato.
+    const motor = readFileSync(join(raiz, 'src/narrativa-motor.js'), 'utf8');
+    expect(motor).toMatch(/O QUE É LER E O QUE É INVENTAR/);
+    expect(motor).toMatch(/deduza o desejo, o obstáculo e o que está em jogo/i);
+    expect(motor).toMatch(/sem acrescentar fato nenhum/);
   });
 
-  it('responder ali grava no rascunho e no campo detalhado', () => {
-    expect(js).toMatch(/d\[campo\] = v;/);
-    expect(js).toMatch(/saveNarrativaDraft\(\);\s*\n\s*renderNarrDiagnostico\(\);/);
+  it('quando nem a dedução foi possível, escreve com o que existe', () => {
+    const motor = readFileSync(join(raiz, 'src/narrativa-motor.js'), 'utf8');
+    expect(motor).toMatch(/Escreva assim mesmo, com o que existe/);
+    expect(motor).toMatch(/NÃO comente a ausência no texto/);
+  });
+
+  it('as três perguntas continuam sendo cobradas — da IA', () => {
+    const motor = readFileSync(join(raiz, 'src/narrativa-motor.js'), 'utf8');
+    ['desejo', 'obstaculo', 'risco'].forEach((id) => {
+      expect(motor).toMatch(new RegExp(`id: '${id}', pergunta:`));
+    });
   });
 });
 

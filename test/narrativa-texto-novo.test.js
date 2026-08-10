@@ -131,11 +131,13 @@ describe('trocar a ideia descarta a história anterior', () => {
     expect(d.elenco).toEqual([]);
   });
 
-  it('a pergunta focada da história anterior sai da tela', () => {
+  it('o elenco da história anterior some junto dos campos', () => {
+    // (A pergunta focada, que também era limpa aqui, deixou de existir: quem
+    // deduz o que falta agora é a IA, não o usuário.)
     const d = historiaPronta();
-    document.querySelector('#n-pergunta-foco').innerHTML = '<div>Qual é o risco?</div>';
     N.narrDescartarDerivados(d);
-    expect(document.querySelector('#n-pergunta-foco').innerHTML).toBe('');
+    expect(d.elenco).toEqual([]);
+    expect(document.querySelector('#n-desejo').value).toBe('');
   });
 
   it('a ideia em si não é apagada — é o que o usuário acabou de escrever', () => {

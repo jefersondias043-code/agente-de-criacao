@@ -878,7 +878,6 @@ function renderNarrDiagnostico() {
     host.innerHTML = '';
     const btn0 = $('#n-submit');
     if (btn0) { btn0.disabled = false; btn0.title = ''; }
-    if (typeof renderNarrPerguntaFoco === 'function') renderNarrPerguntaFoco(diag);
     return diag;
   }
 
@@ -923,7 +922,6 @@ function renderNarrDiagnostico() {
   if (btn) { btn.disabled = false; btn.title = ''; }
   const hint = $('#n-submit-hint');
   if (hint) hint.textContent = '⌘/Ctrl + Enter';
-  if (typeof renderNarrPerguntaFoco === 'function') renderNarrPerguntaFoco(diag);
   return diag;
 }
 
@@ -966,49 +964,23 @@ function narrDescartarDerivados(d) {
   });
   d.elenco = [];
   if (typeof renderNarrElenco === 'function') renderNarrElenco();
-  const foco = $('#n-pergunta-foco');
-  if (foco) foco.innerHTML = '';
   saveNarrativaDraft();
 }
 
-/* PERGUNTA FOCADA — o substituto do formulário.
+/* A PERGUNTA FOCADA SAIU DE CENA.
  *
- * Quando falta uma das três respostas, a ferramenta mostra UMA pergunta, com o
- * texto do lema que explica por que ela importa, e um campo só. Responder ali
- * grava no rascunho e segue. Cinco campos vazios de uma vez é o que fazia a
- * ferramenta parecer difícil; uma pergunta por vez é uma conversa. */
-function renderNarrPerguntaFoco(diag) {
-  const alvo = $('#n-pergunta-foco');
-  if (!alvo) return;
-  const falta = (diag.perguntas || []).find((q) => q.status === 'faltando');
-  // Só cobra depois que existe matéria-prima. Numa tela vazia, uma pergunta
-  // aberta é exatamente o formulário que esta mudança veio eliminar.
-  const temIdeia = String(narrativaDraft().ideia || '').trim().length >= 12;
-  if (!falta || !temIdeia) { alvo.innerHTML = ''; return; }
-  const campo = falta.id;
-  alvo.innerHTML = `
-    <div class="narr-foco">
-      <div class="narr-foco-tit">${escapeHtml(falta.pergunta || falta.papel)}</div>
-      <div class="narr-foco-dica">${escapeHtml(falta.dica || falta.mensagem || '')}</div>
-      <textarea class="textarea textarea-answer" id="n-foco-input" rows="2"
-        placeholder="${escapeHtml(falta.dica || 'Responda em uma linha')}"></textarea>
-      <button type="button" class="btn btn-sm" id="n-foco-ok">Pronto, continuar</button>
-    </div>`;
-  const input = $('#n-foco-input');
-  const ok = $('#n-foco-ok');
-  const gravar = () => {
-    const v = String(input.value || '').trim();
-    if (!v) { toast('Escreva uma linha para continuar.', 'error'); return; }
-    const d = narrativaDraft();
-    d[campo] = v;
-    const espelho = $('#n-' + campo);
-    if (espelho) espelho.value = v;
-    saveNarrativaDraft();
-    renderNarrDiagnostico();
-  };
-  if (ok) ok.onclick = gravar;
-  if (input) input.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); gravar(); } };
-}
+ * Ela era o resto do formulário: quando faltava uma das três respostas, a
+ * ferramenta parava e cobrava do usuário — "o que ele está disposto a
+ * arriscar?" — antes de escrever qualquer coisa. Fazia sentido quando a
+ * ferramenta só sabia montar o roteiro a partir de respostas prontas.
+ *
+ * Não faz mais. Quem é roteirista agora é a ferramenta: ela lê o material e
+ * DEDUZ o que está em jogo a partir do que existe ali. Deduzir o que está em
+ * jogo não é inventar fato — é ler. E se a dedução ficar fraca, quem cobra é a
+ * crítica do motor, que pergunta exatamente isso ("existe algo em jogo?") e
+ * manda reescrever. A cobrança mudou de lado: sai do usuário, entra na IA.
+ *
+ * As três perguntas do lema continuam inteiras. O que mudou é quem responde. */
 
 /** Preenche os campos com o que a IA devolveu, respeitando o que já existe
  *  (nunca sobrescreve resposta do usuário sem ele pedir). */
@@ -1534,9 +1506,10 @@ function renderNarrativa() {
         });
       };
 
-      // A leitura do motor é a mesma extração de antes: o que ela responde vai
-      // para os campos internos, que continuam alimentando o diagnóstico e o
-      // histórico. Se ainda não houver história, a ferramenta faz UMA pergunta.
+      // A leitura do motor alimenta os campos internos, que seguem servindo ao
+      // diagnóstico e ao histórico. O que ela NÃO faz mais é barrar: material
+      // pobre vira roteiro pobre, e quem cobra isso é a crítica do motor — não
+      // um campo obrigatório na cara de quem só queria contar uma história.
       let diag = null;
       const aposLeitura = (plano) => {
         narrAplicarSugestao({
@@ -1549,7 +1522,7 @@ function renderNarrativa() {
         saveNarrativaDraft();
         d = narrColetar();
         diag = diagnosticarNarrativa(d);
-        return diag.pronto;
+        return true;
       };
 
       try {
@@ -1557,15 +1530,6 @@ function renderNarrativa() {
           material, formato, tom, tamanho, perfil, cta: d.cta,
           lema: NARR_LEMA, onEtapa, aposLeitura, call: callLLM,
         });
-
-        if (res.abortado) {
-          renderNarrDiagnostico();
-          narrLimparResultado();
-          const foco = $('#n-foco-input');
-          if (foco) { foco.scrollIntoView({ behavior: 'smooth', block: 'center' }); foco.focus(); }
-          toast('Falta uma resposta para a história existir — é só uma linha.', 'info', 6000);
-          return;
-        }
 
         const item = {
           id: uuid(),
@@ -1605,6 +1569,10 @@ function renderNarrativa() {
       }
     };
   }
+
+  // Sem isto o cartão "Conteúdo" abre como uma caixa branca vazia — parece
+  // defeito. O estado de espera só era pintado ao limpar ou ao excluir.
+  if (!_narrResultadoVisivel) narrLimparResultado();
 
   renderNarrElenco();
   renderNarrDiagnostico();

@@ -31,6 +31,37 @@ function causoMemoriaAtual() {
   return causoMemoriaDe(State.causos || []);
 }
 
+/* A CHAVE DE API — conferida na hora de trabalhar, não na hora de abrir.
+ *
+ * A chave mora em `State.apiKeys[provider]`, que é de onde `callLLM` a lê. A
+ * primeira versão desta ferramenta procurava em `State.settings.groqKey` — um
+ * lugar que não existe —, então o aviso dava a chave por ausente SEMPRE, mesmo
+ * com ela configurada, e ficava permanente na tela. */
+function causoTemChave() {
+  const provider = (State && State.provider) || 'groq';
+  return !!(State && State.apiKeys && State.apiKeys[provider]);
+}
+
+/** Mostra o aviso — e só é chamado quando a tentativa de contar não pôde sair
+ *  do lugar por falta de chave. */
+function causoAvisarSemChave() {
+  const aviso = $('#c-api-warning');
+  if (!aviso) return;
+  const provider = (State && State.provider) || 'groq';
+  const nome = provider.charAt(0).toUpperCase() + provider.slice(1);
+  aviso.innerHTML = `
+    <div class="flex gap-2" style="align-items:flex-start;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="flex:none;margin-top:2px;color:var(--amber);"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div style="flex:1;">
+        <div class="font-semibold">A mesa não pôde trabalhar</div>
+        <div class="text-sm text-soft">Falta a chave da ${escapeHtml(nome)} nas Configurações.</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" data-go="settings">Configurar</button>
+    </div>`;
+  aviso.classList.remove('hidden');
+  try { aviso.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) { /* */ }
+}
+
 /* ----- Resultado ----- */
 
 function causoLimparResultado() {
@@ -178,23 +209,11 @@ function renderCausos() {
   const campo = $('#c-ideia');
   if (campo) campo.value = causosDraft().ideia || '';
 
-  // Aviso de chave de API — a mesa inteira depende dela.
-  const aviso = $('#c-api-warning');
-  if (aviso) {
-    const temChave = !!(State.settings && State.settings.groqKey);
-    aviso.classList.toggle('hidden', temChave);
-    if (!temChave) {
-      aviso.innerHTML = `
-        <div class="flex gap-2" style="align-items:flex-start;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="flex:none;margin-top:2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <div style="flex:1;">
-            <div class="font-semibold">Configure sua chave de API</div>
-            <div class="text-sm text-soft">A mesa de contadores precisa da chave da Groq para trabalhar.</div>
-          </div>
-          <button class="btn btn-ghost btn-sm" data-go="settings">Configurar</button>
-        </div>`;
-    }
-  }
+  // O aviso de chave começa e permanece escondido. Ele só aparece quando o
+  // usuário TENTA contar um causo e não dá, por falta de chave — ver
+  // `causoAvisarSemChave`. A plataforma já tem tela de configuração; um aviso
+  // permanente na frente de quem só quer trabalhar é ruído.
+  { const a = $('#c-api-warning'); if (a) a.classList.add('hidden'); }
 
   if (!_causosWired) {
     _causosWired = true;
@@ -245,6 +264,9 @@ function renderCausos() {
         toast('Diga a ideia — uma linha já basta.', 'info', 5000);
         return;
       }
+      // É aqui — e só aqui — que a falta de chave vira mensagem na tela.
+      { const a = $('#c-api-warning'); if (a) a.classList.add('hidden'); }
+      if (!causoTemChave()) { causoAvisarSemChave(); return; }
 
       const btn = $('#c-submit');
       const original = btn.innerHTML;

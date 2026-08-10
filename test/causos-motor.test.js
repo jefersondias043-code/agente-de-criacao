@@ -560,3 +560,33 @@ describe('a ferramenta na plataforma', () => {
     expect(core).toMatch(/causos: loadJSON\(STORAGE_KEYS\.causos, \[\]\)/);
   });
 });
+
+describe('o aviso de chave não fica na frente de quem quer trabalhar', () => {
+  const js = ler('src/causos.js');
+
+  // (Que o aviso não apareça ao abrir a tela é conferido em
+  // test/causos-ui.test.js, exercitando `renderCausos` de verdade: a versão
+  // anterior deste teste conferia o FORMATO do código e deixava passar o aviso
+  // voltando por outro caminho.)
+
+  it('o aviso só aparece quando a tentativa de contar não sai do lugar', () => {
+    const iCheca = js.indexOf('if (!causoTemChave()) { causoAvisarSemChave(); return; }');
+    const iPipeline = js.indexOf('await runCausoPipeline(');
+    expect(iCheca).toBeGreaterThan(0);
+    expect(iCheca, 'a checagem tem de vir antes de gastar chamada').toBeLessThan(iPipeline);
+  });
+
+  it('a chave é procurada onde ela realmente mora', () => {
+    // A primeira versão procurava em `State.settings.groqKey` — lugar que não
+    // existe. O resultado era o aviso dar a chave por ausente SEMPRE, mesmo
+    // configurada, e nunca sair da tela. `callLLM` lê de `State.apiKeys`.
+    expect(js).toMatch(/State\.apiKeys && State\.apiKeys\[provider\]/);
+    // A verificação olha o CÓDIGO, não o texto do arquivo: o comentário logo
+    // acima cita o lugar errado justamente para explicar o defeito.
+    const semComentarios = js.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    expect(semComentarios, 'lugar inexistente de volta').not.toContain('State.settings.groqKey');
+    expect(ler('src/llm.js'), 'a fonte da verdade mudou de lugar')
+      .toMatch(/const apiKey = State\.apiKeys\[provider\]/);
+  });
+
+});

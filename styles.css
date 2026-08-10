@@ -2865,3 +2865,39 @@ body.pe-full #view-posters { animation: none; }
    por baixo dele, e o campo vazio mantém a medida de sempre. */
 .clearable.has-value > textarea { padding-right: 2.4rem; }
 .clearable.has-value > input { padding-right: 2.4rem; }
+
+/* ---- Causos: a ata da mesa ----
+   Fica recolhida de propósito: quem quer a história não quer a ata, mas quem
+   recebeu um causo fraco precisa poder ver em que dimensão ele falhou. */
+.causo-mesa {
+  margin-top: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2, transparent);
+}
+.causo-mesa > summary {
+  cursor: pointer;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft, var(--muted));
+  list-style: none;
+}
+.causo-mesa > summary::-webkit-details-marker { display: none; }
+.causo-mesa > summary::before { content: "▸ "; }
+.causo-mesa[open] > summary::before { content: "▾ "; }
+.causo-mesa-body { padding: 0 0.85rem 0.85rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.causo-nota {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+.causo-nota-dim { color: var(--ink-soft, var(--muted)); }
+.causo-nota-valor { font-variant-numeric: tabular-nums; font-weight: 700; }
+.causo-nota-porque { grid-column: 1 / -1; font-size: 0.8rem; color: var(--ink-soft, var(--muted)); }
+.causo-nota-baixa .causo-nota-valor { color: var(--danger, #b42318); }
+.causo-nota-baixa .causo-nota-dim { color: var(--ink); font-weight: 600; }

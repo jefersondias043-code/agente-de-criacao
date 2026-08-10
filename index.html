@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-10-r210" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-10-r211" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1147,6 +1147,70 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     </section>
 
     <!-- Settings -->
+    <!-- ====================== CAUSOS ====================== -->
+    <section class="page view" id="view-causos">
+      <header class="appbar">
+        <div class="appbar-lead">
+          <div class="appbar-title">Causos</div>
+          <div class="appbar-desc">Uma mesa de contadores: diga a ideia, ela encontra a história e conta.</div>
+        </div>
+        <div class="appbar-actions">
+          <button class="btn btn-icon" id="c-history-open" type="button" title="Causos guardados" aria-label="Histórico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div id="c-api-warning" class="hidden card mb-3 callout-warn"></div>
+
+      <!-- UM CAMPO. O gênero não é perguntado: quem decide se aquilo é história
+           de pescador, assombração ou caso engraçado é a etapa de concepção,
+           lendo a ideia. -->
+      <div class="card">
+        <div class="field">
+          <label class="label" for="c-ideia">Qual é a ideia?</label>
+          <textarea class="textarea" id="c-ideia" rows="5" placeholder="Uma linha basta: &quot;uma história de pescador sobre um peixe impossível&quot;, &quot;um assombro na estrada velha&quot;, &quot;o dia em que meu avô mentiu para o padre&quot;."></textarea>
+          <div class="input-toolbar">
+            <input type="file" id="c-attach-input" hidden />
+            <button type="button" class="btn btn-ghost btn-sm" id="c-attach-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.5 18.5"/></svg>
+              Anexar arquivo
+            </button>
+            <span class="text-xs text-mute">PDF, imagem, áudio, vídeo ou TXT.</span>
+          </div>
+          <div id="c-attach-pending"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">O causo</div>
+          <div id="c-result-badge"></div>
+        </div>
+        <div id="c-result-area"></div>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn btn-accent" id="c-submit" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Contar o causo
+        </button>
+        <span class="action-bar-hint">A mesa lê, escreve, critica e corrige</span>
+      </div>
+
+      <div id="c-history-backdrop" class="drawer-backdrop hidden"></div>
+      <aside id="c-history-drawer" class="history-drawer" aria-label="Causos guardados">
+        <div class="history-drawer-head">
+          <div class="card-title">Causos guardados</div>
+          <div class="flex gap-1">
+            <button class="btn btn-danger btn-sm" id="c-history-clear" type="button">Limpar tudo</button>
+            <button class="btn btn-ghost btn-sm" id="c-history-close" type="button" title="Fechar" aria-label="Fechar">✕</button>
+          </div>
+        </div>
+        <div id="c-history-list" class="list"></div>
+      </aside>
+    </section>
+
     <section class="page view" id="view-settings">
       <header class="appbar">
         <div class="appbar-lead">
@@ -1270,6 +1334,8 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <script src="src/generate.js"></script>
 <script src="src/narrativa.js"></script>
 <script src="src/narrativa-motor.js"></script>
+<script src="src/causos-motor.js"></script>
+<script src="src/causos.js"></script>
 <script src="src/extract.js"></script>
 <script src="src/posters.js"></script>
 <script src="src/poster-templates.js"></script>

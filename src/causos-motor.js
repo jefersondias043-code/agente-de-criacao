@@ -874,95 +874,6 @@ function _cLimpar(texto) {
 }
 
 /**
- * A MESA LÊ E O JUIZ DECIDE — conferência medida, críticos em paralelo, juízo.
- *
- * Mora fora do pipeline porque é usada em dois lugares: nas voltas automáticas
- * da geração e na revisão que o usuário pede depois, olhando a ata. Duas cópias
- * disso divergiriam no primeiro ajuste, e a ata passaria a medir uma coisa
- * enquanto a geração mede outra.
- */
-async function avaliarCauso(opts) {
-  const o = opts || {};
-  const chamar = o.call || (typeof callLLM === 'function' ? callLLM : null);
-  if (!chamar) throw new Error('Sem função de chamada de IA.');
-  const dossie = o.dossie || {};
-  const texto = String(o.texto || '');
-  const etapa = (k, t, d) => { if (typeof o.onEtapa === 'function') o.onEtapa(k, t, d); };
-  const lerJSON = (r) => (typeof extractJSON === 'function' ? extractJSON(r && r.content) : null);
-
-  const local = conferirCausoLocal(texto, dossie, { memoria: o.memoria, genero: dossie.genero });
-  const criticosIds = causoCriticosDe(dossie.genero);
-
-  etapa('criticos', 'A mesa está lendo…', `${criticosIds.length} críticos, cada um com a sua lente.`);
-  const criticas = await Promise.all(criticosIds.map(async (id) => {
-    try {
-      const r = await chamar(buildCriticoPrompt(id, texto, dossie, local.achados));
-      return normalizarCritica(lerJSON(r), id);
-    } catch (_) {
-      // Um crítico que falha não derruba a mesa: os outros continuam, e a
-      // conferência medida continua valendo.
-      return { critico: id, notas: [], resumo: '' };
-    }
-  }));
-
-  // O JUIZ — código, não opinião. Nota baixa não se esconde na média.
-  return { criticas, juizo: julgarCauso(criticas, local.achados), local, criticosIds };
-}
-
-/**
- * REVISÃO A PEDIDO — parte do texto que já existe, não da ideia do usuário.
- *
- * É o que o botão da ata aciona: pega as dimensões que o juiz reprovou, manda
- * corrigir só elas, e põe a mesa para ler de novo — senão a ata continuaria
- * exibindo as notas de um texto que não está mais na tela.
- *
- * Diferença deliberada em relação às voltas automáticas da geração: aqui a
- * versão nova NÃO é descartada quando sai pior. Quem pediu a revisão foi o
- * usuário; esconder o resultado dele seria decidir no lugar dele. O que se faz
- * é dizer com todas as letras que piorou — e deixar o desfazer à mão.
- */
-async function revisarCausoExistente(opts) {
-  const o = opts || {};
-  const chamar = o.call || (typeof callLLM === 'function' ? callLLM : null);
-  if (!chamar) throw new Error('Sem função de chamada de IA.');
-  const texto = String(o.texto || '').trim();
-  const dossie = o.dossie || {};
-  const ordens = (o.ordens || []).slice();
-  const etapa = (k, t, d) => { if (typeof o.onEtapa === 'function') o.onEtapa(k, t, d); };
-  if (!texto) throw new Error('Não há texto para revisar.');
-  if (!ordens.length) throw new Error('A mesa não apontou nada para corrigir.');
-
-  etapa('reescrita', 'Corrigindo…', ordens.length === 1
-    ? `1 ponto: ${ordens[0].dimensao}.`
-    : `${ordens.length} pontos, do mais grave para o menos.`);
-
-  const rRe = await chamar(buildReescreverCausoPrompt(texto, ordens, dossie));
-  const novo = _cLimpar(rRe && rRe.content);
-  // Sem texto novo não se substitui nada: o erro sobe e o causo anterior fica
-  // inteiro na tela. Trocar um texto bom por vazio seria o pior desfecho.
-  if (!novo) throw new Error('A revisão não devolveu texto. O causo anterior continua aí.');
-
-  const leitura = await avaliarCauso({
-    texto: novo, dossie, memoria: o.memoria, call: chamar, onEtapa: o.onEtapa,
-  });
-
-  const antes = o.juizoAnterior || null;
-  const melhorou = !!antes && (leitura.juizo.pior > antes.pior)
-    && (leitura.juizo.reprovadas.length <= (antes.reprovadas || []).length);
-
-  etapa('pronto', 'Pronto.', leitura.juizo.aprovado ? 'A mesa aprovou.' : 'A mesa leu de novo.');
-  return {
-    conteudo: novo,
-    criticas: leitura.criticas,
-    juizo: leitura.juizo,
-    local: leitura.local,
-    assinatura: causoAssinatura(novo),
-    melhorou,
-    model: (rRe && rRe.model) || '',
-  };
-}
-
-/**
  * Roda a mesa: conceitos → escolha → dossiê → contar → críticos em paralelo →
  * juiz (código) → reescrita → conferência final.
  *
@@ -1008,17 +919,29 @@ async function runCausoPipeline(opts) {
   if (!atual) throw new Error('A IA não devolveu a história.');
   etapas.push('contar');
 
-  let local = null;
+  const criticosIds = causoCriticosDe(dossie.genero);
+  let local = conferirCausoLocal(atual, dossie, { memoria, genero: dossie.genero });
   let juizo = null;
   let criticas = [];
 
   for (let volta = 0; volta <= CAUSO_MAX_REVISOES; volta++) {
-    // 4 e 5) A MESA LÊ E O JUIZ DECIDE.
-    const leitura = await avaliarCauso({ texto: atual, dossie, memoria, call: chamar, onEtapa: o.onEtapa });
-    criticas = leitura.criticas;
-    juizo = leitura.juizo;
-    local = leitura.local;
+    // 4) CRÍTICOS EM PARALELO — independentes, cada um com a sua lente.
+    etapa('criticos', 'A mesa está lendo…', `${criticosIds.length} críticos, cada um com a sua lente.`);
+    const respostas = await Promise.all(criticosIds.map(async (id) => {
+      try {
+        const r = await chamar(buildCriticoPrompt(id, atual, dossie, local.achados));
+        return normalizarCritica(lerJSON(r), id);
+      } catch (_) {
+        // Um crítico que falha não derruba a mesa: os outros continuam, e a
+        // conferência medida continua valendo.
+        return { critico: id, notas: [], resumo: '' };
+      }
+    }));
+    criticas = respostas;
     etapas.push('criticos');
+
+    // 5) O JUIZ — código, não opinião. Nota baixa não se esconde na média.
+    juizo = julgarCauso(criticas, local.achados);
     if (juizo.aprovado || volta === CAUSO_MAX_REVISOES) break;
 
     // 6) REESCRITA — só o que o juiz mandou.

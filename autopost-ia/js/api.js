@@ -119,21 +119,51 @@ const REGRAS_PALAVRAS_CHAVE = `==== REGRAS DAS ~10 PALAVRAS-CHAVE ====
 - Relacionadas ao conteúdo (tema/roteiro fornecido); NÃO invente um assunto que não esteja nele
 - ATUAIS (ver CONTEXTO TEMPORAL no topo): use os termos como as pessoas REALMENTE buscam hoje, no ano corrente; evite jargões datados ou expressões que caíram em desuso`;
 
-// Regras de hashtags compartilhadas entre o pacote padrão e o Modo Rápido,
-// pra que as hashtags saiam SEMPRE com a mesma fórmula (1 ampla · 1 assunto · 2 nicho · 1 intenção).
-const REGRAS_HASHTAGS = `==== REGRAS DAS 5 HASHTAGS (fórmula viral brasileira) ====
-Você deve devolver EXATAMENTE 5 hashtags, distribuídas assim:
+/* Regras de hashtags compartilhadas entre o pacote padrão e o Modo Rápido.
+ *
+ * O QUE MUDOU E POR QUÊ: estas regras entregavam um MENU. Traziam 24 hashtags
+ * prontas — entre elas um mapa explícito "nicho → tag" (trabalho → #trabalho,
+ * receitas → #culinaria, lifestyle → #parati…) — e o molde da resposta vinha
+ * com um conjunto real e colável. Com um cardápio desses no prompt, o caminho
+ * mais barato para o modelo é escolher do cardápio, e o resultado fica preso à
+ * CATEGORIA em vez de sair do conteúdo: dois vídeos diferentes do mesmo nicho
+ * recebiam praticamente as mesmas tags.
+ *
+ * A categoria é contexto — diz quem assiste e com que vocabulário busca. Não é
+ * fonte de hashtag. Agora as regras descrevem o CAMINHO até a tag (o que olhar
+ * no conteúdo) em vez de oferecer as tags, e cobram uma prova de especificidade
+ * antes de devolver. */
+const REGRAS_HASHTAGS = `==== REGRAS DAS 5 HASHTAGS ====
+As hashtags são DERIVADAS DESTE CONTEÚDO. Não existe lista pronta, nem conjunto padrão por categoria.
 
-1. UMA hashtag AMPLA / viral: amplo alcance E relevante para a categoria do conteúdo — NÃO use sempre #fyp ou #foryou. Escolha a tag ampla que mais se alinhe com o ASSUNTO do vídeo: para conteúdo de trabalho/carreira → #trabalho, para saúde/bem-estar → #saude, para receitas → #culinaria, para humor/entretenimento geral → #viral, para lifestyle → #parati, para educação → #aprender, para esportes → #esportes, para relacionamentos → #relacionamentos, para empreendedorismo → #negocios, etc. Use #fyp/#foryou APENAS quando o conteúdo for genuinamente de entretenimento geral sem categoria dominante.
-2. UMA hashtag de ASSUNTO / categoria: descreve literalmente o tipo de conteúdo, volume médio (ex: #storytime, #relato, #historiareal, #desabafo, #conselho)
-3. DUAS hashtags de NICHO: específicas do tema/canal, volume menor mas público qualificado (extraídas do tema/nicho informado e do conteúdo — ex: #historiasdetrabalho, #vidaclt, #rh, #empreendedorismo)
-4. UMA hashtag de INTENÇÃO / EMOÇÃO: o que a pessoa SENTE ao assistir ou busca quando procura esse conteúdo (ex: #indignacao, #justicapoetica, #reflexao, #lifelesson, #aprendizado)
+Antes de escrever qualquer hashtag, levante no conteúdo:
+- o assunto concreto (do que este vídeo fala, em poucas palavras)
+- os nomes próprios que aparecem: pessoa, lugar, cidade, marca, produto, obra, time, prato, modelo, ferramenta
+- a situação específica vivida (o que exatamente acontece)
+- o que a pessoa sente ou procura ao assistir
 
-REGRAS DAS HASHTAGS:
-- Todas em português brasileiro quando aplicável; tags em inglês são aceitas quando genuinamente mais usadas na plataforma para aquele nicho
-- Sem espaços, sem acentos, sem caracteres especiais (transformar "ação" em "acao", "história" em "historia")
-- Sem # repetido — escreva só uma vez: "fyp" (o app adiciona o # depois)
-- Minúsculas
-- Evite hashtags de mais de 1 bilhão de views como ÚNICA estratégia — misture amplas com nicho
+A categoria informada pelo usuário serve para você entender o público e o vocabulário de busca dele. Ela NÃO é fonte de hashtag: não transforme o nome da categoria em tag e não use um conjunto "padrão do nicho". Dois vídeos da mesma categoria, com assuntos diferentes, têm de receber hashtags diferentes.
+
+Devolva EXATAMENTE 5, nesta distribuição:
+1. AMPLA — a maior porta de entrada DO ASSUNTO deste vídeo (não da categoria escolhida, não da plataforma). É por onde alguém interessado no tema chegaria.
+2. ASSUNTO — o formato/tipo deste conteúdo. É o ÚNICO lugar onde uma tag reaproveitável entre vídeos é aceitável.
+3 e 4. NICHO (duas) — as mais específicas do conjunto. É aqui que entram o nome próprio, o lugar, o objeto, a profissão ou a situação exata que aparecem no conteúdo.
+5. INTENÇÃO / EMOÇÃO — o que a pessoa sente ao assistir ou o estado que ela procura.
+
+PROVA OBRIGATÓRIA ANTES DE DEVOLVER:
+- Pelo menos 3 das 5 precisam carregar um termo tirado do conteúdo. Se o mesmo conjunto serviria para outro vídeo da mesma categoria com assunto diferente, ele está errado — refaça.
+- NUNCA use tag de plataforma ou de alcance vazio: fyp, foryou, foryoupage, parati, paravoce, viral, viralizar, tiktok, reels, shorts, explorar, trending, tendencia, seguidores, curtidas. Ninguém busca por elas procurando este assunto.
+
+EXEMPLO DE RACIOCÍNIO (as tags abaixo pertencem ÀQUELE vídeo; não as reaproveite):
+Vídeo: um sanfoneiro de 80 anos volta a tocar num forró em Caruaru.
+✗ vago — poderia ter sido escrito sem assistir: musica, viral, parati, trend, artista
+✓ derivado — só serve para este vídeo: forro, historiareal, sanfoneiro, caruaru, saudade
+A diferença: a segunda linha saiu do conteúdo; a primeira, não.
+
+REGRAS DE FORMA:
+- Em português brasileiro; tag em inglês só quando for genuinamente a mais usada na plataforma para aquele assunto
+- Sem espaços, sem acentos, sem caracteres especiais ("ação" vira "acao", "história" vira "historia")
+- Minúsculas, e sem escrever o "#" (o app adiciona depois)
 - Devem ser BUSCÁVEIS: alguém digita aquilo na barra de busca da plataforma
-- ATUAIS (ver CONTEXTO TEMPORAL no topo): priorize hashtags relevantes e em alta no ano corrente; evite tags datadas, saturadas ou que já perderam alcance — uma hashtag que bombou anos atrás pode não fazer mais sentido hoje`;
+- Misture alcance: a ampla abre a porta, as de nicho qualificam o público
+- ATUAIS (ver CONTEXTO TEMPORAL no topo): priorize o que é relevante e buscado no ano corrente; evite tag datada ou saturada`;

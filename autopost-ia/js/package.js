@@ -49,14 +49,16 @@ RESPONDA APENAS COM JSON VÁLIDO, sem markdown, sem texto antes ou depois:
   "titulo": "string entre 50 e 80 caracteres",
   "legenda": "string entre 150 e 300 caracteres, com pergunta no final",
   "hashtags": [
-    {"tag": "HASHTAG_AMPLA", "tipo": "ampla"},
-    {"tag": "storytime", "tipo": "assunto"},
-    {"tag": "historiasdetrabalho", "tipo": "nicho"},
-    {"tag": "vidaclt", "tipo": "nicho"},
-    {"tag": "indignacao", "tipo": "intencao"}
+    {"tag": "<a porta de entrada do assunto deste vídeo>", "tipo": "ampla"},
+    {"tag": "<o formato/tipo deste conteúdo>", "tipo": "assunto"},
+    {"tag": "<termo específico tirado do conteúdo>", "tipo": "nicho"},
+    {"tag": "<outro termo específico tirado do conteúdo>", "tipo": "nicho"},
+    {"tag": "<o que a pessoa sente ao assistir>", "tipo": "intencao"}
   ],
   "palavras_chave": ["palavra um", "termo dois", "..."]
 }
+
+O texto entre < > descreve O QUE colocar em cada posição — é instrução, não exemplo para copiar. Devolva a hashtag derivada deste conteúdo, sem os sinais < >.
 
 Os tipos de hashtag válidos são EXATAMENTE: "ampla", "assunto", "nicho", "intencao".`;
 
@@ -99,6 +101,16 @@ Pacote anterior (para você MELHORAR, não repetir os erros):
 
 ==== INSTRUÇÕES DE CORREÇÃO ====
 Gere uma NOVA versão do pacote corrigindo cada problema apontado acima. Mantenha tudo que já estava bom. Continue respeitando TODAS as regras (fórmula das hashtags, faixas de caracteres, ~10 palavras-chave) e baseie-se SOMENTE no roteiro/transcrição fornecido — NÃO invente fatos que não estejam nele. Devolva APENAS o JSON.`;
+
+    // Conferência determinística das hashtags: vem do código, não do juiz, e por
+    // isso entra em bloco próprio — é constatação, não opinião com nota.
+    const probTags = feedbackAnterior.problemasHashtags || [];
+    if (probTags.length) {
+      user += `\n\n==== CONFERÊNCIA DAS HASHTAGS (verificação automática, não é opinião) ====
+${probTags.map((p) => '- ' + p).join('\n')}
+
+As hashtags novas TÊM de sair deste conteúdo: assunto concreto, nomes próprios, lugar, objeto, profissão, situação vivida. Refazer o conjunto inteiro é aceitável.`;
+    }
   }
 
   return await callLLM(sys, user, true, 1000);
@@ -111,7 +123,7 @@ Gere uma NOVA versão do pacote corrigindo cada problema apontado acima. Mantenh
 const RUBRICA_PACOTE = [
   { id: 'titulo',             nome: 'Título com gancho forte',            desc: 'Abre loop / curiosidade real, 50–80 caracteres, sem clickbait barato, linguagem de fala natural.' },
   { id: 'legenda',            nome: 'Legenda otimizada',                  desc: '150–300 caracteres; os primeiros 80–100 prendem; termina com pergunta que puxa comentário; não embute as hashtags.' },
-  { id: 'hashtags',           nome: 'Hashtags estratificadas',            desc: 'Exatamente 5 na fórmula 1 ampla · 1 assunto · 2 nicho · 1 intenção; buscáveis; sem acento/espaço; coerentes com o conteúdo.' },
+  { id: 'hashtags',           nome: 'Hashtags específicas deste conteúdo', desc: 'Exatamente 5 na fórmula 1 ampla · 1 assunto · 2 nicho · 1 intenção; buscáveis; sem acento/espaço. DERIVADAS do conteúdo: pelo menos 3 carregam um termo que aparece nele (assunto, nome próprio, lugar, objeto, situação). Conjunto que serviria para qualquer vídeo da mesma categoria, ou tag de plataforma (fyp, parati, viral, reels), é falha grave — nota 0-3.' },
   { id: 'palavras_chave',     nome: 'Palavras-chave de SEO',              desc: '8–12 termos de busca reais e variados (amplos + nicho), sem repetir as hashtags, ligados ao conteúdo informado.' },
   { id: 'coerencia',          nome: 'Coerência geral da publicação',      desc: 'Título, legenda, hashtags e palavras-chave falam do MESMO conteúdo, sem contradição nem promessa que o vídeo não entrega.' },
   { id: 'engajamento',        nome: 'Potencial de engajamento',           desc: 'O conjunto provoca ação: comentar, compartilhar, salvar ou assistir até o fim.' },
@@ -176,11 +188,105 @@ Avalie cada critério da rubrica agora. Seja honesto e rigoroso. Devolva APENAS 
   return resultado;
 }
 
+/* =================== CONFERÊNCIA DAS HASHTAGS (no código) ===================
+ *
+ * Instrução em prompt é pedido, não garantia. Esta conferência é determinística
+ * e roda depois de toda geração: mede se as hashtags saíram DESTE conteúdo ou
+ * se são as que caberiam em qualquer vídeo. O que ela encontra vira feedback
+ * para o refino — a mesma iteração que já existia — e desempata entre as duas
+ * versões geradas.
+ *
+ * Ela NÃO apaga nem reescreve hashtag: um acerto legítimo que a heurística não
+ * reconheça continua na tela. O que ela faz é impedir que um pacote genérico
+ * passe batido por ter tirado nota boa no resto. */
+
+// Tags que existem para a plataforma, não para o assunto — cabem em qualquer
+// vídeo, que é o contrário de um pacote personalizado.
+const HASHTAGS_GENERICAS = [
+  'fyp', 'fypage', 'fypbrasil', 'fyptiktok', 'foryou', 'foryoupage', 'foryoupageofficiall',
+  'parati', 'paratii', 'paravoce', 'pravoce', 'viral', 'viralizar', 'viralvideo', 'viralizando',
+  'tiktok', 'tiktokbrasil', 'reels', 'reelsinstagram', 'instagram', 'insta', 'shorts',
+  'youtube', 'youtubeshorts', 'explorar', 'explore', 'trending', 'trend', 'tendencia',
+  'seguidores', 'curtidas', 'likes', 'followers', 'video', 'videos', 'edit', 'capcut',
+];
+
+/* Palavras frequentes demais para valer como âncora: aparecem em qualquer texto
+ * em português, então casá-las provaria nada. Sem esta lista, "parati" contaria
+ * como ancorada em qualquer conteúdo que tivesse a palavra "para". */
+const _PALAVRAS_VAZIAS = new Set([
+  'para', 'pela', 'pelo', 'pelas', 'pelos', 'como', 'mais', 'menos', 'muito', 'muita',
+  'todo', 'toda', 'todos', 'todas', 'esse', 'essa', 'esses', 'essas', 'este', 'esta',
+  'isso', 'aquilo', 'aquele', 'aquela', 'quando', 'porque', 'entao', 'ainda', 'depois',
+  'antes', 'sobre', 'entre', 'sempre', 'nunca', 'tambem', 'apenas', 'assim', 'onde',
+  'quem', 'qual', 'quais', 'seja', 'foram', 'estava', 'estao', 'tinha', 'tinham',
+  'fazer', 'fazendo', 'disse', 'dizer', 'gente', 'coisa', 'coisas', 'vezes', 'cada',
+  'outro', 'outra', 'outros', 'outras', 'mesmo', 'mesma', 'aqui', 'agora', 'hoje',
+  'bem', 'pouco', 'nada', 'tudo', 'algum', 'alguma', 'nao', 'sim', 'voce', 'voces',
+]);
+
+function _normalizarTag(s) {
+  return String(s == null ? '' : s)
+    .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+/** Uma hashtag genérica de plataforma? */
+function hashtagEhGenerica(tag) {
+  return HASHTAGS_GENERICAS.indexOf(_normalizarTag(tag)) >= 0;
+}
+
+/** Termos do conteúdo que servem de âncora (≥4 letras, fora da lista de vazias). */
+function palavrasDoConteudo(texto) {
+  const brutas = String(texto || '')
+    .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .split(/[^a-z0-9]+/);
+  return [...new Set(brutas.filter((w) => w.length >= 4 && !_PALAVRAS_VAZIAS.has(w)))];
+}
+
+/** ANCORADA = carrega um termo que aparece no conteúdo. Vale nos dois sentidos:
+ *  "historiasdetrabalho" contém "trabalho"; "sanfona" está dentro de "sanfoneiro". */
+function hashtagAncorada(tag, palavras) {
+  const t = _normalizarTag(tag);
+  if (!t) return false;
+  return (palavras || []).some((w) => t.indexOf(w) >= 0 || (t.length >= 5 && w.indexOf(t) >= 0));
+}
+
+// Mínimo de hashtags que precisam vir do conteúdo. Três das cinco é o que o
+// prompt pede; aqui o piso é 2 de propósito — a conferência existe para pegar o
+// pacote genérico, não para reprovar um conjunto bom por uma palavra.
+const MIN_HASHTAGS_ANCORADAS = 2;
+
+function auditarHashtags(pacote, conteudo) {
+  const tags = (Array.isArray(pacote && pacote.hashtags) ? pacote.hashtags : [])
+    .map((h) => (typeof h === 'string' ? h : (h && h.tag) || ''))
+    .filter(Boolean);
+  const palavras = palavrasDoConteudo(conteudo);
+  const genericas = tags.filter(hashtagEhGenerica);
+  const ancoradas = tags.filter((t) => !hashtagEhGenerica(t) && hashtagAncorada(t, palavras));
+
+  const problemas = [];
+  if (genericas.length) {
+    problemas.push(`${genericas.length} hashtag(s) de plataforma (${genericas.map((t) => '#' + _normalizarTag(t)).join(' ')}): elas cabem em qualquer vídeo e ninguém as busca procurando este assunto. Troque por termos tirados do conteúdo.`);
+  }
+  if (tags.length && ancoradas.length < MIN_HASHTAGS_ANCORADAS) {
+    problemas.push(`só ${ancoradas.length} de ${tags.length} hashtags trazem um termo que aparece no conteúdo — o mínimo é ${MIN_HASHTAGS_ANCORADAS}, e o alvo é 3. O conjunto atual serviria para qualquer vídeo da mesma categoria. Use o assunto concreto, os nomes próprios, o lugar e a situação do conteúdo.`);
+  }
+  return { tags, genericas, ancoradas, problemas, ok: problemas.length === 0 };
+}
+
+/** Desconto de desempate: entre duas versões, a que personaliza ganha. Não é
+ *  mostrado ao usuário — a nota exibida continua sendo a do juiz. */
+function penalidadeHashtags(auditoria) {
+  if (!auditoria) return 0;
+  const faltando = Math.max(0, MIN_HASHTAGS_ANCORADAS - auditoria.ancoradas.length);
+  return auditoria.genericas.length * 5 + faltando * 5;
+}
+
 // =================== VARIAÇÃO DE UM ÚNICO ITEM (regeneração por card) ===================
 // Gera uma NOVA versão de UM campo do pacote (título/legenda/hashtags/palavras-
 // chave), mantendo coerência com o resto e respeitando as mesmas regras/opções.
 // Devolve o valor novo desse campo (string, ou array para hashtags/palavras).
-async function gerarVariacaoCampo(campo, roteiro, pacoteAtual, briefing) {
+async function gerarVariacaoCampo(campo, roteiro, pacoteAtual, briefing, problemas) {
   const p = pacoteAtual || {};
   const hashtagsAtual = Array.isArray(p.hashtags)
     ? p.hashtags.map(h => '#' + (typeof h === 'string' ? h : (h && h.tag) || '')).join(' ')
@@ -220,10 +326,14 @@ RESPONDA APENAS COM JSON: {"legenda": "..."}`;
   }
 
   if (campo === 'hashtags') {
-    const sys = `Você é especialista em SEO para vídeo curto no mercado brasileiro. Gere um NOVO conjunto de 5 HASHTAGS, DIFERENTE do atual, coerente com o conteúdo.
+    const sys = `Você é especialista em SEO para vídeo curto no mercado brasileiro. Gere um NOVO conjunto de 5 HASHTAGS, DIFERENTE do atual, derivado DESTE conteúdo.
 ${REGRAS_HASHTAGS}
 RESPONDA APENAS COM JSON: {"hashtags":[{"tag":"...","tipo":"ampla|assunto|nicho|intencao"}, ...5 itens]}`;
-    const r = await callLLM(sys, contexto + '\n\nGere 5 novas hashtags estratificadas. Devolva APENAS o JSON.', true, 400);
+    // Segunda tentativa: a conferência do código já disse o que saiu genérico.
+    const correcao = (problemas && problemas.length)
+      ? `\n\n==== CONFERÊNCIA DA TENTATIVA ANTERIOR (verificação automática) ====\n${problemas.map((p) => '- ' + p).join('\n')}\nO conjunto novo tem de sair deste conteúdo.`
+      : '';
+    const r = await callLLM(sys, contexto + correcao + '\n\nGere 5 novas hashtags estratificadas. Devolva APENAS o JSON.', true, 400);
     return Array.isArray(r && r.hashtags) ? r.hashtags : [];
   }
 

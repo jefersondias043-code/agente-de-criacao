@@ -46,7 +46,7 @@ const CAUSO_GENEROS = [
   },
   {
     id: 'assombracao', label: 'Assombração',
-    ctx: 'O medo mora no que não se vê. Sugestão vale mais que explicação: um barulho, uma pegada, uma porta, uma ausência, um testemunho que não bate com o outro.',
+    ctx: 'Assombração de mesa de bar: o susto é do CONTADOR, e é ele quem faz rir. O medo mora no que não se vê — um barulho, uma pegada, uma porta —, mas quem corre gritando pelo pasto de ceroula é gente, e disso ninguém esquece. Sugestão vale mais que explicação; e o ridículo do apavorado vale mais que o fantasma.',
     especialista: 'misterio',
   },
   {
@@ -56,12 +56,12 @@ const CAUSO_GENEROS = [
   },
   {
     id: 'lenda', label: 'Lenda / explicação do lugar',
-    ctx: 'Explica por que uma coisa do mundo é como é: o nome de um lugar, um costume, um medo herdado. Precisa soar mais velha que quem conta.',
+    ctx: 'Explica por que uma coisa do mundo é como é: o nome de um lugar, um costume, um medo herdado. Precisa soar mais velha que quem conta — e a explicação tem de ser absurda o bastante para dar vontade de rir e repetir. Ninguém conta lenda para ensinar; conta para ver a cara de quem ouve.',
     especialista: 'misterio',
   },
   {
     id: 'vida', label: 'Causo de vida',
-    ctx: 'Aconteceu com gente conhecida, e por isso dói ou diverte mais. O extraordinário aqui é humano: uma teimosia, uma vergonha, uma bondade fora de hora.',
+    ctx: 'Aconteceu com gente conhecida, e por isso diverte mais. O extraordinário aqui é humano levado ao absurdo: uma teimosia que passou de todo limite, uma vergonha que virou lenda na família, um mal-entendido que ninguém desfez a tempo. A graça está na pessoa insistindo no erro com dignidade.',
     especialista: 'humor',
   },
 ];
@@ -80,7 +80,8 @@ const CAUSO_DIMENSOES = [
   { id: 'causalidade', pergunta: 'Os acontecimentos se puxam, ou apenas se sucedem?', minimo: 7 },
   { id: 'exagero', pergunta: 'O absurdo cresce, ou já chega pronto?', minimo: 6 },
   { id: 'ritmo', pergunta: 'Existe parte arrastada?', minimo: 6 },
-  { id: 'humor', pergunta: 'A graça funciona onde existe?', minimo: 6 },
+  { id: 'humor', pergunta: 'A graça funciona — dá vontade de rir ou de contar de novo?', minimo: 7 },
+  { id: 'absurdo', pergunta: 'A mentira cresce até dar vontade de dizer "não acredito"?', minimo: 7 },
   { id: 'misterio', pergunta: 'A curiosidade se sustenta sem explicar tudo?', minimo: 6 },
   { id: 'final', pergunta: 'O encerramento recompensa a espera?', minimo: 7 },
   { id: 'brasilidade', pergunta: 'Há identidade cultural sem caricatura?', minimo: 7 },
@@ -91,14 +92,20 @@ function causoDimensao(id) {
   return CAUSO_DIMENSOES.find((d) => d.id === id) || null;
 }
 
-/* Quais críticos a mesa convoca. Narrativa, oralidade e originalidade são
- * obrigatórios; o quarto depende do gênero. Quatro chamadas em paralelo custam
- * o tempo de uma. */
-const CAUSO_CRITICOS_FIXOS = ['narrativa', 'oralidade', 'originalidade'];
+/* Quais críticos a mesa convoca.
+ *
+ * HUMOR É FIXO. Ele era convocado só em dois dos cinco gêneros — em assombração
+ * e em lenda ninguém olhava a graça, e as histórias saíam sóbrias sem que nada
+ * no processo reclamasse. Como a ferramenta existe para divertir, alguém tem de
+ * olhar a graça em TODA história.
+ *
+ * O especialista do gênero se soma; quando ele já é o humor, não entra duas
+ * vezes. Chamadas em paralelo custam o tempo de uma. */
+const CAUSO_CRITICOS_FIXOS = ['narrativa', 'oralidade', 'originalidade', 'humor'];
 
 function causoCriticosDe(genero) {
   const g = causoGenero(genero);
-  return CAUSO_CRITICOS_FIXOS.concat([g.especialista]);
+  return [...new Set(CAUSO_CRITICOS_FIXOS.concat([g.especialista]))];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -272,6 +279,24 @@ function causoCurvaDoExagero(texto) {
   return { problemas, densidades };
 }
 
+/* O IMPOSSÍVEL COMBINADO CHEGOU AO TEXTO?
+ *
+ * A mesa decide, no dossiê, qual é a coisa impossível daquela história. Se
+ * nenhuma palavra dela aparece no texto, a história ficou sóbria pelo caminho —
+ * que é exatamente o defeito relatado: bem escrita, séria, sem a mentira.
+ *
+ * Usa o mesmo casamento por palavra inteira de `causoContinuidade`, que existe
+ * porque comparar por substring solta faz "Zé" casar dentro de "fazer". */
+function causoAbsurdoPresente(texto, dossie) {
+  const absurdo = (dossie && dossie.absurdo) || '';
+  if (!absurdo) return { problemas: [], conferido: false };
+  if (_cMencionado(absurdo, texto)) return { problemas: [], conferido: true };
+  return {
+    conferido: true,
+    problemas: [`a coisa impossível combinada ("${absurdo}") não aparece na história. Sem ela sobra um texto bem escrito e sério — que é o oposto do que este causo tem de ser.`],
+  };
+}
+
 /**
  * Tudo o que dá para medir sem perguntar nada a ninguém. Vira munição para os
  * críticos (que não devem gastar atenção com o que a conta já resolveu) e para
@@ -282,15 +307,20 @@ function conferirCausoLocal(texto, dossie, opcoes) {
   const oral = causoOralidade(texto);
   const cont = causoContinuidade(texto, dossie);
   const orig = causoOriginalidade(texto, o.memoria, dossie);
-  const exag = (o.genero === 'pescador') ? causoCurvaDoExagero(texto) : { problemas: [], densidades: [] };
+  // A curva vale para TODO gênero: a ferramenta inteira existe para a mentira
+  // crescer. Antes só rodava em história de pescador, e nos outros quatro
+  // gêneros ninguém media se o absurdo chegava pronto na primeira frase.
+  const exag = causoCurvaDoExagero(texto);
+  const abs = causoAbsurdoPresente(texto, dossie);
 
   const achados = []
     .concat(oral.problemas.map((p) => ({ dimensao: 'oralidade', texto: p })))
     .concat(cont.problemas.map((p) => ({ dimensao: 'coerencia', texto: p })))
     .concat(orig.problemas.map((p) => ({ dimensao: 'originalidade', texto: p })))
-    .concat(exag.problemas.map((p) => ({ dimensao: 'exagero', texto: p })));
+    .concat(exag.problemas.map((p) => ({ dimensao: 'exagero', texto: p })))
+    .concat(abs.problemas.map((p) => ({ dimensao: 'absurdo', texto: p })));
 
-  return { achados, oralidade: oral, continuidade: cont, originalidade: orig, exagero: exag, ok: achados.length === 0 };
+  return { achados, oralidade: oral, continuidade: cont, originalidade: orig, exagero: exag, absurdo: abs, ok: achados.length === 0 };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -363,11 +393,17 @@ function julgarCauso(criticas, achadosLocais) {
 /* O que todo agente precisa saber, e a regra que governa a mesa inteira. */
 function causoBlocoDoutrina() {
   return [
+    '== PARA QUE ESTE CAUSO EXISTE ==',
+    'Para DIVERTIR. Quem ouve tem de rir, ou balançar a cabeça e pensar "que mentira mais absurda". Se a história termina e ninguém sorriu nem duvidou, ela falhou — por melhor que esteja escrita.',
+    'A coisa IMPOSSÍVEL acontece: o peixe fala, o boi sobe no telhado, o defunto senta na mesa. E ninguém na história acha aquilo estranho. É a naturalidade diante do absurdo que faz graça.',
+    'QUEM É SÉRIO AQUI É O CONTADOR, NÃO A HISTÓRIA. Ele jura que aconteceu, com cara de quem não está mentindo, e defende cada detalhe. A seriedade dele é o que faz o absurdo funcionar — e é a única seriedade permitida.',
+    'Uma história bem escrita e sóbria é o defeito mais comum aqui. Se você terminar de escrever e o texto parecer digno, respeitoso e comovente, você errou o alvo.',
+    '',
     '== A REGRA ACIMA DE TODAS ==',
     'NÃO tente parecer folclórico. Tentar é o caminho mais curto para a caricatura — o "ô sinhô" de mentira, o sotaque escrito errado de propósito, o interior de cartão-postal.',
-    'Pareça brasileiro, humano, oral e verdadeiro. O pescador tem de parecer pescador; o velho, velho; a vila, uma vila. O folclórico nasce disso ou não nasce.',
+    'Pareça brasileiro, humano e oral. O pescador tem de parecer pescador; o velho, velho; a vila, uma vila. O folclórico nasce disso ou não nasce.',
     'A tradição oral entra como DNA, não como texto para copiar: o jeito de contar, o gosto pelo exagero, a naturalidade diante do impossível. Nunca reproduza uma lenda conhecida.',
-    'O impossível entra na história como se fosse a coisa mais normal do mundo — quem conta não acha estranho, e é isso que faz quem ouve quase acreditar.',
+    'Verdadeiro aqui não quer dizer verossímil: quer dizer que a GENTE é de verdade — o jeito de falar, a teimosia, a reação de quem estava junto. Os acontecimentos podem ser impossíveis; as pessoas, não.',
   ].join('\n');
 }
 
@@ -402,8 +438,9 @@ function buildConceitosPrompt(ideia, memoria) {
     '',
     '== TAREFA ==',
     'Proponha QUATRO histórias possíveis a partir dessa ideia. Diferentes de verdade: não quatro versões da mesma coisa, mas quatro caminhos que levariam a histórias que ninguém confundiria uma com a outra.',
-    'Varie a natureza: uma pode ser engraçada, outra de medo, outra absurda, outra de emoção — ou o que a ideia pedir. Se a ideia só comporta um tipo, varie o ÂNGULO: de quem é a história, quando ela começa, quem descobre o quê.',
-    'Para cada uma, diga também qual é o RISCO dela: o jeito mais provável de essa história sair banal.',
+    'AS QUATRO SÃO DE RIR. Não varie entre engraçada, triste e comovente — varie DE ONDE VEM O RISO e QUAL É A MENTIRA. Uma pode rir da teimosia de alguém; outra, de um mal-entendido que ninguém desfaz; outra, do absurdo tratado com naturalidade; outra, da reação de quem estava junto.',
+    'Cada uma precisa ter uma coisa IMPOSSÍVEL acontecendo — e ninguém na história achando aquilo estranho. É por isso que quem ouve termina dizendo "que mentira mais absurda".',
+    'Para cada uma, diga também qual é o RISCO dela: o jeito mais provável de essa história sair banal. "Ficar séria demais" é o risco mais comum aqui.',
     '',
     'Gêneros possíveis (escolha o que couber em cada conceito):',
     CAUSO_GENEROS.map((g) => `  ${g.id} — ${g.label}: ${g.ctx}`).join('\n'),
@@ -418,6 +455,8 @@ function buildConceitosPrompt(ideia, memoria) {
     '      "quem": "de quem é a história",',
     '      "quer": "o que essa pessoa quer",',
     '      "virada": "o que muda no meio do caminho",',
+    '      "absurdo": "a coisa IMPOSSÍVEL que acontece nesta história",',
+    '      "graca": "de onde vem o riso: a pessoa, a contradição, o tempo da frase, a reação de quem estava junto",',
     '      "estrutura": "o desenho de como contar, nomeado por você",',
     '      "porqueFunciona": "por que essa é boa de ouvir",',
     '      "risco": "o jeito mais provável de sair banal"',
@@ -450,6 +489,8 @@ function buildDossiePrompt(conceito, ideia, memoria) {
     c.quem ? `De quem é: ${c.quem}` : '',
     c.quer ? `O que quer: ${c.quer}` : '',
     c.virada ? `A virada: ${c.virada}` : '',
+    c.absurdo ? `A COISA IMPOSSÍVEL: ${c.absurdo}` : '',
+    c.graca ? `De onde vem o riso: ${c.graca}` : '',
     c.estrutura ? `Desenho: ${c.estrutura}` : '',
     c.risco ? `RISCO A EVITAR: ${c.risco}` : '',
     '',
@@ -478,6 +519,8 @@ function buildDossiePrompt(conceito, ideia, memoria) {
     '  "curvaExagero": ["se for história de exagero: o que é quase normal, depois estranho, depois improvável, depois inacreditável"],',
     '  "obrigatorio": ["coisas que a história PRECISA ter"],',
     '  "proibido": ["coisas que estragariam esta história"],',
+    '  "absurdo": "a coisa impossível que acontece — repita e concretize a do conceito",',
+    '  "graca": "de onde vem o riso nesta versão",',
     '  "final": "o que acontece no fim, e o que fica sem explicação"',
     '}',
   ].filter(Boolean).join('\n');
@@ -541,6 +584,18 @@ function buildContarPrompt(dossie, opcoes) {
     linhas.push('== A CURVA DO EXAGERO ==');
     d.curvaExagero.forEach((x, i) => linhas.push(`${i + 1}. ${x}`));
     linhas.push('Respeite a ordem. O erro clássico é entregar o absurdo inteiro na primeira frase — quando isso acontece, o resto da história não tem para onde subir.');
+  }
+  if (d.absurdo) {
+    linhas.push('');
+    linhas.push('== A COISA IMPOSSÍVEL ==');
+    linhas.push(d.absurdo);
+    linhas.push('Isto ACONTECE na história, e ninguém acha estranho. Não explique, não justifique, não sugira que foi sonho ou engano. Conte como quem conta que choveu.');
+  }
+  if (d.graca) {
+    linhas.push('');
+    linhas.push('== DE ONDE VEM O RISO ==');
+    linhas.push(d.graca);
+    linhas.push('Não anuncie a graça e não escreva que alguém riu: deixe a cena fazer o trabalho.');
   }
   if (d.final) { linhas.push(''); linhas.push(`== O FIM ==\n${d.final}`); }
   if ((d.obrigatorio || []).length) {
@@ -614,7 +669,7 @@ const CAUSO_CRITICOS = {
   exagero: {
     label: 'Especialista em exagero',
     persona: 'Você entende de mentira contada com convicção. Sabe que o prazer da história de pescador não está no peixe: está em ver o homem sustentando o tamanho do peixe com cara séria.',
-    dimensoes: ['exagero', 'humor'],
+    dimensoes: ['exagero', 'absurdo'],
     olhar: [
       'O exagero CRESCE, ou já chega pronto na primeira frase?',
       'A escada está inteira: quase normal → estranho → improvável → absurdo → inacreditável?',
@@ -638,7 +693,7 @@ const CAUSO_CRITICOS = {
   humor: {
     label: 'Especialista em humor',
     persona: 'Você sabe que graça não se anuncia. Você procura de onde vem o riso: da pessoa, da contradição, do tempo da frase, da reação de quem estava junto — nunca da piada colada.',
-    dimensoes: ['humor', 'ritmo'],
+    dimensoes: ['humor', 'absurdo', 'ritmo'],
     olhar: [
       'Onde está a graça? Ela vem da pessoa ou de uma piada encaixada?',
       'O tempo está certo — a frase que faz rir chega no lugar certo?',
@@ -743,6 +798,8 @@ function normalizarConceitos(obj) {
     quem: _cTexto(c.quem),
     quer: _cTexto(c.quer),
     virada: _cTexto(c.virada),
+    absurdo: _cTexto(c.absurdo),
+    graca: _cTexto(c.graca),
     estrutura: _cTexto(c.estrutura),
     porqueFunciona: _cTexto(c.porqueFunciona),
     risco: _cTexto(c.risco),
@@ -770,6 +827,10 @@ function normalizarDossie(obj, conceito) {
     },
     voz: { quem: _cTexto(voz.quem), relacao: _cTexto(voz.relacao), porqueConta: _cTexto(voz.porqueConta) },
     beats: _cLista(o.beats),
+    // O absurdo e a graça sobrevivem à normalização mesmo quando a IA esquece
+    // de repeti-los: o conceito escolhido é a rede.
+    absurdo: _cTexto(o.absurdo) || _cTexto(c.absurdo),
+    graca: _cTexto(o.graca) || _cTexto(c.graca),
     curvaExagero: _cLista(o.curvaExagero),
     obrigatorio: _cLista(o.obrigatorio),
     proibido: _cLista(o.proibido),
@@ -825,6 +886,18 @@ function escolherConceito(conceitos, memoria) {
     // Novidade de forma: desenho ou gênero repetido perde.
     if (est && estruturasUsadas.indexOf(est) >= 0) p -= 4;
     if (gen && generosUsados.indexOf(gen) >= 0) p -= 1;
+    /* A GRAÇA PESA, E A FALTA DELA CUSTA.
+     *
+     * Sem isto a escolha era cega ao humor: pontuava novidade de forma e
+     * concretude, e um conceito emocional bem desenvolvido ganhava de um
+     * absurdo enxuto. Era a causa dominante das histórias saírem sóbrias.
+     *
+     * A ausência da coisa impossível é PENALIDADE, não falta de bônus: um
+     * conceito sem ela não é um causo um pouco pior — é outra coisa, e não é o
+     * que esta ferramenta faz. Entre dois conceitos que têm o absurdo, aí sim
+     * decidem o desenvolvimento e a novidade de forma. */
+    if (_cTexto(c.absurdo)) p += 4; else p -= 3;
+    if (_cTexto(c.graca)) p += 2;
     // Concretude: premissa com verbo e coisa no mundo vale mais que abstração.
     p += Math.min(3, Math.floor(_cTexto(c.premissa).split(/\s+/).length / 12));
     if (_cTexto(c.virada)) p += 2;

@@ -746,6 +746,9 @@ function buildAfiacaoNarrativaPrompt(n) {
 function narrativaVazia() {
   return {
     ideia: '', protagonista: '', desejo: '', obstaculo: '', risco: '',
+    // De qual ideia saiu a história derivada acima. Sem esta marca não há como
+    // saber se as respostas ainda pertencem ao que está escrito no campo.
+    ideiaOrigem: '',
     elenco: [],                 // personagens além do protagonista
     publico: '', formatoId: 'reels', tomId: 'direto', tamanhoId: 'medio',
     perfilIndex: -1, cta: '',   // -1 = nenhum perfil (os perfis começam vazios)
@@ -996,6 +999,50 @@ function renderNarrDiagnostico() {
   return diag;
 }
 
+/* A HISTÓRIA DERIVADA PERTENCE A UMA IDEIA.
+ *
+ * Defeito relatado: começar um conteúdo novo e ver o antigo aparecer nele.
+ * A causa foi uma regra que era certa e virou errada. `narrAplicarSugestao`
+ * nunca sobrescrevia uma resposta já preenchida — proteção correta quando as
+ * três respostas eram campos VISÍVEIS que o usuário tinha escrito à mão. Ao
+ * escondê-las (a simplificação da tela), a mesma regra passou a preservar
+ * resposta de OUTRA história, sem que ninguém pudesse ver nem apagar.
+ *
+ * Agora o rascunho guarda de qual ideia as respostas saíram. Ideia diferente,
+ * história descartada: é o único jeito de "texto novo" significar mesmo texto
+ * novo. Ideia igual (o usuário só clicou de novo, ou respondeu à pergunta
+ * focada) preserva tudo — reextrair ali apagaria o que ele acabou de escrever. */
+function narrIdeiaMudou(d) {
+  return narrNorm(String((d && d.ideia) || '')) !== narrNorm(String((d && d.ideiaOrigem) || ''));
+}
+
+/** Reabrir uma história salva devolve o pacote inteiro — e a marca de origem
+ *  junto. Aquelas respostas SAÍRAM daquela ideia; sem a marca, o primeiro
+ *  clique as trataria como restos de outra história e as jogaria fora, que é o
+ *  oposto do motivo de guardar a história inteira no histórico. */
+function narrRestaurarDraft(item) {
+  const d = Object.assign(narrativaVazia(), (item && item.narrativa) || {});
+  d.ideiaOrigem = d.ideia;
+  State.narrativaDraft = d;
+  saveNarrativaDraft();
+  return d;
+}
+
+/** Descarta a história derivada — no rascunho E nos campos, que hoje vivem
+ *  fora da vista e por isso não denunciam sozinhos que estão desatualizados. */
+function narrDescartarDerivados(d) {
+  ['protagonista', 'desejo', 'obstaculo', 'risco'].forEach((c) => {
+    d[c] = '';
+    const el = $('#n-' + c);
+    if (el) el.value = '';
+  });
+  d.elenco = [];
+  if (typeof renderNarrElenco === 'function') renderNarrElenco();
+  const foco = $('#n-pergunta-foco');
+  if (foco) foco.innerHTML = '';
+  saveNarrativaDraft();
+}
+
 /* PERGUNTA FOCADA — o substituto do formulário.
  *
  * Quando falta uma das três respostas, a ferramenta mostra UMA pergunta, com o
@@ -1119,9 +1166,14 @@ function narrEscalada(lista) {
     </div>`;
 }
 
+/* Há conteúdo de alguma história à vista? Só isso — para saber se vale a pena
+ * retirá-lo quando a ideia no campo passa a ser outra. */
+let _narrResultadoVisivel = false;
+
 function renderNarrResultado(item) {
   const area = $('#n-result-area');
   if (!area) return;
+  _narrResultadoVisivel = true;
   const badge = $('#n-result-badge');
   if (badge) badge.innerHTML = '<span class="badge success">Pronto</span>';
   setMtab('#view-narrativa', 'b');
@@ -1178,6 +1230,7 @@ function renderNarrResultado(item) {
 }
 
 function narrLimparResultado() {
+  _narrResultadoVisivel = false;
   const badge = $('#n-result-badge');
   if (badge) badge.innerHTML = '';
   const area = $('#n-result-area');
@@ -1188,8 +1241,23 @@ function narrLimparResultado() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       </div>
       <div class="empty-title">Aguardando</div>
-      <div class="empty-desc">Responda às três perguntas e o conteúdo aparece aqui, no formato da plataforma que você escolher.</div>
+      <div class="empty-desc">Escreva a sua ideia acima — ou anexe um arquivo — e o conteúdo aparece aqui.</div>
     </div>`;
+}
+
+/* O CONTEÚDO NA TELA PERTENCE À IDEIA QUE O GEROU.
+ *
+ * Visto em navegador enquanto se conferia a correção: com a ideia nova já
+ * escrita no campo, o cartão logo abaixo continuava exibindo o texto da
+ * história ANTERIOR, com o selo "PRONTO". A geração já estava certa, mas a
+ * tela dizia o contrário — e é essa a leitura de "continua mencionando texto
+ * velho". Ao divergir a ideia, o cartão volta ao estado de espera. Nada se
+ * perde: toda geração fica guardada no histórico, ali do lado. */
+function narrEsquecerResultadoDeOutraHistoria() {
+  if (!_narrResultadoVisivel) return;
+  if (!narrIdeiaMudou(narrColetar())) return;
+  _narrResultadoVisivel = false;
+  narrLimparResultado();
 }
 
 /* ----- Histórico ----- */
@@ -1217,8 +1285,7 @@ function renderNarrHistorico() {
       if (!it) return;
       // Reabrir devolve a história INTEIRA aos campos: o conteúdo sozinho não
       // permitiria refazer/variar sem redigitar as três respostas.
-      State.narrativaDraft = Object.assign(narrativaVazia(), it.narrativa || {});
-      saveNarrativaDraft();
+      narrRestaurarDraft(it);
       narrPreencher();
       renderNarrElenco();
       renderNarrDiagnostico();
@@ -1338,17 +1405,21 @@ function renderNarrativa() {
 
   // Handoff: texto vindo de outra ferramenta entra como IDEIA BRUTA — nunca
   // como resposta pronta (o material de origem é justamente a situação que
-  // ainda precisa virar história). As três respostas já escritas NÃO são
-  // apagadas: perder o trabalho do usuário em silêncio seria pior do que a
-  // mistura. Em vez disso, avisamos que elas continuam de pé.
+  // ainda precisa virar história). Material diferente = história diferente: a
+  // leitura anterior cai aqui mesmo. Antes ela era mantida, com um aviso para
+  // usar "Limpar" — botão que a tela de um campo só nem tem mais, e cuja
+  // ausência transformou a preservação em texto velho vazando no conteúdo novo.
   if (State.handoff && State.handoff.target === 'narrativa') {
     const d = narrativaDraft();
+    const texto = State.handoff.text || '';
+    const trocou = narrNorm(texto) !== narrNorm(d.ideia || '');
     const tinhaRespostas = !!(d.desejo || d.obstaculo || d.risco);
-    d.ideia = State.handoff.text || '';
+    d.ideia = texto;
     State.handoff = null;
     saveNarrativaDraft();
-    if (tinhaRespostas) {
-      toast('Material recebido em "A ideia". As respostas anteriores continuam preenchidas — use "Limpar" se for outra história.', 'info', 7000);
+    if (trocou) {
+      narrDescartarDerivados(d);
+      if (tinhaRespostas) toast('Material recebido. A ferramenta vai lê-lo do zero.', 'info', 5000);
     }
   }
 
@@ -1386,6 +1457,10 @@ function renderNarrativa() {
       const el = $('#n-' + c);
       if (el) el.addEventListener('input', () => renderNarrDiagnostico());
     });
+    // Trocar a ideia retira da tela o conteúdo da história anterior — inclusive
+    // quando a troca vem do × ou de um arquivo anexado, que também disparam
+    // `input`. O texto continua no histórico.
+    if ($('#n-ideia')) $('#n-ideia').addEventListener('input', narrEsquecerResultadoDeOutraHistoria);
     ['formatoId', 'tomId', 'tamanhoId'].forEach((c) => {
       const el = $('#n-' + c);
       // O diagnóstico também é redesenhado: o limite de elenco vem do formato,
@@ -1487,13 +1562,21 @@ function renderNarrativa() {
       // a ferramenta lê a ideia e responde por conta própria antes de qualquer
       // cobrança. Só se AINDA faltar alguma é que o usuário é chamado — e para
       // uma pergunta, não para um formulário.
-      if (!diag.pronto && String(d.ideia || '').trim().length >= 12) {
+      const ideiaNova = narrIdeiaMudou(d);
+      if (ideiaNova) narrDescartarDerivados(d);
+
+      if ((ideiaNova || !diag.pronto) && String(d.ideia || '').trim().length >= 12) {
         const btn0 = $('#n-submit');
         try {
           const r = await narrChamarIA(btn0, 'Lendo a sua ideia…', buildExtracaoNarrativaPrompt(d.ideia));
           const obj = (typeof extractJSON === 'function') ? extractJSON(r && r.content) : null;
-          if (obj) narrAplicarSugestao(obj);
+          // `forcar` quando a ideia é outra: o que estava ali é de uma história
+          // que não existe mais, e preservá-lo é justamente o defeito.
+          if (obj) narrAplicarSugestao(obj, { forcar: ideiaNova });
         } catch (err) { /* segue: o usuário responde à mão */ }
+        const atual = narrativaDraft();
+        atual.ideiaOrigem = atual.ideia;
+        saveNarrativaDraft();
         d = narrColetar();
         diag = diagnosticarNarrativa(d);
       }

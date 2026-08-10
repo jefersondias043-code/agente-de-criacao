@@ -187,9 +187,9 @@ function openRecent(kind, id) {
     if (n) {
       // Reabrir devolve a história inteira aos campos (não só o texto final),
       // para dar pra refazer em outro formato sem redigitar as três respostas.
-      State.narrativaDraft = Object.assign(
-        typeof narrativaVazia === 'function' ? narrativaVazia() : {}, n.narrativa || {});
-      if (typeof saveNarrativaDraft === 'function') saveNarrativaDraft();
+      // Passa por `narrRestaurarDraft` para marcar de qual ideia as respostas
+      // vieram — sem isso o primeiro clique as descartaria por parecerem velhas.
+      if (typeof narrRestaurarDraft === 'function') narrRestaurarDraft(n);
       if (typeof narrPreencher === 'function') narrPreencher();
       if (typeof renderNarrElenco === 'function') renderNarrElenco();
       if (typeof renderNarrDiagnostico === 'function') renderNarrDiagnostico();

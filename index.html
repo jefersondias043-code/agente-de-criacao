@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-10-r201" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-10-r202" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1012,109 +1012,28 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 
       <div id="n-api-warning" class="hidden card mb-3 callout-warn"></div>
 
-      <!-- UM CAMPO, UM BOTÃO.
-           A ferramenta pedia 11 decisões antes de liberar o botão — e ele só
-           destravava depois de o usuário responder três perguntas à mão. As
-           perguntas continuam sendo o coração do lema, mas quem as responde
-           primeiro é a IA, lendo a ideia. O usuário só entra quando falta algo,
-           e aí responde UMA pergunta, não um formulário. -->
+      <!-- UM CAMPO E UM ANEXO — nada mais.
+           A ferramenta pedia 11 decisões; depois, um campo com três seções
+           recolhidas ao lado. Continuava sendo uma tela de configuração. Agora
+           é a mesma entrada das outras ferramentas: escreva ou anexe, e a IA
+           faz o resto. Os campos da história continuam existindo (a IA os
+           preenche e o prompt os usa), mas fora da vista — ver #n-interno. -->
       <div class="card narr-hero">
         <div class="field">
-          <label class="label" for="n-ideia">Conte a sua história</label>
-          <textarea class="textarea" id="n-ideia" rows="6" placeholder="Escreva do seu jeito: o fato, a lembrança, o caso que te contaram. Uma frase já serve — a ferramenta encontra a história dentro do que você escrever."></textarea>
-          <span class="input-helper">É só isto que precisa ser preenchido. O resto a ferramenta resolve.</span>
+          <label class="label" for="n-ideia">O que você quer criar?</label>
+          <textarea class="textarea" id="n-ideia" rows="7" placeholder="Escreva do seu jeito: o fato, a lembrança, o caso que te contaram. Ou anexe um áudio, um vídeo, um PDF — a ferramenta lê e encontra a história."></textarea>
+          <div class="input-toolbar">
+            <input type="file" id="n-attach-input" hidden />
+            <button type="button" class="btn btn-ghost btn-sm" id="n-attach-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.5 18.5"/></svg>
+              Anexar arquivo
+            </button>
+            <span class="text-xs text-mute" title="O arquivo anexado é convertido em texto e entra na ideia">PDF, imagem, áudio, vídeo ou TXT.</span>
+          </div>
+          <div id="n-attach-pending"></div>
         </div>
-        <div id="n-diag"></div>
         <div id="n-pergunta-foco"></div>
       </div>
-
-      <details class="editor-section" id="n-detalhe">
-        <summary>
-          <span>A história em detalhe</span>
-          <span class="chev">▾</span>
-        </summary>
-        <div class="editor-section-body flex flex-col gap-2">
-          <div class="text-xs text-mute">
-            Preenchido pela ferramenta a partir da sua ideia. Edite se quiser mudar o rumo.
-          </div>
-          <div class="field">
-            <label class="label" for="n-protagonista">Protagonista — quem deseja?</label>
-            <input class="input" id="n-protagonista" placeholder="Ex.: dona Marlene, da feira" />
-          </div>
-          <div class="field">
-            <label class="label" for="n-desejo">1. O que ele quer?</label>
-            <textarea class="textarea textarea-answer" id="n-desejo" rows="2" placeholder="Ex.: reabrir a padaria do pai antes do fim do ano"></textarea>
-          </div>
-          <div class="field">
-            <label class="label" for="n-obstaculo">2. O que o impede?</label>
-            <textarea class="textarea textarea-answer" id="n-obstaculo" rows="2" placeholder="Ex.: o imóvel foi penhorado e o irmão quer vender"></textarea>
-          </div>
-          <div class="field">
-            <label class="label" for="n-risco">3. O que ele arrisca?</label>
-            <textarea class="textarea textarea-answer" id="n-risco" rows="2" placeholder="Ex.: as economias da aposentadoria e a relação com o irmão"></textarea>
-          </div>
-          <div class="input-toolbar">
-            <button type="button" class="btn btn-ghost btn-sm" id="n-extrair">Reler a ideia com IA</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="n-afiar">Afiar as respostas</button>
-            <button type="button" class="btn btn-ghost btn-sm" id="n-limpar">Limpar</button>
-          </div>
-          <div id="n-afiacao"></div>
-          <div class="card-head" style="margin-top:.4rem;">
-            <div class="card-title">Elenco</div>
-            <button class="btn btn-ghost btn-sm" id="n-elenco-add" type="button">Adicionar personagem</button>
-          </div>
-          <div id="n-elenco-list" class="narr-cast-list"></div>
-        </div>
-      </details>
-
-      <details class="editor-section" id="n-ajustes">
-        <summary>
-          <span>Ajustes</span>
-          <span class="chev">▾</span>
-        </summary>
-        <div class="editor-section-body flex flex-col gap-2">
-          <div class="text-xs text-mute">A ferramenta escolhe sozinha a partir da sua ideia. Mexa só se quiser outra coisa.</div>
-          <div class="field">
-            <label class="label" for="n-formatoId">Formato</label>
-            <select class="select" id="n-formatoId"></select>
-            <span class="input-helper" id="n-formato-desc"></span>
-          </div>
-          <div class="grid-2 keep-2" style="gap: 1rem;">
-            <div class="field">
-              <label class="label" for="n-tomId">Tom</label>
-              <select class="select" id="n-tomId"></select>
-              <span class="input-helper" id="n-tom-desc"></span>
-            </div>
-            <div class="field">
-              <label class="label" for="n-tamanhoId">Extensão</label>
-              <select class="select" id="n-tamanhoId"></select>
-              <span class="input-helper" id="n-tamanho-desc"></span>
-            </div>
-          </div>
-          <div class="field">
-            <label class="label" for="n-perfil">Perfil que publica</label>
-            <select class="select" id="n-perfil"></select>
-          </div>
-          <div class="field">
-            <label class="label" for="n-publico">Para quem é <span class="text-mute" style="text-transform:none;letter-spacing:0;font-weight:400;">(opcional)</span></label>
-            <input class="input" id="n-publico" placeholder="Ex.: mães de primeira viagem" />
-          </div>
-          <div class="field">
-            <label class="label" for="n-cta">Ação desejada no fim <span class="text-mute" style="text-transform:none;letter-spacing:0;font-weight:400;">(opcional)</span></label>
-            <input class="input" id="n-cta" placeholder="Ex.: comentar a própria história" />
-          </div>
-        </div>
-      </details>
-
-      <details class="editor-section" id="n-lema">
-        <summary>
-          <span>O lema que rege esta ferramenta</span>
-          <span class="chev">▾</span>
-        </summary>
-        <div class="editor-section-body">
-          <p class="narr-lema" id="n-lema-text"></p>
-        </div>
-      </details>
 
       <div class="card">
         <div class="card-head">
@@ -1122,6 +1041,28 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
           <div id="n-result-badge"></div>
         </div>
         <div id="n-result-area"></div>
+      </div>
+
+      <!-- ESTADO INTERNO. Estes campos são a história que a IA monta a partir da
+           ideia: o prompt de escrita lê deles e o rascunho os persiste. Ficam
+           fora da vista porque preenchê-los era exatamente a complexidade que o
+           usuário pediu para eliminar — não porque deixaram de existir. -->
+      <div id="n-interno" hidden aria-hidden="true">
+        <input id="n-protagonista" />
+        <textarea id="n-desejo"></textarea>
+        <textarea id="n-obstaculo"></textarea>
+        <textarea id="n-risco"></textarea>
+        <select id="n-formatoId"></select>
+        <select id="n-tomId"></select>
+        <select id="n-tamanhoId"></select>
+        <select id="n-perfil"></select>
+        <input id="n-publico" />
+        <input id="n-cta" />
+        <span id="n-formato-desc"></span><span id="n-tom-desc"></span><span id="n-tamanho-desc"></span>
+        <div id="n-elenco-list"></div>
+        <div id="n-diag"></div>
+        <div id="n-afiacao"></div>
+        <p id="n-lema-text"></p>
       </div>
 
       <div class="action-bar">

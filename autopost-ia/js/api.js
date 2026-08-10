@@ -146,12 +146,13 @@ A categoria informada pelo usuário serve para você entender o público e o voc
 
 Devolva EXATAMENTE 5, nesta distribuição:
 1. AMPLA — a maior porta de entrada DO ASSUNTO deste vídeo (não da categoria escolhida, não da plataforma). É por onde alguém interessado no tema chegaria.
-2. ASSUNTO — o formato/tipo deste conteúdo. É o ÚNICO lugar onde uma tag reaproveitável entre vídeos é aceitável.
+2. ASSUNTO — que TIPO DE HISTÓRIA este vídeo é. Não é o nome da categoria escolhida: a categoria é o balcão, esta tag é o prato. Um relato sobre um conserto que saiu de graça e um relato sobre uma demissão injusta são os dois "relato" — e é exatamente por isso que "relato" não serve aqui. Diga o que ACONTECE neste, no vocabulário de quem procuraria por esse tipo de história. Conteúdo diferente, tag de assunto diferente.
 3 e 4. NICHO (duas) — as mais específicas do conjunto. É aqui que entram o nome próprio, o lugar, o objeto, a profissão ou a situação exata que aparecem no conteúdo.
 5. INTENÇÃO / EMOÇÃO — o que a pessoa sente ao assistir ou o estado que ela procura.
 
 PROVA OBRIGATÓRIA ANTES DE DEVOLVER:
 - Pelo menos 3 das 5 precisam carregar um termo tirado do conteúdo. Se o mesmo conjunto serviria para outro vídeo da mesma categoria com assunto diferente, ele está errado — refaça.
+- A tag de ASSUNTO não pode ser o nome da categoria escolhida nem uma palavra dele. Se ela continuaria igual num vídeo completamente diferente do mesmo nicho, ela é o rótulo do balcão — troque pelo prato.
 - NUNCA use tag de plataforma ou de alcance vazio: fyp, foryou, foryoupage, parati, paravoce, viral, viralizar, tiktok, reels, shorts, explorar, trending, tendencia, seguidores, curtidas. Ninguém busca por elas procurando este assunto.
 
 EXEMPLO DE RACIOCÍNIO (as tags abaixo pertencem ÀQUELE vídeo; não as reaproveite):

@@ -35,7 +35,8 @@ let A;
 beforeAll(() => {
   const nomes = ['REGRAS_HASHTAGS', 'RUBRICA_PACOTE', 'HASHTAGS_GENERICAS', 'hashtagEhGenerica',
     'palavrasDoConteudo', 'hashtagAncorada', 'auditarHashtags', 'penalidadeHashtags',
-    'MIN_HASHTAGS_ANCORADAS'];
+    'MIN_HASHTAGS_ANCORADAS', 'palavrasDaCategoria', 'hashtagEhNomeDaCategoria',
+    'hashtagDeAssunto'];
   (0, eval)([api, pkg].join('\n;\n') + `\n;globalThis.__AP__ = { ${nomes.join(', ')} };`);
   A = globalThis.__AP__;
 });
@@ -191,6 +192,115 @@ describe('o veredito sobre um conjunto de hashtags', () => {
   });
 });
 
+// TERCEIRO RELATO, o mais preciso: a hashtag de ASSUNTO vem fixa. Selecionado
+// um nicho, todo conteúdo daquele nicho sai com a mesma tag naquela posição.
+//
+// A causa foi uma frase que eu mesmo escrevi: a regra dizia que a de ASSUNTO
+// era "o ÚNICO lugar onde uma tag reaproveitável entre vídeos é aceitável" —
+// autorização explícita para repetir. Com o rótulo da categoria escrito no
+// prompt, o caminho mais curto para preencher a posição era copiá-lo.
+//
+// Medido em todas as 21 categorias, com uma IA dublada devolvendo o nome da
+// categoria na posição de assunto:
+//
+//   assunto = nome da categoria, pego            0/21 → 21/21
+//   assunto tirado do conteúdo, reprovado à toa  0/21 →  0/21
+//
+// A verificação é DE PROPÓSITO a mais estreita possível — só a posição de
+// assunto, só contra as palavras do rótulo. Guiar a variação por lista de
+// proibições já foi tentado uma vez e produziu hashtags sem relação com o
+// conteúdo; aqui não há lista, há uma palavra que não cabe naquela posição.
+describe('a tag de assunto não é o nome do nicho', () => {
+  const CAT = 'Relato pessoal (storytime)';
+  const comTipos = (ampla, assunto, n1, n2, intencao) => ({
+    hashtags: [
+      { tag: ampla, tipo: 'ampla' }, { tag: assunto, tipo: 'assunto' },
+      { tag: n1, tipo: 'nicho' }, { tag: n2, tipo: 'nicho' },
+      { tag: intencao, tipo: 'intencao' },
+    ],
+  });
+
+  it('a regra parou de autorizar tag reaproveitável nessa posição', () => {
+    expect(A.REGRAS_HASHTAGS).not.toMatch(/ÚNICO lugar onde uma tag reaproveitável/);
+    expect(A.REGRAS_HASHTAGS).toMatch(/a categoria é o balcão, esta tag é o prato/);
+    expect(A.REGRAS_HASHTAGS).toMatch(/Conteúdo diferente, tag de assunto diferente/);
+  });
+
+  it('e a prova final cobra isso', () => {
+    expect(A.REGRAS_HASHTAGS).toMatch(/A tag de ASSUNTO não pode ser o nome da categoria/);
+  });
+
+  it('reconhece as palavras do rótulo da categoria', () => {
+    expect(A.palavrasDaCategoria(CAT).sort()).toEqual(['pessoal', 'relato', 'storytime']);
+    expect(A.hashtagEhNomeDaCategoria('storytime', CAT)).toBe(true);
+    expect(A.hashtagEhNomeDaCategoria('relato', CAT)).toBe(true);
+    expect(A.hashtagEhNomeDaCategoria('atodebondade', CAT)).toBe(false);
+  });
+
+  it('acento e caixa do rótulo não escapam', () => {
+    expect(A.hashtagEhNomeDaCategoria('culinaria', 'Culinária')).toBe(true);
+    expect(A.hashtagEhNomeDaCategoria('educacao', 'Educação e tutoriais')).toBe(true);
+  });
+
+  it('sem categoria escolhida não há o que comparar', () => {
+    // Modo automático: é justamente onde o usuário disse que as tags variam bem.
+    expect(A.hashtagEhNomeDaCategoria('storytime', '')).toBe(false);
+    expect(A.auditarHashtags(comTipos('consertos', 'storytime', 'maquinadelavar', 'assistencia', 'gratidao'), CONTEUDO).ok).toBe(true);
+  });
+
+  it('assunto igual ao nicho é reprovado, e a mensagem explica o porquê', () => {
+    const r = A.auditarHashtags(
+      comTipos('consertos', 'storytime', 'maquinadelavar', 'assistenciatecnica', 'gratidao'),
+      CONTEUDO, CAT);
+    expect(r.ok).toBe(false);
+    expect(r.assuntoEhNicho).toBe(true);
+    expect(r.problemas.join(' ')).toMatch(/sai igual em TODO conteúdo deste nicho/);
+  });
+
+  it('assunto dizendo que tipo de história é esta passa', () => {
+    const r = A.auditarHashtags(
+      comTipos('consertos', 'atodebondade', 'maquinadelavar', 'assistenciatecnica', 'gratidao'),
+      CONTEUDO, CAT);
+    expect(r.ok, r.problemas.join(' | ')).toBe(true);
+    expect(r.assunto).toBe('atodebondade');
+  });
+
+  it('a verificação é só da posição de assunto — a ampla pode ser o tema do nicho', () => {
+    // Para um vídeo de receita, #culinaria como AMPLA é a porta de entrada
+    // certa. O que não pode é ela ocupar a posição que deveria variar.
+    const r = A.auditarHashtags(
+      comTipos('culinaria', 'receitadeavo', 'bolodefuba', 'fornoalenha', 'nostalgia'),
+      'O bolo de fubá da minha avó saía do forno a lenha todo domingo.', 'Culinária');
+    expect(r.assuntoEhNicho).toBe(false);
+    expect(r.ok, r.problemas.join(' | ')).toBe(true);
+  });
+
+  it('depois de edição manual, sem tipo, não há o que conferir', () => {
+    // As tags viram texto puro e a marcação de posição se perde. Chutar qual
+    // delas era a de assunto seria pior do que não conferir.
+    expect(A.hashtagDeAssunto({ hashtags: ['storytime', 'relato'] })).toBe('');
+    expect(A.auditarHashtags({ hashtags: ['storytime', 'maquinadelavar'] }, CONTEUDO, CAT).assuntoEhNicho).toBe(false);
+  });
+
+  it('pesa no desempate entre as duas versões geradas', () => {
+    const mau = A.auditarHashtags(comTipos('consertos', 'storytime', 'maquinadelavar', 'assistenciatecnica', 'gratidao'), CONTEUDO, CAT);
+    const bom = A.auditarHashtags(comTipos('consertos', 'atodebondade', 'maquinadelavar', 'assistenciatecnica', 'gratidao'), CONTEUDO, CAT);
+    expect(A.penalidadeHashtags(mau)).toBeGreaterThan(A.penalidadeHashtags(bom));
+  });
+
+  it('o rótulo da categoria chega à conferência nas três chamadas', () => {
+    expect(app).toMatch(/categoriaTexto: catLabel/);
+    expect(app).toMatch(/auditarHashtags\(pacote, texto, briefing\.categoriaTexto\)/);
+    expect(app).toMatch(/auditarHashtags\(\{ hashtags: novo \}, conteudo, briefing\.categoriaTexto\)/);
+    expect(app).toMatch(/auditarHashtags\(\{ hashtags: outra \}, conteudo, briefing\.categoriaTexto\)/);
+  });
+
+  it('o juiz também sabe da regra', () => {
+    const r = A.RUBRICA_PACOTE.find((x) => x.id === 'hashtags');
+    expect(r.desc).toMatch(/A de ASSUNTO não pode ser o nome da categoria escolhida/);
+  });
+});
+
 describe('a conferência muda o que é entregue', () => {
   it('entre duas versões, a que personaliza ganha o desempate', () => {
     const generico = A.auditarHashtags(pacoteCom(['fyp', 'viral', 'parati', 'storytime', 'relato']), CONTEUDO);
@@ -202,7 +312,7 @@ describe('a conferência muda o que é entregue', () => {
   });
 
   it('a geração roda a conferência com o conteúdo em mãos', () => {
-    expect(app).toMatch(/const auditoria = auditarHashtags\(pacote, texto\)/);
+    expect(app).toMatch(/const auditoria = auditarHashtags\(pacote, texto,/);
   });
 
   it('nota alta com hashtag genérica não encerra o trabalho', () => {

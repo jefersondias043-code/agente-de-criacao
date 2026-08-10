@@ -20,6 +20,12 @@ Ao mexer na lista de scripts, edite `scripts/scripts.manifest.mjs` e rode
 No navegador (http://localhost:8080):
 
 - [ ] Console mostra "Agente de Postagem … pronto." e **nenhum erro**.
+- [ ] **Limpar campo (×)**: em qualquer caixa de conteúdo — Gerar (Texto da pauta), Narrativa,
+      Extrair, campos do cartaz, AutoPost (Revisar) — digitar faz surgir um **×** no canto
+      superior direito da caixa; clicar esvazia tudo de uma vez, o botão some e o cursor volta
+      para o campo. Em campo vazio o × não aparece. Conferir que o contador de caracteres da
+      Gerar zera junto (o × avisa quem escuta, não só apaga na tela) e que a caixa principal do
+      AutoPost continua com **um** × só — ela já tinha o seu.
 - [ ] Sidebar lista as 10 seções; clicar em cada uma troca a view sem erro.
 - [ ] **Gerar**: selects de Estilo (28) e Tom (22) preenchidos; contador do textarea atualiza ao digitar.
       Toggle **Modo de geração** (Agentes/Rápido) troca o botão ativo e persiste ao trocar de

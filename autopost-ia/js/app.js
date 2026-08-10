@@ -404,9 +404,17 @@ async function gerarPacoteFinal() {
       const avaliacao = await avaliarPacote(pacote, ctxJuiz);
       stepsT[1].state = 'done';
 
-      if (!melhor || avaliacao.nota_total > melhor.avaliacao.nota_total) melhor = { pacote, avaliacao };
+      // Conferência determinística: as hashtags saíram DESTE conteúdo ou são as
+      // que caberiam em qualquer vídeo do nicho? O juiz é uma LLM e às vezes
+      // aprova um conjunto genérico; esta conta não.
+      const auditoria = auditarHashtags(pacote, texto);
+      const notaEfetiva = avaliacao.nota_total - penalidadeHashtags(auditoria);
 
-      if (avaliacao.nota_total >= NOTA_ALVO) {
+      if (!melhor || notaEfetiva > melhor.notaEfetiva) melhor = { pacote, avaliacao, notaEfetiva };
+
+      // Nota alta com hashtag genérica não é pacote pronto: gasta-se a iteração
+      // que já estava no orçamento para personalizar o que ficou de fora.
+      if (avaliacao.nota_total >= NOTA_ALVO && auditoria.ok) {
         stepsT[2].state = 'done';
         stepsT[2].desc = 'Pacote pronto e aprovado na revisão';
         break;
@@ -417,7 +425,10 @@ async function gerarPacoteFinal() {
         const falhas = (avaliacao.avaliacoes || [])
           .filter(a => a.score < 7)
           .map(a => ({ ...a, nome: (RUBRICA_PACOTE.find(r => r.id === a.id) || {}).nome || a.id }));
-        feedback = { nota_total: avaliacao.nota_total, falhas, pacoteAnterior: pacote };
+        feedback = {
+          nota_total: avaliacao.nota_total, falhas, pacoteAnterior: pacote,
+          problemasHashtags: auditoria.problemas,
+        };
         mostra();
       } else {
         stepsT[2].state = 'done';
@@ -473,7 +484,20 @@ async function regenerarCampoUI(id, campo, btnEl) {
     // hashtag fora do nicho no meio de um pacote que estava coerente.
     const opcoes = item.opcoes || { plataforma: 'auto', tom: 'auto', objetivo: 'auto', categoria: 'auto' };
     const briefing = montarBriefing(opcoes, item.fonte === 'texto');
-    const novo = await gerarVariacaoCampo(campo, item.transcricao || '', item.pacote || {}, briefing);
+    const conteudo = item.transcricao || '';
+    let novo = await gerarVariacaoCampo(campo, conteudo, item.pacote || {}, briefing);
+
+    // "Gerar outra versão" das hashtags passa pela mesma conferência da geração:
+    // é justamente aqui que clica quem não gostou das tags, e devolver outro
+    // conjunto genérico seria repetir o problema com palavras diferentes.
+    if (campo === 'hashtags') {
+      const a = auditarHashtags({ hashtags: novo }, conteudo);
+      if (!a.ok) {
+        const outra = await gerarVariacaoCampo(campo, conteudo, item.pacote || {}, briefing, a.problemas);
+        const b = auditarHashtags({ hashtags: outra }, conteudo);
+        if (Array.isArray(outra) && outra.length && penalidadeHashtags(b) <= penalidadeHashtags(a)) novo = outra;
+      }
+    }
 
     // Valida o retorno antes de gravar (não substitui por vazio).
     const vazio = (campo === 'hashtags' || campo === 'palavras_chave')

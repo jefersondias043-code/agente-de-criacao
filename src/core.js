@@ -128,6 +128,8 @@ const STORAGE_KEYS = {
   posters: 'agp.posters',
   narrativas: 'agp.narrativas',            // Narrativa: conteúdos escritos a partir de histórias validadas
   narrativaDraft: 'agp.narrativa.draft',   // Narrativa: a história em construção (não perder ao trocar de ferramenta)
+  causos: 'agp.causos',                    // Causos: as histórias contadas pela mesa (e a memória do que ela já contou)
+  causoDraft: 'agp.causo.draft',           // Causos: a ideia em construção
   posterPresets: 'agp.posterPresets',
   posterPanelH: 'agp.posterPanelH',   // altura (px) do painel de edição no mobile — divisor arrastável preview↔edição
 };
@@ -233,6 +235,8 @@ const State = (() => {
     posters: loadJSON(STORAGE_KEYS.posters, []),
     narrativas: loadJSON(STORAGE_KEYS.narrativas, []),
     narrativaDraft: loadJSON(STORAGE_KEYS.narrativaDraft, null),
+    causos: loadJSON(STORAGE_KEYS.causos, []),
+    causoDraft: loadJSON(STORAGE_KEYS.causoDraft, null),
     posterPresets: loadJSON(STORAGE_KEYS.posterPresets, []),   // presets de identidade visual (nome + custom)
     currentView: 'welcome',
     activeExtractionId: null,

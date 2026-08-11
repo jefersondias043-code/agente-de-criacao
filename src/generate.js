@@ -131,44 +131,19 @@ function _genDeliverText(ta, text) {
  *  a transcrição precisa comprimir/dividir via Web Audio, que no iPhone só roda a
  *  partir de um GESTO do usuário (toque). Por isso não processamos no evento do
  *  seletor de arquivo: mostramos um botão "Transcrever" para o usuário tocar. */
+/* Precisa de gesto para transcrever? A regra mora em `ingestEhMidiaGrande`
+ * (ingest.js), onde todas as ferramentas a leem. Mantido como nome próprio
+ * porque a suíte testa este ponto de entrada. */
 function _genEhMidiaGrande(f) {
-  if (!f || typeof ingestKind !== 'function' || ingestKind(f) !== 'media') return false;
-  const safe = (typeof WHISPER_SAFE_BYTES === 'number') ? WHISPER_SAFE_BYTES : 23 * 1024 * 1024;
-  return f.size > safe;
+  return (typeof ingestEhMidiaGrande === 'function') ? ingestEhMidiaGrande(f) : false;
 }
 
 /** Roteia o arquivo anexado na Gerar. Mídia grande → cartão com botão (gesto);
- *  o resto (texto/PDF/imagem/mídia pequena) → conversão automática, como antes. */
+ *  o resto (texto/PDF/imagem/mídia pequena) → conversão automática. O cartão em
+ *  si é montado pelo helper compartilhado — havia quatro cópias dele. */
 function handleGenAttach(f, ta) {
-  const pending = $('#g-attach-pending');
-  if (_genEhMidiaGrande(f) && pending) {
-    // Cartão pendente: o TOQUE no botão "Transcrever" é o gesto que destrava o
-    // áudio no iOS (mesma lógica do botão "Gerar" do AutoPost).
-    pending.innerHTML = `
-      <div class="attach-card">
-        <div class="attach-card-info">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
-          <div style="min-width:0;">
-            <div class="attach-card-name">${escapeHtml(f.name)}</div>
-            <div class="attach-card-meta">${formatBytes(f.size)} · vídeo/áudio grande — será comprimido e transcrito</div>
-          </div>
-        </div>
-        <div class="flex gap-1">
-          <button type="button" class="btn btn-accent btn-sm" data-attach-go>Transcrever</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-attach-cancel title="Remover">✕</button>
-        </div>
-      </div>`;
-    const go = pending.querySelector('[data-attach-go]');
-    const cancel = pending.querySelector('[data-attach-cancel]');
-    if (go) go.onclick = () => {
-      pending.innerHTML = '';
-      if (typeof ingestFileNative === 'function') ingestFileNative(f, (text) => _genDeliverText(ta, text));
-    };
-    if (cancel) cancel.onclick = () => { pending.innerHTML = ''; };
-    return;
-  }
-  // Caminho automático (comportamento anterior) para tudo que não é mídia grande.
-  if (typeof ingestFileNative === 'function') ingestFileNative(f, (text) => _genDeliverText(ta, text));
+  if (typeof ingestAnexar !== 'function') return;
+  ingestAnexar(f, (text) => _genDeliverText(ta, text), '#g-attach-pending');
 }
 
 // ---------- Render Generate ----------

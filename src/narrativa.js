@@ -1232,38 +1232,12 @@ let _narrWired = false;
  * cartão com o botão "Transcrever" — é o toque nele que destrava o áudio no
  * iOS. Mesma razão e mesmo desenho do cartão da Gerar. */
 function handleNarrAttach(f, ta) {
-  const pending = $('#n-attach-pending');
-  const entregar = (text) => {
+  if (typeof ingestAnexar !== 'function') return;
+  ingestAnexar(f, (text) => {
     const cur = (ta.value || '').trim();
     ta.value = cur ? (cur + '\n\n' + text) : text;
     ta.dispatchEvent(new Event('input', { bubbles: true }));
-  };
-  const grande = (typeof _genEhMidiaGrande === 'function') && _genEhMidiaGrande(f);
-  if (grande && pending) {
-    pending.innerHTML = `
-      <div class="attach-card">
-        <div class="attach-card-info">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
-          <div style="min-width:0;">
-            <div class="attach-card-name">${escapeHtml(f.name)}</div>
-            <div class="attach-card-meta">${formatBytes(f.size)} · vídeo/áudio grande — será comprimido e transcrito</div>
-          </div>
-        </div>
-        <div class="flex gap-1">
-          <button type="button" class="btn btn-accent btn-sm" data-attach-go>Transcrever</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-attach-cancel title="Remover">✕</button>
-        </div>
-      </div>`;
-    const go = pending.querySelector('[data-attach-go]');
-    const cancel = pending.querySelector('[data-attach-cancel]');
-    if (go) go.onclick = () => {
-      pending.innerHTML = '';
-      if (typeof ingestFileNative === 'function') ingestFileNative(f, entregar);
-    };
-    if (cancel) cancel.onclick = () => { pending.innerHTML = ''; };
-    return;
-  }
-  if (typeof ingestFileNative === 'function') ingestFileNative(f, entregar);
+  }, '#n-attach-pending');
 }
 
 function renderNarrativa() {

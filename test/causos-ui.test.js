@@ -19,7 +19,8 @@ let U;
 beforeAll(() => {
   clearStorage();
   U = loadModules(
-    ['catalogs.js', 'core.js', 'poster-templates.js', 'agents.js', 'causos-motor.js', 'causos.js'],
+    ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js',
+      'media-transcode.js', 'ingest.js', 'causos-motor.js', 'causos.js'],
     ['State', 'renderCausos', 'causoTemChave', 'causoAvisarSemChave', 'causoLimparResultado']);
 });
 
@@ -31,6 +32,7 @@ const montarTela = () => {
     <div id="c-attach-pending"></div>
     <input type="file" id="c-attach-input" />
     <button id="c-attach-btn"></button>
+    <div id="toast-stack"></div>
     <div id="c-result-badge"></div>
     <div id="c-result-area"></div>
     <button id="c-submit"></button>
@@ -89,6 +91,26 @@ describe('o aviso de chave não fica na frente de quem quer trabalhar', () => {
     const a = document.getElementById('c-api-warning');
     expect(a.textContent).toMatch(/não pôde trabalhar/i);
     expect(a.querySelector('[data-go="settings"]'), 'sem caminho para resolver').toBeTruthy();
+  });
+});
+
+describe('anexar vídeo', () => {
+  /* Esta tela tinha a mesma falha do Julgador, pelo mesmo motivo: a fiação foi
+   * escrita sem o cartão de gesto que a Gerar e a Narrativa já tinham. Mídia
+   * grande passa pelo compressor de Web Audio, que no celular exige um toque. */
+  it('vídeo grande espera o toque em vez de converter sozinho', () => {
+    U.State.apiKeys = { groq: 'gsk_teste' };
+    U.renderCausos();
+    const f = new Blob(['x'], { type: 'video/mp4' });
+    Object.defineProperty(f, 'size', { value: 40 * 1024 * 1024 });
+    Object.defineProperty(f, 'name', { value: 'causo.mp4' });
+    const inp = document.getElementById('c-attach-input');
+    Object.defineProperty(inp, 'files', { value: [f], configurable: true });
+    inp.onchange();
+    expect(document.getElementById('toast-stack').children.length,
+      'converteu sem gesto — é a falha do celular').toBe(0);
+    expect(document.querySelector('#c-attach-pending [data-attach-go]'),
+      'a tela não passou o container do cartão').toBeTruthy();
   });
 });
 

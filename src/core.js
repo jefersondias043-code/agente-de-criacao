@@ -130,6 +130,8 @@ const STORAGE_KEYS = {
   narrativaDraft: 'agp.narrativa.draft',   // Narrativa: a história em construção (não perder ao trocar de ferramenta)
   causos: 'agp.causos',                    // Causos: as histórias contadas pela mesa (e a memória do que ela já contou)
   causoDraft: 'agp.causo.draft',           // Causos: a ideia em construção
+  julgamentos: 'agp.julgamentos',          // Julgador: os diagnósticos da banca (base das comparações entre versões)
+  julgadorDraft: 'agp.julgador.draft',     // Julgador: o conteúdo e a embalagem em avaliação
   posterPresets: 'agp.posterPresets',
   posterPanelH: 'agp.posterPanelH',   // altura (px) do painel de edição no mobile — divisor arrastável preview↔edição
 };
@@ -237,6 +239,9 @@ const State = (() => {
     narrativaDraft: loadJSON(STORAGE_KEYS.narrativaDraft, null),
     causos: loadJSON(STORAGE_KEYS.causos, []),
     causoDraft: loadJSON(STORAGE_KEYS.causoDraft, null),
+    julgamentos: loadJSON(STORAGE_KEYS.julgamentos, []),
+    julgadorDraft: loadJSON(STORAGE_KEYS.julgadorDraft, null),
+    julgadorOrigemId: null,   // qual julgamento esta próxima avaliação vai comparar
     posterPresets: loadJSON(STORAGE_KEYS.posterPresets, []),   // presets de identidade visual (nome + custom)
     currentView: 'welcome',
     activeExtractionId: null,

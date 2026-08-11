@@ -18,6 +18,8 @@ export const SCRIPTS = [
   'narrativa-motor.js',
   'causos-motor.js',
   'causos.js',
+  'julgador-motor.js',
+  'julgador.js',
   'extract.js',
   'posters.js',
   'poster-templates.js',

@@ -243,6 +243,19 @@ describe('a conferência que é medida, não julgada', () => {
     expect(J.julgProgressao(BOM).problemas, 'texto que avança não é acusado').toEqual([]);
   });
 
+  it('o travessão de fala não vira palavra fantasma na conta do tempo', () => {
+    // A etapa que organiza a transcrição põe cada fala numa linha com "—".
+    // Contando o travessão, um roteiro de cinquenta falas ganhava vinte segundos
+    // de duração inexistente — e o erro caía sobre "o vídeo leva N segundos até
+    // o assunto", que é a medição mais útil da ferramenta.
+    const corrido = 'Vizinho, me compra esse relógio. E quanto é? Deixa eu ver aí. Tô vendendo por cinquenta reais. Tá precisando, né? Vou lhe dar vinte conto nele.';
+    const emFalas = '— Vizinho, me compra esse relógio.\n\n— E quanto é? Deixa eu ver aí.\n\n— Tô vendendo por cinquenta reais.\n\n— Tá precisando, né?\n\n— Vou lhe dar vinte conto nele.';
+    const a = J.conferirJulgamentoLocal(corrido, {});
+    const b = J.conferirJulgamentoLocal(emFalas, {});
+    expect((emFalas.match(/—/g) || []).length, 'o texto precisa ter travessões').toBe(5);
+    expect(Math.abs(b.duracao - a.duracao), 'organizar em falas mudou a duração medida').toBeLessThan(1);
+  });
+
   it('o momento sai em minuto e segundo — é o que torna o apontamento acionável', () => {
     expect(J.julgMomento(0)).toBe('00:00');
     expect(J.julgMomento(17)).toBe('00:17');

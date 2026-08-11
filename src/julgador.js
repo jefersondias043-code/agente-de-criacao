@@ -673,11 +673,11 @@ function renderJulgador() {
   if (typeof ingestLigarAnexo === 'function') {
     ingestLigarAnexo({
       botao: '#j-attach-btn', input: '#j-attach-input',
-      campo: '#j-conteudo', pendente: '#j-attach-pending',
+      campo: '#j-conteudo', pendente: '#j-attach-pending', organizar: true,
     });
     ingestLigarAnexo({
       botao: '#j-lote-attach-btn', input: '#j-lote-attach-input',
-      campo: '#j-lote', pendente: '#j-lote-attach-pending', separador: '\n\n---\n\n',
+      campo: '#j-lote', pendente: '#j-lote-attach-pending', separador: '\n\n---\n\n', organizar: true,
     });
   }
 

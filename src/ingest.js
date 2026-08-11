@@ -8,8 +8,8 @@
      DOCX      → extractDocx (mammoth)
      imagem    → extractImage (OCR Tesseract)
      áudio/vídeo → transcribeMedia (Groq Whisper, mesma API do AutoPost)
-   Ferramentas embutidas (Detector) enviam o ARQUIVO ao app pai via postMessage
-   (funciona em file://), que converte e devolve o texto.
+   Ferramentas embutidas (hoje o Replicador) enviam o ARQUIVO ao app pai via
+   postMessage (funciona em file://), que converte e devolve o texto.
    ============================================================ */
 
 // Formatos aceitos por qualquer campo de entrada de conteúdo da plataforma.

@@ -1,5 +1,13 @@
 # Plano de Fortalecimento da Plataforma Agente
 
+> **NOTA (r227).** Este documento foi escrito quando o Detector Flop e o
+> AutoPost IA faziam parte da plataforma. As duas ferramentas foram removidas, e
+> o texto abaixo fica como registro do raciocínio da época — o que ele diz sobre
+> elas descreve um estado que não existe mais. O que sobreviveu à remoção e
+> continua valendo: `src/crypto.js`, o bloqueio de workspace e a ponte
+> `postMessage` das ferramentas embutidas restantes.
+
+
 > Documento de execução — gerado a partir da auditoria de 2026-06-15.
 > Princípio inegociável: **nenhuma funcionalidade é removida**. Tudo que existe hoje
 > (todas as ferramentas, modelos, temas, fluxos) continua funcionando, inclusive via

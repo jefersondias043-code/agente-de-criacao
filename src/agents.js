@@ -749,7 +749,7 @@ async function runEditorAgent(article, interp, style, tone, call = callLLM, come
 /* -------------------------------------------------------------------------- */
 /* 4) Agente de Otimização — hashtags estratificadas + palavras-chave          */
 /*                                                                             */
-/* Mesma FILOSOFIA do AutoPost IA (autopost-ia/js/api.js): hashtag não é       */
+/* Mesma FILOSOFIA do AutoPost IA (removido no r227): hashtag não é           */
 /* enfeite tirado do texto — é distribuição. Cada uma ocupa um NÍVEL DE        */
 /* SEGMENTAÇÃO diferente, do alcance amplo ao público qualificado, e o         */
 /* conjunto cobre a escada inteira. As palavras-chave são termos de BUSCA,     */

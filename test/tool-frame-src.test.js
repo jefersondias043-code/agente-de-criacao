@@ -14,7 +14,7 @@ beforeEach(() => {
 describe('toolFrameSrc', () => {
   it('anexa ?v=<build> quando há data-build no DOM', () => {
     document.body.innerHTML = '<div data-build="2026-07-23-r131"></div>';
-    expect(C.toolFrameSrc('detector-flop.html')).toBe('detector-flop.html?v=2026-07-23-r131');
+    expect(C.toolFrameSrc('replicador.html')).toBe('replicador.html?v=2026-07-23-r131');
   });
 
   it('escapa o valor da versão', () => {

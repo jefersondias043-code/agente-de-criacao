@@ -16,9 +16,11 @@ const DS = ler('design-system.css');
 /** Remove comentários CSS/HTML — o que sobra é o que realmente pinta a tela. */
 const semComentarios = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '');
 
-// Ferramentas embutidas + o shell. autopost-ia.html é gerado; autopost-ia/ é a fonte.
-const SUPERFICIES = ['index.html', 'styles.css', 'removedor.html', 'detector-flop.html',
-  'replicador.html', 'autopost-ia.html', 'autopost-ia/css/app.css', 'autopost-ia/index.html'];
+// Ferramentas embutidas + o shell. O Detector Flop e o AutoPost IA saíram da
+// plataforma no r227; as cores de marca deles seguem na lista de proibidas
+// abaixo, porque o que aquela lista protege é a UNIFICAÇÃO — um laranja de
+// ferramenta antiga não pode voltar por cópia e cola numa tela nova.
+const SUPERFICIES = ['index.html', 'styles.css', 'removedor.html', 'replicador.html'];
 
 describe('fonte única de tokens', () => {
   it('define a marca, a tipografia e o movimento num lugar só', () => {
@@ -33,7 +35,7 @@ describe('fonte única de tokens', () => {
   });
 
   it('todas as superfícies carregam o design system', () => {
-    for (const f of ['index.html', 'removedor.html', 'detector-flop.html', 'replicador.html', 'autopost-ia.html']) {
+    for (const f of ['index.html', 'removedor.html', 'replicador.html']) {
       expect(ler(f), f).toMatch(/<link[^>]+design-system\.css/);
     }
   });
@@ -62,7 +64,7 @@ describe('nenhuma ferramenta tem marca própria', () => {
 
 describe('tipografia unificada', () => {
   it('as ferramentas usam a fonte da plataforma, não uma própria', () => {
-    for (const f of ['removedor.html', 'detector-flop.html', 'replicador.html', 'autopost-ia/css/app.css']) {
+    for (const f of ['removedor.html', 'replicador.html']) {
       expect(semComentarios(ler(f)), f).toContain('--ds-font-sans');
     }
   });
@@ -80,9 +82,7 @@ describe('vocabulários locais viram aliases', () => {
     ['styles.css', '--paper', '--ds-paper'],
     ['styles.css', '--accent', '--ds-accent'],
     ['removedor.html', '--accent', '--ds-accent'],
-    ['detector-flop.html', '--text', '--ds-ink'],
     ['replicador.html', '--bg', '--ds-paper'],
-    ['autopost-ia/css/app.css', '--bg-card', '--ds-surface'],
   ];
   for (const [arquivo, local, canonico] of CASOS) {
     it(`${arquivo}: ${local} aponta para ${canonico}`, () => {

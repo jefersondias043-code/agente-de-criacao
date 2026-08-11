@@ -25,7 +25,6 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ler = (f) => readFileSync(join(raiz, f), 'utf8');
 
 let E;
-let AP;
 beforeAll(() => {
   clearStorage();
   E = loadModules(
@@ -35,14 +34,6 @@ beforeAll(() => {
     ['EMB_REGRAS_SEM_SPOILER', 'EMB_SPOILER_MIN_PALAVRAS', 'EMB_MAX_TITULO', 'EMB_MAX_LEGENDA',
       'embPalavrasDoConteudo', 'embPalavrasDoDesfecho', 'embSpoilersEm', 'embAuditarSpoiler',
       'buildEmbalagemPrompt', 'embNormalizarSugestao', 'runEmbalagemPipeline']);
-
-  // O AutoPost, para conferir que as duas casas continuam com a MESMA doutrina.
-  const codigo = ['autopost-ia/js/core.js', 'autopost-ia/js/api.js', 'autopost-ia/js/package.js']
-    .map(ler).join('\n;\n');
-  (0, eval)(codigo + `\n;globalThis.__AP__ = {
-    REGRAS_SEM_SPOILER, palavrasDoDesfecho, auditarSpoiler,
-    SPOILER_MAX_TITULO, SPOILER_MAX_LEGENDA, SPOILER_MIN_PALAVRAS_ROTEIRO };`);
-  AP = globalThis.__AP__;
 });
 
 /* Um vídeo em que o desfecho está claramente no fim: a revenda por duzentos e o
@@ -124,11 +115,13 @@ describe('a descrição visual é fonte do que JÁ SE VÊ, não do fim', () => {
     expect(d).toContain('duzentos');
   });
 
-  it('sem descrição visual, responde igual ao AutoPost', () => {
-    // Onde as duas casas se sobrepõem, elas têm de dar a mesma resposta — senão
-    // são duas noções de spoiler, e uma delas está errada.
-    expect(E.embPalavrasDoDesfecho(TRANSCRICAO, '').sort())
-      .toEqual(AP.palavrasDoDesfecho(TRANSCRICAO).sort());
+  it('sem descrição visual, o desfecho é exatamente o do fim da fala', () => {
+    /* Este teste comparava com a implementação gêmea do AutoPost. Com o AutoPost
+     * fora da plataforma (r227), a comparação virou afirmação: o conjunto
+     * inteiro, escrito por extenso. Trocar uma medição que sumiu por nada seria
+     * perder cobertura em silêncio — é o mesmo caso do `conferido: false`, em
+     * que não medir e aprovar não são a mesma coisa. */
+    expect(E.embPalavrasDoDesfecho(TRANSCRICAO, '').sort()).toEqual(['duzentos', 'ricardo']);
   });
 });
 
@@ -162,25 +155,43 @@ describe('o veredito da conferência', () => {
     expect(auditar('', 'O Ricardo pagou duzentos sem pensar duas vezes.').ok).toBe(false);
   });
 
-  it('os limites são os mesmos do AutoPost', () => {
-    expect(E.EMB_MAX_TITULO).toBe(AP.SPOILER_MAX_TITULO);
-    expect(E.EMB_MAX_LEGENDA).toBe(AP.SPOILER_MAX_LEGENDA);
-    expect(E.EMB_SPOILER_MIN_PALAVRAS).toBe(AP.SPOILER_MIN_PALAVRAS_ROTEIRO);
+  it('os limites são os que a regra pede, e estão escritos aqui', () => {
+    // Zero no título porque ele tem 50-80 caracteres e ali não há palavra por
+    // acaso; um na legenda porque ela contextualiza e uma coincidência isolada
+    // não é spoiler; sessenta palavras porque abaixo disso não há terços.
+    expect(E.EMB_MAX_TITULO).toBe(0);
+    expect(E.EMB_MAX_LEGENDA).toBe(1);
+    expect(E.EMB_SPOILER_MIN_PALAVRAS).toBe(60);
   });
 });
 
-describe('a doutrina é uma só, nas duas casas', () => {
-  it('EMB_REGRAS_SEM_SPOILER é cópia byte a byte de REGRAS_SEM_SPOILER', () => {
-    expect(E.EMB_REGRAS_SEM_SPOILER).toBe(AP.REGRAS_SEM_SPOILER);
+describe('a doutrina que vai no prompt', () => {
+  /* Era conferida por igualdade com a cópia do AutoPost. Com o AutoPost fora
+   * (r227), esta passou a ser a única casa — e a única guarda. Então o que
+   * antes era um complemento virou o teste principal, item por item. */
+  it('separa SITUAÇÃO de DESFECHO, que é a linha que governa tudo', () => {
+    const r = E.EMB_REGRAS_SEM_SPOILER;
+    expect(r).toMatch(/SITUAÇÃO é o que está em jogo/);
+    expect(r).toMatch(/DESFECHO é a resposta/);
+    expect(r).toMatch(/Isso PODE e DEVE aparecer/);
+    expect(r).toMatch(/Isso NÃO aparece/);
   });
 
-  it('e ela carrega as três coisas que a fazem funcionar', () => {
-    // Sem isto, a comparação acima passaria com as duas cópias vazias.
+  it('dá o teste que o modelo consegue aplicar sozinho', () => {
+    expect(E.EMB_REGRAS_SEM_SPOILER).toMatch(/ainda sobra uma pergunta cuja resposta só está no vídeo/i);
+    expect(E.EMB_REGRAS_SEM_SPOILER).toMatch(/você escreveu um resumo/i);
+  });
+
+  it('avisa que reter a resposta NÃO é permissão para ser vago', () => {
+    // Sem isto, o jeito fácil de nunca dar spoiler é não dizer nada — e título
+    // genérico não desperta curiosidade, desperta desconfiança.
     const r = E.EMB_REGRAS_SEM_SPOILER;
-    expect(r).toMatch(/SITUAÇÃO/);
-    expect(r).toMatch(/DESFECHO/);
-    expect(r).toMatch(/ainda sobra uma pergunta/i);
     expect(r).toMatch(/NÃO é permissão para ser vago/i);
+    expect(r).toMatch(/detalhe CONCRETO/);
+  });
+
+  it('avisa que o desfecho mora no fim do roteiro', () => {
+    expect(E.EMB_REGRAS_SEM_SPOILER).toMatch(/CUIDADO COM O FIM DO ROTEIRO/);
   });
 });
 

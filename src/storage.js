@@ -14,6 +14,9 @@
 const WORKSPACE_EXPORT_VERSION = 2;
 // Prefixos de chaves que pertencem à plataforma (app pai + embutidos).
 // 'rv_' = histórico do AutoPost (chave herdada 'rv_historico').
+/* 'df_', 'groq_', 'autopost' e 'rv_' são do Detector Flop e do AutoPost IA, que
+ * saíram no r227. Continuam aqui de propósito: é o que faz a exportação levar e
+ * o bloqueio do workspace proteger o que essas ferramentas deixaram guardado. */
 const WORKSPACE_KEY_PREFIXES = ['agp.', 'df_', 'groq_', 'replicador_', 'autopost', 'rv_'];
 
 // Chaves de API em TEXTO PURO — o único segredo do workspace. No backup
@@ -501,8 +504,13 @@ async function storageBreakdown() {
     { label: 'Matérias geradas', prefixes: ['agp.generations'] },
     { label: 'Narrativa', prefixes: ['agp.narrativas', 'agp.narrativa.'] },
     { label: 'Extrações de texto', prefixes: ['agp.extractions'] },
-    { label: 'Detector Flop', prefixes: ['df_'] },
-    { label: 'AutoPost IA', prefixes: ['rv_'] },
+    /* As duas ferramentas saíram da plataforma no r227, mas os dados que elas
+     * deixaram continuam no aparelho de quem já as usava — e continuam ocupando
+     * cota. As linhas ficam, com o rótulo dizendo a verdade: some quem não tem
+     * nada guardado (o filtro `bytes > 0` no fim), e quem tem passa a ver o que
+     * é. Apagar as linhas esconderia o espaço em vez de liberá-lo. */
+    { label: 'Detector Flop (removido)', prefixes: ['df_'] },
+    { label: 'AutoPost IA (removido)', prefixes: ['rv_'] },
     { label: 'Replicador', prefixes: ['replicador_'] },
     { label: 'Configurações', prefixes: ['agp.apiKeys', 'agp.models', 'agp.provider', 'agp.portals', 'groq_'] },
   ];
@@ -537,8 +545,8 @@ async function storageBreakdown() {
   addTo('Cartazes e carrosséis', idb.cart);
   addTo('Matérias geradas', idb.gen);
   addTo('Extrações de texto', idb.ext);
-  addTo('Detector Flop', idb.det);
-  addTo('AutoPost IA', idb.ap);
+  addTo('Detector Flop (removido)', idb.det);
+  addTo('AutoPost IA (removido)', idb.ap);
   addTo('Replicador', idb.rep);
   return rows.filter((r) => r.bytes > 0).sort((a, b) => b.bytes - a.bytes);
 }

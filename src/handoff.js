@@ -12,16 +12,12 @@ const TEXT_CONSUMERS = [
   // Narrativa: recebe o texto como IDEIA BRUTA — o ponto de partida para achar
   // o desejo, o obstáculo e o risco antes de virar conteúdo.
   { id: 'narrativa', label: 'Narrativa', kind: 'native', view: 'narrativa' },
-  { id: 'autopost', label: 'AutoPost', kind: 'embedded', view: 'autopost', frame: '#autopostFrame', target: 'novopacote' },
-  { id: 'detector', label: 'Detector', kind: 'embedded', view: 'detector', frame: '#detectorFrame', target: 'analisar' },
   // Cartazes: cria um cartaz a partir do texto (reusa o parser de matéria → headline/categoria/etc.)
   { id: 'cartazes', label: 'Cartaz', kind: 'native', view: 'posters',
     deliver: (text) => createPosterFromGeneration({ id: uuid(), content: text, style: '—', tone: '—', createdAt: new Date().toISOString() }) },
   // Carrossel: cria um carrossel (vários slides) a partir do texto.
   { id: 'carrossel', label: 'Carrossel', kind: 'native', view: 'posters',
     deliver: (text) => createCarouselFromGeneration({ id: uuid(), content: text, style: '—', tone: '—', createdAt: new Date().toISOString() }) },
-  // Reescrever: leva o texto pro Estúdio (aba Criar do Detector) p/ compor a partir dele.
-  { id: 'reescrita', label: 'Reescrever', kind: 'embedded', view: 'detector', frame: '#detectorFrame', target: 'criar' },
   // Replicador: gera uma nova versão a partir de um conteúdo que já funcionou.
   { id: 'replicador', label: 'Replicador', kind: 'embedded', view: 'replicador', frame: '#replicadorFrame', target: 'replicar' },
 ];

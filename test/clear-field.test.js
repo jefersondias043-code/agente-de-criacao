@@ -155,29 +155,20 @@ describe('campos criados depois também ganham', () => {
   });
 });
 
-describe('vale nas duas aplicações', () => {
+/* O AutoPost tinha a sua própria cópia deste módulo, e havia testes para ela.
+ * A ferramenta saiu da plataforma no r227 e os casos foram embora junto — o
+ * mecanismo passou a ter uma casa só. O `data-no-clear`, que existia para a
+ * caixa de transcrição do AutoPost não ganhar um segundo ×, continua sendo
+ * testado no bloco de opt-out lá em cima: ele é do módulo, não daquela tela. */
+describe('vale na aplicação inteira', () => {
   it('o app principal carrega o módulo', () => {
     expect(ler('scripts/scripts.manifest.mjs')).toContain("'clear-field.js'");
     expect(ler('index.html')).toContain('src/clear-field.js');
   });
 
-  it('o AutoPost tem a sua cópia, carregada e assada', () => {
-    expect(ler('autopost-ia/index.html')).toContain('js/clear-field.js');
-    const assado = ler('autopost-ia.html');
-    expect(assado).toContain('field-clear');
-    expect(assado).not.toContain('src="js/clear-field.js"');
-  });
-
-  it('a caixa do AutoPost, que já tinha × próprio, fica de fora', () => {
-    // Sem o opt-out, o mecanismo genérico somaria um SEGUNDO × em cima do
-    // botão que a smartbox já desenha — conferido em navegador.
-    expect(ler('autopost-ia/index.html')).toMatch(/data-no-clear id="transcricaoTexto"/);
-  });
-
-  it('as duas folhas de estilo escondem o botão em campo vazio', () => {
-    [ler('styles.css'), ler('autopost-ia/css/app.css')].forEach((css, i) => {
-      expect(css, `folha ${i}`).toMatch(/\.clearable\s*\{[^}]*position:\s*relative/);
-      expect(css, `folha ${i}`).toMatch(/\.clearable\.has-value\s*>\s*\.field-clear\s*\{[^}]*display:\s*inline-flex/);
-    });
+  it('a folha de estilo esconde o botão em campo vazio', () => {
+    const css = ler('styles.css');
+    expect(css).toMatch(/\.clearable\s*\{[^}]*position:\s*relative/);
+    expect(css).toMatch(/\.clearable\.has-value\s*>\s*\.field-clear\s*\{[^}]*display:\s*inline-flex/);
   });
 });

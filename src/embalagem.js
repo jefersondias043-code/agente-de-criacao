@@ -18,32 +18,28 @@
  * fim.
  *
  * ---------------------------------------------------------------------------
- * POR QUE ESTE ARQUIVO REPETE CÓDIGO DO AUTOPOST
+ * DE ONDE ISTO VEIO
  *
- * O AutoPost (r224) já resolveu este mesmo problema no pacote de publicação, e
- * o que vale ali vale aqui — é o mesmo defeito, na mesma língua, sobre o mesmo
- * tipo de vídeo. Reescrever a doutrina com outras palavras criaria duas noções
- * de spoiler que iriam divergindo em silêncio.
+ * A doutrina e a conferência nasceram no AutoPost IA (r224), que resolvia o
+ * mesmo defeito no pacote de publicação. No r226 elas chegaram aqui como cópia
+ * declarada, com teste comparando as duas casas byte a byte.
  *
- * Então: `EMB_REGRAS_SEM_SPOILER` é CÓPIA DECLARADA de `REGRAS_SEM_SPOILER`
- * (autopost-ia/js/api.js), byte a byte, com teste que quebra se divergirem. A
- * conferência de código é a mesma de `autopost-ia/js/package.js`, e há teste de
- * equivalência sobre um corpus: onde as duas se sobrepõem, respondem igual.
+ * O AutoPost saiu da plataforma no r227, e este arquivo passou a ser a ÚNICA
+ * casa — que é mais simples do que era: não há mais duas cópias para manter em
+ * sincronia, e o teste de equivalência deu lugar a testes que afirmam a regra
+ * diretamente. Se a doutrina precisar mudar, muda aqui e pronto.
  *
- * O AutoPost é um pacote fechado (precisa abrir por file:// sem a plataforma em
- * volta) e a plataforma não carrega os arquivos dele. Duas casas, uma doutrina,
- * testes no meio para que continue sendo uma só.
- *
- * A DIFERENÇA DELIBERADA, e ela existe porque aqui há uma fonte a mais:
- * o Julgador tem a descrição visual. Uma coisa que aparece na TELA desde o
- * começo não é desfecho escondido — está à vista de quem assiste. Então o
- * visual entra como fonte do que JÁ SE SABE, e não como parte do fim. É o mesmo
- * raciocínio do r222, quando a promessa da capa passou a ser conferida contra
- * as duas fontes em vez de só contra a fala.
+ * A FONTE A MAIS QUE O JULGADOR TEM, e que o AutoPost não tinha: a descrição
+ * visual. Uma coisa que aparece na TELA desde o começo não é desfecho
+ * escondido — está à vista de quem assiste. Então o visual entra como fonte do
+ * que JÁ SE SABE, e não como parte do fim. É o mesmo raciocínio do r222, quando
+ * a promessa da capa passou a ser conferida contra as duas fontes em vez de só
+ * contra a fala.
  * ========================================================================== */
 
-/* CÓPIA DECLARADA de REGRAS_SEM_SPOILER (autopost-ia/js/api.js). Byte a byte:
- * test/embalagem.test.js compara as duas e quebra se uma andar sem a outra. */
+/* A REGRA que sai no prompt. test/embalagem.test.js afirma cada uma das partes
+ * que a fazem funcionar — a distinção situação × desfecho, o teste da pergunta
+ * que sobra, e o aviso de que reter a resposta não é permissão para ser vago. */
 const EMB_REGRAS_SEM_SPOILER = `==== O QUE O PACOTE PODE CONTAR — LEIA ANTES DE ESCREVER TÍTULO E LEGENDA ====
 O título e a legenda existem para fazer a pessoa QUERER assistir. Não para contar o que ela veria assistindo.
 

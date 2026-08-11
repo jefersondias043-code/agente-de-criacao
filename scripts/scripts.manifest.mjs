@@ -31,8 +31,6 @@ export const SCRIPTS = [
   'poster-editor-pro.js',
   'history.js',
   'settings.js',
-  'detector.js',
-  'autopost.js',
   'replicador.js',
   'removedor.js',
   'handoff.js',

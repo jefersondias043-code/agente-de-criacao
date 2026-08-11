@@ -2,7 +2,7 @@
 /* ============================================================================
  * media-transcode.js — TRANSCRIÇÃO DE MÍDIA GRANDE (paridade com o AutoPost IA).
  *
- * Portado de autopost-ia/js/{demux,audio}.js para a PLATAFORMA-MÃE, de modo que
+ * Portado do AutoPost IA (removido no r227) para a PLATAFORMA-MÃE, de modo que
  * QUALQUER campo de entrada da plataforma (Extrair, Gerar → anexar, ferramentas
  * embutidas via ingest) aceite áudio/vídeo ACIMA do limite de 25 MB da API:
  *

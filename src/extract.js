@@ -440,10 +440,7 @@ function renderExtractionDetail() {
       </div>` : '<p class="text-mute text-sm">Aguardando extração…</p>'}
     ${e.text ? sendToBarHtml('extract') : ''}
   `;
-  $('#e-detail-copy').onclick = () => {
-    navigator.clipboard.writeText(e.text || '');
-    toast('Texto copiado.', 'success');
-  };
+  $('#e-detail-copy').onclick = () => copyTextComAviso(e.text || '', 'Texto copiado.');
   $('#e-detail-delete').onclick = () => {
     if (!confirm('Remover esta extração?')) return;
     State.extractions = State.extractions.filter(x => x.id !== e.id);

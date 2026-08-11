@@ -140,6 +140,23 @@ Comenta aqui embaixo se já aconteceu com você.`;
     expect(tela()).toMatch(/O que a medição encontrou/);
   });
 
+  it('o botão COPIAR copia — clicado de verdade', async () => {
+    /* O defeito relatado. Havia teste para `julgDiagnosticoEmTexto`, mas nenhum
+     * CLICAVA no botão — e o clique morria num `copyText is not defined`, sem
+     * copiar e sem avisar. Cobertura de função não é cobertura de botão. */
+    const caixa = { texto: null };
+    Object.defineProperty(navigator, 'clipboard',
+      { value: { writeText: async (t) => { caixa.texto = t; } }, configurable: true });
+    U.renderJulgResultado(itemRuim());
+    document.getElementById('j-result-copy').click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(caixa.texto, 'o clique não copiou nada').toBeTruthy();
+    expect(caixa.texto).toMatch(/NÃO PUBLICARIA AINDA/);
+    expect(caixa.texto).toMatch(/SE VOCÊ SÓ PUDER MUDAR UMA COISA/);
+    expect(document.getElementById('toast-stack').textContent,
+      'copiou calado — o usuário não sabe se funcionou').toMatch(/copiado/i);
+  });
+
   it('a medição também sobrevive na versão copiável', () => {
     const texto = U.julgDiagnosticoEmTexto(itemRuim());
     expect(texto).toMatch(/O QUE A MEDIÇÃO ENCONTROU/);

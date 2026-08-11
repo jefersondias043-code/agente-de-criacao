@@ -371,8 +371,7 @@ function wireGenerationActions(rootEl, g) {
   const c = rootEl.querySelector('[data-gen-copy]');
   if (c) c.onclick = () => {
     const temTags = !!(g.article && g.article.hashtags && g.article.hashtags.length);
-    navigator.clipboard.writeText(generationFullText(g));
-    toast(temTags ? 'Matéria e hashtags copiadas.' : 'Matéria copiada.', 'success');
+    copyTextComAviso(generationFullText(g), temTags ? 'Matéria e hashtags copiadas.' : 'Matéria copiada.');
   };
   const p = rootEl.querySelector('[data-gen-poster]');
   if (p) p.onclick = () => createPosterFromGeneration(g);

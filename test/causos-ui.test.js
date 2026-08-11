@@ -210,6 +210,25 @@ describe('contar outro causo', () => {
   });
 });
 
+describe('copiar o causo', () => {
+  it('o botão COPIAR copia — clicado de verdade', async () => {
+    // Esta tela tinha o mesmo defeito do Julgador, pelo mesmo motivo: chamava
+    // um `copyText` inexistente, e nenhum teste clicava no botão.
+    const caixa = { texto: null };
+    Object.defineProperty(navigator, 'clipboard',
+      { value: { writeText: async (t) => { caixa.texto = t; } }, configurable: true });
+    U.State.apiKeys = { groq: 'gsk_teste' };
+    U.renderCausos();
+    U.renderCausoResultado({ id: 'c1', createdAt: new Date().toISOString(), ideia: 'x',
+      conteudo: 'O Zé Macambira voltou do rio com a canoa torta.',
+      dossie: { genero: 'pescador' }, juizo: { aprovado: true, avaliadas: [] }, criticas: [] });
+    document.getElementById('c-result-copy').click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(caixa.texto, 'o clique não copiou nada').toBe('O Zé Macambira voltou do rio com a canoa torta.');
+    expect(document.getElementById('toast-stack').textContent).toMatch(/copiado/i);
+  });
+});
+
 describe('anexar vídeo', () => {
   /* Esta tela tinha a mesma falha do Julgador, pelo mesmo motivo: a fiação foi
    * escrita sem o cartão de gesto que a Gerar e a Narrativa já tinham. Mídia

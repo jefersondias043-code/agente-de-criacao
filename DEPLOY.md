@@ -21,8 +21,8 @@ são baixados **uma única vez** na primeira abertura da ferramenta e ficam no
 cache do service worker (servidos cache-first). Funciona igual no celular e no
 computador — e offline, depois do primeiro uso.
 
-> Detector Flop, AutoPost IA e Replicador são páginas embutidas (iframe), também
-> sem servidor.
+> Replicador e Removedor de Fundo são páginas embutidas (iframe), também sem
+> servidor. (O Detector Flop e o AutoPost IA saíram da plataforma no r227.)
 
 ---
 

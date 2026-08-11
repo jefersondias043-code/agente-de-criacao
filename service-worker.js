@@ -1,14 +1,9 @@
-const CACHE = 'agp-v226';
+const CACHE = 'agp-v227';
 const URLS = [
   './',
   './index.html',
   './styles.css',
   './design-system.css',
-  './detector-flop.html',
-  './detector-flop.tailwind.css',
-  './detector-remixicon.css',
-  './detector-remixicon.woff2',
-  './autopost-ia.html',
   './replicador.html',
   './removedor.html',
   './manifest.json',
@@ -45,8 +40,6 @@ const URLS = [
   './src/poster-editor-pro.js',
   './src/history.js',
   './src/settings.js',
-  './src/detector.js',
-  './src/autopost.js',
   './src/replicador.js',
   './src/removedor.js',
   './src/handoff.js',

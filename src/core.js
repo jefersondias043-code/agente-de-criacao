@@ -67,7 +67,7 @@ function libUnavailableMsg(key) {
 /* ============================================================
    FERRAMENTAS EMBUTIDAS — carregamento do iframe (r163)
    As quatro ferramentas tinham CADA UMA a sua cópia deste mesmo bloco
-   (autopost.js, detector.js, removedor.js, replicador.js): mesmo listener,
+   (removedor.js, replicador.js): mesmo listener,
    mesma injeção de config, mesma revelação. Duplicação que só espalhava
    correções por quatro arquivos — agora é uma função só.
 

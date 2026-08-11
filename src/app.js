@@ -10,8 +10,6 @@ const NAV_ITEMS = [
   { id: 'julgador',  label: 'Julgador',    icon: '<path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 7h6z"/><path d="M19 7l3 7h-6z"/>' },
   { id: 'extract',   label: 'Extrair',     icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' },
   { id: 'posters',   label: 'Cartazes',    icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>' },
-  { id: 'detector',  label: 'Detector Flop', icon: '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' },
-  { id: 'autopost',  label: 'AutoPost IA', icon: '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>' },
   { id: 'replicador', label: 'Replicador', icon: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>' },
   { id: 'removedor', label: 'Removedor de Fundo', icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 3l18 18"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 8 18"/>' },
   { id: 'settings',  label: 'Configurações', icon: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>' },
@@ -66,7 +64,7 @@ function renderNav() {
 // ---------- Home (Início) — "Continuar de onde parou" por categoria ----------
 // Read-only sobre o State; cada categoria (Matérias/Cartazes/Carrosséis/
 // Resultados gerados) só aparece se tiver itens. Ferramentas sem histórico
-// próprio no State (AutoPost, Detector, Replicador, Removedor — vivem em
+// próprio no State (Replicador, Removedor — vivem em
 // iframe isolado, sem canal de volta pro app pai) não entram aqui: elas já
 // são um toque na barra de navegação, que lista todo o app. Se nenhuma
 // categoria tiver itens (usuário novo), mostra uma dica mínima em vez de
@@ -232,8 +230,6 @@ function goTo(viewId) {
   if (viewId === 'julgador') renderJulgador();
   if (viewId === 'extract') renderExtract();
   if (viewId === 'posters') renderPosters();
-  if (viewId === 'detector') renderDetector();
-  if (viewId === 'autopost') renderAutopost();
   if (viewId === 'replicador') renderReplicador();
   if (viewId === 'removedor') renderRemovedor();
   if (viewId === 'settings') renderSettings();

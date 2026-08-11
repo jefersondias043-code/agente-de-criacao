@@ -23,7 +23,7 @@ describe('sendToBarHtml', () => {
   it('exclui a ferramenta de origem', () => {
     const html = S.sendToBarHtml('generate');
     expect(html).not.toContain('data-sendto="generate"');
-    expect(html).toContain('data-sendto="autopost"');
+    expect(html).toContain('data-sendto="replicador"');
     expect(html).toContain('data-sendto="cartazes"');
   });
 
@@ -31,7 +31,7 @@ describe('sendToBarHtml', () => {
     const html = S.sendToBarHtml(['generate', 'cartazes']);
     expect(html).not.toContain('data-sendto="generate"');
     expect(html).not.toContain('data-sendto="cartazes"');
-    expect(html).toContain('data-sendto="autopost"');
+    expect(html).toContain('data-sendto="replicador"');
   });
 });
 
@@ -55,17 +55,19 @@ describe('sendTextTo', () => {
     expect(arg.content).toBe('texto da matéria');
   });
 
-  it('destino embutido (AutoPost): deixa conteúdo pendente e navega', () => {
+  it('destino embutido (Replicador): deixa conteúdo pendente e navega', () => {
+    // Era o AutoPost neste teste. Ele saiu da plataforma no r227 e o Replicador
+    // passou a ser o único destino embutido — o mecanismo é o mesmo.
     S.State.pendingContent = null;
-    S.sendTextTo('autopost', 'roteiro');
-    expect(S.State.pendingContent).toMatchObject({ frame: '#autopostFrame', text: 'roteiro' });
-    expect(globalThis.goTo).toHaveBeenCalledWith('autopost');
+    S.sendTextTo('replicador', 'roteiro');
+    expect(S.State.pendingContent).toMatchObject({ frame: '#replicadorFrame', text: 'roteiro' });
+    expect(globalThis.goTo).toHaveBeenCalledWith('replicador');
   });
 
   it('avisa se o destino embutido não consumir o conteúdo a tempo', () => {
     vi.useFakeTimers();
     S.State.pendingContent = null;
-    S.sendTextTo('autopost', 'roteiro'); // ninguém entrega → continua pendente
+    S.sendTextTo('replicador', 'roteiro'); // ninguém entrega → continua pendente
     vi.advanceTimersByTime(8001);
     expect(document.querySelector('#toast-stack').textContent).toContain('demorou a responder');
     vi.useRealTimers();
@@ -92,8 +94,8 @@ describe('deliverPendingContent exige o iframe REALMENTE carregado', () => {
 
   /** Monta um iframe de teste com os flags pedidos e espiona o postMessage. */
   function frameFalso({ loaded, ready }) {
-    document.body.innerHTML = '<div id="toast-stack"></div><iframe id="autopostFrame"></iframe>';
-    const f = document.querySelector('#autopostFrame');
+    document.body.innerHTML = '<div id="toast-stack"></div><iframe id="replicadorFrame"></iframe>';
+    const f = document.querySelector('#replicadorFrame');
     if (loaded) f.dataset.loaded = '1';
     if (ready) f.dataset.ready = '1';
     const enviados = [];
@@ -106,7 +108,7 @@ describe('deliverPendingContent exige o iframe REALMENTE carregado', () => {
 
   it('iframe só "loaded" (ainda carregando): NÃO entrega e mantém pendente', () => {
     const { enviados } = frameFalso({ loaded: true, ready: false });
-    D.State.pendingContent = { frame: '#autopostFrame', target: 'novopacote', text: 'matéria' };
+    D.State.pendingContent = { frame: '#replicadorFrame', target: 'replicar', text: 'matéria' };
     D.deliverPendingContent();
     expect(enviados).toEqual([]);
     // o essencial: o conteúdo continua na fila para o load reentregar
@@ -116,10 +118,10 @@ describe('deliverPendingContent exige o iframe REALMENTE carregado', () => {
 
   it('iframe "ready": entrega e limpa a fila', () => {
     const { enviados } = frameFalso({ loaded: true, ready: true });
-    D.State.pendingContent = { frame: '#autopostFrame', target: 'novopacote', text: 'matéria' };
+    D.State.pendingContent = { frame: '#replicadorFrame', target: 'replicar', text: 'matéria' };
     D.deliverPendingContent();
     expect(enviados.length).toBe(1);
-    expect(enviados[0]).toMatchObject({ type: 'agente:content', target: 'novopacote', text: 'matéria' });
+    expect(enviados[0]).toMatchObject({ type: 'agente:content', target: 'replicar', text: 'matéria' });
     expect(D.State.pendingContent).toBeNull();
   });
 

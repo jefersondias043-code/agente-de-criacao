@@ -6,7 +6,7 @@
    replicador.html (baked), para funcionar também em file:// (onde o navegador
    bloqueia o app pai de "injetar" CSS/JS no iframe).
    Aqui só carregamos, mandamos a config (postMessage), entregamos conteúdo
-   pendente e revelamos o iframe. (Molde: src/autopost.js)
+   pendente e revelamos o iframe. (O molde era src/autopost.js, removido no r227.)
    ============================================================ */
 function renderReplicador() {
   mountToolFrame('#replicadorFrame', 'replicador.html', 'Replicador');

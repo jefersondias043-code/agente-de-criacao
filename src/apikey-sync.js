@@ -6,16 +6,26 @@
    localStorage — só com nomes de chave diferentes. Esta camada espelha a
    chave canônica (State.apiKeys.groq) para esses nomes, SEM editar as
    ferramentas:
-     - AutoPost IA   → 'groq_api_key'
-     - Detector Flop → 'df_groq_key'  (texto; o Detector só usa essa quando
-                                       NÃO há versão cifrada 'df_groq_key_enc')
+     - Replicador → 'replicador_groq_api_key'
+
+   O AutoPost IA ('groq_api_key') e o Detector Flop ('df_groq_key') saíram da
+   plataforma no r227. Os nomes deles continuam sendo LIDOS na migração suave
+   abaixo, e apagados junto com os outros: quem já usava a plataforma tem essas
+   chaves guardadas no aparelho, e sumir com a ferramenta não é motivo para
+   perder a chave nem para deixá-la esquecida no localStorage.
    ============================================================ */
 const GROQ_KEY_SLOTS = {
-  autopost: 'groq_api_key',
-  detector: 'df_groq_key',
-  detectorEnc: 'df_groq_key_enc',
   replicador: 'replicador_groq_api_key',
 };
+
+/* Espelhos de ferramentas que não existem mais: entram na adoção e na limpeza,
+   nunca mais recebem escrita nova. */
+const GROQ_KEY_SLOTS_LEGADO = ['groq_api_key', 'df_groq_key'];
+
+/* A versão CIFRADA do Detector é só para APAGAR — fora da lista de cima de
+   propósito. Ela guarda um blob ('{"v":1,...}'), não uma chave: adotá-la faria
+   a plataforma sair chamando a Groq com um JSON no lugar do segredo. */
+const GROQ_KEY_LEGADO_CIFRADO = 'df_groq_key_enc';
 
 /** Espelha a chave Groq canônica para todas as ferramentas. Se o app principal
  *  ainda não tiver chave, adota a de uma ferramenta (migração suave). */
@@ -29,9 +39,8 @@ function syncGroqKey() {
 
   // Migração suave: app principal sem chave → adota a de uma ferramenta já configurada.
   if (!key) {
-    key = (localStorage.getItem(GROQ_KEY_SLOTS.autopost) ||
-           localStorage.getItem(GROQ_KEY_SLOTS.detector) ||
-           localStorage.getItem(GROQ_KEY_SLOTS.replicador) || '').trim();
+    key = (localStorage.getItem(GROQ_KEY_SLOTS.replicador) ||
+           GROQ_KEY_SLOTS_LEGADO.map((k) => localStorage.getItem(k)).find(Boolean) || '').trim();
     if (key) {
       State.apiKeys.groq = key;
       saveJSON(STORAGE_KEYS.apiKeys, State.apiKeys);
@@ -40,14 +49,6 @@ function syncGroqKey() {
 
   // Espelha a chave canônica para as ferramentas (só quando há uma chave).
   if (key) {
-    if (localStorage.getItem(GROQ_KEY_SLOTS.autopost) !== key) {
-      localStorage.setItem(GROQ_KEY_SLOTS.autopost, key);
-    }
-    // O Detector só lê a versão em texto quando não há versão cifrada salva.
-    if (!localStorage.getItem(GROQ_KEY_SLOTS.detectorEnc) &&
-        localStorage.getItem(GROQ_KEY_SLOTS.detector) !== key) {
-      localStorage.setItem(GROQ_KEY_SLOTS.detector, key);
-    }
     if (localStorage.getItem(GROQ_KEY_SLOTS.replicador) !== key) {
       localStorage.setItem(GROQ_KEY_SLOTS.replicador, key);
     }
@@ -55,10 +56,11 @@ function syncGroqKey() {
 }
 
 /** Modelo Groq unificado: espelha o modelo escolhido no app (State.models.groq)
- *  para os slots que as ferramentas leem. AutoPost lê 'groq_model'; o Detector lê
- *  'df_model' (na hora da chamada). Todas usam o mesmo endpoint de chat da Groq,
- *  então o mesmo ID de modelo serve para todas. */
-const GROQ_MODEL_SLOTS = { autopost: 'groq_model', detector: 'df_model' };
+ *  para os slots que as ferramentas leem. Hoje nenhuma ferramenta embutida lê
+ *  modelo do localStorage — o Replicador recebe pela ponte postMessage —, então
+ *  a função só normaliza o modelo do app contra o catálogo. Os nomes antigos
+ *  ('groq_model', 'df_model') ficam na lista de limpeza, não na de escrita. */
+const GROQ_MODEL_SLOTS_LEGADO = ['groq_model', 'df_model'];
 
 function syncGroqModel() {
   let model = (State.models && State.models.groq) ? String(State.models.groq).trim() : '';
@@ -70,24 +72,23 @@ function syncGroqModel() {
     model = validIds[0];
     if (State.models) { State.models.groq = model; saveJSON(STORAGE_KEYS.models, State.models); }
   }
-  if (!model) return;
-  if (localStorage.getItem(GROQ_MODEL_SLOTS.autopost) !== model) {
-    localStorage.setItem(GROQ_MODEL_SLOTS.autopost, model);
-  }
-  if (localStorage.getItem(GROQ_MODEL_SLOTS.detector) !== model) {
-    localStorage.setItem(GROQ_MODEL_SLOTS.detector, model);
-  }
 }
 
 /** Remover a chave no app principal remove também dos espelhos das ferramentas
- *  (sem isso, o boot readotaria a chave antiga). Não toca na versão cifrada do
- *  Detector — isso é uma escolha local explícita do usuário lá. */
+ *  (sem isso, o boot readotaria a chave antiga). Varre também os espelhos das
+ *  ferramentas removidas — senão a chave apagada continuaria no aparelho, e a
+ *  migração suave a readotaria no boot seguinte.
+ *
+ *  A versão CIFRADA do Detector ('df_groq_key_enc') era preservada aqui: era
+ *  uma escolha local do usuário DENTRO daquela ferramenta, e o app não passava
+ *  por cima dela. Sem a ferramenta, não há escolha a respeitar nem quem leia —
+ *  é uma cópia ilegível de uma chave que o usuário acabou de mandar apagar. Vai
+ *  junto. */
 function clearGroqMirrors() {
-  localStorage.removeItem(GROQ_KEY_SLOTS.autopost);
   localStorage.removeItem(GROQ_KEY_SLOTS.replicador);
-  if (!localStorage.getItem(GROQ_KEY_SLOTS.detectorEnc)) {
-    localStorage.removeItem(GROQ_KEY_SLOTS.detector);
-  }
+  GROQ_KEY_SLOTS_LEGADO.forEach((k) => localStorage.removeItem(k));
+  localStorage.removeItem(GROQ_KEY_LEGADO_CIFRADO);
+  GROQ_MODEL_SLOTS_LEGADO.forEach((k) => localStorage.removeItem(k));
 }
 
 /** Configuração Groq canônica (chave + modelo) — fonte única para TODAS as ferramentas. */
@@ -104,7 +105,7 @@ function currentGroqConfig() {
    A config (inclui a CHAVE de API) e os demais comandos só podem trafegar
    entre o app e os IFRAMES DAS NOSSAS FERRAMENTAS — nunca com janelas
    arbitrárias que consigam nos enviar mensagens. */
-const TOOL_FRAME_SELECTORS = ['#detectorFrame', '#autopostFrame', '#replicadorFrame', '#removedorFrame'];
+const TOOL_FRAME_SELECTORS = ['#replicadorFrame', '#removedorFrame'];
 
 /** A mensagem veio de um dos iframes de ferramenta da plataforma? */
 function isToolFrameSource(e) {
@@ -151,7 +152,7 @@ if (typeof window !== 'undefined') {
 
 /** Propaga a config para TODAS as ferramentas já carregadas, ao vivo. */
 function pushConfigToTools() {
-  ['#detectorFrame', '#autopostFrame', '#replicadorFrame'].forEach((sel) => {
+  ['#replicadorFrame'].forEach((sel) => {
     const f = $(sel);
     if (f && f.dataset.loaded) injectConfigInto(f);
   });

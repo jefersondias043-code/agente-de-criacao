@@ -318,7 +318,15 @@ describe('a conferência muda o que é entregue', () => {
   it('nota alta com hashtag genérica não encerra o trabalho', () => {
     // Era o buraco: o juiz é uma LLM e aprovava conjunto genérico; aprovado, o
     // laço parava e o pacote ia para a tela como estava.
-    expect(app).toMatch(/if \(avaliacao\.nota_total >= NOTA_ALVO && auditoria\.ok\)/);
+    //
+    // A asserção pega a CONDIÇÃO INTEIRA e confere que `auditoria.ok` está
+    // dentro dela. A versão anterior casava a expressão exata e quebrou quando
+    // uma segunda conferência (a de spoiler) entrou no mesmo `if` — sem que
+    // nada tivesse deixado de funcionar. Teste que casa a forma do código cobra
+    // pedágio de qualquer acréscimo correto.
+    const condicao = (app.match(/if \(avaliacao\.nota_total >= NOTA_ALVO[^)]*\)*\s*\{/) || [''])[0];
+    expect(condicao, 'o laço não confere mais a nota do juiz').toBeTruthy();
+    expect(condicao, 'a conferência das hashtags saiu da condição de parada').toMatch(/auditoria\.ok/);
   });
 
   it('o que a conferência achou vai para o refino, em bloco próprio', () => {

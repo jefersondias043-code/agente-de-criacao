@@ -411,13 +411,19 @@ async function gerarPacoteFinal() {
       // que caberiam em qualquer vídeo do nicho? O juiz é uma LLM e às vezes
       // aprova um conjunto genérico; esta conta não.
       const auditoria = auditarHashtags(pacote, texto, briefing.categoriaTexto);
-      const notaEfetiva = avaliacao.nota_total - penalidadeHashtags(auditoria);
+      // E o pacote conta o fim do vídeo? Título e legenda existem para fazer
+      // assistir; quando entregam o desfecho, tiram do espectador a razão de dar
+      // play. O juiz é uma LLM e costuma premiar o que informa mais — esta conta
+      // olha o lado oposto, e olha onde dá para medir: as palavras que só
+      // existem no último terço do roteiro.
+      const spoiler = auditarSpoiler(pacote, texto);
+      const notaEfetiva = avaliacao.nota_total - penalidadeHashtags(auditoria) - penalidadeSpoiler(spoiler);
 
       if (!melhor || notaEfetiva > melhor.notaEfetiva) melhor = { pacote, avaliacao, notaEfetiva };
 
-      // Nota alta com hashtag genérica não é pacote pronto: gasta-se a iteração
-      // que já estava no orçamento para personalizar o que ficou de fora.
-      if (avaliacao.nota_total >= NOTA_ALVO && auditoria.ok) {
+      // Nota alta com hashtag genérica ou com o fim entregue não é pacote
+      // pronto: gasta-se a iteração que já estava no orçamento para corrigir.
+      if (avaliacao.nota_total >= NOTA_ALVO && auditoria.ok && spoiler.ok) {
         stepsT[2].state = 'done';
         stepsT[2].desc = 'Pacote pronto e aprovado na revisão';
         break;
@@ -431,6 +437,7 @@ async function gerarPacoteFinal() {
         feedback = {
           nota_total: avaliacao.nota_total, falhas, pacoteAnterior: pacote,
           problemasHashtags: auditoria.problemas,
+          problemasSpoiler: spoiler.problemas,
         };
         mostra();
       } else {

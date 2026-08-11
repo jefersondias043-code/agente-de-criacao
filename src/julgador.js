@@ -270,6 +270,15 @@ function julgNovoConteudo(semPerguntar) {
   saveJulgadorDraft();
   State.julgadorOrigemId = null;
   julgPreencher();
+  /* `julgPreencher` só atribui `.value`, e atribuição não dispara evento. Quem
+   * escuta `input` — o × de cada campo (clear-field.js), que some quando o campo
+   * fica vazio — não ficaria sabendo, e o × continuaria na tela de um campo já
+   * limpo. Avisar aqui é mais barato do que fazer `julgPreencher` disparar a
+   * cada render. */
+  ['#j-conteudo', '#j-titulo', '#j-capa', '#j-legenda'].forEach((sel) => {
+    const el = $(sel);
+    if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   julgLimparResultado();
   ['#j-attach-pending', '#j-lote-attach-pending'].forEach((sel) => {
     const p = $(sel); if (p) p.innerHTML = '';

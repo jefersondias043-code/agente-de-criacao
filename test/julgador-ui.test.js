@@ -289,6 +289,18 @@ describe('julgar outro conteúdo', () => {
     expect(vazios(), 'disse não e limpou assim mesmo').toBe(false);
   });
 
+  it('avisa quem escuta os campos — é o que faz o × sumir', () => {
+    // `julgPreencher` só atribui `.value`, e atribuição não dispara evento.
+    // `clear-field.js` sincroniza o × pelo `input`: sem o aviso, o × ficaria na
+    // tela de um campo já vazio.
+    encher();
+    const avisados = new Set();
+    ['j-conteudo', 'j-titulo', 'j-capa', 'j-legenda'].forEach((id) =>
+      document.getElementById(id).addEventListener('input', () => avisados.add(id)));
+    U.julgNovoConteudo(true);
+    expect([...avisados].sort()).toEqual(['j-capa', 'j-conteudo', 'j-legenda', 'j-titulo']);
+  });
+
   it('renderizar duas vezes não empilha o handler', () => {
     // O guard "ligar uma vez só" foi removido para que botões novos sejam
     // ligados numa tela remontada. O preço seria empilhar ouvintes — não é o

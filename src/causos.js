@@ -12,7 +12,6 @@
  * usar a ferramenta.
  * ========================================================================== */
 
-let _causosWired = false;
 let _causoResultadoVisivel = false;
 
 function causosDraft() {
@@ -107,6 +106,40 @@ function causoPainelDaMesa(item) {
     </details>`;
 }
 
+/* CONTAR OUTRO CAUSO — limpa a mesa de trabalho.
+ *
+ * O cuidado que este botão exige aqui é o oposto do óbvio: ele NÃO pode encostar
+ * em `State.causos`. Aquele histórico não é só arquivo — é a MEMÓRIA DA MESA.
+ * `causoMemoriaDe` lê dele as aberturas, os fechos, os nomes e os desenhos já
+ * usados, e é isso que impede a mesa de contar a mesma história com outras
+ * palavras. Um "limpar" que levasse o histórico junto faria a ferramenta
+ * esquecer o que já contou e começar a se repetir — um estrago silencioso, que
+ * só apareceria algumas histórias depois.
+ *
+ * Só pergunta quando há ideia escrita que ainda NÃO virou causo. Quem acabou de
+ * receber uma história e quer a próxima não precisa ser interrogado: aquela
+ * ideia está guardada no histórico e volta com um toque. */
+function causoNovo(semPerguntar) {
+  const ideia = String(($('#c-ideia') || {}).value || '').trim();
+  const guardado = (State.causos || []).some((x) => String(x.ideia || '').trim() === ideia);
+  if (!semPerguntar && ideia && !guardado
+      && !confirm('Esta ideia ainda não virou causo e será apagada. Continuar?')) return false;
+
+  State.causoDraft = { ideia: '' };
+  saveCausoDraft();
+  const campo = $('#c-ideia');
+  if (campo) {
+    campo.value = '';
+    // O × dos campos e o autosave escutam `input`: sem o evento, o campo fica
+    // vazio na tela e cheio na memória.
+    campo.dispatchEvent(new Event('input', { bubbles: true }));
+    try { campo.focus(); } catch (_) { /* */ }
+  }
+  causoLimparResultado();
+  { const p = $('#c-attach-pending'); if (p) p.innerHTML = ''; }
+  return true;
+}
+
 function renderCausoResultado(item) {
   const area = $('#c-result-area');
   if (!area) return;
@@ -121,6 +154,10 @@ function renderCausoResultado(item) {
   area.innerHTML = `
     <div class="article-preview" id="c-result-content">${escapeHtml(item.conteudo)}</div>
     <div class="flex gap-1 flex-wrap mt-2">
+      <button class="btn btn-accent btn-sm" id="c-result-novo" title="Limpa a ideia para contar outro causo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Contar outro causo
+      </button>
       <button class="btn btn-ghost btn-sm" id="c-result-copy">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         Copiar
@@ -132,6 +169,14 @@ function renderCausoResultado(item) {
     ${causoPainelDaMesa(item)}
     <div class="text-xs text-mute mt-2">${escapeHtml((causoGenero(item.dossie && item.dossie.genero).label) + (item.dossie && item.dossie.estrutura ? ' · ' + item.dossie.estrutura : ''))}</div>`;
 
+  const novoBtn = $('#c-result-novo');
+  if (novoBtn) novoBtn.onclick = () => {
+    // Esta história já está no histórico — não há o que confirmar.
+    if (causoNovo(true)) {
+      toast('Mesa limpa. Diga a próxima ideia.', 'success');
+      try { $('#c-ideia').scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) { /* */ }
+    }
+  };
   const copy = $('#c-result-copy');
   if (copy) copy.onclick = () => copyText(item.conteudo).then(() => toast('Copiado.', 'success'));
   const del = $('#c-result-del');
@@ -215,104 +260,113 @@ function renderCausos() {
   // permanente na frente de quem só quer trabalhar é ruído.
   { const a = $('#c-api-warning'); if (a) a.classList.add('hidden'); }
 
-  if (!_causosWired) {
-    _causosWired = true;
-
-    if (campo) {
-      campo.addEventListener('input', () => {
-        causosDraft().ideia = campo.value;
-        saveCausoDraft();
-        // A história na tela pertence à ideia que a gerou — trocar a ideia
-        // retira o causo anterior, que continua guardado no histórico.
-        if (_causoResultadoVisivel) causoLimparResultado();
-      });
-    }
-
-    if ($('#c-history-open')) $('#c-history-open').onclick = abrirCausoHistorico;
-    if ($('#c-history-close')) $('#c-history-close').onclick = fecharCausoHistorico;
-    if ($('#c-history-backdrop')) $('#c-history-backdrop').onclick = fecharCausoHistorico;
-    if ($('#c-history-clear')) $('#c-history-clear').onclick = () => {
-      if (!(State.causos || []).length) return;
-      if (!confirm('Apagar todos os causos guardados? A mesa perde também a memória do que já contou.')) return;
-      State.causos = [];
-      saveCausos();
-      renderCausoHistorico();
-      toast('Histórico limpo.', 'success');
-    };
-
-    if ($('#c-submit')) $('#c-submit').onclick = async () => {
-      const ideia = String((campo && campo.value) || '').trim();
-      if (ideia.length < 8) {
-        toast('Diga a ideia — uma linha já basta.', 'info', 5000);
-        return;
-      }
-      // É aqui — e só aqui — que a falta de chave vira mensagem na tela.
-      { const a = $('#c-api-warning'); if (a) a.classList.add('hidden'); }
-      if (!causoTemChave()) { causoAvisarSemChave(); return; }
-
-      const btn = $('#c-submit');
-      const original = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> A mesa trabalha…';
-      $('#c-result-area').innerHTML = `
-        <div class="empty">
-          <div class="spinner spinner-lg" style="color: var(--accent); border-right-color: transparent; margin: 0 auto 1rem;"></div>
-          <div class="empty-title" id="c-loading-title">Procurando a história…</div>
-          <div class="empty-desc" id="c-loading-desc">Quatro caminhos possíveis para essa ideia.</div>
-          <div class="pipeline-steps" id="c-pipeline">
-            <span class="pipeline-step" data-step="conceitos">Conceitos</span>
-            <span class="pipeline-step" data-step="dossie">Mesa</span>
-            <span class="pipeline-step" data-step="contar">Contar</span>
-            <span class="pipeline-step" data-step="criticos">Críticos</span>
-            <span class="pipeline-step" data-step="reescrita">Revisão</span>
-          </div>
-        </div>`;
-      const onEtapa = (chave, titulo, desc) => {
-        const t = $('#c-loading-title'), dsc = $('#c-loading-desc');
-        if (t) t.textContent = titulo;
-        if (dsc) dsc.textContent = desc;
-        $$('#c-pipeline .pipeline-step').forEach((el) => {
-          if (el.dataset.step === chave) el.classList.add('active');
-          else if (el.classList.contains('active')) el.classList.replace('active', 'done');
-        });
-      };
-
-      try {
-        const res = await runCausoPipeline({
-          ideia, memoria: causoMemoriaAtual(), onEtapa, call: callLLM,
-        });
-        const item = {
-          id: uuid(),
-          createdAt: new Date().toISOString(),
-          ideia,
-          conteudo: res.conteudo,
-          dossie: res.dossie,
-          juizo: res.juizo,
-          criticas: res.criticas,
-          conceitos: res.conceitos,
-          assinatura: res.assinatura,
-          etapas: res.etapas,
-          model: res.model,
-        };
-        State.causos = State.causos || [];
-        State.causos.unshift(item);
-        saveCausos();
-        renderCausoResultado(item);
-        renderCausoHistorico();
-        toast(res.juizo && res.juizo.aprovado ? 'Causo pronto — a mesa aprovou.' : 'Causo pronto.', 'success');
-      } catch (err) {
-        toast(err.message || 'Não foi possível contar o causo.', 'error', 6000);
-        $('#c-result-area').innerHTML = `
-          <div class="empty">
-            <div class="empty-title">Erro</div>
-            <div class="empty-desc">${escapeHtml(err.message || 'Tente novamente.')}</div>
-          </div>`;
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = original;
-      }
+  /* A TELA INTEIRA É RELIGADA A CADA RENDER, sem guard de "uma vez só".
+   *
+   * O guard existia para não empilhar `addEventListener`. Trocando o ouvinte do
+   * rascunho por `oninput =`, toda a ligação desta tela passa a ser por
+   * ATRIBUIÇÃO — religar substitui em vez de acumular, e nada empilha.
+   *
+   * O que se ganha: os handlers deixam de ficar presos aos elementos do primeiro
+   * render. Com o guard, um botão acrescentado depois (foi o caso do "Contar
+   * outro causo") só seria ligado por acaso. */
+  if (campo) {
+    campo.oninput = () => {
+      causosDraft().ideia = campo.value;
+      saveCausoDraft();
+      // A história na tela pertence à ideia que a gerou — trocar a ideia
+      // retira o causo anterior, que continua guardado no histórico.
+      if (_causoResultadoVisivel) causoLimparResultado();
     };
   }
+
+  if ($('#c-novo')) $('#c-novo').onclick = () => {
+    if (causoNovo()) toast('Mesa limpa. Diga a próxima ideia.', 'success');
+  };
+
+  if ($('#c-history-open')) $('#c-history-open').onclick = abrirCausoHistorico;
+  if ($('#c-history-close')) $('#c-history-close').onclick = fecharCausoHistorico;
+  if ($('#c-history-backdrop')) $('#c-history-backdrop').onclick = fecharCausoHistorico;
+  if ($('#c-history-clear')) $('#c-history-clear').onclick = () => {
+    if (!(State.causos || []).length) return;
+    if (!confirm('Apagar todos os causos guardados? A mesa perde também a memória do que já contou.')) return;
+    State.causos = [];
+    saveCausos();
+    renderCausoHistorico();
+    toast('Histórico limpo.', 'success');
+  };
+
+  if ($('#c-submit')) $('#c-submit').onclick = async () => {
+    const ideia = String((campo && campo.value) || '').trim();
+    if (ideia.length < 8) {
+      toast('Diga a ideia — uma linha já basta.', 'info', 5000);
+      return;
+    }
+    // É aqui — e só aqui — que a falta de chave vira mensagem na tela.
+    { const a = $('#c-api-warning'); if (a) a.classList.add('hidden'); }
+    if (!causoTemChave()) { causoAvisarSemChave(); return; }
+
+    const btn = $('#c-submit');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> A mesa trabalha…';
+    $('#c-result-area').innerHTML = `
+      <div class="empty">
+        <div class="spinner spinner-lg" style="color: var(--accent); border-right-color: transparent; margin: 0 auto 1rem;"></div>
+        <div class="empty-title" id="c-loading-title">Procurando a história…</div>
+        <div class="empty-desc" id="c-loading-desc">Quatro caminhos possíveis para essa ideia.</div>
+        <div class="pipeline-steps" id="c-pipeline">
+          <span class="pipeline-step" data-step="conceitos">Conceitos</span>
+          <span class="pipeline-step" data-step="dossie">Mesa</span>
+          <span class="pipeline-step" data-step="contar">Contar</span>
+          <span class="pipeline-step" data-step="criticos">Críticos</span>
+          <span class="pipeline-step" data-step="reescrita">Revisão</span>
+        </div>
+      </div>`;
+    const onEtapa = (chave, titulo, desc) => {
+      const t = $('#c-loading-title'), dsc = $('#c-loading-desc');
+      if (t) t.textContent = titulo;
+      if (dsc) dsc.textContent = desc;
+      $$('#c-pipeline .pipeline-step').forEach((el) => {
+        if (el.dataset.step === chave) el.classList.add('active');
+        else if (el.classList.contains('active')) el.classList.replace('active', 'done');
+      });
+    };
+
+    try {
+      const res = await runCausoPipeline({
+        ideia, memoria: causoMemoriaAtual(), onEtapa, call: callLLM,
+      });
+      const item = {
+        id: uuid(),
+        createdAt: new Date().toISOString(),
+        ideia,
+        conteudo: res.conteudo,
+        dossie: res.dossie,
+        juizo: res.juizo,
+        criticas: res.criticas,
+        conceitos: res.conceitos,
+        assinatura: res.assinatura,
+        etapas: res.etapas,
+        model: res.model,
+      };
+      State.causos = State.causos || [];
+      State.causos.unshift(item);
+      saveCausos();
+      renderCausoResultado(item);
+      renderCausoHistorico();
+      toast(res.juizo && res.juizo.aprovado ? 'Causo pronto — a mesa aprovou.' : 'Causo pronto.', 'success');
+    } catch (err) {
+      toast(err.message || 'Não foi possível contar o causo.', 'error', 6000);
+      $('#c-result-area').innerHTML = `
+        <div class="empty">
+          <div class="empty-title">Erro</div>
+          <div class="empty-desc">${escapeHtml(err.message || 'Tente novamente.')}</div>
+        </div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  };
 
   /* Anexar arquivo — refiado a cada render, pelo mesmo motivo do Julgador: a
    * ligação por atribuição é idempotente e sobrevive a uma tela remontada.

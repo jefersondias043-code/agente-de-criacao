@@ -26,7 +26,7 @@ let _julgResultadoVisivel = false;
 
 function julgadorDraft() {
   if (!State.julgadorDraft) {
-    State.julgadorDraft = { conteudo: '', titulo: '', capa: '', legenda: '', lote: '' };
+    State.julgadorDraft = { conteudo: '', visual: '', titulo: '', capa: '', legenda: '', lote: '' };
   }
   return State.julgadorDraft;
 }
@@ -266,7 +266,7 @@ function julgNovoConteudo(semPerguntar) {
       && !confirm('Este conteúdo ainda não foi julgado e será apagado. Continuar?')) return false;
 
   const d = julgadorDraft();
-  State.julgadorDraft = { conteudo: '', titulo: '', capa: '', legenda: '', lote: d.lote || '' };
+  State.julgadorDraft = { conteudo: '', visual: '', titulo: '', capa: '', legenda: '', lote: d.lote || '' };
   saveJulgadorDraft();
   State.julgadorOrigemId = null;
   julgPreencher();
@@ -275,7 +275,7 @@ function julgNovoConteudo(semPerguntar) {
    * fica vazio — não ficaria sabendo, e o × continuaria na tela de um campo já
    * limpo. Avisar aqui é mais barato do que fazer `julgPreencher` disparar a
    * cada render. */
-  ['#j-conteudo', '#j-titulo', '#j-capa', '#j-legenda'].forEach((sel) => {
+  ['#j-conteudo', '#j-visual', '#j-titulo', '#j-capa', '#j-legenda'].forEach((sel) => {
     const el = $(sel);
     if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
   });
@@ -451,6 +451,7 @@ function renderJulgHistorico() {
       if (!it) return;
       const d = julgadorDraft();
       d.conteudo = it.conteudo || d.conteudo;
+      d.visual = it.visual || '';
       d.titulo = (it.embalagem || {}).titulo || '';
       d.capa = (it.embalagem || {}).capa || '';
       d.legenda = (it.embalagem || {}).legenda || '';
@@ -490,6 +491,7 @@ function julgPreencher() {
   const d = julgadorDraft();
   const set = (sel, v) => { const el = $(sel); if (el) el.value = v || ''; };
   set('#j-conteudo', d.conteudo);
+  set('#j-visual', d.visual);
   set('#j-titulo', d.titulo);
   set('#j-capa', d.capa);
   set('#j-legenda', d.legenda);
@@ -543,8 +545,8 @@ function renderJulgador() {
   wireMtabs('#view-julgador');
 
   // Rascunho — cada campo guarda sozinho.
-  [['#j-conteudo', 'conteudo'], ['#j-titulo', 'titulo'], ['#j-capa', 'capa'],
-    ['#j-legenda', 'legenda'], ['#j-lote', 'lote']].forEach(([sel, chave]) => {
+  [['#j-conteudo', 'conteudo'], ['#j-visual', 'visual'], ['#j-titulo', 'titulo'],
+    ['#j-capa', 'capa'], ['#j-legenda', 'legenda'], ['#j-lote', 'lote']].forEach(([sel, chave]) => {
     const el = $(sel);
     if (!el) return;
     el.oninput = () => {
@@ -593,8 +595,10 @@ function renderJulgador() {
 
     try {
       const embalagem = julgEmbalagemAtual();
+      // O que se VÊ — a segunda fonte, tão parte do vídeo quanto a fala.
+      const visual = String(($('#j-visual') || {}).value || '').trim();
       const res = await runJulgamentoPipeline({
-        conteudo, embalagem, call: callLLM, onEtapa: julgEtapaVisual('#j-result-area'),
+        conteudo, embalagem, visual, call: callLLM, onEtapa: julgEtapaVisual('#j-result-area'),
       });
       // A comparação só existe quando o autor pediu para reavaliar: comparar
       // com um vídeo qualquer do histórico não diria nada.
@@ -604,7 +608,7 @@ function renderJulgador() {
         id: uuid(),
         createdAt: new Date().toISOString(),
         nome: embalagem.titulo || conteudo.slice(0, 60).replace(/\s+/g, ' '),
-        conteudo, embalagem,
+        conteudo, embalagem, visual,
         juizo: res.juizo,
         avaliacoes: res.avaliacoes,
         banca: res.banca,

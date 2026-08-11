@@ -229,6 +229,40 @@ describe('a conferência que é medida, não julgada', () => {
       expect(r.problemas.join(' ')).toMatch(/só aparece depois dos primeiros/);
     });
 
+    it('a capa cumprida PELA IMAGEM não é acusada de promessa quebrada', () => {
+      // O defeito relatado, e ele era de raiz: a conferência procurava as
+      // palavras da capa dentro da TRANSCRIÇÃO. Uma capa que mostra um homem
+      // com um relógio dourado na mão está cumprida por uma cena em que ele
+      // aparece assim — sem ninguém dizer "relógio" em momento nenhum. Quanto
+      // melhor a capa descrevia o que se VÊ, mais a ferramenta reclamava.
+      const fala = 'O Zé chegou em casa sem nada no bolso e a mulher perguntou o que tinha acontecido naquela tarde toda.';
+      const embalagem = { titulo: 'O relógio dourado', capa: 'homem segurando um relógio dourado na mão' };
+      expect(J.julgPromessaCumprida(fala, embalagem).problemas,
+        'o teste precisa partir de uma acusação real').not.toEqual([]);
+      const visual = 'O Zé aparece na calçada segurando um relógio dourado na mão, mostrando para o vizinho.';
+      expect(J.julgPromessaCumprida(fala, embalagem, visual).problemas).toEqual([]);
+    });
+
+    it('promessa que não está NEM na fala NEM na imagem continua sendo acusada', () => {
+      // A correção não pode virar anistia: se o vídeo não entrega por canal
+      // nenhum, o apontamento tem de continuar saindo.
+      const fala = 'O Zé chegou em casa sem nada no bolso e a mulher perguntou o que tinha acontecido.';
+      const visual = 'O Zé aparece na calçada conversando com o vizinho, os dois de costas para o rio.';
+      const r = J.julgPromessaCumprida(fala, { titulo: 'Receita de bolo de cenoura simples' }, visual);
+      expect(r.problemas.join(' ')).toMatch(/nem na fala nem na imagem/);
+    });
+
+    it('o que a imagem mostra conta como cumprido CEDO', () => {
+      // Imagem entrega no primeiro quadro, não no minuto três — não faz sentido
+      // acusar de atraso o que está na tela desde o começo.
+      const fala = 'Um dia comum na cidade. ' + 'Nada de mais acontecia por ali. '.repeat(30)
+        + 'E então o jacaré apareceu na piscina.';
+      expect(J.julgPromessaCumprida(fala, { titulo: 'O jacaré na piscina' }).problemas.join(' '),
+        'sem imagem, o atraso continua sendo apontado').toMatch(/só aparece depois/);
+      expect(J.julgPromessaCumprida(fala, { titulo: 'O jacaré na piscina' },
+        'Um jacaré dentro da piscina desde o primeiro quadro.').problemas).toEqual([]);
+    });
+
     it('sem título informado, não inventa apontamento', () => {
       expect(J.julgPromessaCumprida(BOM, {}).conferido).toBe(false);
       expect(J.julgPromessaCumprida(BOM, {}).problemas).toEqual([]);
@@ -260,6 +294,23 @@ describe('a conferência que é medida, não julgada', () => {
     expect(J.julgMomento(0)).toBe('00:00');
     expect(J.julgMomento(17)).toBe('00:17');
     expect(J.julgMomento(67)).toBe('01:07');
+  });
+
+  it('a descrição visual NÃO entra nas contas que medem a fala', () => {
+    /* Só a conferência da promessa lê a imagem. As outras medem tempo,
+     * repetição e naturalidade DA FALA — jogar a descrição visual nelas
+     * incharia a duração com um texto que ninguém pronuncia (o mesmo erro do
+     * travessão contado como palavra) e julgaria como fala gravada um texto
+     * que o AUTOR escreveu. */
+    const fala = 'O Zé chegou em casa sem a carteira. A mulher perguntou onde estava o carro dele.';
+    const visualLongo = ('O Zé aparece na calçada segurando o chapéu enquanto o vizinho observa da janela. '.repeat(20));
+    const semVisual = J.conferirJulgamentoLocal(fala, {});
+    const comVisual = J.conferirJulgamentoLocal(fala, {}, visualLongo);
+    expect(comVisual.duracao, 'a imagem inflou a duração medida').toBe(semVisual.duracao);
+    expect(comVisual.repeticao.achados.length, 'a repetição da descrição virou defeito do vídeo')
+      .toBe(semVisual.repeticao.achados.length);
+    expect(comVisual.frasesDeIA.achadas, 'a descrição do autor foi julgada como fala')
+      .toEqual(semVisual.frasesDeIA.achadas);
   });
 
   it('cada achado cai na dimensão certa', () => {
@@ -496,6 +547,31 @@ describe('a banca', () => {
     expect(r.notas.map((n) => n.dimensao), 'opinou fora da lente dele').toEqual(['curiosidade']);
   });
 
+  describe('as duas fontes no prompt', () => {
+    it('fala e imagem entram separadas e nomeadas', () => {
+      const p = J.buildAvaliadorPrompt('impacto', BOM, {}, [], 'O Zé aparece de chapéu na beira do rio.');
+      expect(p).toMatch(/== O QUE SE OUVE/);
+      expect(p).toMatch(/== O QUE SE VÊ/);
+      expect(p).toMatch(/O Zé aparece de chapéu/);
+      expect(p, 'sem isto o avaliador cobra da fala o que a imagem entregou')
+        .toMatch(/Não cobre da fala o que a imagem já mostrou/);
+    });
+
+    it('sem descrição visual, avisa em vez de fingir que o vídeo é só fala', () => {
+      const p = J.buildAvaliadorPrompt('impacto', BOM, {}, [], '');
+      expect(p).not.toMatch(/== O QUE SE VÊ/);
+      expect(p).toMatch(/não trate como ausente o que poderia estar na imagem/);
+    });
+
+    it('os avaliadores que dependem do que se vê perguntam por isso', () => {
+      // Impacto e Embalagem decidem pela imagem tanto quanto pela fala; o
+      // Espectador julga a experiência inteira.
+      expect(J.JULG_AVALIADORES.impacto.olhar.join(' ')).toMatch(/aparece NA TELA/);
+      expect(J.JULG_AVALIADORES.embalagem.olhar.join(' ')).toMatch(/cumprida PELA IMAGEM/);
+      expect(J.JULG_AVALIADORES.espectador.olhar.join(' ')).toMatch(/tocasse sem som/);
+    });
+  });
+
   it('a embalagem entra no prompt como o que se vê ANTES do play', () => {
     const p = J.buildAvaliadorPrompt('embalagem', BOM, { titulo: 'O carro sumiu', capa: 'foto do carro vazio' }, []);
     expect(p).toMatch(/ANTES de dar play/);
@@ -542,6 +618,17 @@ describe('a banca inteira, de ponta a ponta', () => {
     expect(fontes, 'nenhuma reprovação veio da conta').toContain('conferência automática');
     expect(r.juizo.veredito).not.toBe('sim');
     expect(r.juizo.principal.dimensao, 'o preâmbulo é o problema mais caro aqui').toBe('impacto');
+  });
+
+  it('a descrição visual chega a todos os dez avaliadores', async () => {
+    const call = dublar(TUDO_BOM);
+    const r = await J.runJulgamentoPipeline({
+      conteudo: BOM, visual: 'O Zé aparece de chapéu na beira do rio, segurando um remo torto.', call,
+    });
+    expect(call.prompts.length).toBe(10);
+    expect(call.prompts.every((p) => /segurando um remo torto/.test(p)),
+      'algum avaliador julgou sem ver metade do vídeo').toBe(true);
+    expect(r.visual).toMatch(/remo torto/);
   });
 
   it('recusa conteúdo vazio em vez de avaliar o nada', async () => {

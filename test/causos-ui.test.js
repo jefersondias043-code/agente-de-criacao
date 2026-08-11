@@ -21,7 +21,8 @@ beforeAll(() => {
   U = loadModules(
     ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js',
       'media-transcode.js', 'ingest.js', 'causos-motor.js', 'causos.js'],
-    ['State', 'renderCausos', 'causoTemChave', 'causoAvisarSemChave', 'causoLimparResultado']);
+    ['State', 'renderCausos', 'causoTemChave', 'causoAvisarSemChave', 'causoLimparResultado',
+      'causoNovo', 'renderCausoResultado', 'causoMemoriaAtual', 'STORAGE_KEYS']);
 });
 
 /* A tela da ferramenta, reduzida ao que `renderCausos` toca. */
@@ -36,6 +37,7 @@ const montarTela = () => {
     <div id="c-result-badge"></div>
     <div id="c-result-area"></div>
     <button id="c-submit"></button>
+    <button id="c-novo"></button>
     <div id="c-history-list"></div>
     <button id="c-history-open"></button><button id="c-history-close"></button>
     <div id="c-history-backdrop"></div><button id="c-history-clear"></button>`;
@@ -91,6 +93,120 @@ describe('o aviso de chave não fica na frente de quem quer trabalhar', () => {
     const a = document.getElementById('c-api-warning');
     expect(a.textContent).toMatch(/não pôde trabalhar/i);
     expect(a.querySelector('[data-go="settings"]'), 'sem caminho para resolver').toBeTruthy();
+  });
+});
+
+describe('contar outro causo', () => {
+  const IDEIA = 'uma história de pescador sobre um peixe impossível';
+  /* Um causo guardado, com a forma que a memória da mesa lê. */
+  const guardado = (id, ideia) => ({
+    id, createdAt: new Date().toISOString(), ideia,
+    conteudo: 'O Zé Macambira voltou do rio com a canoa torta.\nNinguém perguntou nada.',
+    dossie: { genero: 'pescador', estrutura: 'a mentira sustentada',
+      personagens: [{ nome: 'Zé Macambira' }] },
+    juizo: { aprovado: true, avaliadas: [], pior: 90 },
+    criticas: [],
+  });
+  const escrever = (t) => {
+    const c = document.getElementById('c-ideia');
+    c.value = t; c.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  const campo = () => document.getElementById('c-ideia').value;
+
+  beforeEach(() => { U.State.apiKeys = { groq: 'gsk_teste' }; U.renderCausos(); });
+
+  it('limpa a ideia', () => {
+    escrever(IDEIA);
+    U.causoNovo(true);
+    expect(campo()).toBe('');
+  });
+
+  it('NÃO apaga o histórico — ele É a memória da mesa', () => {
+    // Este histórico não é só arquivo: `causoMemoriaDe` lê dele as aberturas,
+    // os nomes e os desenhos já usados, e é o que impede a mesa de contar a
+    // mesma história de novo. Levá-lo junto seria um estrago silencioso.
+    U.State.causos = [guardado('c1', IDEIA)];
+    const antes = U.causoMemoriaAtual();
+    expect(antes.nomes.length, 'a memória precisa ter o que perder').toBeGreaterThan(0);
+    escrever(IDEIA);
+    U.causoNovo(true);
+    expect(U.State.causos.length).toBe(1);
+    expect(U.causoMemoriaAtual(), 'a mesa esqueceu o que já contou').toEqual(antes);
+  });
+
+  /* Os dois seguintes desligam o ouvinte do campo de propósito.
+   *
+   * `causoNovo` esvazia o campo E dispara `input`, e esse evento provoca os
+   * mesmos efeitos (guardar o rascunho, tirar a história). Com o ouvinte ligado,
+   * os testes passavam mesmo depois de eu remover as chamadas explícitas — não
+   * mediam quem fez o quê. Sem o ouvinte, sobra só o que a função garante
+   * sozinha, que é o contrato de verdade. */
+  const semOuvinte = () => { document.getElementById('c-ideia').oninput = null; };
+
+  it('tira a história da tela por conta própria', () => {
+    U.State.causos = [guardado('c1', IDEIA)];
+    U.renderCausoResultado(U.State.causos[0]);
+    expect(document.getElementById('c-result-content')).toBeTruthy();
+    semOuvinte();
+    U.causoNovo(true);
+    expect(document.getElementById('c-result-content'), 'a história antiga ficou na tela').toBeFalsy();
+  });
+
+  it('guarda o rascunho vazio por conta própria, senão volta ao recarregar', () => {
+    escrever(IDEIA);
+    semOuvinte();
+    U.causoNovo(true);
+    const d = JSON.parse(localStorage.getItem(U.STORAGE_KEYS.causoDraft) || '{}');
+    expect(d.ideia, 'a ideia antiga voltaria ao recarregar').toBe('');
+  });
+
+  it('avisa quem escuta o campo — é o que faz o × sumir', () => {
+    // `clear-field.js` sincroniza o × pelo evento `input`. Esvaziar o campo
+    // calado deixaria o × na tela de um campo já vazio.
+    escrever(IDEIA);
+    let avisou = false;
+    document.getElementById('c-ideia').addEventListener('input', () => { avisou = true; });
+    U.causoNovo(true);
+    expect(avisou).toBe(true);
+  });
+
+  it('o botão do resultado limpa sem perguntar — aquela ideia já virou causo', () => {
+    U.State.causos = [guardado('c1', IDEIA)];
+    escrever(IDEIA);
+    U.renderCausoResultado(U.State.causos[0]);
+    globalThis.confirm = () => { throw new Error('não devia perguntar'); };
+    document.getElementById('c-result-novo').click();
+    expect(campo()).toBe('');
+  });
+
+  it('o botão sempre visível pergunta antes de descartar ideia não contada', () => {
+    U.State.causos = [];
+    escrever('uma ideia que nunca virou causo');
+    let perguntou = false;
+    globalThis.confirm = () => { perguntou = true; return false; };
+    document.getElementById('c-novo').click();
+    expect(perguntou, 'apagaria trabalho sem avisar').toBe(true);
+    expect(campo(), 'disse não e limpou assim mesmo').not.toBe('');
+  });
+
+  it('e não pergunta quando a ideia na tela já virou causo', () => {
+    U.State.causos = [guardado('c1', IDEIA)];
+    escrever(IDEIA);
+    globalThis.confirm = () => { throw new Error('não devia perguntar'); };
+    document.getElementById('c-novo').click();
+    expect(campo()).toBe('');
+  });
+
+  it('renderizar duas vezes não empilha o handler', () => {
+    U.renderCausos();
+    U.renderCausos();
+    U.State.causos = [];
+    escrever('uma ideia solta');
+    globalThis.confirm = () => true;
+    document.getElementById('toast-stack').innerHTML = '';
+    document.getElementById('c-novo').click();
+    expect(document.getElementById('toast-stack').children.length,
+      'o handler rodou mais de uma vez').toBe(1);
   });
 });
 

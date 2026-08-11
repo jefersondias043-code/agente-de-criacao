@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-11-r225" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-11-r226" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1198,8 +1198,21 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
              julga o conteúdo, só não consegue conferir se a promessa da capa é
              cumprida — que é uma das coisas mais úteis que ela mede. -->
         <details class="julg-embalagem">
-          <summary>A embalagem — título, capa e legenda <span class="text-xs text-mute">(opcional, mas é o que permite conferir a promessa)</span></summary>
+          <!-- O resumo anuncia a sugestão porque a seção nasce RECOLHIDA: um
+               botão dentro de um <details> fechado é um botão que não existe
+               para quem nunca abriu. -->
+          <summary>A embalagem — título, capa e legenda <span class="text-xs text-mute">(opcional · a IA pode sugerir os dois a partir do vídeo)</span></summary>
           <div class="julg-embalagem-body">
+            <!-- SUGERIR A EMBALAGEM. A ferramenta já tem a transcrição inteira
+                 e a descrição visual — escrever o título do zero é deixar de
+                 usar o que já está aqui. A regra que manda: despertar a
+                 curiosidade sem entregar o desfecho. -->
+            <div class="julg-sugerir">
+              <button type="button" class="btn btn-secondary btn-sm" id="j-sugerir">✨ Sugerir título e legenda</button>
+              <div class="text-xs text-mute">A partir da transcrição e do que se vê. A sugestão desperta a curiosidade sem contar o fim — e o código confere isso antes de mostrar.</div>
+            </div>
+            <div id="j-sugestao"></div>
+
             <div class="field">
               <label class="label" for="j-titulo">Título</label>
               <input class="input" id="j-titulo" type="text" placeholder="O título que vai junto com o vídeo." />
@@ -1480,6 +1493,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <script src="src/causos-motor.js"></script>
 <script src="src/causos.js"></script>
 <script src="src/transcricao.js"></script>
+<script src="src/embalagem.js"></script>
 <script src="src/julgador-motor.js"></script>
 <script src="src/julgador.js"></script>
 <script src="src/extract.js"></script>

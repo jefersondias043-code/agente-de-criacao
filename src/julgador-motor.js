@@ -351,25 +351,50 @@ function julgFrasesDeIA(texto) {
  * clicado. Mede-se: quanto do que o título promete aparece no começo do vídeo. */
 const JULG_JANELA_DA_PROMESSA = 30;   // segundos
 
-function julgPromessaCumprida(texto, embalagem) {
+/* A PROMESSA É CUMPRIDA POR DUAS VIAS, NÃO UMA.
+ *
+ * Esta conferência procurava as palavras do título e da capa dentro da
+ * TRANSCRIÇÃO, e só. O erro é de raiz: vídeo não é podcast. Uma capa que mostra
+ * um homem com um relógio na mão está perfeitamente cumprida por uma cena em
+ * que ele aparece com o relógio na mão — sem ninguém dizer a palavra "relógio"
+ * em momento nenhum.
+ *
+ * O resultado era um falso positivo garantido: quanto melhor a capa descrevia o
+ * que se VÊ, mais a conferência acusava promessa não cumprida.
+ *
+ * A separação certa é entre PROMESSA e ENTREGA, não entre título e fala:
+ *
+ *   promessa = título + capa      (o que a pessoa vê ANTES do play)
+ *   entrega  = fala + imagem      (o que ela recebe DEPOIS)
+ *
+ * A janela dos 30 segundos vale para a fala, que tem tempo. A descrição visual
+ * não tem marcação de tempo confiável, então o que está nela conta como
+ * cumprido — e é o certo: imagem entrega no primeiro quadro, não no minuto
+ * três. Errar para o lado de não acusar é o certo aqui: um alarme falso faz o
+ * autor desconfiar de uma capa boa. */
+function julgPromessaCumprida(texto, embalagem, visual) {
   const e = embalagem || {};
   const promessa = [...new Set(_jConteudo(`${e.titulo || ''} ${e.capa || ''}`))];
   if (promessa.length < 2) return { problemas: [], conferido: false, cumpridas: [], ausentes: [] };
 
   const palavras = _jPalavras(texto);
   const naJanela = palavras.slice(0, Math.round(JULG_JANELA_DA_PROMESSA * JULG_PALAVRAS_POR_SEGUNDO)).join(' ');
-  const inicio = new Set(_jConteudo(naJanela));
-  const todo = new Set(_jConteudo(texto));
+  const naFalaCedo = new Set(_jConteudo(naJanela));
+  const naFala = new Set(_jConteudo(texto));
+  const naImagem = new Set(_jConteudo(visual || ''));
 
-  const cumpridas = promessa.filter((w) => inicio.has(w));
-  const ausentes = promessa.filter((w) => !todo.has(w));
-  const atrasadas = promessa.filter((w) => !inicio.has(w) && todo.has(w));
+  // Cumprida cedo: dita nos primeiros segundos OU visível na tela.
+  const cumpridas = promessa.filter((w) => naFalaCedo.has(w) || naImagem.has(w));
+  // Ausente de verdade: não está na fala NEM na imagem.
+  const ausentes = promessa.filter((w) => !naFala.has(w) && !naImagem.has(w));
+  // Atrasada: dita, mas só lá adiante — e não mostrada.
+  const atrasadas = promessa.filter((w) => !naFalaCedo.has(w) && !naImagem.has(w) && naFala.has(w));
   const problemas = [];
 
   if (ausentes.length / promessa.length >= 0.5) {
-    problemas.push(`a promessa do título/capa não aparece no vídeo: "${ausentes.join('", "')}" não são tratados em lugar nenhum. Quem clicou por causa disso vai embora — e volta com desconfiança na próxima capa.`);
+    problemas.push(`a promessa do título/capa não aparece no vídeo: "${ausentes.join('", "')}" não são tratados nem na fala nem na imagem. Quem clicou por causa disso vai embora — e volta com desconfiança na próxima capa.`);
   } else if (cumpridas.length / promessa.length < 0.4 && atrasadas.length) {
-    problemas.push(`o que o título promete só aparece depois dos primeiros ${JULG_JANELA_DA_PROMESSA} segundos ("${atrasadas.join('", "')}"). Quem clicou pela promessa precisa reconhecê-la logo, senão sai antes de chegar nela.`);
+    problemas.push(`o que o título promete só aparece depois dos primeiros ${JULG_JANELA_DA_PROMESSA} segundos ("${atrasadas.join('", "')}"), e não está na imagem antes disso. Quem clicou pela promessa precisa reconhecê-la logo, senão sai antes de chegar nela.`);
   }
   return { problemas, conferido: true, cumpridas, ausentes, atrasadas };
 }
@@ -407,13 +432,22 @@ function julgProgressao(texto) {
  * avaliadores (que não devem gastar atenção com o que a conta já resolveu) e
  * para o juiz.
  */
-function conferirJulgamentoLocal(texto, embalagem) {
+/* O `visual` chega aqui, mas SÓ a conferência da promessa o usa — e isso é
+ * deliberado.
+ *
+ * Todas as outras medem a FALA: tempo até o gancho, repetição, reexplicação,
+ * progressão, pedido de engajamento e frase de IA. Jogar a descrição visual
+ * nessa conta estragaria as duas coisas de uma vez — a duração medida
+ * incharia com um texto que ninguém pronuncia (o mesmo erro do travessão
+ * contado como palavra), e a descrição, que o AUTOR escreve, seria julgada
+ * como se fosse fala gravada. */
+function conferirJulgamentoLocal(texto, embalagem, visual) {
   const gancho = julgTempoAteOGancho(texto);
   const repet = julgRepeticao(texto);
   const reexp = julgExplicacaoExcessiva(texto);
   const cta = julgCtaArtificial(texto);
   const ia = julgFrasesDeIA(texto);
-  const promessa = julgPromessaCumprida(texto, embalagem);
+  const promessa = julgPromessaCumprida(texto, embalagem, visual);
   const prog = julgProgressao(texto);
 
   const achados = []
@@ -457,6 +491,8 @@ const JULG_AVALIADORES = {
       'A primeira informação é a mais forte que o vídeo tem, ou a mais forte está guardada para o meio?',
       'Dá para entender do que se trata sem ter visto o título?',
       'Se você fosse resumir o vídeo em uma frase pelos primeiros segundos, conseguiria?',
+      'O que aparece NA TELA nos primeiros segundos? Rosto, cena, movimento, texto na imagem? Isso segura sozinho, mesmo sem som — boa parte do feed roda mudo.',
+      'A imagem e a fala dizem a mesma coisa ao mesmo tempo, ou a imagem já entrega antes?',
     ],
   },
   retencao: {
@@ -471,6 +507,8 @@ const JULG_AVALIADORES = {
       'Dá para adivinhar o que vem depois? Em que ponto?',
       'Quanto tempo o vídeo leva para chegar ao ponto?',
       'As coisas se PUXAM (uma causa a outra) ou apenas se sucedem?',
+      'Existe trecho em que a imagem para de acontecer — mesma cena, mesmo enquadramento, nada novo para ver?',
+      'A imagem sustenta os pedaços em que a fala é mais fraca?',
     ],
   },
   curiosidade: {
@@ -483,6 +521,7 @@ const JULG_AVALIADORES = {
       'O vídeo entrega tudo de uma vez ou segura alguma coisa?',
       'Existe algum momento em que dá vontade de saber mais? Onde?',
       'Se não existe nenhuma pergunta aberta, diga isso com todas as letras.',
+      'A imagem mostra alguma coisa que ainda não foi explicada? Isso é curiosidade das boas.',
     ],
   },
   historia: {
@@ -495,6 +534,7 @@ const JULG_AVALIADORES = {
       'Existe virada — algum momento em que a coisa muda de direção?',
       'O fim decorre do que veio antes, ou foi colado?',
       'Se for informativo e não narrativo: existe progressão de ideia, do simples ao surpreendente? Não force estrutura de ficção onde não cabe.',
+      'A progressão aparece na imagem — muda de lugar, de gente, de situação — ou é a mesma cena do começo ao fim?',
     ],
   },
   naturalidade: {
@@ -520,6 +560,7 @@ const JULG_AVALIADORES = {
       'O valor entregue corresponde ao tempo pedido?',
       'O vídeo entrega o que prometeu no começo?',
       'Se o valor é entretenimento, ele é entretido de verdade ou apenas inofensivo?',
+      'Parte do que a pessoa leva pode estar na imagem: a cena, a reação de alguém, o que ela viu acontecer. Conte isso como entrega.',
     ],
   },
   compartilhamento: {
@@ -532,6 +573,7 @@ const JULG_AVALIADORES = {
       'Mandar isso diz alguma coisa sobre quem manda? (é o que mais move compartilhamento)',
       'Serve como resposta a alguma conversa comum?',
       'Se não houver razão nenhuma, diga — nem todo conteúdo bom é compartilhável, e isso não é defeito fatal.',
+      'O que a pessoa mandaria: a fala, ou a cena? Muita coisa se compartilha pela imagem.',
     ],
   },
   comentarios: {
@@ -557,6 +599,8 @@ const JULG_AVALIADORES = {
       'O título entrega demais — a ponto de tornar o vídeo desnecessário?',
       'O título é vago a ponto de não prometer nada?',
       'Se não houver título e capa informados, avalie o que o vídeo PEDIRIA de título e diga qual seria.',
+      'A promessa da capa é cumprida PELA IMAGEM do vídeo, mesmo que ninguém a mencione em voz alta? Isso conta como cumprida — não cobre da fala o que a cena já mostrou.',
+      'A capa mostra uma coisa que só aparece no fim do vídeo? Aí sim é problema.',
     ],
   },
   espectador: {
@@ -571,6 +615,8 @@ const JULG_AVALIADORES = {
       'Você mandaria isso para alguém? Para quem?',
       'Você lembraria desse vídeo amanhã?',
       'Se você achou chato, diga que achou chato. É a coisa mais útil que você pode dizer.',
+      'O que você VIU chamou atenção, ou só o que foi dito?',
+      'Se o vídeo tocasse sem som, você entenderia alguma coisa?',
     ],
   },
 };
@@ -605,7 +651,16 @@ function julgBlocoDoutrina() {
   ].join('\n');
 }
 
-function julgBlocoConteudo(conteudo, embalagem) {
+/* DUAS FONTES SOBRE O MESMO CONTEÚDO.
+ *
+ * A transcrição é o que se OUVE; a descrição visual é o que se VÊ. Vídeo é as
+ * duas coisas, e uma informação pode estar inteira numa sem passar pela outra —
+ * quem aparece, como está vestido, onde está, o que faz, o que há em volta.
+ *
+ * Elas entram separadas e nomeadas, para o avaliador saber de onde veio cada
+ * coisa: exigir da fala o que a imagem já entregou é o defeito que esta seção
+ * existe para evitar. */
+function julgBlocoConteudo(conteudo, embalagem, visual) {
   const e = embalagem || {};
   const linhas = [];
   if (e.titulo || e.capa || e.legenda) {
@@ -615,12 +670,23 @@ function julgBlocoConteudo(conteudo, embalagem) {
     if (e.legenda) linhas.push(`Legenda: ${e.legenda}`);
     linhas.push('');
   }
-  linhas.push('== O CONTEÚDO (roteiro ou transcrição do vídeo) ==');
+  linhas.push('== O QUE SE OUVE (transcrição ou roteiro) ==');
   linhas.push(String(conteudo || ''));
+  const v = String(visual || '').trim();
+  if (v) {
+    linhas.push('');
+    linhas.push('== O QUE SE VÊ (descrição visual do vídeo) ==');
+    linhas.push(v);
+    linhas.push('');
+    linhas.push('As duas seções acima são o MESMO vídeo, por dois canais. Uma informação pode estar inteira na imagem sem ninguém dizer uma palavra sobre ela — e continua entregue. Não cobre da fala o que a imagem já mostrou, e julgue a experiência completa de quem assiste.');
+  } else {
+    linhas.push('');
+    linhas.push('(Não há descrição visual deste vídeo. Julgue pelo que dá para julgar na fala, e não trate como ausente o que poderia estar na imagem.)');
+  }
   return linhas.join('\n');
 }
 
-function buildAvaliadorPrompt(avaliadorId, conteudo, embalagem, achadosLocais) {
+function buildAvaliadorPrompt(avaliadorId, conteudo, embalagem, achadosLocais, visual) {
   const a = JULG_AVALIADORES[avaliadorId];
   if (!a) throw new Error('Avaliador desconhecido: ' + avaliadorId);
   const dims = a.dimensoes.map((id) => {
@@ -633,7 +699,7 @@ function buildAvaliadorPrompt(avaliadorId, conteudo, embalagem, achadosLocais) {
   linhas.push('');
   linhas.push(julgBlocoDoutrina());
   linhas.push('');
-  linhas.push(julgBlocoConteudo(conteudo, embalagem));
+  linhas.push(julgBlocoConteudo(conteudo, embalagem, visual));
   linhas.push('');
   if ((achadosLocais || []).length) {
     linhas.push('== JÁ MEDIDO NO CÓDIGO (não é opinião, e não precisa ser repetido) ==');
@@ -859,7 +925,8 @@ function _jLimpar(texto) {
  * conteúdo continua sendo do autor; a banca diz onde ele é fraco.
  *
  * @param {object} opts
- *   conteudo    o roteiro ou a transcrição
+ *   conteudo    o roteiro ou a transcrição — o que se OUVE
+ *   visual      a descrição do que se VÊ: quem aparece, onde, fazendo o quê
  *   embalagem   { titulo, capa, legenda } — o que a pessoa vê antes do play
  *   banca       ids dos avaliadores (padrão: a banca completa)
  *   onEtapa(chave, titulo, desc)
@@ -872,6 +939,7 @@ async function runJulgamentoPipeline(opts) {
   const conteudo = _jLimpar(o.conteudo);
   if (!conteudo) throw new Error('Não há conteúdo para avaliar.');
   const embalagem = o.embalagem || {};
+  const visual = String(o.visual || '').trim();
   const banca = (o.banca && o.banca.length ? o.banca : JULG_BANCA_COMPLETA)
     .filter((id) => JULG_AVALIADORES[id]);
   const etapa = (k, t, d) => { if (typeof o.onEtapa === 'function') o.onEtapa(k, t, d); };
@@ -882,14 +950,14 @@ async function runJulgamentoPipeline(opts) {
   // 1) A CONFERÊNCIA DE CÓDIGO — roda primeiro porque é de graça e porque o que
   //    ela achar não deve ocupar a atenção dos avaliadores.
   etapa('conferencia', 'Medindo o conteúdo…', 'Tempo até o gancho, repetição, promessa da capa.');
-  const local = conferirJulgamentoLocal(conteudo, embalagem);
+  const local = conferirJulgamentoLocal(conteudo, embalagem, visual);
   etapas.push('conferencia');
 
   // 2) OS AVALIADORES — em paralelo, independentes, cada um com a sua lente.
   etapa('banca', 'A banca está lendo…', `${banca.length} avaliadores, cada um com a sua lente.`);
   const avaliacoes = await Promise.all(banca.map(async (id) => {
     try {
-      const r = await chamar(buildAvaliadorPrompt(id, conteudo, embalagem, local.achados));
+      const r = await chamar(buildAvaliadorPrompt(id, conteudo, embalagem, local.achados, visual));
       const parcial = normalizarAvaliacao(lerJSON(r), id);
       if (r && r.model) modelo = r.model;
       return parcial;
@@ -907,7 +975,7 @@ async function runJulgamentoPipeline(opts) {
   etapas.push('juiz');
 
   etapa('pronto', 'Pronto.', JULG_VEREDITOS[juizo.veredito].label);
-  return { conteudo, embalagem, avaliacoes, juizo, local, banca, etapas, model: modelo };
+  return { conteudo, embalagem, visual, avaliacoes, juizo, local, banca, etapas, model: modelo };
 }
 
 /**
@@ -931,7 +999,7 @@ async function runTriagemPipeline(opts) {
     etapa('triagem', `Avaliando ${i + 1} de ${itens.length}…`, it.nome || '');
     try {
       const r = await runJulgamentoPipeline({
-        conteudo: it.conteudo, embalagem: it.embalagem,
+        conteudo: it.conteudo, embalagem: it.embalagem, visual: it.visual,
         banca: o.banca || JULG_BANCA_TRIAGEM, call: o.call,
       });
       resultados.push({ nome: it.nome || `Conteúdo ${i + 1}`, id: it.id, ok: true, ...r });

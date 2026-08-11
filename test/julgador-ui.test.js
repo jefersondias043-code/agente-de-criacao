@@ -34,6 +34,7 @@ const montarTela = () => {
         <button type="button" data-mtab="b">Seleção</button>
       </div>
       <textarea id="j-conteudo"></textarea>
+      <textarea id="j-visual"></textarea>
       <input id="j-titulo" /><input id="j-capa" /><textarea id="j-legenda"></textarea>
       <input type="file" id="j-attach-input" /><button id="j-attach-btn"></button>
       <div id="j-attach-pending"></div>
@@ -206,13 +207,14 @@ Comenta aqui embaixo se já aconteceu com você.`;
 describe('julgar outro conteúdo', () => {
   const encher = () => {
     document.getElementById('j-conteudo').value = 'o roteiro do primeiro vídeo, com bastante texto aqui';
+    document.getElementById('j-visual').value = 'o Zé aparece de chapéu na calçada';
     document.getElementById('j-titulo').value = 'Título do primeiro';
     document.getElementById('j-capa').value = 'capa do primeiro';
     document.getElementById('j-legenda').value = 'legenda do primeiro';
-    ['j-conteudo', 'j-titulo', 'j-capa', 'j-legenda'].forEach((id) =>
+    ['j-conteudo', 'j-visual', 'j-titulo', 'j-capa', 'j-legenda'].forEach((id) =>
       document.getElementById(id).dispatchEvent(new Event('input', { bubbles: true })));
   };
-  const vazios = () => ['j-conteudo', 'j-titulo', 'j-capa', 'j-legenda']
+  const vazios = () => ['j-conteudo', 'j-visual', 'j-titulo', 'j-capa', 'j-legenda']
     .every((id) => document.getElementById(id).value === '');
 
   beforeEach(() => { U.State.apiKeys = { groq: 'gsk_teste' }; U.renderJulgador(); });
@@ -295,10 +297,10 @@ describe('julgar outro conteúdo', () => {
     // tela de um campo já vazio.
     encher();
     const avisados = new Set();
-    ['j-conteudo', 'j-titulo', 'j-capa', 'j-legenda'].forEach((id) =>
+    ['j-conteudo', 'j-visual', 'j-titulo', 'j-capa', 'j-legenda'].forEach((id) =>
       document.getElementById(id).addEventListener('input', () => avisados.add(id)));
     U.julgNovoConteudo(true);
-    expect([...avisados].sort()).toEqual(['j-capa', 'j-conteudo', 'j-legenda', 'j-titulo']);
+    expect([...avisados].sort()).toEqual(['j-capa', 'j-conteudo', 'j-legenda', 'j-titulo', 'j-visual']);
   });
 
   it('renderizar duas vezes não empilha o handler', () => {
@@ -324,6 +326,35 @@ describe('julgar outro conteúdo', () => {
     globalThis.confirm = () => { throw new Error('não devia perguntar'); };
     document.getElementById('j-novo').click();
     expect(vazios()).toBe(true);
+  });
+});
+
+describe('a descrição visual', () => {
+  beforeEach(() => { U.State.apiKeys = { groq: 'gsk_teste' }; U.renderJulgador(); });
+
+  it('o campo guarda sozinho, como os outros', () => {
+    const v = document.getElementById('j-visual');
+    v.value = 'o Zé aparece segurando um relógio dourado';
+    v.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(U.State.julgadorDraft.visual).toBe('o Zé aparece segurando um relógio dourado');
+  });
+
+  it('volta ao reabrir a ferramenta', () => {
+    const v = document.getElementById('j-visual');
+    v.value = 'plano fechado no rosto dele';
+    v.dispatchEvent(new Event('input', { bubbles: true }));
+    montarTela();
+    U.renderJulgador();
+    expect(document.getElementById('j-visual').value).toBe('plano fechado no rosto dele');
+  });
+
+  it('reabrir um julgamento do histórico traz a descrição junto', () => {
+    const juizo = U.julgarConteudo([{ avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 9 }] }], []);
+    U.State.julgamentos = [{ id: 'v1', createdAt: new Date().toISOString(), nome: 'x',
+      conteudo: 'a fala do vídeo', visual: 'o Zé de chapéu na calçada', embalagem: {}, juizo }];
+    U.renderJulgador();
+    document.querySelector('[data-julg-id="v1"]').click();
+    expect(document.getElementById('j-visual').value).toBe('o Zé de chapéu na calçada');
   });
 });
 

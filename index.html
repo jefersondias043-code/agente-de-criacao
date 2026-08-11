@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-11-r221" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-11-r222" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1182,6 +1182,16 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
             <span class="text-xs text-mute">Vídeo e áudio entram transcritos.</span>
           </div>
           <div id="j-attach-pending"></div>
+        </div>
+
+        <!-- A SEGUNDA FONTE. Vídeo não é podcast: quem aparece, onde está, o
+             que faz e o que há em volta podem não ser ditos por ninguém e
+             ainda assim ser o conteúdo. Sem este campo, a banca julgava só
+             metade do vídeo — e cobrava da fala o que a imagem já entregava. -->
+        <div class="field">
+          <label class="label" for="j-visual">O que se vê no vídeo <span class="text-xs text-mute">(opcional, mas muda muito a avaliação)</span></label>
+          <textarea class="textarea" id="j-visual" rows="4" placeholder="Descreva o que aparece na tela: quem está em cena, onde, vestido como, fazendo o quê. Objetos, paisagem, expressões, o que acontece visualmente. Texto escrito na tela também conta."></textarea>
+          <div class="text-xs text-mute">A transcrição é o que se ouve; isto é o que se vê. A banca lê as duas como o mesmo vídeo.</div>
         </div>
 
         <!-- A embalagem é opcional, e fica recolhida: sem ela a banca ainda

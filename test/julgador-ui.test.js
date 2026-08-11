@@ -21,7 +21,7 @@ beforeAll(() => {
       'media-transcode.js', 'ingest.js', 'julgador-motor.js', 'julgador.js'],
     ['State', 'renderJulgador', 'julgTemChave', 'julgAvisarSemChave', 'julgLimparResultado',
       'renderJulgResultado', 'julgSepararLote', 'julgDiagnosticoEmTexto', 'julgarConteudo',
-      'conferirJulgamentoLocal', 'renderJulgTriagem']);
+      'conferirJulgamentoLocal', 'renderJulgTriagem', 'julgNovoConteudo', 'STORAGE_KEYS']);
 });
 
 /* A tela, reduzida ao que `renderJulgador` e o resultado tocam. */
@@ -39,6 +39,7 @@ const montarTela = () => {
       <div id="j-attach-pending"></div>
       <div id="j-result-area"></div>
       <button id="j-submit"></button>
+      <button id="j-novo"></button>
       <textarea id="j-lote"></textarea>
       <input type="file" id="j-lote-attach-input" /><button id="j-lote-attach-btn"></button>
       <div id="j-lote-attach-pending"></div>
@@ -199,6 +200,118 @@ Comenta aqui embaixo se já aconteceu com você.`;
     U.renderJulgResultado(item);
     document.getElementById('j-result-reavaliar').click();
     expect(U.State.julgadorOrigemId).toBe(item.id);
+  });
+});
+
+describe('julgar outro conteúdo', () => {
+  const encher = () => {
+    document.getElementById('j-conteudo').value = 'o roteiro do primeiro vídeo, com bastante texto aqui';
+    document.getElementById('j-titulo').value = 'Título do primeiro';
+    document.getElementById('j-capa').value = 'capa do primeiro';
+    document.getElementById('j-legenda').value = 'legenda do primeiro';
+    ['j-conteudo', 'j-titulo', 'j-capa', 'j-legenda'].forEach((id) =>
+      document.getElementById(id).dispatchEvent(new Event('input', { bubbles: true })));
+  };
+  const vazios = () => ['j-conteudo', 'j-titulo', 'j-capa', 'j-legenda']
+    .every((id) => document.getElementById(id).value === '');
+
+  beforeEach(() => { U.State.apiKeys = { groq: 'gsk_teste' }; U.renderJulgador(); });
+
+  it('limpa os quatro campos de uma vez', () => {
+    encher();
+    U.julgNovoConteudo(true);
+    expect(vazios(), 'sobrou campo preenchido').toBe(true);
+  });
+
+  it('esquece a versão anterior — senão o próximo vídeo sai comparado com ela', () => {
+    // A armadilha deste botão: `julgadorOrigemId` sobreviver à limpeza faria a
+    // banca comparar dois conteúdos sem relação nenhuma, e mostrar um "+5 em
+    // impacto" que não quer dizer coisa alguma.
+    U.State.julgadorOrigemId = 'julgamento-antigo';
+    encher();
+    U.julgNovoConteudo(true);
+    expect(U.State.julgadorOrigemId, 'a comparação ficaria presa no vídeo anterior').toBe(null);
+  });
+
+  it('tira o diagnóstico da tela', () => {
+    const juizo = U.julgarConteudo([{ avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 9 }] }], []);
+    U.renderJulgResultado({ id: 'x', juizo, local: {}, banca: [] });
+    expect(document.querySelector('.julg-veredito')).toBeTruthy();
+    U.julgNovoConteudo(true);
+    expect(document.querySelector('.julg-veredito'), 'o veredito do vídeo antigo ficou na tela').toBeFalsy();
+  });
+
+  it('NÃO apaga o histórico — o julgamento anterior continua guardado', () => {
+    const juizo = U.julgarConteudo([{ avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 9 }] }], []);
+    U.State.julgamentos = [{ id: 'v1', createdAt: new Date().toISOString(), conteudo: 'x', juizo }];
+    U.julgNovoConteudo(true);
+    expect(U.State.julgamentos.length).toBe(1);
+  });
+
+  it('não mexe no rascunho da Seleção — são duas abas', () => {
+    document.getElementById('j-lote').value = 'acervo inteiro colado aqui';
+    document.getElementById('j-lote').dispatchEvent(new Event('input', { bubbles: true }));
+    encher();
+    U.julgNovoConteudo(true);
+    expect(U.State.julgadorDraft.lote).toBe('acervo inteiro colado aqui');
+  });
+
+  it('o rascunho GUARDADO também é limpo, senão volta ao recarregar a página', () => {
+    // Ler `State` aqui não provaria nada: `julgNovoConteudo` mexe nele em
+    // memória, e a tela lê de lá. Quem sobrevive a um F5 é o localStorage — e
+    // era só isso que este teste precisava conferir. A primeira versão
+    // conferia `State` e passava mesmo sem o `saveJulgadorDraft()`.
+    encher();
+    U.julgNovoConteudo(true);
+    const guardado = JSON.parse(localStorage.getItem(U.STORAGE_KEYS.julgadorDraft) || '{}');
+    expect(guardado.conteudo, 'o conteúdo antigo voltaria ao recarregar').toBe('');
+    expect(guardado.titulo).toBe('');
+    U.renderJulgador();
+    expect(vazios()).toBe(true);
+  });
+
+  it('o botão do resultado limpa sem perguntar — aquele conteúdo já está guardado', () => {
+    const juizo = U.julgarConteudo([{ avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 9 }] }], []);
+    encher();
+    U.renderJulgResultado({ id: 'x', juizo, local: {}, banca: [] });
+    globalThis.confirm = () => { throw new Error('não devia perguntar'); };
+    document.getElementById('j-result-novo').click();
+    expect(vazios()).toBe(true);
+  });
+
+  it('o botão sempre visível pergunta antes de descartar texto não julgado', () => {
+    encher();
+    U.State.julgamentos = [];
+    let perguntou = false;
+    globalThis.confirm = () => { perguntou = true; return false; };
+    document.getElementById('j-novo').click();
+    expect(perguntou, 'apagaria trabalho sem avisar').toBe(true);
+    expect(vazios(), 'disse não e limpou assim mesmo').toBe(false);
+  });
+
+  it('renderizar duas vezes não empilha o handler', () => {
+    // O guard "ligar uma vez só" foi removido para que botões novos sejam
+    // ligados numa tela remontada. O preço seria empilhar ouvintes — não é o
+    // caso, porque tudo é ligado por atribuição. Um clique, um efeito.
+    U.renderJulgador();
+    U.renderJulgador();
+    encher();
+    U.State.julgamentos = [];
+    globalThis.confirm = () => true;
+    document.getElementById('toast-stack').innerHTML = '';
+    document.getElementById('j-novo').click();
+    expect(document.getElementById('toast-stack').children.length,
+      'o handler rodou mais de uma vez').toBe(1);
+  });
+
+  it('e não pergunta quando o texto na tela já foi julgado', () => {
+    encher();
+    const juizo = U.julgarConteudo([{ avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 9 }] }], []);
+    U.State.julgamentos = [{ id: 'v1', createdAt: new Date().toISOString(),
+      conteudo: document.getElementById('j-conteudo').value, juizo }];
+    globalThis.confirm = () => { throw new Error('não devia perguntar'); };
+    document.getElementById('j-novo').click();
+    expect(vazios()).toBe(true);
   });
 });
 

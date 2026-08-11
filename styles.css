@@ -2901,3 +2901,141 @@ body.pe-full #view-posters { animation: none; }
 .causo-nota-porque { grid-column: 1 / -1; font-size: 0.8rem; color: var(--ink-soft, var(--muted)); }
 .causo-nota-baixa .causo-nota-valor { color: var(--danger, #b42318); }
 .causo-nota-baixa .causo-nota-dim { color: var(--ink); font-weight: 600; }
+
+/* ---- Julgador: o diagnóstico ----
+   A ordem visual é a tese da ferramenta: veredito, depois O PRINCIPAL, depois
+   a lista, depois os eixos, e a ata por último e recolhida. Uma nota sozinha
+   não serve para nada — o que serve é saber o que muda a nota. */
+.julg-veredito {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.julg-veredito.julg-verde     { border-left-color: var(--green); }
+.julg-veredito.julg-amarelo   { border-left-color: var(--amber); }
+.julg-veredito.julg-vermelho  { border-left-color: var(--accent); }
+.julg-veredito-label { font-family: var(--serif); font-size: 1.05rem; font-weight: 700; letter-spacing: 0.01em; }
+.julg-verde .julg-veredito-label    { color: var(--green); }
+.julg-amarelo .julg-veredito-label  { color: var(--amber); }
+.julg-vermelho .julg-veredito-label { color: var(--accent-ink); }
+.julg-veredito-resumo { font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.15rem; }
+.julg-nota { display: flex; align-items: baseline; gap: 0.15rem; flex-wrap: wrap; }
+.julg-nota-valor { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.julg-nota-de { font-size: 0.85rem; color: var(--ink-mute); }
+.julg-nota-legenda { font-size: 0.7rem; color: var(--ink-mute); width: 100%; text-align: right; }
+
+/* O principal — a informação mais valiosa da tela, e por isso a única
+   destacada com fundo próprio. */
+.julg-principal {
+  margin-top: 0.9rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.julg-principal-titulo {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--accent-ink);
+}
+.julg-principal-dim { font-weight: 600; margin-top: 0.3rem; }
+.julg-principal-problema { font-size: 0.9rem; margin-top: 0.25rem; }
+.julg-principal-acao { font-size: 0.9rem; margin-top: 0.35rem; font-weight: 600; }
+
+.julg-secao { margin-top: 1.1rem; }
+.julg-secao-titulo { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem; }
+
+.julg-acao {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.15rem 0.6rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+.julg-acao-grav {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 0.1rem 0.4rem; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap;
+}
+.julg-grav-critico .julg-acao-grav { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent-soft); }
+.julg-grav-alto .julg-acao-grav    { color: var(--amber); }
+.julg-acao-dim { font-weight: 600; }
+.julg-acao-nota { font-variant-numeric: tabular-nums; color: var(--ink-mute); }
+.julg-acao-texto { grid-column: 1 / -1; color: var(--ink-soft); }
+
+.julg-eixos { display: grid; gap: 0.6rem; }
+.julg-eixo-topo { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; }
+.julg-eixo-label { font-weight: 600; }
+.julg-eixo-nota { font-variant-numeric: tabular-nums; font-weight: 700; }
+.julg-eixo-barra { height: 6px; border-radius: 999px; background: var(--line-soft); overflow: hidden; margin: 0.2rem 0 0.15rem; }
+.julg-eixo-preenche { display: block; height: 100%; border-radius: 999px; }
+.julg-faixa-ok    { background: var(--green); }
+.julg-faixa-medio { background: var(--amber); }
+.julg-faixa-baixo { background: var(--accent); }
+.julg-eixo-pior { font-size: 0.75rem; color: var(--ink-mute); }
+
+.julg-comparacao { border-top: 1px solid var(--line); padding-top: 0.8rem; }
+.julg-comp-cabeca { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 1.05rem; font-weight: 700; }
+.julg-comp-seta { color: var(--ink-mute); }
+.julg-comp-depois.sobe  { color: var(--green); }
+.julg-comp-depois.desce { color: var(--accent-ink); }
+.julg-delta { display: flex; gap: 0.5rem; align-items: baseline; font-size: 0.85rem; padding: 0.2rem 0; }
+.julg-delta-dim { flex: 1; }
+.julg-delta-valor { font-weight: 700; font-variant-numeric: tabular-nums; }
+.julg-delta-valor.sobe  { color: var(--green); }
+.julg-delta-valor.desce { color: var(--accent-ink); }
+.julg-delta-de { color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+
+.julg-embalagem { margin-top: 0.9rem; border: 1px solid var(--line); border-radius: var(--radius); }
+.julg-embalagem > summary {
+  cursor: pointer; padding: 0.6rem 0.85rem; font-size: 0.85rem; font-weight: 600;
+  color: var(--ink-soft); list-style: none;
+}
+.julg-embalagem > summary::-webkit-details-marker { display: none; }
+.julg-embalagem > summary::before { content: "▸ "; }
+.julg-embalagem[open] > summary::before { content: "▾ "; }
+.julg-embalagem-body { padding: 0 0.85rem 0.85rem; }
+
+/* A fila da triagem. */
+.julg-fila-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.15rem 0.6rem;
+  align-items: baseline;
+  padding: 0.6rem 0.7rem;
+  margin-bottom: 0.35rem;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+}
+.julg-fila-item.julg-verde    { border-left-color: var(--green); }
+.julg-fila-item.julg-amarelo  { border-left-color: var(--amber); }
+.julg-fila-item.julg-vermelho { border-left-color: var(--accent); }
+.julg-fila-pos { font-weight: 700; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.julg-fila-nome { font-weight: 600; }
+.julg-fila-veredito { font-size: 0.75rem; color: var(--ink-soft); white-space: nowrap; }
+.julg-fila-porque { grid-column: 2 / -1; font-size: 0.8rem; color: var(--ink-mute); }
+.julg-medida {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.6rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+.julg-medida-dim { font-weight: 600; white-space: nowrap; }
+.julg-medida-texto { color: var(--ink-soft); }
+/* No celular a coluna do rótulo espreme o texto medido numa tira estreita —
+   e é justamente o texto que o autor precisa ler. Ali eles empilham. */
+@media (max-width: 600px) {
+  .julg-medida { grid-template-columns: 1fr; gap: 0.1rem; }
+  .julg-medida-dim { white-space: normal; }
+}

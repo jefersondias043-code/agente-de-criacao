@@ -113,8 +113,16 @@ function _jFrases(texto) {
     .filter((f) => f.length > 1);
 }
 
+/* PALAVRAS, e o travessão não é uma.
+ *
+ * A etapa que organiza a transcrição separa cada fala numa linha começando com
+ * "—". Contando o travessão como palavra, um roteiro de cinquenta falas ganhava
+ * cinquenta palavras fantasmas — vinte segundos de duração que não existem, e o
+ * erro caía justamente sobre "o vídeo leva N segundos até o assunto", que é a
+ * medição mais útil daqui. Fica de fora tudo que é só pontuação. */
 function _jPalavras(texto) {
-  return String(texto || '').trim().split(/\s+/).filter(Boolean);
+  return String(texto || '').trim().split(/\s+/)
+    .filter((p) => p && /[a-zà-ÿ0-9]/i.test(p));
 }
 
 /* Fala corrida em português brasileiro fica perto de 2,6 palavras por segundo.

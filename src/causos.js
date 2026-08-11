@@ -379,7 +379,7 @@ function renderCausos() {
   if (typeof ingestLigarAnexo === 'function') {
     ingestLigarAnexo({
       botao: '#c-attach-btn', input: '#c-attach-input',
-      campo: '#c-ideia', pendente: '#c-attach-pending',
+      campo: '#c-ideia', pendente: '#c-attach-pending', organizar: true,
     });
   }
 

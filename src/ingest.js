@@ -251,17 +251,51 @@ function ingestLigarAnexo(opts) {
   if (!btn || !inp || !campo) return;
   inp.accept = INGEST_ACCEPT;
   btn.onclick = () => inp.click();
+
+  const entregar = (texto) => {
+    const cur = (campo.value || '').trim();
+    const juncao = (o.separador && cur) ? o.separador : '\n\n';
+    campo.value = cur ? (cur + juncao + texto) : texto;
+    campo.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
   inp.onchange = () => {
     const f = inp.files && inp.files[0];
-    if (f) {
-      ingestAnexar(f, (texto) => {
-        const cur = (campo.value || '').trim();
-        const juncao = (o.separador && cur) ? o.separador : '\n\n';
-        campo.value = cur ? (cur + juncao + texto) : texto;
-        campo.dispatchEvent(new Event('input', { bubbles: true }));
-      }, o.pendente);
-    }
+    if (f) ingestAnexar(f, o.organizar ? organizarEEntregar(entregar) : entregar, o.pendente);
     inp.value = '';
+  };
+}
+
+/* ORGANIZAR ANTES DE ENTREGAR.
+ *
+ * O que sai de um áudio é fala corrida: sem pontuação, sem quebra de fala,
+ * número em algarismo, nome próprio em minúscula. Assim atrapalha duas vezes —
+ * a pessoa não relê, e a IA que vai trabalhar em cima gasta atenção decifrando.
+ *
+ * A etapa vive em `transcricao.js`, e ela é MELHORIA, NÃO REQUISITO: sem chave,
+ * sem IA, com erro de rede ou com uma organização que não passou na conferência,
+ * o que entra no campo é o texto cru. Perder o anexo por causa de um enfeite
+ * seria trocar o certo pelo bonito. */
+function organizarEEntregar(entregar) {
+  return async (texto) => {
+    if (typeof runLimpezaTranscricao !== 'function' || !transcricaoVale(texto)) {
+      entregar(texto);
+      return;
+    }
+    const prog = ingestProgressToast();
+    try {
+      const r = await runLimpezaTranscricao({ texto, onProgress: prog.set });
+      prog.done();
+      entregar(r.texto || texto);
+      if (r.limpou && r.descartes.length) {
+        toast(`Texto organizado — ${r.descartes.length} de ${r.partes} trechos ficaram como vieram.`, 'info', 6000);
+      } else if (r.limpou) {
+        toast('Texto organizado: pontuação, falas separadas e números por extenso.', 'success', 5000);
+      }
+    } catch (_) {
+      prog.done();
+      entregar(texto);
+    }
   };
 }
 

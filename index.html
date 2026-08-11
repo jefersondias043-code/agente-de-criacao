@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-11-r218" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-11-r219" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1216,6 +1216,12 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
         <button class="btn btn-accent" id="j-submit" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 7h6z"/><path d="M19 7l3 7h-6z"/></svg>
           Submeter à banca
+        </button>
+        <!-- Também vive aqui, não só no resultado: quem editou o campo já perdeu
+             o diagnóstico da tela, e é justamente aí que precisa recomeçar. -->
+        <button class="btn btn-ghost" id="j-novo" type="button" title="Limpa os campos para avaliar outro conteúdo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Novo
         </button>
         <span class="action-bar-hint">Dez avaliadores independentes e a conferência automática</span>
       </div>

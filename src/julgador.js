@@ -22,7 +22,6 @@
  * dimensão, não a média — a média de 84 esconderia um 4 em naturalidade.
  * ========================================================================== */
 
-let _julgWired = false;
 let _julgResultadoVisivel = false;
 
 function julgadorDraft() {
@@ -243,6 +242,43 @@ function julgLimparResultado() {
     </div>`;
 }
 
+/* JULGAR OUTRO CONTEÚDO — limpa a mesa de trabalho.
+ *
+ * Duas coisas que este botão precisa fazer e que não são óbvias:
+ *
+ *  1. ZERAR `julgadorOrigemId`. Sem isso o próximo julgamento sairia comparado
+ *     com o vídeo ANTERIOR — dois conteúdos sem relação nenhuma lado a lado, com
+ *     um "+5 em impacto" que não quer dizer coisa alguma. É o defeito silencioso
+ *     que este botão introduziria se fosse só um `value = ''`.
+ *  2. NÃO tocar no histórico. O julgamento anterior continua guardado; o que sai
+ *     é a mesa, não o arquivo.
+ *
+ * O rascunho da Seleção (`lote`) também fica: são duas abas, e limpar uma não é
+ * pedido para limpar a outra.
+ *
+ * Só pergunta quando há texto que ainda NÃO está guardado. Quem acabou de julgar
+ * e quer o próximo vídeo não precisa ser interrogado — o conteúdo dele está no
+ * histórico e volta com um toque. */
+function julgNovoConteudo(semPerguntar) {
+  const conteudo = String(($('#j-conteudo') || {}).value || '').trim();
+  const guardado = (State.julgamentos || []).some((x) => String(x.conteudo || '').trim() === conteudo);
+  if (!semPerguntar && conteudo && !guardado
+      && !confirm('Este conteúdo ainda não foi julgado e será apagado. Continuar?')) return false;
+
+  const d = julgadorDraft();
+  State.julgadorDraft = { conteudo: '', titulo: '', capa: '', legenda: '', lote: d.lote || '' };
+  saveJulgadorDraft();
+  State.julgadorOrigemId = null;
+  julgPreencher();
+  julgLimparResultado();
+  ['#j-attach-pending', '#j-lote-attach-pending'].forEach((sel) => {
+    const p = $(sel); if (p) p.innerHTML = '';
+  });
+  const campo = $('#j-conteudo');
+  if (campo) { try { campo.focus(); } catch (_) { /* */ } }
+  return true;
+}
+
 function renderJulgResultado(item) {
   const area = $('#j-result-area');
   if (!area) return;
@@ -257,6 +293,13 @@ function renderJulgResultado(item) {
     ${julgBlocoEixos(juizo)}
     ${julgBlocoAta(item)}
     <div class="flex gap-1 flex-wrap mt-2">
+      <!-- Os dois primeiros botões são as duas continuações possíveis, e o
+           contraste entre eles é o que evita confundi-las: "mexi NESTE vídeo,
+           compare" e "acabei com este, vamos ao próximo". -->
+      <button class="btn btn-accent btn-sm" id="j-result-novo" title="Limpa os campos para avaliar outro conteúdo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Julgar outro conteúdo
+      </button>
       <button class="btn btn-ghost btn-sm" id="j-result-reavaliar" title="Depois de mexer no conteúdo, submeta de novo e veja o que mudou">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
         Reavaliar depois de mudar
@@ -268,6 +311,14 @@ function renderJulgResultado(item) {
     </div>
     <div class="text-xs text-mute mt-2">Potencial não é garantia. A banca julga o que dá para julgar no conteúdo; o que acontece depois de publicar depende de sinais que só existem depois de publicar.</div>`;
 
+  const novo = $('#j-result-novo');
+  if (novo) novo.onclick = () => {
+    // O conteúdo desta versão já está no histórico — não há o que confirmar.
+    if (julgNovoConteudo(true)) {
+      toast('Mesa limpa. Cole ou anexe o próximo conteúdo.', 'success');
+      try { $('#j-conteudo').scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) { /* */ }
+    }
+  };
   const rea = $('#j-result-reavaliar');
   if (rea) rea.onclick = () => {
     // A reavaliação parte do conteúdo que ESTÁ na tela: o autor mexe e reenvia.
@@ -470,133 +521,139 @@ function renderJulgador() {
     const p = $(sel); if (p) p.innerHTML = '';
   });
 
-  if (!_julgWired) {
-    _julgWired = true;
-    wireMtabs('#view-julgador');
-
-    // Rascunho — cada campo guarda sozinho.
-    [['#j-conteudo', 'conteudo'], ['#j-titulo', 'titulo'], ['#j-capa', 'capa'],
-      ['#j-legenda', 'legenda'], ['#j-lote', 'lote']].forEach(([sel, chave]) => {
-      const el = $(sel);
-      if (!el) return;
-      el.addEventListener('input', () => {
-        julgadorDraft()[chave] = el.value;
-        saveJulgadorDraft();
-        // Mexeu no conteúdo? O diagnóstico na tela é da versão anterior. Ele
-        // sai, mas continua guardado no histórico — e vira base de comparação.
-        if (chave === 'conteudo' && _julgResultadoVisivel) julgLimparResultado();
-      });
-    });
-
-    if ($('#j-history-open')) $('#j-history-open').onclick = abrirJulgHistorico;
-    if ($('#j-history-close')) $('#j-history-close').onclick = fecharJulgHistorico;
-    if ($('#j-history-backdrop')) $('#j-history-backdrop').onclick = fecharJulgHistorico;
-    if ($('#j-history-clear')) $('#j-history-clear').onclick = () => {
-      if (!(State.julgamentos || []).length) return;
-      if (!confirm('Apagar todos os julgamentos guardados?')) return;
-      State.julgamentos = [];
-      saveJulgamentos();
-      renderJulgHistorico();
-      toast('Histórico limpo.', 'success');
-    };
-
-    /* ---- Submeter um conteúdo à banca ---- */
-    if ($('#j-submit')) $('#j-submit').onclick = async () => {
-      const conteudo = String(($('#j-conteudo') || {}).value || '').trim();
-      if (conteudo.length < 40) {
-        toast('Cole o roteiro ou a transcrição — a banca precisa do conteúdo inteiro para julgar.', 'info', 5000);
-        return;
-      }
-      { const a = $('#j-api-warning'); if (a) a.classList.add('hidden'); }
-      if (!julgTemChave()) { julgAvisarSemChave(); return; }
-
-      const btn = $('#j-submit');
-      const original = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> A banca lê…';
-      $('#j-result-area').innerHTML = julgTelaDeEspera(`
-        <span class="pipeline-step" data-step="conferencia">Medição</span>
-        <span class="pipeline-step" data-step="banca">Banca</span>
-        <span class="pipeline-step" data-step="juiz">Veredito</span>`);
-
-      try {
-        const embalagem = julgEmbalagemAtual();
-        const res = await runJulgamentoPipeline({
-          conteudo, embalagem, call: callLLM, onEtapa: julgEtapaVisual('#j-result-area'),
-        });
-        // A comparação só existe quando o autor pediu para reavaliar: comparar
-        // com um vídeo qualquer do histórico não diria nada.
-        const origem = State.julgadorOrigemId
-          ? (State.julgamentos || []).find((x) => x.id === State.julgadorOrigemId) : null;
-        const item = {
-          id: uuid(),
-          createdAt: new Date().toISOString(),
-          nome: embalagem.titulo || conteudo.slice(0, 60).replace(/\s+/g, ' '),
-          conteudo, embalagem,
-          juizo: res.juizo,
-          avaliacoes: res.avaliacoes,
-          banca: res.banca,
-          local: res.local,
-          origemId: origem ? origem.id : null,
-          comparacao: origem ? compararJulgamentos(origem.juizo, res.juizo) : null,
-          model: res.model,
-        };
-        State.julgadorOrigemId = null;
-        State.julgamentos = State.julgamentos || [];
-        State.julgamentos.unshift(item);
-        saveJulgamentos();
-        renderJulgResultado(item);
-        renderJulgHistorico();
-        toast((res.juizo.vereditoInfo || {}).label || 'Pronto.', res.juizo.veredito === 'sim' ? 'success' : 'info');
-      } catch (err) {
-        toast(err.message || 'Não foi possível avaliar.', 'error', 6000);
-        $('#j-result-area').innerHTML = `
-          <div class="empty"><div class="empty-title">Erro</div>
-          <div class="empty-desc">${escapeHtml(err.message || 'Tente novamente.')}</div></div>`;
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = original;
-      }
-    };
-
-    /* ---- Modo Seleção ---- */
-    if ($('#j-lote-submit')) $('#j-lote-submit').onclick = async () => {
-      const itens = julgSepararLote(($('#j-lote') || {}).value);
-      if (itens.length < 2) {
-        toast('Cole pelo menos dois conteúdos, separados por uma linha com ---', 'info', 6000);
-        return;
-      }
-      { const a = $('#j-api-warning'); if (a) a.classList.add('hidden'); }
-      if (!julgTemChave()) { julgAvisarSemChave(); return; }
-
-      const btn = $('#j-lote-submit');
-      const original = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = `<span class="spinner"></span> Triando ${itens.length}…`;
-      $('#j-lote-result').innerHTML = julgTelaDeEspera('<span class="pipeline-step active" data-step="triagem">Triagem</span>');
-      try {
-        const res = await runTriagemPipeline({ itens, call: callLLM, onEtapa: julgEtapaVisual('#j-lote-result') });
-        renderJulgTriagem(res);
-        const prontos = res.fila.filter((x) => x.ok && x.juizo.veredito === 'sim').length;
-        toast(`Triagem pronta — ${prontos} de ${itens.length} sem falha crítica.`, 'success', 6000);
-      } catch (err) {
-        toast(err.message || 'Não foi possível triar.', 'error', 6000);
-        $('#j-lote-result').innerHTML = `
-          <div class="empty"><div class="empty-title">Erro</div>
-          <div class="empty-desc">${escapeHtml(err.message || 'Tente novamente.')}</div></div>`;
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = original;
-      }
-    };
-  }
-
-  /* Anexo — refiado a cada render, DE PROPÓSITO.
+  /* A TELA INTEIRA É RELIGADA A CADA RENDER, sem guard de "uma vez só".
    *
-   * O resto da tela é ligado uma vez só (`_julgWired`), o que prende os
-   * handlers aos elementos existentes no primeiro render. Aqui não: toda a
-   * ligação usa `onclick`/`onchange` por atribuição, que é idempotente —
-   * refiar substitui, não acumula. Custa nada e sobrevive a uma tela remontada.
+   * O guard existia para não empilhar `addEventListener`. Trocando os dois
+   * ouvintes de rascunho por `oninput =`, toda a ligação desta tela passa a ser
+   * por ATRIBUIÇÃO — religar substitui em vez de acumular, e nada empilha.
+   *
+   * O que se ganha: os handlers deixam de ficar presos aos elementos do primeiro
+   * render. Com o guard, um botão acrescentado depois (foi o caso do "Julgar
+   * outro conteúdo") só era ligado se por acaso já existisse na primeira vez —
+   * e numa tela remontada nenhum deles funcionava. */
+  wireMtabs('#view-julgador');
+
+  // Rascunho — cada campo guarda sozinho.
+  [['#j-conteudo', 'conteudo'], ['#j-titulo', 'titulo'], ['#j-capa', 'capa'],
+    ['#j-legenda', 'legenda'], ['#j-lote', 'lote']].forEach(([sel, chave]) => {
+    const el = $(sel);
+    if (!el) return;
+    el.oninput = () => {
+      julgadorDraft()[chave] = el.value;
+      saveJulgadorDraft();
+      // Mexeu no conteúdo? O diagnóstico na tela é da versão anterior. Ele
+      // sai, mas continua guardado no histórico — e vira base de comparação.
+      if (chave === 'conteudo' && _julgResultadoVisivel) julgLimparResultado();
+    };
+  });
+
+  if ($('#j-novo')) $('#j-novo').onclick = () => {
+    if (julgNovoConteudo()) toast('Mesa limpa. Cole ou anexe o próximo conteúdo.', 'success');
+  };
+
+  if ($('#j-history-open')) $('#j-history-open').onclick = abrirJulgHistorico;
+  if ($('#j-history-close')) $('#j-history-close').onclick = fecharJulgHistorico;
+  if ($('#j-history-backdrop')) $('#j-history-backdrop').onclick = fecharJulgHistorico;
+  if ($('#j-history-clear')) $('#j-history-clear').onclick = () => {
+    if (!(State.julgamentos || []).length) return;
+    if (!confirm('Apagar todos os julgamentos guardados?')) return;
+    State.julgamentos = [];
+    saveJulgamentos();
+    renderJulgHistorico();
+    toast('Histórico limpo.', 'success');
+  };
+
+  /* ---- Submeter um conteúdo à banca ---- */
+  if ($('#j-submit')) $('#j-submit').onclick = async () => {
+    const conteudo = String(($('#j-conteudo') || {}).value || '').trim();
+    if (conteudo.length < 40) {
+      toast('Cole o roteiro ou a transcrição — a banca precisa do conteúdo inteiro para julgar.', 'info', 5000);
+      return;
+    }
+    { const a = $('#j-api-warning'); if (a) a.classList.add('hidden'); }
+    if (!julgTemChave()) { julgAvisarSemChave(); return; }
+
+    const btn = $('#j-submit');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> A banca lê…';
+    $('#j-result-area').innerHTML = julgTelaDeEspera(`
+      <span class="pipeline-step" data-step="conferencia">Medição</span>
+      <span class="pipeline-step" data-step="banca">Banca</span>
+      <span class="pipeline-step" data-step="juiz">Veredito</span>`);
+
+    try {
+      const embalagem = julgEmbalagemAtual();
+      const res = await runJulgamentoPipeline({
+        conteudo, embalagem, call: callLLM, onEtapa: julgEtapaVisual('#j-result-area'),
+      });
+      // A comparação só existe quando o autor pediu para reavaliar: comparar
+      // com um vídeo qualquer do histórico não diria nada.
+      const origem = State.julgadorOrigemId
+        ? (State.julgamentos || []).find((x) => x.id === State.julgadorOrigemId) : null;
+      const item = {
+        id: uuid(),
+        createdAt: new Date().toISOString(),
+        nome: embalagem.titulo || conteudo.slice(0, 60).replace(/\s+/g, ' '),
+        conteudo, embalagem,
+        juizo: res.juizo,
+        avaliacoes: res.avaliacoes,
+        banca: res.banca,
+        local: res.local,
+        origemId: origem ? origem.id : null,
+        comparacao: origem ? compararJulgamentos(origem.juizo, res.juizo) : null,
+        model: res.model,
+      };
+      State.julgadorOrigemId = null;
+      State.julgamentos = State.julgamentos || [];
+      State.julgamentos.unshift(item);
+      saveJulgamentos();
+      renderJulgResultado(item);
+      renderJulgHistorico();
+      toast((res.juizo.vereditoInfo || {}).label || 'Pronto.', res.juizo.veredito === 'sim' ? 'success' : 'info');
+    } catch (err) {
+      toast(err.message || 'Não foi possível avaliar.', 'error', 6000);
+      $('#j-result-area').innerHTML = `
+        <div class="empty"><div class="empty-title">Erro</div>
+        <div class="empty-desc">${escapeHtml(err.message || 'Tente novamente.')}</div></div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  };
+
+  /* ---- Modo Seleção ---- */
+  if ($('#j-lote-submit')) $('#j-lote-submit').onclick = async () => {
+    const itens = julgSepararLote(($('#j-lote') || {}).value);
+    if (itens.length < 2) {
+      toast('Cole pelo menos dois conteúdos, separados por uma linha com ---', 'info', 6000);
+      return;
+    }
+    { const a = $('#j-api-warning'); if (a) a.classList.add('hidden'); }
+    if (!julgTemChave()) { julgAvisarSemChave(); return; }
+
+    const btn = $('#j-lote-submit');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span> Triando ${itens.length}…`;
+    $('#j-lote-result').innerHTML = julgTelaDeEspera('<span class="pipeline-step active" data-step="triagem">Triagem</span>');
+    try {
+      const res = await runTriagemPipeline({ itens, call: callLLM, onEtapa: julgEtapaVisual('#j-lote-result') });
+      renderJulgTriagem(res);
+      const prontos = res.fila.filter((x) => x.ok && x.juizo.veredito === 'sim').length;
+      toast(`Triagem pronta — ${prontos} de ${itens.length} sem falha crítica.`, 'success', 6000);
+    } catch (err) {
+      toast(err.message || 'Não foi possível triar.', 'error', 6000);
+      $('#j-lote-result').innerHTML = `
+        <div class="empty"><div class="empty-title">Erro</div>
+        <div class="empty-desc">${escapeHtml(err.message || 'Tente novamente.')}</div></div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  };
+
+  /* Anexo.
    *
    * O `pendente` não é detalhe: vídeo e áudio acima do limite passam pelo
    * compressor de Web Audio, que no celular só funciona a partir de um gesto do

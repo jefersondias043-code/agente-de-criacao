@@ -133,6 +133,40 @@ const REGRAS_PALAVRAS_CHAVE = `==== REGRAS DAS ~10 PALAVRAS-CHAVE ====
  * fonte de hashtag. Agora as regras descrevem o CAMINHO até a tag (o que olhar
  * no conteúdo) em vez de oferecer as tags, e cobram uma prova de especificidade
  * antes de devolver. */
+/* O PACOTE VENDE O VÍDEO — NÃO O SUBSTITUI.
+ *
+ * Relatado: título e legenda entregavam tanta coisa que quem lia já sabia o que
+ * tinha acontecido, e perdia a razão de assistir. O pacote virava resumo.
+ *
+ * A regra anterior não estava ausente — estava diluída. "Sem entregar o
+ * desfecho" era um item entre oito no título, e a legenda só dizia "não é
+ * resumo". Ao mesmo tempo, tudo o mais empurrava para informar: "impacto",
+ * "clareza", "coerência com o conteúdo". Diante de um pedido vago de não
+ * contar e vários pedidos claros de informar, o modelo informa.
+ *
+ * Por isso a distinção agora vem antes das regras dos dois campos, com nome
+ * próprio e um teste que o modelo consegue aplicar sozinho. */
+const REGRAS_SEM_SPOILER = `==== O QUE O PACOTE PODE CONTAR — LEIA ANTES DE ESCREVER TÍTULO E LEGENDA ====
+O título e a legenda existem para fazer a pessoa QUERER assistir. Não para contar o que ela veria assistindo.
+
+A linha é entre SITUAÇÃO e DESFECHO:
+- SITUAÇÃO é o que está em jogo: quem, onde, o que estava acontecendo, o que se esperava, o problema instalado. Isso PODE e DEVE aparecer — sem contexto ninguém se interessa.
+- DESFECHO é a resposta: como terminou, o que se descobriu, quem era, quanto foi, se deu certo, qual era o segredo, o número final, a reviravolta. Isso NÃO aparece. É o que a pessoa vai ao vídeo buscar.
+
+O TESTE, e ele é simples: depois de ler o título e a legenda, ainda sobra uma pergunta cuja resposta só está no vídeo?
+- Se sobra ("e aí, o que aconteceu?", "como terminou?", "quanto era?", "quem fez isso?") — está certo.
+- Se não sobra, você escreveu um resumo. Reescreva tirando a resposta e deixando a pergunta.
+
+CUIDADO COM O FIM DO ROTEIRO. O desfecho mora nos últimos trechos do conteúdo. Uma informação que só aparece lá é justamente a que não pode vir para o pacote — nem no título, nem na legenda, nem como "gancho".
+
+Isto NÃO é permissão para ser vago. Título genérico ("olha o que aconteceu") não desperta curiosidade nenhuma: desperta desconfiança. A curiosidade vem de um detalhe CONCRETO da situação — o objeto, o lugar, a quantia, a profissão, a frase que alguém disse — combinado com uma resposta retida. Concreto no começo, calado no fim.
+
+Exemplo do raciocínio (o conteúdo é outro; o que se aproveita é a lógica):
+Vídeo: um homem compra um relógio do vizinho por vinte reais e revende por duzentos na mesma tarde.
+✗ resumo — conta o fim: "Comprou o relógio por 20 e revendeu por 200 no mesmo dia"
+✓ pacote — retém a resposta: "O vizinho vendeu o relógio por vinte reais. O que ele não sabia é o que ia acontecer meia hora depois"
+A diferença: os dois dão a situação; só o primeiro entrega o resultado.`;
+
 const REGRAS_HASHTAGS = `==== REGRAS DAS 5 HASHTAGS ====
 As hashtags são DERIVADAS DESTE CONTEÚDO. Não existe lista pronta, nem conjunto padrão por categoria.
 

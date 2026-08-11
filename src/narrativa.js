@@ -1099,10 +1099,7 @@ function renderNarrResultado(item) {
 
   if (typeof wireSendTo === 'function') wireSendTo(area, () => item.conteudo);
 
-  $('#n-result-copy').onclick = () => {
-    navigator.clipboard.writeText(item.conteudo);
-    toast('Conteúdo copiado.', 'success');
-  };
+  $('#n-result-copy').onclick = () => copyTextComAviso(item.conteudo, 'Conteúdo copiado.');
   $('#n-result-edit').onclick = () => {
     const atual = $('#n-result-content');
     const ta = document.createElement('textarea');

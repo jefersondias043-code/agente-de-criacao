@@ -178,7 +178,7 @@ function renderCausoResultado(item) {
     }
   };
   const copy = $('#c-result-copy');
-  if (copy) copy.onclick = () => copyText(item.conteudo).then(() => toast('Copiado.', 'success'));
+  if (copy) copy.onclick = () => copyTextComAviso(item.conteudo, 'Causo copiado.');
   const del = $('#c-result-del');
   if (del) del.onclick = () => {
     if (!confirm('Excluir este causo?')) return;

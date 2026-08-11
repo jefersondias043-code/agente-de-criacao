@@ -555,6 +555,52 @@ function formatDate(iso) {
     hour: '2-digit', minute: '2-digit',
   });
 }
+/* COPIAR TEXTO — uma implementação, com plano B.
+ *
+ * Duas ferramentas chamavam um `copyText` que NUNCA EXISTIU. O clique morria
+ * num ReferenceError, sem copiar e sem avisar: para quem usava, o botão
+ * simplesmente não fazia nada. As outras duas chamavam
+ * `navigator.clipboard.writeText` direto, sem esperar e sem tratar erro — e
+ * anunciavam "copiado" na linha seguinte, tivesse dado certo ou não.
+ *
+ * O plano B não é zelo excessivo: esta plataforma roda por `file://`, e ali
+ * `navigator.clipboard` costuma não existir. O caminho antigo (uma textarea
+ * escondida + `execCommand`) é feio e funciona onde o novo não funciona.
+ *
+ * Devolve `true` só quando copiou de verdade — quem chama precisa poder dizer
+ * a verdade ao usuário. */
+async function copyText(texto) {
+  const s = String(texto == null ? '' : texto);
+  if (!s) return false;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try { await navigator.clipboard.writeText(s); return true; } catch (_) { /* plano B */ }
+  }
+
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = s;
+    // Fora da vista, mas SELECIONÁVEL: `display:none` e `hidden` não copiam.
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, s.length);   // iOS ignora `select()` sozinho
+    const deu = document.execCommand('copy');
+    ta.remove();
+    return !!deu;
+  } catch (_) { return false; }
+}
+
+/** O par que sempre anda junto: copia e diz o que aconteceu. */
+function copyTextComAviso(texto, msgOk) {
+  return copyText(texto).then((deu) => {
+    toast(deu ? (msgOk || 'Copiado.') : 'Não foi possível copiar aqui — selecione o texto e copie à mão.',
+      deu ? 'success' : 'error', deu ? 3500 : 6000);
+    return deu;
+  });
+}
+
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'

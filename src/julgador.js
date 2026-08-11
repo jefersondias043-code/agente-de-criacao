@@ -337,7 +337,7 @@ function renderJulgResultado(item) {
     toast('Mexa no conteúdo acima e submeta de novo — a banca vai comparar com esta versão.', 'info', 6000);
   };
   const copy = $('#j-result-copy');
-  if (copy) copy.onclick = () => copyText(julgDiagnosticoEmTexto(item)).then(() => toast('Copiado.', 'success'));
+  if (copy) copy.onclick = () => copyTextComAviso(julgDiagnosticoEmTexto(item), 'Diagnóstico copiado.');
   const del = $('#j-result-del');
   if (del) del.onclick = () => {
     if (!confirm('Excluir este julgamento?')) return;

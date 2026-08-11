@@ -173,6 +173,98 @@ async function ingestFileNative(file, deliver) {
   }
 }
 
+/* ---------------------------------------------------------------------------
+ * ANEXAR COM GESTO — a diferença entre transcrever e falhar no celular.
+ *
+ * Comprimir mídia grande usa Web Audio. No iOS (e às vezes no Chrome Android) o
+ * AudioContext só sai de "suspended" a partir de um gesto do usuário, e o evento
+ * `change` de um <input type=file> não conta como gesto para esse fim. Sem o
+ * gesto, `decodeAudioData` simplesmente nunca resolve: o usuário vê "Lendo o
+ * áudio…" por 45 segundos e recebe o erro de formato incompatível — que é uma
+ * mensagem enganosa, porque o formato estava certo o tempo todo.
+ *
+ * Daí o cartão com o botão "Transcrever": o TOQUE nele é o gesto que destrava o
+ * áudio. Arquivo pequeno, PDF, imagem e texto não passam por Web Audio e
+ * continuam convertendo direto, sem clique a mais.
+ *
+ * Isto vivia duplicado na Gerar e na Narrativa, e as duas ferramentas escritas
+ * depois (Causos e Julgador) foram copiadas da fiação que NÃO tinha o cartão —
+ * e herdaram a falha. Uma implementação só é o que impede a próxima cópia de
+ * herdar de novo.
+ * ------------------------------------------------------------------------- */
+
+/** Precisa de gesto? Só mídia acima do limite seguro passa pelo compressor. */
+function ingestEhMidiaGrande(f) {
+  if (!f || ingestKind(f) !== 'media') return false;
+  const safe = (typeof WHISPER_SAFE_BYTES === 'number') ? WHISPER_SAFE_BYTES : 23 * 1024 * 1024;
+  return f.size > safe;
+}
+
+/**
+ * Roteia um arquivo anexado: mídia grande → cartão com botão (gesto); o resto
+ * → conversão automática.
+ *
+ * @param {File} file
+ * @param {(texto: string) => void} entregar  o que fazer com o texto extraído
+ * @param {string} pendingSel  seletor do container do cartão; sem ele (ou sem o
+ *        elemento na tela) a conversão é direta — degradar assim é melhor do
+ *        que não anexar nada, e no desktop funciona igual.
+ */
+function ingestAnexar(file, entregar, pendingSel) {
+  if (!file) return;
+  const pending = pendingSel ? document.querySelector(pendingSel) : null;
+  const converter = () => ingestFileNative(file, entregar);
+
+  if (!ingestEhMidiaGrande(file) || !pending) { converter(); return; }
+
+  pending.innerHTML = `
+    <div class="attach-card">
+      <div class="attach-card-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+        <div style="min-width:0;">
+          <div class="attach-card-name">${escapeHtml(file.name)}</div>
+          <div class="attach-card-meta">${formatBytes(file.size)} · vídeo/áudio grande — será comprimido e transcrito</div>
+        </div>
+      </div>
+      <div class="flex gap-1">
+        <button type="button" class="btn btn-accent btn-sm" data-attach-go>Transcrever</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-attach-cancel title="Remover">✕</button>
+      </div>
+    </div>`;
+  const go = pending.querySelector('[data-attach-go]');
+  const cancel = pending.querySelector('[data-attach-cancel]');
+  if (go) go.onclick = () => { pending.innerHTML = ''; converter(); };
+  if (cancel) cancel.onclick = () => { pending.innerHTML = ''; };
+}
+
+/**
+ * Liga um par botão+input de anexo a um campo de texto. Devolve o texto
+ * extraído acrescentado ao que já estava lá.
+ *
+ * @param {object} opts  { botao, input, campo, pendente, separador }
+ */
+function ingestLigarAnexo(opts) {
+  const o = opts || {};
+  const btn = document.querySelector(o.botao);
+  const inp = document.querySelector(o.input);
+  const campo = document.querySelector(o.campo);
+  if (!btn || !inp || !campo) return;
+  inp.accept = INGEST_ACCEPT;
+  btn.onclick = () => inp.click();
+  inp.onchange = () => {
+    const f = inp.files && inp.files[0];
+    if (f) {
+      ingestAnexar(f, (texto) => {
+        const cur = (campo.value || '').trim();
+        const juncao = (o.separador && cur) ? o.separador : '\n\n';
+        campo.value = cur ? (cur + juncao + texto) : texto;
+        campo.dispatchEvent(new Event('input', { bubbles: true }));
+      }, o.pendente);
+    }
+    inp.value = '';
+  };
+}
+
 // Serviço de ingestão para as ferramentas EMBUTIDAS: recebe um File por
 // postMessage, converte no app pai e devolve o texto (com progresso).
 // SEGURANÇA: só processa arquivos enviados pelos iframes das nossas ferramentas.

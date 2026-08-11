@@ -27,9 +27,10 @@ const doc = new JSDOM(`<body><section>${vista.slice(vista.indexOf('>') + 1)}</se
 let N;
 beforeAll(() => {
   clearStorage();
-  N = loadModules(['catalogs.js', 'core.js', 'poster-templates.js', 'narrativa.js', 'narrativa-motor.js'],
+  N = loadModules(['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js',
+    'media-transcode.js', 'ingest.js', 'narrativa.js', 'narrativa-motor.js'],
     ['diagnosticarNarrativa', 'NARR_PERGUNTAS', 'buildExtracaoNarrativaPrompt', 'buildRoteiroPrompt',
-      'narrFormato', 'narrTom']);
+      'narrFormato', 'narrTom', 'handleNarrAttach']);
 });
 
 /** Um controle está "à vista" quando não está escondido nem é o seletor de
@@ -99,18 +100,38 @@ describe('o campo tem anexo, como nas outras ferramentas', () => {
     expect(js).toMatch(/nAttachInput\.accept = INGEST_ACCEPT/);
   });
 
-  it('usa o mesmo pipeline de ingestão (PDF, OCR, áudio, vídeo)', () => {
-    expect(js).toMatch(/ingestFileNative\(f, entregar\)/);
-  });
-
-  it('mídia grande espera um toque — é o gesto que destrava o áudio no iPhone', () => {
-    expect(js).toMatch(/_genEhMidiaGrande/);
-    expect(js).toMatch(/data-attach-go/);
+  it('tem a área do cartão pendente na tela', () => {
     expect(doc.getElementById('n-attach-pending'), 'sem área do cartão pendente').toBeTruthy();
   });
 
-  it('o texto extraído entra na ideia, sem apagar o que já estava', () => {
-    expect(js).toMatch(/cur \? \(cur \+ '\\n\\n' \+ text\) : text/);
+  /* Estes dois exercitam o COMPORTAMENTO em jsdom. A versão anterior conferia o
+   * texto-fonte de narrativa.js (`/ingestFileNative\(f, entregar\)/`,
+   * `/_genEhMidiaGrande/`) e quebrou quando as quatro cópias do cartão viraram
+   * uma só — sem que nada tivesse deixado de funcionar. Teste que casa com a
+   * forma do código cobra refatoração e não protege usuário nenhum. */
+  it('mídia grande espera um toque — é o gesto que destrava o áudio no iPhone', () => {
+    document.body.innerHTML = '<div id="n-attach-pending"></div><textarea id="ta"></textarea><div id="toast-stack"></div>';
+    const f = new Blob(['x'], { type: 'video/mp4' });
+    Object.defineProperty(f, 'size', { value: 40 * 1024 * 1024 });
+    Object.defineProperty(f, 'name', { value: 'entrevista.mp4' });
+    N.handleNarrAttach(f, document.getElementById('ta'));
+    expect(document.getElementById('toast-stack').children.length,
+      'converteu sem gesto — é a falha do celular').toBe(0);
+    expect(document.querySelector('#n-attach-pending [data-attach-go]'),
+      'sem botão não há gesto possível').toBeTruthy();
+    expect(document.getElementById('n-attach-pending').textContent).toMatch(/entrevista\.mp4/);
+  });
+
+  it('o texto extraído entra na ideia, sem apagar o que já estava', async () => {
+    // Um .txt de verdade atravessa o pipeline inteiro, sem dublê no caminho.
+    document.body.innerHTML = '<div id="n-attach-pending"></div><textarea id="ta"></textarea><div id="toast-stack"></div>';
+    const ta = document.getElementById('ta');
+    ta.value = 'a ideia que eu já tinha';
+    const f = new Blob(['o que veio do arquivo'], { type: 'text/plain' });
+    Object.defineProperty(f, 'name', { value: 'nota.txt' });
+    N.handleNarrAttach(f, ta);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(ta.value).toBe('a ideia que eu já tinha\n\no que veio do arquivo');
   });
 });
 

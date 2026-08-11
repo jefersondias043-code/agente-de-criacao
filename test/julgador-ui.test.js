@@ -17,7 +17,8 @@ let U;
 beforeAll(() => {
   clearStorage();
   U = loadModules(
-    ['catalogs.js', 'core.js', 'poster-templates.js', 'agents.js', 'julgador-motor.js', 'julgador.js'],
+    ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js',
+      'media-transcode.js', 'ingest.js', 'julgador-motor.js', 'julgador.js'],
     ['State', 'renderJulgador', 'julgTemChave', 'julgAvisarSemChave', 'julgLimparResultado',
       'renderJulgResultado', 'julgSepararLote', 'julgDiagnosticoEmTexto', 'julgarConteudo',
       'conferirJulgamentoLocal', 'renderJulgTriagem']);
@@ -35,10 +36,12 @@ const montarTela = () => {
       <textarea id="j-conteudo"></textarea>
       <input id="j-titulo" /><input id="j-capa" /><textarea id="j-legenda"></textarea>
       <input type="file" id="j-attach-input" /><button id="j-attach-btn"></button>
+      <div id="j-attach-pending"></div>
       <div id="j-result-area"></div>
       <button id="j-submit"></button>
       <textarea id="j-lote"></textarea>
       <input type="file" id="j-lote-attach-input" /><button id="j-lote-attach-btn"></button>
+      <div id="j-lote-attach-pending"></div>
       <div id="j-lote-result"></div>
       <button id="j-lote-submit"></button>
       <div id="j-history-backdrop"></div>
@@ -196,6 +199,44 @@ Comenta aqui embaixo se já aconteceu com você.`;
     U.renderJulgResultado(item);
     document.getElementById('j-result-reavaliar').click();
     expect(U.State.julgadorOrigemId).toBe(item.id);
+  });
+});
+
+describe('anexar vídeo', () => {
+  /* O defeito relatado: a tela convertia mídia grande direto no `change` do
+   * seletor de arquivo. No celular isso não é um gesto do usuário, o Web Audio
+   * fica suspenso, a decodificação nunca resolve e depois de 45 segundos o
+   * usuário recebe "formato incompatível" — com o formato certo.
+   *
+   * O helper compartilhado resolve o COMO. Este teste trava o QUEM: que esta
+   * tela passe o container do cartão. Era exatamente isso que faltava. */
+  const videoGrande = () => {
+    const f = new Blob(['x'], { type: 'video/mp4' });
+    Object.defineProperty(f, 'size', { value: 40 * 1024 * 1024 });
+    Object.defineProperty(f, 'name', { value: 'entrevista.mp4' });
+    return f;
+  };
+  const anexar = (inputId) => {
+    const inp = document.getElementById(inputId);
+    Object.defineProperty(inp, 'files', { value: [videoGrande()], configurable: true });
+    inp.onchange();
+  };
+  const conversoes = () => document.getElementById('toast-stack').children.length;
+
+  beforeEach(() => { U.State.apiKeys = { groq: 'gsk_teste' }; U.renderJulgador(); });
+
+  it('vídeo grande espera o toque em vez de converter sozinho', () => {
+    anexar('j-attach-input');
+    expect(conversoes(), 'converteu sem gesto — é a falha do celular').toBe(0);
+    expect(document.querySelector('#j-attach-pending [data-attach-go]'),
+      'a tela não passou o container do cartão').toBeTruthy();
+    expect(document.getElementById('j-attach-pending').textContent).toMatch(/entrevista\.mp4/);
+  });
+
+  it('o modo Seleção também espera o toque', () => {
+    anexar('j-lote-attach-input');
+    expect(conversoes()).toBe(0);
+    expect(document.querySelector('#j-lote-attach-pending [data-attach-go]')).toBeTruthy();
   });
 });
 

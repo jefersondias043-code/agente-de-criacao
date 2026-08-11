@@ -466,6 +466,9 @@ function julgTelaDeEspera(passos) {
 function renderJulgador() {
   julgPreencher();
   { const a = $('#j-api-warning'); if (a) a.classList.add('hidden'); }
+  ['#j-attach-pending', '#j-lote-attach-pending'].forEach((sel) => {
+    const p = $(sel); if (p) p.innerHTML = '';
+  });
 
   if (!_julgWired) {
     _julgWired = true;
@@ -484,29 +487,6 @@ function renderJulgador() {
         if (chave === 'conteudo' && _julgResultadoVisivel) julgLimparResultado();
       });
     });
-
-    // Anexo — o mesmo pipeline das outras ferramentas. Vídeo e áudio entram
-    // transcritos, que é a forma em que a banca consegue lê-los.
-    const ligarAnexo = (btnSel, inputSel, campoSel, comSeparador) => {
-      const inp = $(inputSel), btn = $(btnSel), campo = $(campoSel);
-      if (!inp || !btn || !campo) return;
-      if (typeof INGEST_ACCEPT !== 'undefined') inp.accept = INGEST_ACCEPT;
-      btn.onclick = () => inp.click();
-      inp.onchange = () => {
-        const f = inp.files && inp.files[0];
-        if (f && typeof ingestFileNative === 'function') {
-          ingestFileNative(f, (texto) => {
-            const cur = (campo.value || '').trim();
-            const juncao = comSeparador && cur ? '\n\n---\n\n' : '\n\n';
-            campo.value = cur ? (cur + juncao + texto) : texto;
-            campo.dispatchEvent(new Event('input', { bubbles: true }));
-          });
-        }
-        inp.value = '';
-      };
-    };
-    ligarAnexo('#j-attach-btn', '#j-attach-input', '#j-conteudo', false);
-    ligarAnexo('#j-lote-attach-btn', '#j-lote-attach-input', '#j-lote', true);
 
     if ($('#j-history-open')) $('#j-history-open').onclick = abrirJulgHistorico;
     if ($('#j-history-close')) $('#j-history-close').onclick = fecharJulgHistorico;
@@ -609,6 +589,30 @@ function renderJulgador() {
         btn.innerHTML = original;
       }
     };
+  }
+
+  /* Anexo — refiado a cada render, DE PROPÓSITO.
+   *
+   * O resto da tela é ligado uma vez só (`_julgWired`), o que prende os
+   * handlers aos elementos existentes no primeiro render. Aqui não: toda a
+   * ligação usa `onclick`/`onchange` por atribuição, que é idempotente —
+   * refiar substitui, não acumula. Custa nada e sobrevive a uma tela remontada.
+   *
+   * O `pendente` não é detalhe: vídeo e áudio acima do limite passam pelo
+   * compressor de Web Audio, que no celular só funciona a partir de um gesto do
+   * usuário. A primeira versão desta tela convertia direto no `change` do
+   * seletor de arquivo — que não conta como gesto — e o resultado era 45
+   * segundos de espera e um erro de "formato incompatível" com o formato
+   * perfeitamente compatível. */
+  if (typeof ingestLigarAnexo === 'function') {
+    ingestLigarAnexo({
+      botao: '#j-attach-btn', input: '#j-attach-input',
+      campo: '#j-conteudo', pendente: '#j-attach-pending',
+    });
+    ingestLigarAnexo({
+      botao: '#j-lote-attach-btn', input: '#j-lote-attach-input',
+      campo: '#j-lote', pendente: '#j-lote-attach-pending', separador: '\n\n---\n\n',
+    });
   }
 
   if (!_julgResultadoVisivel) julgLimparResultado();

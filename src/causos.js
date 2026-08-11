@@ -228,24 +228,6 @@ function renderCausos() {
       });
     }
 
-    // Anexar arquivo — mesmo pipeline das outras ferramentas.
-    const inp = $('#c-attach-input'), btnAnexo = $('#c-attach-btn');
-    if (inp && btnAnexo) {
-      if (typeof INGEST_ACCEPT !== 'undefined') inp.accept = INGEST_ACCEPT;
-      btnAnexo.onclick = () => inp.click();
-      inp.onchange = () => {
-        const f = inp.files && inp.files[0];
-        if (f && typeof ingestFileNative === 'function') {
-          ingestFileNative(f, (texto) => {
-            const cur = (campo.value || '').trim();
-            campo.value = cur ? (cur + '\n\n' + texto) : texto;
-            campo.dispatchEvent(new Event('input', { bubbles: true }));
-          });
-        }
-        inp.value = '';
-      };
-    }
-
     if ($('#c-history-open')) $('#c-history-open').onclick = abrirCausoHistorico;
     if ($('#c-history-close')) $('#c-history-close').onclick = fecharCausoHistorico;
     if ($('#c-history-backdrop')) $('#c-history-backdrop').onclick = fecharCausoHistorico;
@@ -330,6 +312,21 @@ function renderCausos() {
         btn.innerHTML = original;
       }
     };
+  }
+
+  /* Anexar arquivo — refiado a cada render, pelo mesmo motivo do Julgador: a
+   * ligação por atribuição é idempotente e sobrevive a uma tela remontada.
+   *
+   * Esta fiação convertia direto no `change` do seletor, sem o cartão de gesto.
+   * Mídia grande passa pelo compressor de Web Audio, que no celular exige um
+   * gesto do usuário: sem ele a decodificação nunca resolve e o usuário recebe
+   * um erro de formato incompatível depois de 45 segundos. O `#c-attach-pending`
+   * já existia na tela, sem uso. */
+  if (typeof ingestLigarAnexo === 'function') {
+    ingestLigarAnexo({
+      botao: '#c-attach-btn', input: '#c-attach-input',
+      campo: '#c-ideia', pendente: '#c-attach-pending',
+    });
   }
 
   if (!_causoResultadoVisivel) causoLimparResultado();

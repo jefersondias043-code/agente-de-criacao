@@ -3003,6 +3003,50 @@ body.pe-full #view-posters { animation: none; }
 .julg-embalagem[open] > summary::before { content: "▾ "; }
 .julg-embalagem-body { padding: 0 0.85rem 0.85rem; }
 
+/* Sugerir título e legenda — o botão e o painel do resultado. */
+.julg-sugerir {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.7rem;
+  padding-bottom: 0.8rem; margin-bottom: 0.8rem; border-bottom: 1px dashed var(--line);
+}
+.julg-sugerir .text-xs { flex: 1; min-width: 12rem; }
+
+.julg-sug {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); padding: 0.75rem; margin-bottom: 0.9rem;
+}
+.julg-sug-campo { margin-bottom: 0.7rem; }
+.julg-sug-topo {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem;
+  margin-bottom: 0.2rem;
+}
+.julg-sug-rotulo {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.julg-sug-texto { font-size: 0.9rem; line-height: 1.5; }
+.julg-sug-texto.titulo { font-weight: 650; }
+/* A pergunta que sobra: é o teste da regra, virado em texto que o autor lê. */
+.julg-sug-pergunta {
+  border-left: 2px solid var(--accent); padding-left: 0.6rem; margin: 0.7rem 0;
+  font-size: 0.82rem; line-height: 1.5; color: var(--ink-soft); font-style: italic;
+}
+.julg-sug-selo {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: 0.72rem; font-weight: 600; border-radius: 999px;
+  padding: 0.15rem 0.5rem; border: 1px solid var(--line);
+}
+.julg-sug-selo.ok    { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, var(--line)); }
+.julg-sug-selo.alerta { color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.julg-sug-aviso {
+  font-size: 0.78rem; line-height: 1.5; color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: var(--radius-sm, 6px); padding: 0.5rem 0.6rem; margin: 0.5rem 0;
+}
+.julg-sug-acoes {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  padding-top: 0.7rem; border-top: 1px solid var(--line);
+}
+
 /* A fila da triagem. */
 .julg-fila-item {
   display: grid;

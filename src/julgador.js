@@ -23,6 +23,8 @@
  * ========================================================================== */
 
 let _julgResultadoVisivel = false;
+// A última sugestão de embalagem, para os botões "Usar" saberem o que aplicar.
+let _julgSugestao = null;
 
 function julgadorDraft() {
   if (!State.julgadorDraft) {
@@ -280,12 +282,157 @@ function julgNovoConteudo(semPerguntar) {
     if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
   });
   julgLimparResultado();
+  // A sugestão era daquele vídeo. Deixá-la na tela ao lado de um campo vazio
+  // convidaria a colar num conteúdo que não é o dela.
+  julgLimparSugestao();
   ['#j-attach-pending', '#j-lote-attach-pending'].forEach((sel) => {
     const p = $(sel); if (p) p.innerHTML = '';
   });
   const campo = $('#j-conteudo');
   if (campo) { try { campo.focus(); } catch (_) { /* */ } }
   return true;
+}
+
+/* ----- Sugerir título e legenda -----------------------------------------
+ *
+ * A ferramenta já tem a transcrição inteira e a descrição visual. O que falta
+ * é usar isso para embalar o vídeo — e embalar é o oposto de resumir.
+ *
+ * A tela NÃO preenche os campos sozinha. Título e legenda podem já estar
+ * escritos, e sobrescrever o que o autor digitou sem perguntar é o tipo de
+ * ajuda que a pessoa não pediu. A sugestão aparece num painel, com o que ela
+ * retém à vista, e quem aplica é ele.
+ *
+ * O que o painel mostra e por quê:
+ *  - a PERGUNTA QUE SOBRA — é o teste da regra, virado em texto. Se não sobra
+ *    pergunta, o título é resumo, e isso o autor enxerga sozinho;
+ *  - o SELO da conferência — código, não opinião. Verde quando nenhuma palavra
+ *    do desfecho vazou; alerta quando vazou, com as palavras na mão.
+ */
+function julgLimparSugestao() {
+  _julgSugestao = null;
+  const host = $('#j-sugestao');
+  if (host) host.innerHTML = '';
+}
+
+function julgBlocoSugestao(sug) {
+  const a = sug.auditoria || {};
+  const campo = (rotulo, texto, chave, classe) => {
+    if (!texto) return '';
+    return `
+      <div class="julg-sug-campo">
+        <div class="julg-sug-topo">
+          <span class="julg-sug-rotulo">${rotulo}</span>
+          <button type="button" class="btn btn-ghost btn-sm" data-usar="${chave}">Usar</button>
+        </div>
+        <div class="julg-sug-texto ${classe || ''}">${escapeHtml(texto)}</div>
+      </div>`;
+  };
+
+  /* O selo diz uma de TRÊS coisas, e a terceira importa: quando a fala é curta
+   * demais para ter terços, não há desfecho a medir. Dizer "passou" aí seria
+   * afirmar o que não foi conferido. */
+  let selo;
+  if (!a.conferido) {
+    selo = '<span class="julg-sug-selo">Sem conferência — a fala é curta demais para ter começo, meio e fim</span>';
+  } else if (a.ok) {
+    selo = '<span class="julg-sug-selo ok">✓ Nenhuma palavra do desfecho vazou</span>';
+  } else {
+    selo = '<span class="julg-sug-selo alerta">⚠ O fim vazou</span>';
+  }
+
+  const aviso = (a.problemas || []).length
+    ? `<div class="julg-sug-aviso">${a.problemas.map(escapeHtml).join('<br>')}
+         <div style="margin-top:.4rem;">A sugestão está aí porque a decisão é sua — mas do jeito que está, quem ler já sabe como termina.</div>
+       </div>`
+    : '';
+
+  return `
+    <div class="julg-sug">
+      ${campo('Título', sug.titulo, 'titulo', 'titulo')}
+      ${campo('Legenda', sug.legenda, 'legenda')}
+      ${sug.pergunta ? `<div class="julg-sug-pergunta">O que sobra na cabeça de quem leu: “${escapeHtml(sug.pergunta)}”</div>` : ''}
+      ${sug.fisgada ? `<div class="text-xs text-mute">A isca: ${escapeHtml(sug.fisgada)}</div>` : ''}
+      <div style="margin-top:.6rem;">${selo}</div>
+      ${aviso}
+      <div class="julg-sug-acoes">
+        <button type="button" class="btn btn-primary btn-sm" data-usar="ambos">Usar os dois</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="j-sug-outra">Sugerir outra</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="j-sug-fechar">Dispensar</button>
+      </div>
+    </div>`;
+}
+
+/** Aplica a sugestão nos campos.
+ *
+ * QUEM GUARDA É O EVENTO, e isso é de propósito. Cada campo desta tela já
+ * escreve no rascunho pelo próprio `oninput` (ver `renderJulgador`); disparar
+ * `input` depois de mexer no `.value` faz o caminho normal rodar — o rascunho
+ * salva e o × de limpar campo aparece. Escrever no rascunho AQUI também seria
+ * um segundo caminho para a mesma coisa: passou por uma mutação sem quebrar
+ * teste nenhum, que é como código morto se parece de dentro. */
+function julgUsarSugestao(quais) {
+  if (!_julgSugestao) return;
+  const aplicar = (sel, valor) => {
+    if (!valor) return;
+    const el = $(sel);
+    if (!el) return;
+    el.value = valor;
+    // Atribuir `.value` não dispara evento — sem isto nada disso acontece.
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  if (quais === 'ambos' || quais === 'titulo') aplicar('#j-titulo', _julgSugestao.titulo);
+  if (quais === 'ambos' || quais === 'legenda') aplicar('#j-legenda', _julgSugestao.legenda);
+  toast(quais === 'ambos' ? 'Título e legenda preenchidos.' : 'Campo preenchido.', 'success');
+}
+
+function renderJulgSugestao(sug) {
+  const host = $('#j-sugestao');
+  if (!host) return;
+  _julgSugestao = sug;
+  host.innerHTML = julgBlocoSugestao(sug);
+  host.querySelectorAll('[data-usar]').forEach((b) => {
+    b.onclick = () => julgUsarSugestao(b.dataset.usar);
+  });
+  const fechar = $('#j-sug-fechar');
+  if (fechar) fechar.onclick = julgLimparSugestao;
+  const outra = $('#j-sug-outra');
+  if (outra) outra.onclick = () => julgSugerirEmbalagem();
+}
+
+/* O pedido em si. Uma chamada; duas só quando a conferência reprova a primeira
+ * e o motor manda reescrever com as palavras que vazaram na mão. */
+async function julgSugerirEmbalagem() {
+  const conteudo = String(($('#j-conteudo') || {}).value || '').trim();
+  if (conteudo.length < 40) {
+    toast('Cole ou anexe o conteúdo primeiro — a sugestão sai da transcrição, não do nada.', 'info', 5000);
+    return;
+  }
+  if (!julgTemChave()) { julgAvisarSemChave(); return; }
+
+  const btn = $('#j-sugerir');
+  const original = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Escrevendo…'; }
+  const host = $('#j-sugestao');
+  if (host) host.innerHTML = '';
+
+  try {
+    const sug = await runEmbalagemPipeline({
+      conteudo,
+      visual: String(($('#j-visual') || {}).value || '').trim(),
+      capa: String(($('#j-capa') || {}).value || '').trim(),
+      call: callLLM,
+      onEtapa: (_k, titulo) => { if (btn) btn.innerHTML = `<span class="spinner"></span> ${escapeHtml(titulo)}`; },
+    });
+    renderJulgSugestao(sug);
+    if (!sug.auditoria.ok) {
+      toast('A sugestão saiu, mas a conferência apontou spoiler — veja o aviso no painel.', 'info', 6000);
+    }
+  } catch (err) {
+    toast(err.message || 'Não foi possível escrever a sugestão.', 'error', 6000);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  }
 }
 
 function renderJulgResultado(item) {
@@ -561,6 +708,8 @@ function renderJulgador() {
   if ($('#j-novo')) $('#j-novo').onclick = () => {
     if (julgNovoConteudo()) toast('Mesa limpa. Cole ou anexe o próximo conteúdo.', 'success');
   };
+
+  if ($('#j-sugerir')) $('#j-sugerir').onclick = julgSugerirEmbalagem;
 
   if ($('#j-history-open')) $('#j-history-open').onclick = abrirJulgHistorico;
   if ($('#j-history-close')) $('#j-history-close').onclick = fecharJulgHistorico;

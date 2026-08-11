@@ -1234,7 +1234,7 @@ function handleNarrAttach(f, ta) {
     const cur = (ta.value || '').trim();
     ta.value = cur ? (cur + '\n\n' + text) : text;
     ta.dispatchEvent(new Event('input', { bubbles: true }));
-  }, '#n-attach-pending');
+  }, '#n-attach-pending', true);
 }
 
 function renderNarrativa() {

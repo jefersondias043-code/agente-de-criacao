@@ -143,7 +143,7 @@ function _genEhMidiaGrande(f) {
  *  si é montado pelo helper compartilhado — havia quatro cópias dele. */
 function handleGenAttach(f, ta) {
   if (typeof ingestAnexar !== 'function') return;
-  ingestAnexar(f, (text) => _genDeliverText(ta, text), '#g-attach-pending');
+  ingestAnexar(f, (text) => _genDeliverText(ta, text), '#g-attach-pending', true);
 }
 
 // ---------- Render Generate ----------

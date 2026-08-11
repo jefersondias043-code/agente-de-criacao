@@ -6,14 +6,22 @@
 <meta name="description" content="AutoPost IA — transforme áudio, vídeo ou texto em um pacote de publicação completo: título, legenda, hashtags e palavras-chave.">
 <meta name="theme-color" content="#0a0a0a">
 <!-- Aplica o tema ANTES da 1ª pintura (sem flash). Roda inline de propósito.
-     EMBUTIDA na plataforma o padrão é CLARO: o app pai é claro, e abrir esta
-     ferramenta no escuro era a quebra mais visível da identidade — parecia
+     EMBUTIDA na plataforma o padrão é CLARO: o app pai é de tema único e claro
+     (medido no Chromium — com o sistema no escuro ele continua claro), e abrir
+     esta ferramenta no escuro era a quebra mais visível da identidade: parecia
      outro aplicativo. Avulsa, segue com o escuro original. Nos dois casos a
-     escolha explícita do usuário (Escuro/Claro/Sistema) continua mandando. -->
+     escolha explícita do usuário (Escuro/Claro/Sistema) continua mandando.
+     Este script e `temaPadrao()` em js/config.js precisam concordar — ver
+     test/autopost-tema.test.js, que executa os dois e compara. -->
 <script>
   (function () {
     var embutida = false;
     try { embutida = window.parent && window.parent !== window; } catch (e) { embutida = true; }
+    // Embutido na plataforma, o padrão é CLARO: o app pai é de tema único e
+    // claro. 'system' pareceria mais esperto e estaria errado — com o aparelho
+    // no escuro, esta ferramenta iria para o escuro dentro de um app claro.
+    // Ver `temaPadrao()` em js/config.js: os dois precisam responder igual, e
+    // há teste que executa os dois e compara.
     var padrao = embutida ? 'light' : 'dark';
     var t = padrao;
     try {
@@ -240,6 +248,7 @@
 <script src="js/demux.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/extract.js"></script>
+<script src="js/transcricao.js"></script>
 <script src="js/package.js"></script>
 <script src="js/analysis.js"></script>
 <script src="js/history.js"></script>

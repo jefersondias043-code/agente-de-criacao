@@ -233,6 +233,34 @@ async function obterTextoDoArquivo(arquivo, onProgress) {
   return await transcreverPartes(prep.arquivos, (msg) => { if (onProgress) onProgress(msg); });
 }
 
+/* Adapta a etapa de organização (js/transcricao.js, cópia de src/) ao `callLLM`
+ * daqui, que tem outra assinatura. Devolve SEMPRE um texto: o organizado quando
+ * dá certo, o original quando não dá. */
+async function organizarTexto(texto, onProgress) {
+  if (typeof runLimpezaTranscricao !== 'function') return texto;
+  /* SEM CHAVE, sai calado — sem nem tentar.
+   *
+   * `callLLM` chama `getGroqKey()`, que abre o modal da chave e ESPERA a pessoa
+   * responder. Aqui isso seria o pior momento possível: o modal apareceria no
+   * meio de "Lendo o conteúdo…", cobrando a chave por causa de uma etapa que é
+   * enfeite — e a extração, que é o trabalho de verdade, ficaria parada atrás
+   * dele. A chave continua sendo pedida na hora de gerar o pacote, que é onde
+   * ela é mesmo necessária. */
+  if (typeof chaveAtual === 'function' && !chaveAtual()) return texto;
+  try {
+    const r = await runLimpezaTranscricao({
+      texto,
+      onProgress,
+      call: async (prompt) => ({
+        content: await callLLM('Você organiza transcrições de áudio em português do Brasil.', prompt, false, 2000),
+      }),
+    });
+    return (r && r.texto) || texto;
+  } catch (_) {
+    return texto;
+  }
+}
+
 // "Continuar": prepara o texto e leva à etapa de REVISÃO (texto editável + opções).
 async function iniciarRevisao() {
   const arquivo = ($('transcricaoFile').files || [])[0];
@@ -271,6 +299,21 @@ async function iniciarRevisao() {
       texto = textoColado; // texto colado → vai direto pra revisão
     } else {
       texto = await obterTextoDoArquivo(arquivo, (msg) => { step.desc = msg; mostra(); });
+      /* ORGANIZAR o que saiu do arquivo — o mesmo passo do Causos e do Julgador.
+       *
+       * O Whisper devolve fala corrida: sem pontuação confiável, sem quebra de
+       * fala, número em algarismo, nome próprio em minúscula. Assim atrapalha
+       * duas vezes — a pessoa não consegue revisar na etapa seguinte, e a IA que
+       * vai gerar o pacote gasta atenção decifrando.
+       *
+       * Só o que vem de ARQUIVO passa por aqui. Texto colado é do usuário: ele
+       * escreveu do jeito que quis, e organizar seria mexer no que não foi
+       * pedido.
+       *
+       * É MELHORIA, NÃO REQUISITO: sem chave, com erro de rede ou com a
+       * conferência reprovando, segue o texto cru. Perder a transcrição por
+       * causa de um enfeite seria trocar o certo pelo bonito. */
+      texto = await organizarTexto(texto, (msg) => { step.desc = msg; mostra(); });
     }
     texto = (texto || '').trim();
     if (texto.length < 10) {

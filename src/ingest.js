@@ -209,11 +209,14 @@ function ingestEhMidiaGrande(f) {
  * @param {string} pendingSel  seletor do container do cartão; sem ele (ou sem o
  *        elemento na tela) a conversão é direta — degradar assim é melhor do
  *        que não anexar nada, e no desktop funciona igual.
+ * @param {boolean} organizar  passar o texto extraído pela etapa que pontua,
+ *        separa as falas e escreve os números por extenso.
  */
-function ingestAnexar(file, entregar, pendingSel) {
+function ingestAnexar(file, entregar, pendingSel, organizar) {
   if (!file) return;
   const pending = pendingSel ? document.querySelector(pendingSel) : null;
-  const converter = () => ingestFileNative(file, entregar);
+  const entrega = organizar ? organizarEEntregar(entregar) : entregar;
+  const converter = () => ingestFileNative(file, entrega);
 
   if (!ingestEhMidiaGrande(file) || !pending) { converter(); return; }
 
@@ -261,7 +264,7 @@ function ingestLigarAnexo(opts) {
 
   inp.onchange = () => {
     const f = inp.files && inp.files[0];
-    if (f) ingestAnexar(f, o.organizar ? organizarEEntregar(entregar) : entregar, o.pendente);
+    if (f) ingestAnexar(f, entregar, o.pendente, o.organizar);
     inp.value = '';
   };
 }

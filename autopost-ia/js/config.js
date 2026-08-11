@@ -87,11 +87,37 @@ async function getGroqKey() {
 const TEMA_KEY = 'autopost:tema';
 const TEMA_CORES = { dark: '#0a0a0a', light: '#faf8f4' };
 
+/* O PADRÃO DEPENDE DE ONDE A FERRAMENTA ESTÁ ABERTA.
+ *
+ * Relatado: embutida na plataforma, ela abria SEMPRE no escuro, mesmo com o
+ * aplicativo no claro. O script inline do <head> já tratava disso, mas esta
+ * função não — devolvia 'dark' para qualquer coisa não guardada, e o boot
+ * (`aplicarTema(temaAtual())`) desfazia, no primeiro frame, o acerto do inline.
+ * Duas fontes para o mesmo padrão, discordando.
+ *
+ * Embutida, o padrão é CLARO. Cheguei a pôr 'system' aqui, achando que o app
+ * pai seguisse `prefers-color-scheme`. Medi no Chromium antes de fechar e ele
+ * NÃO segue: com o sistema no escuro o pai continua claro (rgb(247,246,242)) —
+ * a plataforma é um aplicativo de tema único, e o seu único bloco
+ * `prefers-color-scheme: dark` só retoca as cores de um componente. Com
+ * 'system', o AutoPost ia para o escuro dentro de um app claro: o mesmo
+ * desencontro relatado, virado do avesso. Sozinha, a ferramenta mantém o
+ * escuro, que é a cara dela.
+ *
+ * Escolha explícita do usuário continua acima de tudo: só o padrão mudou. */
+function temaEmbutida() {
+  try { return !!(window.parent && window.parent !== window); } catch (_) { return true; }
+}
+
+function temaPadrao() {
+  return temaEmbutida() ? 'light' : 'dark';
+}
+
 function temaAtual() {
   try {
     const t = localStorage.getItem(TEMA_KEY);
-    return (t === 'dark' || t === 'light' || t === 'system') ? t : 'dark';
-  } catch (_) { return 'dark'; }
+    return (t === 'dark' || t === 'light' || t === 'system') ? t : temaPadrao();
+  } catch (_) { return temaPadrao(); }
 }
 
 // Cor da barra do navegador (theme-color) para o tema efetivo.
@@ -100,11 +126,14 @@ function _corTema(t) {
     const escuro = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     return escuro ? TEMA_CORES.dark : TEMA_CORES.light;
   }
-  return TEMA_CORES[t] || TEMA_CORES.dark;
+  if (TEMA_CORES[t]) return TEMA_CORES[t];
+  // Valor inesperado: cai no padrão do lugar onde a ferramenta está aberta.
+  // Sem recursão de propósito — `temaPadrao()` pode devolver 'system'.
+  return temaPadrao() === 'system' ? _corTema('system') : TEMA_CORES.dark;
 }
 
 function aplicarTema(t, persistir) {
-  if (t !== 'dark' && t !== 'light' && t !== 'system') t = 'dark';
+  if (t !== 'dark' && t !== 'light' && t !== 'system') t = temaPadrao();
   const root = document.documentElement;
   // Desliga transições por 1 frame (troca instantânea + evita o artefato do
   // Chromium com cores var() transicionadas).

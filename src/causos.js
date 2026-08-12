@@ -328,6 +328,21 @@ function causoAplicarTextosDoModo() {
 function renderCausos() {
   { const p = $('#c-attach-pending'); if (p) p.innerHTML = ''; }
 
+  /* TEXTO RECEBIDO DE OUTRA FERRAMENTA (Extrair, Gerar…) vira a ideia.
+   *
+   * Some do `State.handoff` assim que é consumido: material que fica na fila
+   * volta a se colar sozinho no próximo render, por cima do que o usuário
+   * escreveu depois. */
+  if (State.handoff && State.handoff.target === 'causos') {
+    const texto = String(State.handoff.text || '');
+    State.handoff = null;
+    if (texto.trim()) {
+      causosDraft().ideia = texto;
+      saveCausoDraft();
+      causoLimparResultado();   // o resultado na tela é do material anterior
+    }
+  }
+
   renderCausoModos();
   causoAplicarTextosDoModo();
 

@@ -23,6 +23,7 @@ beforeAll(() => {
   R = loadModules(
     ['catalogs.js', 'core.js', 'llm.js', 'resumo.js'],
     ['resumoNomesProprios', 'resumoNomesVazados', 'conferirResumo', 'resumoVale',
+      'resumoGenericosRepetidos', 'RESUMO_MAX_REPETICAO_GENERICA',
       'buildResumoPrompt', 'resumoLimpar', 'runResumoPipeline',
       'RESUMO_MAX_PROPORCAO', 'RESUMO_MIN_PROPORCAO', 'RESUMO_MIN_PALAVRAS']);
 });
@@ -132,16 +133,35 @@ describe('o pedido que sai para a IA', () => {
     expect(p).toMatch(/você não resumiu — encolheu/);
   });
 
-  it('manda trocar o nome por QUEM A PESSOA É, com o exemplo do usuário', () => {
+  it('manda trocar o nome por QUEM A PESSOA É NAQUELE TRECHO', () => {
     const p = R.buildResumoPrompt(ORIGINAL, {});
-    expect(p).toMatch(/O senhor João jogou o lixo fora.*Um homem jogou o lixo fora/s);
-    expect(p).toMatch(/quem ela É na história/);
+    expect(p).toMatch(/QUEM AQUELA PESSOA É NAQUELE TRECHO/);
+    expect(p).toMatch(/pela função, pela relação, pelo papel/);
+  });
+
+  it('dá o leque de referências possíveis, não uma fórmula', () => {
+    /* A correção do usuário: "um homem" era EXEMPLO, não regra. "Não quero que
+     * a ferramenta substitua sistematicamente todos os nomes por expressões
+     * genéricas — isso pode deixar o texto repetitivo e artificial." */
+    const p = R.buildResumoPrompt(ORIGINAL, {});
+    for (const papel of ['o funcionário', 'o proprietário', 'o motorista', 'o comerciante',
+      'o vizinho', 'o acusado', 'o cliente', 'o entrevistado', 'a testemunha']) {
+      expect(p, papel).toContain(papel);
+    }
+  });
+
+  it('PROÍBE trocar tudo por "um homem"/"uma pessoa"', () => {
+    const p = R.buildResumoPrompt(ORIGINAL, {});
+    expect(p).toMatch(/NÃO troque tudo por "um homem", "uma mulher" ou "uma pessoa"/);
+    expect(p).toMatch(/repetitivo, artificial e mais difícil de entender/);
+  });
+
+  it('e manda seguir com "ele"/"ela" em vez de repetir a referência', () => {
+    expect(R.buildResumoPrompt(ORIGINAL, {})).toMatch(/NÃO REPITA a mesma referência/);
   });
 
   it('avisa que a troca não pode confundir duas pessoas', () => {
-    // "uma pessoa" para as duas partes de um negócio destrói o entendimento —
-    // e o usuário pediu anonimização "sempre que isso não prejudicar".
-    expect(R.buildResumoPrompt(ORIGINAL, {})).toMatch(/nunca "uma pessoa" para as duas/);
+    expect(R.buildResumoPrompt(ORIGINAL, {})).toMatch(/nunca a mesma para as duas/);
   });
 
   it('proíbe inventar e proíbe a introdução de redação escolar', () => {
@@ -218,5 +238,65 @@ sumido: sobrara só um cano enferrujado. Voltou com o lixo, ligou para a prefeit
     expect(R.resumoLimpar('```\nUm homem saiu.\n```')).toBe('Um homem saiu.');
     expect(R.resumoLimpar('Resumo: Um homem saiu.')).toBe('Um homem saiu.');
     expect(R.resumoLimpar('Aqui está o resumo — Um homem saiu.')).toBe('Um homem saiu.');
+  });
+});
+
+
+describe('referência genérica repetida — a correção do usuário', () => {
+  /* "Não quero que a ferramenta substitua sistematicamente todos os nomes por
+   * expressões genéricas como 'um homem', 'uma mulher' ou 'uma pessoa'. Isso
+   * pode deixar o texto repetitivo, artificial e até mais difícil de
+   * compreender."
+   *
+   * Isso é CONTÁVEL, e por isso virou conferência em vez de só pedido no
+   * prompt. O limite é folgado de propósito: numa história de uma pessoa só,
+   * "o homem" duas ou três vezes é natural. O que se pega é o tique. */
+  it('acusa a mesma forma vaga usada em toda frase', () => {
+    const tique = 'A pessoa saiu de casa. A pessoa jogou o lixo. A pessoa voltou. '
+      + 'A pessoa ligou para a prefeitura. A pessoa esperou.';
+    const r = R.resumoGenericosRepetidos(tique);
+    expect(r.length).toBe(1);
+    expect(r[0].termo).toBe('a pessoa');
+    expect(r[0].vezes).toBe(5);
+  });
+
+  it('NÃO acusa o uso natural, duas ou três vezes', () => {
+    // Falso positivo aqui empurraria o resumo de volta para os nomes próprios,
+    // que é o defeito oposto. Lição do r224.
+    const natural = 'Um homem saiu de casa para jogar o lixo. O homem viu que a lixeira sumiu '
+      + 'e voltou contrariado.';
+    expect(R.resumoGenericosRepetidos(natural)).toEqual([]);
+  });
+
+  it('a conferência inteira reprova o resumo com tique', () => {
+    const original = 'Uma frase qualquer. '.repeat(60);
+    const tique = 'A pessoa fez algo. A pessoa fez outra coisa. A pessoa saiu. A pessoa voltou. A pessoa dormiu.';
+    const c = R.conferirResumo(original, tique);
+    expect(c.ok).toBe(false);
+    expect(c.problemas.join(' ')).toMatch(/referência genérica repetida/);
+    expect(c.genericos[0].termo).toBe('a pessoa');
+  });
+
+  it('e o pipeline refaz com esse problema na mão', async () => {
+    /* O resumo "bom" precisa passar em TODAS as conferências, inclusive no piso
+     * de 6%. A primeira versão deste fixture tinha 5,3% e reprovava por
+     * TAMANHO — o teste falhava, e o motivo não era o que ele dizia medir. */
+    const original = 'Uma frase qualquer sobre o assunto. '.repeat(50);
+    const bom = 'O motorista parou o carro na esquina, olhou a rua vazia por alguns instantes e '
+      + 'seguiu adiante sem dizer nada a ninguém, deixando a encomenda no banco de trás do veículo '
+      + 'para entregar mais tarde, quando o trânsito da tarde já tivesse diminuído um pouco.';
+    const chamadas = [];
+    const r = await R.runResumoPipeline({
+      texto: original,
+      call: async (p) => {
+        chamadas.push(p);
+        return { content: chamadas.length === 1
+          ? 'A pessoa parou. A pessoa olhou. A pessoa seguiu. A pessoa voltou. A pessoa saiu.'
+          : bom };
+      },
+    });
+    expect(chamadas.length).toBe(2);
+    expect(chamadas[1]).toMatch(/referência genérica repetida/);
+    expect(r.conferencia.ok).toBe(true);
   });
 });

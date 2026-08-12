@@ -359,9 +359,35 @@ function renderExtract() {
     toast('Extração concluída.', 'success');
   };
 
+  /* A gaveta é religada a cada render, por atribuição — religar substitui em vez
+   * de acumular, e o handler nunca fica preso ao elemento do primeiro render.
+   * (A lição do r219/r220, quando um guard de "ligar uma vez só" deixou botões
+   * novos mortos numa tela remontada.) */
+  if ($('#e-history-open')) $('#e-history-open').onclick = abrirExtractHistorico;
+  if ($('#e-history-close')) $('#e-history-close').onclick = fecharExtractHistorico;
+  if ($('#e-history-backdrop')) $('#e-history-backdrop').onclick = fecharExtractHistorico;
+
   renderExtractionsList();
   if (State.activeExtractionId) renderExtractionDetail();
   setMtab('#view-extract', 'a'); // entrar na ferramenta começa no Upload
+}
+
+/* ----- HISTÓRICO EM GAVETA ------------------------------------------------
+ *
+ * Ele ficava permanentemente ao lado do upload, ocupando metade da tela para
+ * uma coisa que se consulta de vez em quando. Mesmo molde do Causos e do
+ * Julgador: ícone no canto superior direito, gaveta por cima, some ao escolher
+ * uma extração — quem clicou já foi para onde queria. */
+function abrirExtractHistorico() {
+  renderExtractionsList();
+  const d = $('#e-history-drawer'), b = $('#e-history-backdrop');
+  if (d) d.classList.add('open');
+  if (b) b.classList.remove('hidden');
+}
+function fecharExtractHistorico() {
+  const d = $('#e-history-drawer'), b = $('#e-history-backdrop');
+  if (d) d.classList.remove('open');
+  if (b) b.classList.add('hidden');
 }
 
 function renderExtractionsList() {
@@ -419,6 +445,7 @@ function renderExtractionsList() {
       State.activeExtractionId = el.dataset.eid;
       renderExtractionsList();
       renderExtractionDetail();
+      fecharExtractHistorico();   // quem escolheu já foi para onde queria
     };
   });
 }

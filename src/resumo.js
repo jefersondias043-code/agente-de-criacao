@@ -95,6 +95,36 @@ function resumoNomesVazados(original, resumo) {
   return nomes.filter((n) => noResumo.has(n));
 }
 
+/* AS FORMAS MAIS VAGAS de se referir a alguém. Não são proibidas — às vezes o
+ * texto não diz mais nada sobre a pessoa e "um homem" é o certo. O que se mede
+ * é a REPETIÇÃO: o usuário corrigiu justamente isso, "não quero que a ferramenta
+ * substitua sistematicamente todos os nomes por expressões genéricas… isso pode
+ * deixar o texto repetitivo, artificial e até mais difícil de compreender". */
+const RESUMO_GENERICOS = [
+  'a pessoa', 'uma pessoa', 'as pessoas', 'o homem', 'um homem', 'a mulher', 'uma mulher',
+  'o indivíduo', 'um indivíduo', 'o sujeito', 'um sujeito',
+];
+
+/* Quantas vezes a MESMA forma vaga pode aparecer antes de virar tique. Três é
+ * folgado: numa história de uma pessoa só, "o homem" duas ou três vezes é
+ * natural. O que se quer pegar é o resumo que diz "a pessoa" em toda frase. */
+const RESUMO_MAX_REPETICAO_GENERICA = 3;
+
+/** As formas vagas usadas em excesso, com a contagem. */
+function resumoGenericosRepetidos(resumo) {
+  const t = ' ' + _rNorm(resumo).replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  const achados = [];
+  for (const g of RESUMO_GENERICOS) {
+    const alvo = ' ' + _rNorm(g) + ' ';
+    let n = 0;
+    let i = t.indexOf(alvo);
+    // Busca com sobreposição de um espaço: "a pessoa a pessoa" conta duas.
+    while (i >= 0) { n++; i = t.indexOf(alvo, i + alvo.length - 1); }
+    if (n > RESUMO_MAX_REPETICAO_GENERICA) achados.push({ termo: g, vezes: n });
+  }
+  return achados;
+}
+
 /**
  * A conferência. Mede o que é contável e não opina sobre o resto.
  */
@@ -119,7 +149,13 @@ function conferirResumo(original, resumo) {
     problemas.push(`nomes próprios continuam no resumo: ${vazados.join(', ')}. Troque por quem a pessoa É na história — "um homem", "a vizinha", "o motorista".`);
   }
 
-  return { ok: problemas.length === 0, problemas, proporcao, nomes: vazados, palavras: nRes };
+  const repetidos = resumoGenericosRepetidos(resumo);
+  if (repetidos.length) {
+    const lista = repetidos.map((r) => `"${r.termo}" ${r.vezes}×`).join(', ');
+    problemas.push(`referência genérica repetida: ${lista}. Diga quem a pessoa É naquele trecho — o motorista, a vizinha, o dono da loja — e depois siga com "ele"/"ela", como se faria falando.`);
+  }
+
+  return { ok: problemas.length === 0, problemas, proporcao, nomes: vazados, genericos: repetidos, palavras: nRes };
 }
 
 /** Vale a pena resumir? */
@@ -137,10 +173,12 @@ function buildResumoPrompt(texto, opcoes) {
     'NÃO é contar a mesma coisa com menos palavras. Se o seu texto acompanha o original frase a frase, só que mais curto, você não resumiu — encolheu.',
     'O teste: quem ler só o resumo fica sabendo O QUE ACONTECEU, na ordem, sem os detalhes.',
     '',
-    '== NOMES DE PESSOAS SAEM ==',
-    'Troque todo nome próprio de pessoa por quem ela É na história: "um homem", "a vizinha", "o motorista", "a filha mais velha", "uma pessoa".',
-    'Exemplo: "O senhor João jogou o lixo fora" → "Um homem jogou o lixo fora".',
-    'A troca não pode atrapalhar o entendimento: se há duas pessoas na cena, dê a cada uma uma referência que as separe ("o comprador" e "o vendedor"), nunca "uma pessoa" para as duas.',
+    '== NOMES DE PESSOAS SAEM, MAS A TROCA É PENSADA ==',
+    'Tire o nome próprio quando ele não importar para entender o que aconteceu. No lugar dele, escreva QUEM AQUELA PESSOA É NAQUELE TRECHO — pela função, pela relação, pelo papel na história ou por uma característica que já esteja no texto.',
+    'Depende do contexto. A mesma pessoa pode ser o funcionário, o proprietário, o motorista, o comerciante, o pai, o responsável pelo local, o vizinho, o acusado, o cliente, o entrevistado, a testemunha — ou qualquer outra coisa que descreva melhor o papel dela ali.',
+    'NÃO troque tudo por "um homem", "uma mulher" ou "uma pessoa". Isso deixa o texto repetitivo, artificial e mais difícil de entender do que estava com os nomes. Só use essas formas quando o texto realmente não disser mais nada sobre a pessoa.',
+    'NÃO REPITA a mesma referência a cada frase. Depois de apresentar alguém ("o motorista"), o normal é continuar com "ele", "o mesmo", ou retomar pelo que a pessoa acabou de fazer — como se faria falando.',
+    'A troca não pode atrapalhar o entendimento: se há duas pessoas na cena, dê a cada uma uma referência que as separe ("o comprador" e "o vendedor"), nunca a mesma para as duas.',
     'Nome de empresa, cidade, produto ou obra pode ficar quando for o assunto. O que sai é o nome de GENTE.',
     '',
     '== TAMANHO ==',

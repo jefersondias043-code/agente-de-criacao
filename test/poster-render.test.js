@@ -105,16 +105,26 @@ describe('render de todos os modelos × formatos', () => {
     return falhas;
   };
 
+  /* TEMPO EXPLÍCITO nestes dois. Eles varrem TODOS os modelos em TODOS os
+   * formatos, montando HTML e passando cada um pelo parser do jsdom — é
+   * trabalho de verdade, não teste lento por descuido. Rodavam em torno de 5 s,
+   * que é exatamente o padrão do vitest, e por isso falhavam de vez em quando
+   * sob carga: bastava a suíte ficar um pouco mais pesada (foi o que aconteceu
+   * quando entrou test/media-transcode-fiacao.test.js) para o relógio ganhar a
+   * corrida. Um teste que reprova por 95 ms de atraso não está reprovando nada
+   * — só ensina a ignorar a suíte. */
+  const TEMPO_VARREDURA = 20000;
+
   it('renderiza sem lançar e produz nó .poster-1440 (sem fotos)', () => {
     expect(varrer((p) => p)).toEqual([]);
-  });
+  }, TEMPO_VARREDURA);
 
   it('renderiza sem lançar e produz nó .poster-1440 (com as 4 fotos)', () => {
     const PX = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     expect(varrer((p) => Object.assign(p, {
       image1: PX, image2: PX, image3: PX, image4: PX, avatar: PX,
     }))).toEqual([]);
-  });
+  }, TEMPO_VARREDURA);
 
   // Campos vazios são o estado de um cartaz recém-criado: nenhum modelo pode
   // depender de texto para existir.

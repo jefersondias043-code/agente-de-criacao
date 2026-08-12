@@ -280,3 +280,35 @@ describe('vídeo sem faixa de áudio tem resposta própria', () => {
     expect(j).toBeGreaterThan(i);
   });
 });
+
+describe('a varredura do moov declara quando para no meio', () => {
+  /* O usuário disse que no AutoPost funcionava. Recuperei o código do AutoPost
+   * do histórico e comparei função a função: `_fonteIsobmff`, `_fonteCompleta`,
+   * `_fonteMp3`, `decodificarAudio`, `planejarPartes`, `_boxesEm`, `_lerEsds`,
+   * `_adts` — todas IDÊNTICAS. As duas que diferem são as que EU mudei no
+   * r229–r231. O port foi fiel, e o AutoPost falharia igual.
+   *
+   * Mas ao conferir isso encontrei o que importa: `_boxesEm` PARA numa caixa
+   * suspeita, calada. Se o trak de vídeo vier antes do de áudio e a caixa
+   * seguinte tiver tamanho estranho, o áudio nunca é visto — e o sintoma é
+   * indistinguível de um vídeo mudo de verdade: "1 trilha(s) — trilha de vide".
+   *
+   * Eu afirmei ao usuário que o arquivo dele não tinha áudio com base nessa
+   * frase. A frase não distinguia os dois casos. Agora distingue. */
+  const fonte = ler('src/media-transcode.js');
+
+  it('a varredura registra onde parou', () => {
+    expect(fonte).toMatch(/lista\.parouEm = \{ tipo, size, restavam/);
+  });
+
+  it('a mensagem avisa que pode haver trilha não lida', () => {
+    expect(fonte).toContain('a varredura do moov parou na caixa');
+    expect(fonte).toContain('pode haver trilha depois dela que não foi lida');
+  });
+
+  it('"não tem áudio" só é afirmado quando a varredura chegou ao fim', () => {
+    // Sem esta condição, um moov truncado viraria "seu vídeo é mudo" — afirmar
+    // o que não foi medido, que é o erro que abriu este bloco.
+    expect(fonte).toMatch(/erro\.semAudio = !parou &&/);
+  });
+});

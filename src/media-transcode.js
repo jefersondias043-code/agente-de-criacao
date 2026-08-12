@@ -268,6 +268,16 @@ function _u64(dv, o) { return dv.getUint32(o) * 4294967296 + dv.getUint32(o + 4)
 function _tipo(bytes, o) { return String.fromCharCode(bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]); }
 
 // Lista boxes filhos no intervalo [ini, fim) de um buffer em memória.
+/* A varredura PARA numa caixa suspeita — e isso é silencioso demais.
+ *
+ * Se um `trak` de vídeo vier antes do de áudio e a caixa seguinte tiver tamanho
+ * estranho, a varredura para ali e o áudio nunca é visto. O sintoma é idêntico
+ * ao de um vídeo mudo de verdade: "1 trilha(s) — trilha de vide". Eu afirmei ao
+ * usuário que o arquivo dele não tinha áudio com base nessa frase, e a frase
+ * não distingue os dois casos.
+ *
+ * `lista.parouEm` guarda onde parou. Quem monta a mensagem consegue então dizer
+ * "varri o moov inteiro e só achei vídeo" ou "parei no meio, pode haver mais". */
 function _boxesEm(bytes, dv, ini, fim) {
   const lista = [];
   let p = ini;
@@ -277,7 +287,10 @@ function _boxesEm(bytes, dv, ini, fim) {
     let corpo = p + 8;
     if (size === 1) { size = _u64(dv, p + 8); corpo = p + 16; }
     else if (size === 0) { size = fim - p; }
-    if (size < 8 || p + size > fim) break; // caixa corrompida → para
+    if (size < 8 || p + size > fim) {
+      lista.parouEm = { tipo, size, restavam: fim - p };
+      break;
+    }
     lista.push({ tipo, ini: corpo, fim: p + size });
     p += size;
   }
@@ -377,7 +390,8 @@ async function _analisarIsobmff(arquivo) {
    * quem poderia dizer qual é. */
   const recusas = [];
   let trilhas = 0;
-  for (const trak of _boxesEm(moovBytes, dv, moov.ini, moov.fim).filter(b => b.tipo === 'trak')) {
+  const caixasDoMoov = _boxesEm(moovBytes, dv, moov.ini, moov.fim);
+  for (const trak of caixasDoMoov.filter(b => b.tipo === 'trak')) {
     trilhas++;
     const mdia = _acharBox(moovBytes, dv, trak.ini, trak.fim, 'mdia');
     if (!mdia) { recusas.push('trilha sem mdia'); continue; }
@@ -482,8 +496,15 @@ async function _analisarIsobmff(arquivo) {
    * nenhum ali. Medido: um vídeo com som declara duas trilhas e o parser conta
    * as duas — então "só trilha de vídeo" quer dizer que o arquivo foi exportado
    * sem áudio, não que o leitor deixou de enxergar. */
-  const erro = new Error(`isobmff: nenhuma trilha de áudio AAC utilizável em ${trilhas} trilha(s) — ${recusas.join('; ')}`);
-  erro.semAudio = !recusas.some((r) => !r.startsWith('trilha de ') || r.includes('áudio'));
+  const parou = caixasDoMoov.parouEm;
+  const aviso = parou
+    ? ` — ATENÇÃO: a varredura do moov parou na caixa "${parou.tipo}" (tamanho ${parou.size}, restavam ${parou.restavam} bytes), então pode haver trilha depois dela que não foi lida`
+    : '';
+  const erro = new Error(`isobmff: nenhuma trilha de áudio AAC utilizável em ${trilhas} trilha(s) — ${recusas.join('; ')}${aviso}`);
+  /* SÓ afirma "não tem áudio" quando a varredura chegou ao fim do moov. Parou no
+   * meio? Então não se sabe, e dizer que não tem áudio seria afirmar o que não
+   * foi medido — exatamente o erro que eu cometi ao ler a mensagem anterior. */
+  erro.semAudio = !parou && !recusas.some((r) => !r.startsWith('trilha de ') || r.includes('áudio'));
   throw erro;
 }
 

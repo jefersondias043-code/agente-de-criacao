@@ -367,26 +367,50 @@ async function _analisarIsobmff(arquivo) {
   const moov = _acharBox(moovBytes, dv, 0, moovBytes.length, 'moov');
   if (!moov) throw new Error('isobmff: moov não parseia');
 
-  // 2) Acha a trilha de ÁUDIO (hdlr == 'soun') com tabelas completas.
+  /* 2) Acha a trilha de ÁUDIO (hdlr == 'soun') com tabelas completas.
+   *
+   * O LAÇO ANOTA POR QUE DESISTIU DE CADA TRILHA. Ele desiste em cinco pontos
+   * diferentes e todos terminavam na mesma frase — "sem trilha de áudio AAC" —,
+   * que não distingue "este arquivo não tem áudio" de "tem áudio, mas as
+   * tabelas estão nos fragmentos" ou "o áudio não é AAC". São problemas
+   * diferentes, com soluções diferentes, e quem recebe a mensagem é justamente
+   * quem poderia dizer qual é. */
+  const recusas = [];
+  let trilhas = 0;
   for (const trak of _boxesEm(moovBytes, dv, moov.ini, moov.fim).filter(b => b.tipo === 'trak')) {
+    trilhas++;
     const mdia = _acharBox(moovBytes, dv, trak.ini, trak.fim, 'mdia');
-    if (!mdia) continue;
+    if (!mdia) { recusas.push('trilha sem mdia'); continue; }
     const hdlr = _acharBox(moovBytes, dv, mdia.ini, mdia.fim, 'hdlr');
-    if (!hdlr || _tipo(moovBytes, hdlr.ini + 8) !== 'soun') continue;
+    if (!hdlr) { recusas.push('trilha sem hdlr'); continue; }
+    const tipoTrilha = _tipo(moovBytes, hdlr.ini + 8);
+    if (tipoTrilha !== 'soun') { recusas.push(`trilha de ${tipoTrilha}`); continue; }
     const minf = _acharBox(moovBytes, dv, mdia.ini, mdia.fim, 'minf');
     const stbl = minf && _acharBox(moovBytes, dv, minf.ini, minf.fim, 'stbl');
-    if (!stbl) continue;
+    if (!stbl) { recusas.push('trilha de áudio sem stbl'); continue; }
     const caixa = {};
     for (const t of ['stsd', 'stts', 'stsc', 'stsz', 'stco', 'co64']) {
       caixa[t] = _acharBox(moovBytes, dv, stbl.ini, stbl.fim, t);
     }
-    if (!caixa.stsd || !caixa.stts || !caixa.stsc || !caixa.stsz || !(caixa.stco || caixa.co64)) continue;
+    if (!caixa.stsd || !caixa.stts || !caixa.stsc || !caixa.stsz || !(caixa.stco || caixa.co64)) {
+      const faltando = ['stsd', 'stts', 'stsc', 'stsz'].filter((t) => !caixa[t])
+        .concat(!(caixa.stco || caixa.co64) ? ['stco/co64'] : []);
+      // Tabela vazia no moov é a assinatura do MP4 FRAGMENTADO: as amostras
+      // vivem nos moof, e este leitor não os percorre.
+      recusas.push(`trilha de áudio sem ${faltando.join('/')} (MP4 fragmentado?)`);
+      continue;
+    }
 
     // stsd → entrada mp4a; o esds pode vir direto OU dentro de 'wave' (MOV) →
     // varredura tolerante pelo fourcc dentro da entrada.
     const sdIni = caixa.stsd.ini + 8; // ver/flags + entry_count
     const formato = _tipo(moovBytes, sdIni + 4);
-    if (formato !== 'mp4a' && formato !== 'enca') continue;
+    if (formato !== 'mp4a' && formato !== 'enca') {
+      // Áudio que não é AAC: Opus, MP3, PCM, AC-3. O leitor em partes só sabe
+      // AAC — dizer QUAL é permite decidir o que fazer em vez de adivinhar.
+      recusas.push(`áudio em "${formato}", que não é AAC`);
+      continue;
+    }
     let asc = null;
     for (let p = sdIni + 8; p < caixa.stsd.fim - 8; p++) {
       if (_tipo(moovBytes, p) === 'esds') { asc = _lerEsds(moovBytes, p + 4, caixa.stsd.fim); break; }
@@ -449,7 +473,11 @@ async function _analisarIsobmff(arquivo) {
       dur: durMedia / (timescale || asc.freq)
     };
   }
-  throw new Error('isobmff: sem trilha de áudio AAC');
+  /* Nenhuma trilha serviu. A frase diz o que foi encontrado, e não só o que
+   * faltou — é a diferença entre um relato que fecha o diagnóstico e um relato
+   * que só reabre a investigação. */
+  if (!trilhas) throw new Error('isobmff: o arquivo não tem nenhuma trilha (moov vazio)');
+  throw new Error(`isobmff: nenhuma trilha de áudio AAC utilizável em ${trilhas} trilha(s) — ${recusas.join('; ')}`);
 }
 
 // Fonte ISOBMFF: segmentos de ~48 s extraídos por faixa de bytes → ADTS → decode.

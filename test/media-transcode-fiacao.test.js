@@ -210,3 +210,40 @@ describe('quando não dá, a mensagem diz POR QUE', () => {
     expect(M.FALLBACK_MAX_BYTES).toBeGreaterThan(M.WHISPER_SAFE_BYTES);
   });
 });
+
+describe('o leitor em partes diz ONDE desistiu', () => {
+  /* "isobmff: sem trilha de áudio AAC" era a única saída de cinco pontos de
+   * desistência diferentes, e não distinguia "o arquivo não tem áudio" de "tem
+   * áudio, mas as tabelas estão nos fragmentos" ou "o áudio não é AAC". São
+   * problemas com soluções diferentes.
+   *
+   * Medido: um M4A gravado pelo MediaRecorder do Chromium traz áudio OPUS
+   * dentro de contêiner MP4 — a mensagem antiga chamava isso de "sem trilha de
+   * áudio AAC" e escondia o fato. A nova diz `áudio em "Opus", que não é AAC`.
+   *
+   * Aqui rodam só as FRASES: montar um ISOBMFF de verdade em jsdom não cabe, e
+   * o parser em si está coberto pela sonda de navegador. O que estes testes
+   * impedem é a mensagem voltar a ser genérica. */
+  const fonte = ler('src/media-transcode.js');
+
+  it('a frase antiga, que servia para tudo, não existe mais', () => {
+    expect(fonte).not.toContain("sem trilha de áudio AAC'");
+  });
+
+  it('cada ponto de desistência tem a sua frase', () => {
+    for (const pedaco of ['trilha sem mdia', 'trilha sem hdlr', 'trilha de ${tipoTrilha}',
+      'trilha de áudio sem stbl', 'MP4 fragmentado?', 'que não é AAC']) {
+      expect(fonte, pedaco).toContain(pedaco);
+    }
+  });
+
+  it('a mensagem final conta quantas trilhas achou e por que recusou cada uma', () => {
+    expect(fonte).toMatch(/nenhuma trilha de áudio AAC utilizável em \$\{trilhas\}/);
+    expect(fonte).toMatch(/recusas\.join/);
+  });
+
+  it('moov sem trilha nenhuma tem mensagem própria', () => {
+    // "0 trilhas" e "1 trilha que não serve" são arquivos diferentes.
+    expect(fonte).toContain('não tem nenhuma trilha (moov vazio)');
+  });
+});

@@ -36,7 +36,7 @@ beforeAll(() => {
     ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js',
       'media-transcode.js', 'ingest.js'],
     ['WHISPER_SAFE_BYTES', 'WHISPER_MAX_BYTES', 'otimizarArquivo', 'transcreverPartes',
-      'planejarPartes', 'ingestEhMidiaGrande']);
+      'planejarPartes', 'ingestEhMidiaGrande', 'FALLBACK_MAX_BYTES']);
 });
 
 const arquivo = (bytes, nome = 'audio.mp3', tipo = 'audio/mpeg') => {
@@ -84,8 +84,7 @@ describe('arquivo grande NÃO vai direto para a API', () => {
    * observá-la é substituir `otimizarArquivo` e `transcribeMediaDirect` DENTRO
    * do mesmo eval — mesma técnica do r225. */
   const carregarCom = (sabotagem) => loadModules(
-    ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js',
-      'media-transcode.js', 'ingest.js'],
+    ['core.js', 'media-transcode.js', 'ingest.js'],
     ['transcribeMedia', 'WHISPER_SAFE_BYTES', 'WHISPER_MAX_BYTES', '__espiao'],
     sabotagem);
 
@@ -163,5 +162,51 @@ describe('o plano de compressão cabe no que a API aceita', () => {
   it('mídia grande é reconhecida como grande pela tela', () => {
     expect(M.ingestEhMidiaGrande(arquivo(M.WHISPER_SAFE_BYTES + 1))).toBe(true);
     expect(M.ingestEhMidiaGrande(arquivo(1024))).toBe(false);
+  });
+});
+
+describe('quando não dá, a mensagem diz POR QUE', () => {
+  /* O relato que abriu esta investigação foi a mensagem genérica:
+   * "Não foi possível abrir este arquivo neste aparelho. Pode ser um formato
+   * incompatível — tente MP3, M4A, WAV, MP4 ou MOV — ou um arquivo longo demais
+   * para a memória."
+   *
+   * Ela listava quatro causas e não dizia qual era, porque `otimizarArquivo`
+   * trocava QUALQUER erro por esse texto. Medido no Chromium: um M4A gravado
+   * pelo próprio navegador é recusado pelo leitor em partes ("sem trilha de
+   * áudio AAC" — é um MP4 fragmentado) e caía no caminho que abre o arquivo
+   * inteiro na memória. Num vídeo de celular de centenas de megas, esse caminho
+   * derruba a aba — e a pessoa recebia "formato incompatível" sobre um formato
+   * perfeitamente compatível. */
+  const comFonte = (corpo) => loadModules(
+    ['core.js', 'media-transcode.js', 'ingest.js'],
+    ['otimizarArquivo', 'FALLBACK_MAX_BYTES', 'WHISPER_SAFE_BYTES'],
+    `globalThis.lamejs = { Mp3Encoder: function () {} };\n abrirFonteAudio = async () => { ${corpo} };`);
+
+  it('o motivo real sobe até o usuário, em vez de virar palpite', async () => {
+    const M2 = comFonte(`throw new Error('isobmff: sem trilha de áudio AAC');`);
+    await expect(M2.otimizarArquivo(arquivo(M2.WHISPER_SAFE_BYTES + 1)))
+      .rejects.toThrow(/sem trilha de áudio AAC/);
+  });
+
+  it('o genérico de quatro causas não é mais a resposta padrão', async () => {
+    const M2 = comFonte(`throw new Error('decodeAudioData falhou: EncodingError');`);
+    await expect(M2.otimizarArquivo(arquivo(M2.WHISPER_SAFE_BYTES + 1)))
+      .rejects.toThrow(/EncodingError/);
+  });
+
+  it('estouro de tempo tem mensagem própria, não "formato incompatível"', async () => {
+    // 45 s esperando é quase sempre tamanho, não formato. Dizer "formato
+    // incompatível" aqui mandava a pessoa converter um arquivo que estava bom.
+    const M2 = comFonte(`throw new Error('timeout');`);
+    await expect(M2.otimizarArquivo(arquivo(M2.WHISPER_SAFE_BYTES + 1)))
+      .rejects.toThrow(/passou de 45 segundos/i);
+  });
+
+  it('há um teto para o caminho que abre o arquivo inteiro na memória', () => {
+    // Sem teto, o fallback tenta carregar centenas de megas e a aba morre sem
+    // explicação — que é como o defeito relatado terminava.
+    expect(typeof M.FALLBACK_MAX_BYTES).toBe('number');
+    expect(M.FALLBACK_MAX_BYTES).toBeGreaterThan(M.WHISPER_SAFE_BYTES);
   });
 });

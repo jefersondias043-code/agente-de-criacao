@@ -247,3 +247,36 @@ describe('o leitor em partes diz ONDE desistiu', () => {
     expect(fonte).toContain('não tem nenhuma trilha (moov vazio)');
   });
 });
+
+describe('vídeo sem faixa de áudio tem resposta própria', () => {
+  /* O caso do usuário, medido no Chromium. A mensagem do r230 revelou "1
+   * trilha(s) — trilha de vide": uma trilha só, de vídeo.
+   *
+   * ANTES DE ACREDITAR NELA, conferi o parser: gravei um vídeo COM som e ele
+   * contou as duas trilhas corretamente. Só então "uma trilha de vídeo" virou
+   * conclusão — o arquivo foi exportado mudo — em vez de suspeita de bug.
+   *
+   * Sem áudio, cair no decodificador do arquivo inteiro é pedir para decodificar
+   * um som que não existe: ele falha, e a pessoa recebe "falha ao decodificar"
+   * sobre um vídeo mudo. Verdadeiro e inútil. */
+  const fonte = ler('src/media-transcode.js');
+
+  it('o caso "só trilha de vídeo" é marcado e tratado à parte', () => {
+    expect(fonte).toMatch(/erro\.semAudio\s*=/);
+    expect(fonte).toMatch(/if \(e && e\.semAudio\)/);
+  });
+
+  it('a mensagem fala com gente, não com quem lê ISOBMFF', () => {
+    expect(fonte).toContain('Este vídeo não tem faixa de áudio');
+    expect(fonte).toContain('não há fala para transcrever');
+  });
+
+  it('e não tenta o decodificador depois — não há o que decodificar', () => {
+    // A ordem importa: o `throw` do caso sem áudio vem ANTES de `porques.push`,
+    // que é o que levaria ao fallback.
+    const i = fonte.indexOf('if (e && e.semAudio)');
+    const j = fonte.indexOf("porques.push((e && e.message) || 'MP4 não pôde", i);
+    expect(i).toBeGreaterThan(-1);
+    expect(j).toBeGreaterThan(i);
+  });
+});

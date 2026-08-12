@@ -477,7 +477,14 @@ async function _analisarIsobmff(arquivo) {
    * faltou — é a diferença entre um relato que fecha o diagnóstico e um relato
    * que só reabre a investigação. */
   if (!trilhas) throw new Error('isobmff: o arquivo não tem nenhuma trilha (moov vazio)');
-  throw new Error(`isobmff: nenhuma trilha de áudio AAC utilizável em ${trilhas} trilha(s) — ${recusas.join('; ')}`);
+  /* NENHUMA TRILHA DE SOM é caso à parte, e é o mais importante de separar: não
+   * adianta tentar decodificar o arquivo inteiro depois, porque não há áudio
+   * nenhum ali. Medido: um vídeo com som declara duas trilhas e o parser conta
+   * as duas — então "só trilha de vídeo" quer dizer que o arquivo foi exportado
+   * sem áudio, não que o leitor deixou de enxergar. */
+  const erro = new Error(`isobmff: nenhuma trilha de áudio AAC utilizável em ${trilhas} trilha(s) — ${recusas.join('; ')}`);
+  erro.semAudio = !recusas.some((r) => !r.startsWith('trilha de ') || r.includes('áudio'));
+  throw erro;
 }
 
 // Fonte ISOBMFF: segmentos de ~48 s extraídos por faixa de bytes → ADTS → decode.
@@ -635,7 +642,17 @@ async function abrirFonteAudio(arquivo) {
   const porques = [];
   if (ehIsobmff) {
     try { return embrulhar(await _fonteIsobmff(arquivo, ctx)); }
-    catch (e) { porques.push((e && e.message) || 'MP4 não pôde ser lido em partes'); }
+    catch (e) {
+      /* Arquivo SEM FAIXA DE ÁUDIO: parar aqui. Cair no fallback seria pedir ao
+       * navegador que decodifique um áudio que não existe — ele falha, e a
+       * pessoa recebe "falha ao decodificar" sobre um vídeo mudo, que é uma
+       * resposta verdadeira e completamente inútil. */
+      if (e && e.semAudio) {
+        try { if (ctx.close) ctx.close(); } catch (_) {}
+        throw new Error('Este vídeo não tem faixa de áudio — não há fala para transcrever. Confira se ele foi exportado com som, ou envie o arquivo de áudio separado.');
+      }
+      porques.push((e && e.message) || 'MP4 não pôde ser lido em partes');
+    }
   }
   if (_ehMp3(arquivo, cab)) {
     try { return embrulhar(await _fonteMp3(arquivo, ctx)); }

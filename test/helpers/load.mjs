@@ -19,11 +19,17 @@ const readSrc = (f) => fs.readFileSync(path.join(SRC, f), 'utf8');
  * objeto com os símbolos capturados.
  * @param {string[]} files  arquivos em src/, em ordem de dependência
  * @param {string[]} captureNames identificadores top-level a capturar
+ * @param {string} [sabotagem] código extra rodado NO MESMO eval, depois dos
+ *        módulos e antes da captura. Serve para trocar uma função por um dublê:
+ *        `'use strict'` + eval isola as declarações, então de fora não há como
+ *        alcançá-las — e substituir de dentro é a única forma honesta de
+ *        observar QUEM CHAMA QUEM sem mexer no código de produção.
  * @returns {Record<string, any>}
  */
-export function loadModules(files, captureNames) {
+export function loadModules(files, captureNames, sabotagem) {
   const code =
     files.map(readSrc).join('\n;\n') +
+    (sabotagem ? `\n;${sabotagem}\n` : '') +
     `\n;globalThis.__CAP__ = { ${captureNames.join(', ')} };`;
   // eval INDIRETO → roda no escopo global do jsdom (document/window/localStorage)
   (0, eval)(code);

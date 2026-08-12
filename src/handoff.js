@@ -12,6 +12,10 @@ const TEXT_CONSUMERS = [
   // Narrativa: recebe o texto como IDEIA BRUTA — o ponto de partida para achar
   // o desejo, o obstáculo e o risco antes de virar conteúdo.
   { id: 'narrativa', label: 'Narrativa', kind: 'native', view: 'narrativa' },
+  // Causos: o texto vira a IDEIA de onde a mesa tira a história.
+  { id: 'causos', label: 'Causos', kind: 'native', view: 'causos' },
+  // Julgador: o texto vira o CONTEÚDO a ser avaliado — é a transcrição do vídeo.
+  { id: 'julgador', label: 'Julgador', kind: 'native', view: 'julgador' },
   // Cartazes: cria um cartaz a partir do texto (reusa o parser de matéria → headline/categoria/etc.)
   { id: 'cartazes', label: 'Cartaz', kind: 'native', view: 'posters',
     deliver: (text) => createPosterFromGeneration({ id: uuid(), content: text, style: '—', tone: '—', createdAt: new Date().toISOString() }) },

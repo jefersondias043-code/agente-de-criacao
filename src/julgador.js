@@ -673,6 +673,27 @@ function julgTelaDeEspera(passos) {
 }
 
 function renderJulgador() {
+  /* TEXTO RECEBIDO DE OUTRA FERRAMENTA vira o CONTEÚDO a julgar — o campo da
+   * transcrição. Entra antes de `julgPreencher`, que é quem escreve na tela.
+   *
+   * Zera `julgadorOrigemId` pelo mesmo motivo do botão "Julgar outro conteúdo":
+   * sem isso o próximo veredito sairia comparado com o vídeo anterior, que não
+   * tem relação nenhuma com o material que acabou de chegar. */
+  if (State.handoff && State.handoff.target === 'julgador') {
+    const texto = String(State.handoff.text || '');
+    State.handoff = null;
+    if (texto.trim()) {
+      const d = julgadorDraft();
+      d.conteudo = texto;
+      d.visual = '';
+      d.titulo = ''; d.capa = ''; d.legenda = '';
+      saveJulgadorDraft();
+      State.julgadorOrigemId = null;
+      julgLimparResultado();
+      julgLimparSugestao();
+    }
+  }
+
   julgPreencher();
   { const a = $('#j-api-warning'); if (a) a.classList.add('hidden'); }
   ['#j-attach-pending', '#j-lote-attach-pending'].forEach((sel) => {

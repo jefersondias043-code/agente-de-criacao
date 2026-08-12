@@ -27,7 +27,7 @@ beforeAll(() => {
       'storage.js', 'media-transcode.js', 'transcricao.js', 'resumo.js', 'ingest.js',
       'handoff.js', 'extract.js'],
     ['State', 'renderExtractionDetail', 'extractTextoAtivo', 'extractBlocoTexto',
-      'sendTextTo', 'STORAGE_KEYS']);
+      'sendTextTo', 'renderExtract', 'abrirExtractHistorico', 'fecharExtractHistorico', 'STORAGE_KEYS']);
 });
 
 const montarTela = () => {
@@ -64,6 +64,9 @@ beforeEach(() => {
   U.State.extractions = [item()];
   U.State.activeExtractionId = 'x1';
   montarTela();
+  // renderExtract() é quem liga a gaveta e o dropzone — a tela real passa por
+  // ele antes de qualquer detalhe aparecer.
+  try { U.renderExtract(); } catch (_) { /* dependências de upload não importam aqui */ }
   U.renderExtractionDetail();
 });
 afterEach(() => { globalThis.fetch = fetchOriginal; });
@@ -207,5 +210,54 @@ describe('o passo de organizar está no código (conferência de FONTE, não de 
   it('e a organização não derruba a extração quando falha', () => {
     const fonte = readFileSync(join(raiz, 'src/extract.js'), 'utf8');
     expect(fonte).toMatch(/catch \(_\) \{ \/\* segue com o texto cru \*\/ \}/);
+  });
+});
+
+describe('o histórico saiu da tela principal', () => {
+  /* Relato: "o histórico de extrações fica permanentemente visível na tela
+   * inicial. Isso ocupa espaço e deixa a interface menos otimizada."
+   *
+   * Ele ocupava metade da tela — uma coluna inteira da grade — para uma coisa
+   * que se consulta de vez em quando. Mesmo molde do Causos e do Julgador:
+   * ícone no canto superior direito, gaveta por cima. */
+  const drawer = () => document.getElementById('e-history-drawer');
+  const backdrop = () => document.getElementById('e-history-backdrop');
+
+  it('há um ícone de histórico no topo, e ele fica no canto das ações', () => {
+    expect($$('#e-history-open')).toBeTruthy();
+    expect($$('#view-extract .appbar-actions #e-history-open')).toBeTruthy();
+  });
+
+  it('o histórico vive numa gaveta, fechada ao abrir a ferramenta', () => {
+    expect(drawer()).toBeTruthy();
+    expect(drawer().classList.contains('open')).toBe(false);
+    expect(backdrop().classList.contains('hidden')).toBe(true);
+  });
+
+  it('não sobrou nenhuma coluna de histórico na grade da tela', () => {
+    // Sem isto, a gaveta poderia entrar e o painel antigo continuar lá.
+    const grade = document.querySelector('#view-extract .grid-2');
+    expect(grade, 'a grade de duas colunas devia ter saído').toBeNull();
+  });
+
+  it('o ícone abre e o fundo fecha', () => {
+    $$('#e-history-open').click();
+    expect(drawer().classList.contains('open')).toBe(true);
+    expect(backdrop().classList.contains('hidden')).toBe(false);
+
+    backdrop().click();
+    expect(drawer().classList.contains('open')).toBe(false);
+    expect(backdrop().classList.contains('hidden')).toBe(true);
+  });
+
+  it('escolher uma extração fecha a gaveta — quem clicou já foi aonde queria', () => {
+    U.State.extractions = [item(), { ...item(), id: 'x2', title: 'Outra' }];
+    U.renderExtractionDetail();
+    $$('#e-history-open').click();
+    const linha = document.querySelector('#e-history [data-eid="x2"]');
+    expect(linha, 'a lista da gaveta não foi preenchida').toBeTruthy();
+    linha.click();
+    expect(drawer().classList.contains('open')).toBe(false);
+    expect(U.State.activeExtractionId).toBe('x2');
   });
 });

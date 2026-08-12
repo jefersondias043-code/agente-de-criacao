@@ -21,6 +21,13 @@
 // Alvo com margem sob o limite de 25 MB da Groq (definido em ingest.js).
 const WHISPER_SAFE_BYTES = 23 * 1024 * 1024;
 
+/* Teto para o caminho que abre o arquivo INTEIRO na memória (o fallback de
+ * `abrirFonteAudio`). Um vídeo de celular decodificado em PCM ocupa muitas vezes
+ * o tamanho do arquivo; 120 MB de entrada já passa de 1 GB de áudio cru, que
+ * nenhum celular segura. Acima disso, recusar com instrução é melhor do que
+ * tentar e derrubar a aba. */
+const FALLBACK_MAX_BYTES = 120 * 1024 * 1024;
+
 
 // Qualidade do MP3 de voz (piso 32 = nunca degrada além disso; teto 64 = acima
 // não melhora o Whisper e só aumenta o upload).
@@ -144,7 +151,16 @@ async function otimizarArquivo(arquivo, onProgress) {
     // com mensagem clara em vez de ficar preso em "Lendo o áudio…".
     fonte = await _comTimeout(abrirFonteAudio(arquivo), 45000, 'timeout');
   } catch (e) {
-    throw new Error('Não foi possível abrir este arquivo neste aparelho. Pode ser um formato incompatível — tente MP3, M4A, WAV, MP4 ou MOV — ou um arquivo longo demais para a memória do dispositivo (nesse caso, tente um trecho menor ou envie pelo computador).');
+    /* A MENSAGEM VEM DE BAIXO quando existe uma. A versão anterior trocava
+     * qualquer erro por um texto com quatro causas possíveis — "formato
+     * incompatível ou arquivo longo demais" —, e quem recebia isso não tinha
+     * como saber qual das quatro era a sua. O genérico ficou só para o que
+     * realmente não tem causa conhecida. */
+    const real = (e && e.message) || '';
+    if (real && real !== 'timeout') throw new Error(real);
+    throw new Error(real === 'timeout'
+      ? 'A leitura deste arquivo passou de 45 segundos e foi interrompida. Em geral é um arquivo grande demais para este aparelho — tente um trecho menor, converta para MP3/M4A, ou envie pelo computador.'
+      : 'Não foi possível abrir este arquivo neste aparelho. Pode ser um formato incompatível — tente MP3, M4A, WAV, MP4 ou MOV — ou um arquivo longo demais para a memória do dispositivo (nesse caso, tente um trecho menor ou envie pelo computador).');
   }
 
   try {
@@ -584,17 +600,44 @@ async function abrirFonteAudio(arquivo) {
   const cab = await _lerFaixaBytes(arquivo, 0, Math.min(arquivo.size, 16));
   const ehIsobmff = cab.length >= 12 && _tipo(cab, 4) === 'ftyp';
 
+  /* POR QUE O STREAMING NÃO SERVIU. Estes dois `catch` engoliam o motivo, e o
+   * chamador acabava exibindo uma mensagem genérica com quatro causas
+   * possíveis — inútil para quem precisa resolver e inútil para quem precisa
+   * consertar. O motivo agora sobe junto. */
+  const porques = [];
   if (ehIsobmff) {
     try { return embrulhar(await _fonteIsobmff(arquivo, ctx)); }
-    catch (_) { /* sem trilha AAC ou MP4 fragmentado → tenta o fallback */ }
+    catch (e) { porques.push((e && e.message) || 'MP4 não pôde ser lido em partes'); }
   }
   if (_ehMp3(arquivo, cab)) {
     try { return embrulhar(await _fonteMp3(arquivo, ctx)); }
-    catch (_) { /* MP3 problemático → fallback */ }
+    catch (e) { porques.push((e && e.message) || 'MP3 não pôde ser lido em partes'); }
   }
   try { if (ctx.close) ctx.close(); } catch (_) {} // fallback usa contexto próprio
-  const fonte = await _fonteCompleta(arquivo);
-  return fonte;
+
+  /* O FALLBACK CARREGA O ARQUIVO INTEIRO na memória para decodificar de uma vez.
+   * Num arquivo de trezentos megas isso derruba a aba do celular — e era esse o
+   * fim de linha do relato: streaming recusa o arquivo, o fallback tenta abrir
+   * tudo, o aparelho não aguenta, e a pessoa recebe "formato incompatível" sobre
+   * um formato perfeitamente compatível.
+   *
+   * Melhor recusar ANTES, dizendo o que aconteceu e o que fazer, do que tentar
+   * e morrer sem explicação. O teto é generoso: o que passa por aqui já não
+   * cabia em nenhuma memória de celular. */
+  if (arquivo.size > FALLBACK_MAX_BYTES) {
+    const causa = porques.length ? ` (${porques[0]})` : '';
+    throw new Error(
+      `Este arquivo tem ${(arquivo.size / 1024 / 1024).toFixed(0)} MB e o áudio dele não pôde ser lido em partes${causa}. ` +
+      'Para abrir de uma vez só, ele não cabe na memória do aparelho. ' +
+      'Converta para MP3 ou M4A antes de enviar, ou mande um trecho menor.');
+  }
+
+  try {
+    return await _fonteCompleta(arquivo);
+  } catch (e) {
+    const causa = porques.length ? ` Antes disso, a leitura em partes falhou: ${porques[0]}.` : '';
+    throw new Error(`${(e && e.message) || 'Falha ao decodificar o áudio.'}${causa}`);
+  }
 }
 
 

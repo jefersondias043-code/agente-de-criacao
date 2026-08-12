@@ -361,6 +361,7 @@ function conferirCausoLocal(texto, dossie, opcoes) {
   // é o que mais alonga sem fazer a história andar.
   const dur = causoDuracao(texto);
   const rep = causoRepeticao(texto);
+  const fim = causoTerminaAbrupto(texto);
 
   const achados = []
     .concat(oral.problemas.map((p) => ({ dimensao: 'oralidade', texto: p })))
@@ -370,9 +371,10 @@ function conferirCausoLocal(texto, dossie, opcoes) {
     .concat(abs.problemas.map((p) => ({ dimensao: 'absurdo', texto: p })))
     .concat(fant.problemas.map((p) => ({ dimensao: 'absurdo', texto: p })))
     .concat(dur.problemas.map((p) => ({ dimensao: 'ritmo', texto: p })))
-    .concat(rep.problemas.map((p) => ({ dimensao: 'ritmo', texto: p })));
+    .concat(rep.problemas.map((p) => ({ dimensao: 'ritmo', texto: p })))
+    .concat(fim.problemas.map((p) => ({ dimensao: 'final', texto: p })));
 
-  return { achados, oralidade: oral, continuidade: cont, originalidade: orig, exagero: exag, absurdo: abs, fantasia: fant, duracao: dur, repeticao: rep, ok: achados.length === 0 };
+  return { achados, oralidade: oral, continuidade: cont, originalidade: orig, exagero: exag, absurdo: abs, fantasia: fant, duracao: dur, repeticao: rep, fim, ok: achados.length === 0 };
 }
 
 /** As palavras de uma frase que carregam conteúdo (≥4 letras, fora das vazias). */
@@ -480,6 +482,39 @@ function causoRepeticao(texto) {
   const problemas = achados.map((a) =>
     `esta parte repete o que já foi dito: "${a.frase.slice(0, 70)}" diz de novo o que "${a.repeteA.slice(0, 55)}" já tinha dito. Quem ouve já entendeu — corte uma das duas.`);
   return { problemas, achados };
+}
+
+/* TERMINA NO MEIO — o sintoma mais grosseiro do corte malfeito.
+ *
+ * Relato, depois do r235: "parece que a ferramenta está simplesmente cortando
+ * a história no meio para conseguir atender ao limite de duração… não deve
+ * acontecer de a história simplesmente parar depois do clímax, deixando a
+ * sensação de que faltou alguma coisa."
+ *
+ * Isto NÃO julga se o desfecho é BOM — isso já é trabalho do crítico de
+ * narrativa (dimensão `final`, "o encerramento recompensa a espera?"). Isto
+ * pega o sintoma mais grosseiro, que é mecânico e não precisa de opinião: o
+ * texto para sem terminar a frase, ou termina numa palavra que só serve para
+ * introduzir o que viria depois. Um causo pode deixar coisa SEM EXPLICAR — é
+ * doutrina —, mas a última frase tem de estar de pé. */
+const CAUSO_PALAVRAS_DE_MEIO = new Set([
+  'e', 'mas', 'que', 'porque', 'quando', 'se', 'como', 'para', 'pra', 'por',
+  'com', 'de', 'do', 'da', 'dos', 'das', 'no', 'na', 'nos', 'nas', 'em',
+  'o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas', 'ao', 'aos', 'à', 'às',
+]);
+
+function causoTerminaAbrupto(texto) {
+  const t = String(texto || '').trim();
+  if (!t) return { problemas: [] };
+  if (!/[.!?…"'”’)]$/.test(t)) {
+    return { problemas: ['a história para sem terminar a frase — sem ponto, interrogação ou exclamação no fim. Parece corte, não fim de história.'] };
+  }
+  const semPontuacao = t.replace(/[.!?…"'”’)]+$/, '').trim();
+  const ultima = _cNorm(semPontuacao).split(/[^a-z0-9]+/).filter(Boolean).pop() || '';
+  if (CAUSO_PALAVRAS_DE_MEIO.has(ultima)) {
+    return { problemas: [`a última frase termina em "${ultima}" — uma palavra que pede continuação, não que fecha. Parece corte, não fim de história.`] };
+  }
+  return { problemas: [] };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -719,6 +754,21 @@ function buildDossiePrompt(conceito, ideia, memoria) {
     '== A VOZ ==',
     'Quem está contando? Que idade tem, que relação tem com o que aconteceu, por que está contando isso agora, e o que essa pessoa acha do protagonista. A voz decide o texto inteiro.',
     '',
+    /* r236: o pedido foi explícito sobre ONDE isto tem de ser resolvido —
+     * "antes de desenvolver a história, a IA deve saber que está criando um
+     * conteúdo destinado a um vídeo curto e estruturar os acontecimentos" desde
+     * o planejamento. Até aqui o tamanho só era dito na hora de CONTAR — o
+     * dossiê podia planejar uma história de fôlego normal, e o contador
+     * recebia acontecimentos demais para o tempo que tinha. O resultado real
+     * foi exatamente o relatado: histórias cortadas no meio, ou paradas logo
+     * depois do clímax, porque a história planejada era grande demais para o
+     * formato e alguém — o contador ou, pior, o reescritor — teve de cortá-la
+     * depois de pronta. */
+    '== O TAMANHO, JÁ NO PLANO ==',
+    `Isto vai virar vídeo curto: contado em voz alta, tem de caber entre 1 minuto e 1min30 — perto de ${Math.round(CAUSO_SEG_ALVO_MIN * CAUSO_PALAVRAS_POR_SEGUNDO)} a ${Math.round(CAUSO_SEG_ALVO_MAX * CAUSO_PALAVRAS_POR_SEGUNDO)} palavras. Resolva isso AQUI, no plano — não é a hora de contar que decide o tamanho, é a hora de planejar.`,
+    'POUCOS acontecimentos, cada um ganhando o seu lugar: de 3 a 5 beats bastam para uma história de vídeo curto. Isto não é uma saga — é o suficiente para apresentar a situação, uma virada, e o desfecho. Planejar mais do que isso é planejar uma história que vai precisar ser cortada depois de escrita.',
+    'O ÚLTIMO beat da lista TEM de ser o desfecho — o que fecha a história de verdade, não um resumo do que já aconteceu. Ele não é opcional, e quem for contar não pode inventá-lo na hora nem deixá-lo de fora.',
+    '',
     'Devolva SOMENTE JSON, sem cercas:',
     '{',
     '  "titulo": "curto",',
@@ -727,13 +777,13 @@ function buildDossiePrompt(conceito, ideia, memoria) {
     '  "personagens": [{ "nome": "", "fama": "como é conhecido no lugar", "quer": "", "jeito": "como fala e o que evita dizer", "mania": "" }],',
     '  "mundo": { "lugar": "nome do lugar", "pontos": ["a venda do fulano", "a ponte velha"], "costume": "o que aquele povo faz que ninguém mais faz", "detalhes": ["o cachorro", "o barulho do motor"] },',
     '  "voz": { "quem": "quem conta", "relacao": "o que tem a ver com a história", "porqueConta": "" },',
-    '  "beats": ["o que acontece, passo a passo, com as coisas concretas deste mundo"],',
+    '  "beats": ["o que acontece, passo a passo, com as coisas concretas deste mundo — de 3 a 5, terminando no desfecho"],',
     '  "curvaExagero": ["se for história de exagero: o que é quase normal, depois estranho, depois improvável, depois inacreditável"],',
     '  "obrigatorio": ["coisas que a história PRECISA ter"],',
     '  "proibido": ["coisas que estragariam esta história"],',
     '  "absurdo": "o exagero, concretizado: a coisa real de que parte e o tamanho mentiroso a que chega. Nada fora do mundo — sem magia, sem bicho falando, sem sobrenatural confirmado",',
     '  "graca": "de onde vem o riso nesta versão",',
-    '  "final": "o que acontece no fim, e o que fica sem explicação"',
+    '  "final": "o desfecho de verdade, que TEM de estar entre os beats — o que acontece no fim, e o que fica sem explicação"',
     '}',
   ].filter(Boolean).join('\n');
 }
@@ -834,11 +884,17 @@ function buildContarPrompt(dossie, opcoes) {
   linhas.push('');
   linhas.push('== O TAMANHO É PARTE DA HISTÓRIA ==');
   linhas.push(`Isto vai virar vídeo curto. Contado em voz alta, tem de caber entre 1 minuto e 1min30 — algo perto de ${Math.round(CAUSO_SEG_ALVO_MIN * CAUSO_PALAVRAS_POR_SEGUNDO)} a ${Math.round(CAUSO_SEG_ALVO_MAX * CAUSO_PALAVRAS_POR_SEGUNDO)} palavras.`);
+  /* r236: a prioridade explícita que faltava. Sem isto, "caiba no tamanho" e
+   * "termine direito" competiam sem hierarquia — e quando competiam de
+   * verdade, o tamanho vencia, porque é o mais fácil de checar. */
+  linhas.push('Mas o tamanho é a ÚLTIMA das cinco prioridades, nesta ordem: (1) a história TEM de estar completa — começo, meio e fim; (2) sem repetição nem enchimento; (3) no ritmo de vídeo curto; (4) perto do tamanho pedido; (5) terminando de um jeito natural, não forçado. As quatro primeiras vêm antes do número de palavras — nenhuma delas se sacrifica pela quinta.');
   linhas.push('NÃO escreva uma história longa e corte no fim. Construa já nesse tamanho: escolha os acontecimentos que cabem e conte só esses. É melhor uma história pequena inteira do que uma grande pela metade.');
   linhas.push('');
   linhas.push('CADA FRASE TEM DE FAZER A HISTÓRIA ANDAR. Se uma frase não acrescenta acontecimento, não muda o que se sabe e não muda o que se sente, ela sobra — e sobra atrapalha, porque quem ouve percebe que já entendeu e sai.');
   linhas.push('NÃO REPITA O QUE JÁ DISSE. Dito uma vez, está dito. Não reforce com outras palavras, não retome para "deixar claro", não resuma no fim o que acabou de acontecer. Repetição é o jeito mais comum de uma história boa ficar chata.');
   linhas.push('TERMINE QUANDO ACABOU. No instante em que a história entregou o que tinha para entregar, pare. Não amarre pontas, não comente, não feche com uma frase de efeito.');
+  linhas.push('');
+  linhas.push('A HISTÓRIA TEM DE TER COMEÇO, MEIO E FIM DENTRO DESSE TAMANHO. Nunca pare logo depois do ponto alto sem fechar — o desfecho tem de estar escrito, mesmo que em uma frase só. Uma história um pouco mais longa ou mais curta que o alvo, mas inteira, é sempre melhor que uma do tamanho certo e cortada pela metade.');
   if (o.tamanho) linhas.push(`- Extensão pedida: ${o.tamanho}.`);
   linhas.push('');
   linhas.push('Devolva SOMENTE a história contada. Sem título, sem introdução, sem comentário, sem moral no fim.');
@@ -1002,6 +1058,11 @@ function buildReescreverCausoPrompt(texto, ordens, dossie) {
    * cortar o fim — e a história perde justamente o pagamento. O que sai é o que
    * não faz a história andar, em qualquer lugar do texto. */
   linhas.push('Se o que reprovou foi TAMANHO ou REPETIÇÃO: não corte o fim nem resuma a história. Tire as frases que não acrescentam acontecimento, as explicações do que já foi mostrado e as informações que voltam com outras palavras. O fim fica; o que sai é a gordura do meio.');
+  /* r236: a trava textual acima não bastou sozinha — na prática a história
+   * saía cortada mesmo assim. Isto é reforço, não substituição: diz o mesmo
+   * de outro jeito e pede uma conferência explícita antes de responder. */
+  linhas.push('COMPLETUDE VEM ANTES DO TAMANHO: se encolher o bastante para caber no alvo estragaria o desfecho, encolha menos — ou não encolha. Uma história um pouco mais longa, mas inteira, vale mais do que uma do tamanho certo sem fim.');
+  linhas.push('Antes de responder, confira: a história que você vai devolver tem começo, meio e fim? Ela chega a um desfecho de verdade, ou some logo depois do ponto alto? Se sumir, não é isto que você devolve — encolha menos e tente de novo.');
   linhas.push('');
   const d = dossie || {};
   if ((d.personagens || []).length) {
@@ -1269,6 +1330,27 @@ function causoModosDisponiveis() {
 
 const CAUSO_MAX_REVISOES = 2;
 
+/** A reescrita PIOROU? Duas perguntas — "sim" para qualquer uma decide:
+ *  1. saiu com MAIS achados no total do que tinha antes (a trava original);
+ *  2. INTRODUZIU um corte (dimensão `final`) que não existia antes — mesmo
+ *     que o total tenha melhorado. Completude nunca é moeda de troca (r236):
+ *     "a ferramenta simplesmente cortando a história no meio para conseguir
+ *     atender ao limite de duração". A pergunta 1 sozinha não pega isto: uma
+ *     reescrita pode trocar um achado de tamanho por um achado de corte —
+ *     mesma contagem — e passaria pela pergunta 1 sem ser notada.
+ *
+ *  Um corte que JÁ existia ANTES da reescrita não conta como introduzido: não
+ *  é uma regressão desta reescrita, e a próxima volta do juiz continua livre
+ *  para cobrá-lo. A trava é contra piorar, não contra existir. */
+function causoRevisaoPiorou(antes, depois) {
+  const a = (antes && antes.achados) || [];
+  const d = (depois && depois.achados) || [];
+  if (d.length > a.length) return true;
+  const jaTinhaCorte = a.some((x) => x.dimensao === 'final');
+  const agoraTemCorte = d.some((x) => x.dimensao === 'final');
+  return agoraTemCorte && !jaTinhaCorte;
+}
+
 function _cLimpar(texto) {
   let t = String(texto == null ? '' : texto).trim();
   t = t.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '');
@@ -1360,10 +1442,10 @@ async function runCausoPipeline(opts) {
     } catch (_) { novo = ''; }
     if (!novo) break;
 
-    // A reescrita precisa MELHORAR o que foi medido. Se sair com mais achados
-    // do que entrou, fica a anterior — é a trava contra a revisão que destrói.
+    // A reescrita precisa MELHORAR o que foi medido — e não pode trocar
+    // completude por tamanho. Ver `causoRevisaoPiorou`.
     const localNovo = modo.conferir(novo, dossie, { memoria, genero: dossie.genero });
-    if (localNovo.achados.length > local.achados.length) {
+    if (causoRevisaoPiorou(local, localNovo)) {
       etapas.push('reescrita-descartada');
       break;
     }

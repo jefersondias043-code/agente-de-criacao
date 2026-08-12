@@ -37,30 +37,39 @@ beforeAll(() => {
 
 /* AS ASSINATURAS DO CAUSOS.
  *
- * ATUALIZADAS NO r235, de propósito, pelo caminho previsto: o usuário pediu
- * histórias de vídeo curto (1 a 1min30) e controle rigoroso de repetição. Seis
- * assinaturas mudaram e seis ficaram iguais — a doutrina, os prompts de
- * conceito e dossiê, a convocação de críticos e a tabela de dimensões não
- * foram tocadas, e é isso que sustenta a promessa de não descaracterizar o
- * modo que já funcionava.
+ * ATUALIZADAS NO r235 e no r236, as duas vezes de propósito.
  *
- * Os prompts dos críticos mudaram porque eles RECEBEM o que a conferência
- * achou, e a conferência ganhou duas contas novas (duração e repetição).
+ * r235: o usuário pediu histórias de vídeo curto (1 a 1min30) e controle
+ * rigoroso de repetição. Os prompts dos críticos mudaram porque eles RECEBEM
+ * o que a conferência achou, e a conferência ganhou duas contas novas
+ * (duração e repetição). A do JUIZ mudou por um defeito que só apareceu
+ * medindo de ponta a ponta: com duas contas caindo na mesma dimensão
+ * (`ritmo`), o juiz guardava um problema por dimensão e a segunda sumia.
  *
- * A do JUIZ mudou por um defeito que só apareceu medindo de ponta a ponta: com
- * duas contas caindo na mesma dimensão (`ritmo`), o juiz guardava um problema
- * por dimensão e a segunda sumia — história comprida E repetitiva mandava
- * encurtar e nunca mandava tirar a repetição, que é o ponto principal do
- * pedido. A NOTA continua uma só, e continua a pior; o que mudou é quantos
- * problemas ela leva ao reescritor. */
+ * r236: testado o r235 de verdade, o relato foi que a ferramenta estava
+ * CORTANDO a história no meio para caber no limite, em vez de planejá-la
+ * naquele tamanho desde o início. Três coisas mudaram, e só três: o DOSSIÊ
+ * passou a resolver o tamanho no plano (poucos beats, terminando no
+ * desfecho); o CONTAR ganhou a prioridade explícita — completude antes de
+ * tamanho — e a instrução de nunca parar logo depois do clímax; o REESCREVER
+ * ganhou o mesmo reforço, porque a trava textual do r235 não bastou sozinha
+ * na prática.
+ *
+ * O que NÃO mudou no r236, e é o que prova que o texto de exemplo
+ * (`test/fixtures/causos-golden.mjs`) já terminava bem: a CONFERÊNCIA
+ * (`conferirCausoLocal`) ganhou uma conta nova — `causoTerminaAbrupto`,
+ * dimensão `final` — mas ela não achou problema nenhum no texto fixo, então
+ * `conferencia` e `juizo` (que depende dela) ficaram bit a bit iguais. Os
+ * críticos não mudaram de prompt. A doutrina, os conceitos, a convocação de
+ * críticos e a tabela de dimensões continuam intocados desde sempre. */
 const ESPERADO = {
   doutrina: '54f6da77197421d5',
   conceitos: '2673fcc4f1a9c88c',
-  dossie: '89417112e3618b9b',
-  contar: '30bf8e036b4f4944',
+  dossie: 'b1edb46d8469a6f1',
+  contar: '51f0fc765d8acc55',
   criticoNarrativa: '66d8463a8398cb8d',
   criticoExagero: 'e8452e418db98411',
-  reescrever: '26405fb66c0127fc',
+  reescrever: 'c9b3b2ff8ad194be',
   conferencia: 'de6b819abab40bc6',
   juizo: 'e074334f9e0cf4a0',
   criticos: 'pescador:narrativa+oralidade+originalidade+humor+exagero | assombracao:narrativa+oralidade+originalidade+humor+misterio | engracado:narrativa+oralidade+originalidade+humor | lenda:narrativa+oralidade+originalidade+humor+misterio | vida:narrativa+oralidade+originalidade+humor',

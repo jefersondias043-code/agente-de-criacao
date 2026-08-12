@@ -435,6 +435,10 @@ function buildDialogoDossiePrompt(conceito, ideia, memoria) {
     'Prepare as pessoas e o jeito de falar de cada uma. A VOZ é a parte mais importante: é ela que faz o teste de tapar os nomes funcionar.',
     'Para cada pessoa, o jeito de falar precisa ser CONCRETO e diferente do da outra: tamanho de frase (quem fala em três palavras e quem enrola), o que ela nunca diz, o vício de linguagem, se responde direto ou desconversa, se pergunta ou afirma.',
     'Duas pessoas com "jeito informal e descontraído" são a mesma pessoa. Diga o que SEPARA uma da outra.',
+    /* r236: mesma lição do modo Causos — resolver o tamanho aqui, no plano, em
+     * vez de deixar para a hora de escrever (que aí já é tarde: ou a conversa
+     * sai maior que o formato, ou alguém corta depois de pronta). */
+    `Isto vai virar vídeo curto: dita em voz alta, a conversa inteira tem de caber entre 1 minuto e 1min30. Planeje o "plano" já nesse tamanho — poucos pontos de virada, não uma conversa longa que precisaria ser cortada depois.`,
     '',
     'Devolva SOMENTE JSON, sem cercas:',
     '{',
@@ -446,7 +450,7 @@ function buildDialogoDossiePrompt(conceito, ideia, memoria) {
     '  ],',
     '  "mundo": { "lugar": "onde estão", "quando": "que hora do dia, que momento" },',
     '  "voz": { "quem": "quem conduz a conversa", "comoFala": "o clima geral da troca" },',
-    '  "plano": ["por onde a conversa começa", "o que muda no meio", "como termina"],',
+    '  "plano": ["por onde a conversa começa", "o que muda no meio", "como termina — o desfecho de verdade, não um resumo"],',
     '  "porBaixo": "o que está mandando na conversa e ninguém diz"',
     '}',
   ].filter(Boolean).join('\n');

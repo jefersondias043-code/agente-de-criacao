@@ -383,11 +383,14 @@ const CAUSO_NOTA_DE_ACHADO = 5;
  * A REGRA: nota baixa não se esconde na média. Qualquer dimensão abaixo do
  * mínimo dela reprova a história inteira — 95+95+95+95+40 não é 84.
  */
-function julgarCauso(criticas, achadosLocais) {
+function julgarCauso(criticas, achadosLocais, modo) {
   const porDimensao = new Map();
+  // Sem modo, é o Causos — a chamada de antes continua valendo palavra por
+  // palavra, e é isso que o teste de assinatura exige.
+  const dimensaoDe = (modo && typeof modo.dimensao === 'function') ? modo.dimensao : causoDimensao;
 
   const registrar = (dimensao, nota, problema, correcao, fonte) => {
-    const dim = causoDimensao(dimensao);
+    const dim = dimensaoDe(dimensao);
     if (!dim) return;
     const atual = porDimensao.get(dim.id);
     // Fica sempre a PIOR avaliação da dimensão: dois críticos olhando a mesma
@@ -1008,6 +1011,94 @@ function causoMemoriaDe(historico, limite) {
 /* §8 — A mesa inteira                                                         */
 /* -------------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------- */
+/* §6 — OS MODOS DA MESA                                                       */
+/* -------------------------------------------------------------------------- */
+
+/* O MESMO MOTOR, CABEÇAS DIFERENTES.
+ *
+ * O que faz o Causos funcionar não é o assunto dele — é o processo: quatro
+ * caminhos em vez de um, dossiê antes da escrita, críticos independentes que
+ * não leem uns aos outros, juiz de código que não perdoa nota baixa, e
+ * reescrita só do que reprovou. Esse processo serve para qualquer formato.
+ *
+ * O que muda de um modo para o outro é a CABEÇA: a doutrina, os gêneros, as
+ * dimensões avaliadas, os críticos convocados e o que a conta mede.
+ *
+ * O MODO `causos` APONTA PARA AS FUNÇÕES QUE JÁ EXISTIAM, sem uma vírgula de
+ * diferença. Não há aqui uma "versão generalizada" do Causos: há o Causos, do
+ * jeito que estava, mais uma indireção no ponto de chamada. É a única forma de
+ * garantir o que o usuário pediu — que o modo aprovado não seja descaracterizado
+ * —, e test/causos-intocado.test.js compara as assinaturas para provar.
+ *
+ * Para acrescentar um terceiro formato, escreva a cabeça dele e registre aqui.
+ * Nada no pipeline precisa saber que ele existe. */
+const CAUSO_MODOS = {
+  causos: {
+    id: 'causos',
+    label: 'Causos e histórias dos mais antigos',
+    descricao: 'Histórias de pescador, assombração, caso engraçado, lenda do lugar. O absurdo é de tamanho, não de natureza — e quem ouve termina sem saber se acredita.',
+    rotuloIdeia: 'A ideia',
+    exemplo: 'um vizinho que jurava ter pescado um peixe do tamanho de um bezerro',
+    generos: () => CAUSO_GENEROS,
+    dimensoes: () => CAUSO_DIMENSOES,
+    dimensao: causoDimensao,
+    criticosDe: causoCriticosDe,
+    conferir: conferirCausoLocal,
+    doutrina: causoBlocoDoutrina,
+    prompts: {
+      conceitos: buildConceitosPrompt,
+      dossie: buildDossiePrompt,
+      contar: buildContarPrompt,
+      critico: buildCriticoPrompt,
+      reescrever: buildReescreverCausoPrompt,
+    },
+  },
+};
+
+/* O modo de diálogos vive em src/dialogos-motor.js, carregado ANTES deste
+ * arquivo. O registro é condicional para que o motor continue de pé se aquele
+ * arquivo faltar — a plataforma abre por file:// e um script a menos não pode
+ * derrubar a ferramenta inteira. */
+if (typeof conferirDialogoLocal === 'function') {
+  CAUSO_MODOS.dialogos = {
+    id: 'dialogos',
+    label: 'Diálogos naturais',
+    descricao: 'Conversas que parecem estar acontecendo: gente que se interrompe, desconversa, responde torto. Sem narrador e sem rubrica — só o que sai da boca.',
+    rotuloIdeia: 'A conversa',
+    exemplo: 'dois amigos discutindo quem vai pagar a conta do bar',
+    generos: () => DIALOGO_GENEROS,
+    dimensoes: () => DIALOGO_DIMENSOES,
+    dimensao: dialogoDimensao,
+    criticosDe: dialogoCriticosDe,
+    conferir: conferirDialogoLocal,
+    doutrina: dialogoBlocoDoutrina,
+    prompts: {
+      conceitos: buildDialogoConceitosPrompt,
+      dossie: buildDialogoDossiePrompt,
+      contar: buildDialogoContarPrompt,
+      critico: buildDialogoCriticoPrompt,
+      reescrever: buildDialogoReescreverPrompt,
+    },
+  };
+}
+
+const CAUSO_MODO_PADRAO = 'causos';
+
+/** O modo pedido, ou o Causos. Id desconhecido cai no padrão em vez de quebrar:
+ *  um rascunho antigo no localStorage não pode deixar a ferramenta sem motor. */
+function causoModo(id) {
+  return CAUSO_MODOS[id] || CAUSO_MODOS[CAUSO_MODO_PADRAO];
+}
+
+/** Os modos disponíveis, para a tela desenhar o seletor. */
+function causoModosDisponiveis() {
+  return Object.keys(CAUSO_MODOS).map((id) => {
+    const m = CAUSO_MODOS[id];
+    return { id: m.id, label: m.label, descricao: m.descricao, rotuloIdeia: m.rotuloIdeia, exemplo: m.exemplo };
+  });
+}
+
 const CAUSO_MAX_REVISOES = 2;
 
 function _cLimpar(texto) {
@@ -1033,6 +1124,8 @@ async function runCausoPipeline(opts) {
   if (!chamar) throw new Error('Sem função de chamada de IA.');
   const ideia = String(o.ideia || '').trim();
   const memoria = o.memoria || {};
+  // O modo escolhe a cabeça; o processo abaixo é o mesmo para todos.
+  const modo = causoModo(o.modo);
   const etapa = (k, t, d) => { if (typeof o.onEtapa === 'function') o.onEtapa(k, t, d); };
   const lerJSON = (r) => (typeof extractJSON === 'function' ? extractJSON(r && r.content) : null);
   const etapas = [];
@@ -1040,7 +1133,7 @@ async function runCausoPipeline(opts) {
 
   // 1) CONCEPÇÃO — quatro histórias possíveis, não uma.
   etapa('conceitos', 'Procurando a história…', 'Quatro caminhos possíveis para essa ideia.');
-  const rConc = await chamar(buildConceitosPrompt(ideia, memoria));
+  const rConc = await chamar(modo.prompts.conceitos(ideia, memoria));
   modelo = (rConc && rConc.model) || modelo;
   const conceitos = normalizarConceitos(lerJSON(rConc));
   if (!conceitos.length) throw new Error('Não foi possível encontrar uma história nessa ideia.');
@@ -1049,21 +1142,21 @@ async function runCausoPipeline(opts) {
 
   // 2) DOSSIÊ — personagens, mundo, voz e plano do conceito escolhido.
   etapa('dossie', 'Montando a mesa…', `${escolha.escolhido.titulo || 'Conceito escolhido'}: gente, lugar e voz.`);
-  const rDoss = await chamar(buildDossiePrompt(escolha.escolhido, ideia, memoria));
+  const rDoss = await chamar(modo.prompts.dossie(escolha.escolhido, ideia, memoria));
   modelo = (rDoss && rDoss.model) || modelo;
   const dossie = normalizarDossie(lerJSON(rDoss), escolha.escolhido);
   etapas.push('dossie');
 
   // 3) CONTAR.
   etapa('contar', 'Contando…', dossie.voz.quem ? `Na voz de ${dossie.voz.quem}.` : 'Escrevendo o causo.');
-  const rTexto = await chamar(buildContarPrompt(dossie, { tamanho: o.tamanho }));
+  const rTexto = await chamar(modo.prompts.contar(dossie, { tamanho: o.tamanho }));
   modelo = (rTexto && rTexto.model) || modelo;
   let atual = _cLimpar(rTexto && rTexto.content);
   if (!atual) throw new Error('A IA não devolveu a história.');
   etapas.push('contar');
 
-  const criticosIds = causoCriticosDe(dossie.genero);
-  let local = conferirCausoLocal(atual, dossie, { memoria, genero: dossie.genero });
+  const criticosIds = modo.criticosDe(dossie.genero);
+  let local = modo.conferir(atual, dossie, { memoria, genero: dossie.genero });
   let juizo = null;
   let criticas = [];
 
@@ -1072,7 +1165,7 @@ async function runCausoPipeline(opts) {
     etapa('criticos', 'A mesa está lendo…', `${criticosIds.length} críticos, cada um com a sua lente.`);
     const respostas = await Promise.all(criticosIds.map(async (id) => {
       try {
-        const r = await chamar(buildCriticoPrompt(id, atual, dossie, local.achados));
+        const r = await chamar(modo.prompts.critico(id, atual, dossie, local.achados));
         return normalizarCritica(lerJSON(r), id);
       } catch (_) {
         // Um crítico que falha não derruba a mesa: os outros continuam, e a
@@ -1084,7 +1177,7 @@ async function runCausoPipeline(opts) {
     etapas.push('criticos');
 
     // 5) O JUIZ — código, não opinião. Nota baixa não se esconde na média.
-    juizo = julgarCauso(criticas, local.achados);
+    juizo = julgarCauso(criticas, local.achados, modo);
     if (juizo.aprovado || volta === CAUSO_MAX_REVISOES) break;
 
     // 6) REESCRITA — só o que o juiz mandou.
@@ -1093,7 +1186,7 @@ async function runCausoPipeline(opts) {
       : `${juizo.ordens.length} pontos, do mais grave para o menos.`);
     let novo = '';
     try {
-      const rRe = await chamar(buildReescreverCausoPrompt(atual, juizo.ordens, dossie));
+      const rRe = await chamar(modo.prompts.reescrever(atual, juizo.ordens, dossie));
       modelo = (rRe && rRe.model) || modelo;
       novo = _cLimpar(rRe && rRe.content);
     } catch (_) { novo = ''; }
@@ -1101,7 +1194,7 @@ async function runCausoPipeline(opts) {
 
     // A reescrita precisa MELHORAR o que foi medido. Se sair com mais achados
     // do que entrou, fica a anterior — é a trava contra a revisão que destrói.
-    const localNovo = conferirCausoLocal(novo, dossie, { memoria, genero: dossie.genero });
+    const localNovo = modo.conferir(novo, dossie, { memoria, genero: dossie.genero });
     if (localNovo.achados.length > local.achados.length) {
       etapas.push('reescrita-descartada');
       break;
@@ -1113,6 +1206,7 @@ async function runCausoPipeline(opts) {
 
   etapa('pronto', 'Pronto.', juizo && juizo.aprovado ? 'A mesa aprovou.' : 'Entregando a melhor versão.');
   return {
+    modo: modo.id,
     conteudo: atual,
     dossie,
     conceitos,

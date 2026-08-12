@@ -23,6 +23,7 @@ export const SCRIPTS = [
   'embalagem.js',
   'julgador-motor.js',
   'julgador.js',
+  'resumo.js',
   'extract.js',
   'posters.js',
   'poster-templates.js',

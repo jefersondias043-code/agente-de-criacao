@@ -319,6 +319,33 @@ function renderExtract() {
       .filter(f => f.text)
       .map(f => f.text)
       .join('\n\n').trim();
+
+    /* ORGANIZAR O QUE SAIU — o mesmo passo do Causos, do Julgador, da Narrativa
+     * e do Gerar, agora também aqui.
+     *
+     * O que sai de um áudio é fala corrida; o que sai de um OCR vem com linha
+     * quebrada no lugar errado e letra trocada. A ferramenta Extrair é a porta
+     * de entrada da plataforma: entregar texto cru aqui empurra o problema para
+     * todas as ferramentas seguintes.
+     *
+     * É MELHORIA, NÃO REQUISITO: sem chave, sem rede ou com a conferência
+     * reprovando, fica o texto cru. Perder a extração por causa de um enfeite
+     * seria trocar o certo pelo bonito. */
+    if (extraction.text && typeof runLimpezaTranscricao === 'function'
+        && typeof transcricaoVale === 'function' && transcricaoVale(extraction.text)) {
+      btn.innerHTML = '<span class="spinner"></span> Organizando o texto…';
+      try {
+        const r = await runLimpezaTranscricao({
+          texto: extraction.text,
+          onProgress: (msg) => { btn.innerHTML = `<span class="spinner"></span> ${escapeHtml(msg)}`; },
+        });
+        if (r && r.texto) {
+          extraction.textoCru = extraction.text;   // o original fica guardado
+          extraction.text = r.texto;
+          extraction.organizado = !!r.limpou;
+        }
+      } catch (_) { /* segue com o texto cru */ }
+    }
     const allOk = extraction.files.every(f => f.status === 'completed');
     const allFail = extraction.files.every(f => f.status === 'failed');
     extraction.status = allOk ? 'completed' : (allFail ? 'failed' : 'partial');
@@ -396,6 +423,104 @@ function renderExtractionsList() {
   });
 }
 
+/* ----- TEXTO TRATADO E RESUMO --------------------------------------------
+ *
+ * A ferramenta Extrair deixou de ser só extração: ela entrega o texto tratado
+ * e, a um clique, um resumo — e o que for escolhido segue para as outras
+ * ferramentas pela mesma barra de envio que já existia.
+ *
+ * Os dois textos convivem. O resumo não substitui o tratado: quem resume para
+ * mandar ao Causos muitas vezes quer o texto inteiro logo depois. */
+function extractTextoAtivo(e) {
+  return (e.verResumo && e.resumo) ? e.resumo : (e.text || '');
+}
+
+function extractBlocoTexto(e) {
+  const temResumo = !!e.resumo;
+  const mostrandoResumo = !!(e.verResumo && temResumo);
+  const conteudo = mostrandoResumo ? e.resumo : e.text;
+  const conf = e.resumoConferencia || null;
+
+  /* CLASSE PRÓPRIA, não `.mtabs`. Reusei `.mtabs` na primeira versão e as abas
+   * sumiram no computador: aquela é a barra de abas do CELULAR, declarada
+   * `display: none` acima de 1100px. Medido no navegador — o resumo era gerado
+   * e não havia como vê-lo. */
+  const abas = temResumo ? `
+    <div class="extract-abas" style="margin-bottom:.7rem;">
+      <button type="button" class="${mostrandoResumo ? '' : 'ativa'}" data-vertexto="completo">Texto completo</button>
+      <button type="button" class="${mostrandoResumo ? 'ativa' : ''}" data-vertexto="resumo">Resumo</button>
+    </div>` : '';
+
+  const aviso = (mostrandoResumo && conf && !conf.ok) ? `
+    <div class="callout-warn" style="margin-bottom:.7rem;font-size:.8rem;line-height:1.5;">
+      ${conf.problemas.map(escapeHtml).join('<br>')}
+    </div>` : '';
+
+  const medida = (mostrandoResumo && conf && conf.ok) ? `
+    <div class="text-xs text-mute" style="margin-bottom:.5rem;">
+      ${conf.palavras} palavras · ${Math.round(conf.proporcao * 100)}% do texto completo · sem nomes de pessoas
+    </div>` : '';
+
+  const botao = temResumo ? '' : `
+    <div style="margin-bottom:.7rem;">
+      <button type="button" class="btn btn-secondary btn-sm" id="e-resumir">✦ Resumir o conteúdo</button>
+      <span class="text-xs text-mute" style="margin-left:.5rem;">Os acontecimentos essenciais, sem os nomes das pessoas.</span>
+    </div>`;
+
+  return `
+    ${botao}
+    ${abas}
+    ${aviso}
+    ${medida}
+    <div style="background: var(--paper-2); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 1rem;">
+      <pre class="mono" style="white-space: pre-wrap; font-size: 0.85rem; line-height: 1.6;">${escapeHtml(truncate(conteudo, 8000))}</pre>
+    </div>`;
+}
+
+function extractWireResumo(e) {
+  $$('#e-detail-content [data-vertexto]').forEach((b) => {
+    b.onclick = () => {
+      e.verResumo = b.dataset.vertexto === 'resumo';
+      saveExtractions();
+      renderExtractionDetail();
+    };
+  });
+
+  const btn = $('#e-resumir');
+  if (!btn) return;
+  btn.onclick = async () => {
+    if (typeof runResumoPipeline !== 'function') { toast('O resumo não está disponível.', 'error'); return; }
+    const provider = (State && State.provider) || 'groq';
+    if (!(State && State.apiKeys && State.apiKeys[provider])) {
+      toast(`Configure a chave da API de "${provider}" nas Configurações para resumir.`, 'info', 6000);
+      return;
+    }
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    try {
+      const r = await runResumoPipeline({
+        texto: e.text,
+        call: callLLM,
+        onEtapa: (_k, titulo) => { btn.innerHTML = `<span class="spinner"></span> ${escapeHtml(titulo)}`; },
+      });
+      e.resumo = r.resumo;
+      e.resumoConferencia = r.conferencia;
+      e.verResumo = true;
+      saveExtractions();
+      renderExtractionDetail();
+      toast(r.conferencia.ok
+        ? `Resumo pronto — ${r.conferencia.palavras} palavras.`
+        : 'Resumo pronto, mas a conferência apontou um problema — veja o aviso.',
+      r.conferencia.ok ? 'success' : 'info', 6000);
+    } catch (err) {
+      toast(err.message || 'Não foi possível resumir.', 'error', 6000);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  };
+}
+
 function renderExtractionDetail() {
   const e = State.extractions.find(x => x.id === State.activeExtractionId);
   const wrap = $('#e-detail');
@@ -434,12 +559,10 @@ function renderExtractionDetail() {
           </div>`;
       }).join('')}
     </div>
-    ${e.text ? `
-      <div style="background: var(--paper-2); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 1rem;">
-        <pre class="mono" style="white-space: pre-wrap; font-size: 0.85rem; line-height: 1.6;">${escapeHtml(truncate(e.text, 8000))}</pre>
-      </div>` : '<p class="text-mute text-sm">Aguardando extração…</p>'}
+    ${e.text ? extractBlocoTexto(e) : '<p class="text-mute text-sm">Aguardando extração…</p>'}
     ${e.text ? sendToBarHtml('extract') : ''}
   `;
+  extractWireResumo(e);
   $('#e-detail-copy').onclick = () => copyTextComAviso(e.text || '', 'Texto copiado.');
   $('#e-detail-delete').onclick = () => {
     if (!confirm('Remover esta extração?')) return;
@@ -450,6 +573,9 @@ function renderExtractionDetail() {
     wrap.classList.add('hidden');
     toast('Extração removida.', 'success');
   };
-  if (typeof wireSendTo === 'function') wireSendTo($('#e-detail-content'), () => e.text || '');
+  /* O QUE VAI PARA A OUTRA FERRAMENTA é o que está à vista. Mandar sempre o
+   * texto completo, com o resumo aberto na tela, seria enviar uma coisa
+   * enquanto mostra outra — e o usuário só descobriria do outro lado. */
+  if (typeof wireSendTo === 'function') wireSendTo($('#e-detail-content'), () => extractTextoAtivo(e));
 }
 

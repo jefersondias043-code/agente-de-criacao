@@ -357,6 +357,10 @@ function conferirCausoLocal(texto, dossie, opcoes) {
   const exag = causoCurvaDoExagero(texto);
   const abs = causoAbsurdoPresente(texto, dossie);
   const fant = causoFantasia(texto);
+  // Tamanho e repetição: o formato é vídeo curto, e a mesma informação voltando
+  // é o que mais alonga sem fazer a história andar.
+  const dur = causoDuracao(texto);
+  const rep = causoRepeticao(texto);
 
   const achados = []
     .concat(oral.problemas.map((p) => ({ dimensao: 'oralidade', texto: p })))
@@ -364,9 +368,118 @@ function conferirCausoLocal(texto, dossie, opcoes) {
     .concat(orig.problemas.map((p) => ({ dimensao: 'originalidade', texto: p })))
     .concat(exag.problemas.map((p) => ({ dimensao: 'exagero', texto: p })))
     .concat(abs.problemas.map((p) => ({ dimensao: 'absurdo', texto: p })))
-    .concat(fant.problemas.map((p) => ({ dimensao: 'absurdo', texto: p })));
+    .concat(fant.problemas.map((p) => ({ dimensao: 'absurdo', texto: p })))
+    .concat(dur.problemas.map((p) => ({ dimensao: 'ritmo', texto: p })))
+    .concat(rep.problemas.map((p) => ({ dimensao: 'ritmo', texto: p })));
 
-  return { achados, oralidade: oral, continuidade: cont, originalidade: orig, exagero: exag, absurdo: abs, fantasia: fant, ok: achados.length === 0 };
+  return { achados, oralidade: oral, continuidade: cont, originalidade: orig, exagero: exag, absurdo: abs, fantasia: fant, duracao: dur, repeticao: rep, ok: achados.length === 0 };
+}
+
+/** As palavras de uma frase que carregam conteúdo (≥4 letras, fora das vazias). */
+const CAUSO_VAZIAS = new Set([
+  'que', 'para', 'com', 'uma', 'nao', 'por', 'mais', 'como', 'mas', 'dos', 'das',
+  'nas', 'nos', 'pelo', 'pela', 'isso', 'esse', 'essa', 'este', 'esta', 'ele',
+  'ela', 'eles', 'elas', 'voce', 'seu', 'sua', 'meu', 'minha', 'aqui', 'ali',
+  'muito', 'quando', 'onde', 'porque', 'entao', 'tambem', 'ainda', 'depois',
+  'antes', 'sobre', 'tem', 'ter', 'foi', 'ser', 'esta', 'estava', 'era', 'sao',
+  'vai', 'vou', 'fazer', 'faz', 'dizer', 'disse', 'todo', 'toda', 'todos',
+  'todas', 'cada', 'outro', 'outra', 'assim', 'bem', 'ja', 'so', 'lhe', 'dele',
+]);
+function _cConteudo(texto) {
+  return _cNorm(texto).split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 4 && !CAUSO_VAZIAS.has(w));
+}
+/* ---- 3. TAMANHO E REPETIÇÃO ------------------------------------------------
+ *
+ * Relato: "as histórias estão ficando excessivamente longas e repetitivas… a
+ * ferramenta desenvolve uma ideia, mas continua prolongando a história mesmo
+ * depois de já ter transmitido aquilo que precisava."
+ *
+ * O destino é vídeo curto — TikTok, Shorts, Reels —, e o alvo é 1 a 1min30 de
+ * narração. Isso é CONTÁVEL: palavra por segundo é a mesma conta que o Julgador
+ * já usa para dizer em que segundo o vídeo perde a pessoa.
+ *
+ * E a repetição também é contável, que é o ponto mais importante do pedido: o
+ * defeito não é só comprimento, é a mesma informação voltando com outras
+ * palavras. Duas frases que dizem a mesma coisa não fazem a história andar —
+ * fazem quem ouve perceber que já entendeu e sair.
+ *
+ * NADA AQUI CORTA A HISTÓRIA. A conta mede e reprova; quem reescreve é o
+ * reescritor, com a ordem na mão. Cortar por conta seria o "corte artificial"
+ * que o usuário pediu para evitar. */
+
+/* Mesma taxa do Julgador (src/julgador-motor.js): fala corrida de causo, em
+ * português, roda perto de 2,6 palavras por segundo. */
+const CAUSO_PALAVRAS_POR_SEGUNDO = 2.6;
+
+/* A janela do formato. O teto é o que reprova; o piso existe porque história
+ * de vinte segundos não teve tempo de armar a mentira. */
+const CAUSO_SEG_ALVO_MIN = 60;
+const CAUSO_SEG_ALVO_MAX = 90;
+/* Reprova só acima disto: entre 90 e 105 segundos a história está no espírito
+ * do formato, e reprovar por dez segundos empurraria a mesa para o corte seco
+ * — o defeito que o pedido manda evitar. */
+const CAUSO_SEG_TETO = 105;
+const CAUSO_SEG_PISO = 35;
+
+function causoSegundos(palavras) {
+  return Math.round(palavras / CAUSO_PALAVRAS_POR_SEGUNDO);
+}
+
+function _cSegundosEmTexto(seg) {
+  const m = Math.floor(seg / 60);
+  const r = seg % 60;
+  return m ? `${m}min${r ? ` e ${r}s` : ''}` : `${r}s`;
+}
+
+/** Quanto tempo esta história leva para ser contada. */
+function causoDuracao(texto) {
+  const palavras = String(texto || '').trim().split(/\s+/)
+    .filter((p) => p && /[a-zà-ÿ0-9]/i.test(p)).length;
+  const segundos = causoSegundos(palavras);
+  const problemas = [];
+  if (segundos > CAUSO_SEG_TETO) {
+    const sobra = segundos - CAUSO_SEG_ALVO_MAX;
+    problemas.push(`a história leva ${_cSegundosEmTexto(segundos)} para ser contada — ${_cSegundosEmTexto(sobra)} além do formato (o alvo é 1 a 1min30). Não corte o fim: tire o que não faz a história andar, e chegue no acontecimento mais cedo.`);
+  } else if (segundos && segundos < CAUSO_SEG_PISO) {
+    problemas.push(`a história leva só ${_cSegundosEmTexto(segundos)} — nesse tempo não dá para armar a mentira e sustentar a dúvida. Falta acontecimento, não palavra.`);
+  }
+  return { problemas, segundos, palavras };
+}
+
+/* Quanto de uma frase precisa estar contido na outra para as duas dizerem a
+ * mesma coisa. Mesmo valor do Julgador, achado lá por medição: Jaccard a 0,6
+ * não pegava nada, e continência a 0,7 pega o que uma pessoa reconheceria. */
+const CAUSO_CONTINENCIA = 0.7;
+
+/**
+ * A MESMA INFORMAÇÃO VOLTANDO — o coração do pedido.
+ *
+ * Compara cada frase com todas as anteriores por CONTINÊNCIA: quanto do
+ * conteúdo da menor está dentro da maior. Frase curta demais não entra na
+ * conta (quatro palavras de conteúdo), senão "e aí ele foi" casaria com meio
+ * texto.
+ */
+function causoRepeticao(texto) {
+  const frases = _cFrases(texto);
+  const conteudos = frases.map(_cConteudo);
+  const achados = [];
+  for (let j = 1; j < frases.length; j++) {
+    if (conteudos[j].length < 4) continue;
+    for (let i = 0; i < j; i++) {
+      if (conteudos[i].length < 4) continue;
+      const a = new Set(conteudos[i]);
+      const comuns = [...new Set(conteudos[j])].filter((w) => a.has(w));
+      const menor = Math.min(a.size, new Set(conteudos[j]).size);
+      if (menor && comuns.length / menor >= CAUSO_CONTINENCIA) {
+        achados.push({ frase: frases[j], repeteA: frases[i] });
+        break;   // uma marcação por frase basta
+      }
+    }
+  }
+  const problemas = achados.map((a) =>
+    `esta parte repete o que já foi dito: "${a.frase.slice(0, 70)}" diz de novo o que "${a.repeteA.slice(0, 55)}" já tinha dito. Quem ouve já entendeu — corte uma das duas.`);
+  return { problemas, achados };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -376,6 +489,12 @@ function conferirCausoLocal(texto, dossie, opcoes) {
 /* Nota que uma medição feita no código impõe. Não é opinião: se a conta achou
  * o problema, a dimensão não pode passar como se estivesse boa. */
 const CAUSO_NOTA_DE_ACHADO = 5;
+
+/* Quantos problemas distintos uma dimensão leva para o reescritor. Trinta
+ * frases repetidas viram trinta linhas de ordem, e ninguém corrige trinta
+ * coisas de uma vez: três exemplos dizem o que é o defeito, e o resto vira
+ * contagem. */
+const CAUSO_MAX_PROBLEMAS_POR_DIMENSAO = 3;
 
 /**
  * Recebe o que os críticos disseram e o que a conta mediu, e decide.
@@ -392,11 +511,36 @@ function julgarCauso(criticas, achadosLocais, modo) {
   const registrar = (dimensao, nota, problema, correcao, fonte) => {
     const dim = dimensaoDe(dimensao);
     if (!dim) return;
-    const atual = porDimensao.get(dim.id);
-    // Fica sempre a PIOR avaliação da dimensão: dois críticos olhando a mesma
-    // coisa, vale o que viu o defeito, não o que não viu.
-    if (atual && atual.nota <= nota) return;
-    porDimensao.set(dim.id, { dimensao: dim.id, nota, problema, correcao, fonte, minimo: dim.minimo });
+    let e = porDimensao.get(dim.id);
+    if (!e) {
+      e = { dimensao: dim.id, nota, problema, correcao, fonte, minimo: dim.minimo, problemas: [], sobraram: 0 };
+      porDimensao.set(dim.id, e);
+    } else if (nota < e.nota) {
+      // Fica sempre a PIOR avaliação da dimensão: dois críticos olhando a mesma
+      // coisa, vale o que viu o defeito, não o que não viu. (Empate mantém o
+      // primeiro, como sempre foi.)
+      e.nota = nota; e.problema = problema; e.correcao = correcao; e.fonte = fonte;
+    }
+    /* A NOTA É UMA SÓ POR DIMENSÃO; OS PROBLEMAS, NÃO.
+     *
+     * Antes, só o problema da pior nota chegava ao reescritor. Com duas contas
+     * novas caindo na mesma dimensão (r235: tamanho e repetição em `ritmo`),
+     * isso apagava uma das duas: história comprida E repetitiva mandava
+     * encurtar e nunca mandava tirar a repetição — que é justamente o ponto
+     * principal do pedido. Empatadas em 5, ficava a primeira e ponto.
+     *
+     * Agora a dimensão junta os problemas distintos. A nota continua sendo uma
+     * só, e o painel continua mostrando o pior: o que muda é o que o reescritor
+     * recebe para corrigir. */
+    /* A CORREÇÃO NA FRENTE DO PROBLEMA, como sempre foi na ordem: o crítico que
+     * diz "clichê" e "troque a abertura" está mandando trocar a abertura. Coletar
+     * o problema no lugar da correção troca uma ordem acionável por um
+     * diagnóstico — o reescritor fica sabendo o que está errado e não o que
+     * fazer. */
+    const t = String(correcao || problema || '').trim();
+    if (!t || e.problemas.indexOf(t) >= 0) return;
+    if (e.problemas.length < CAUSO_MAX_PROBLEMAS_POR_DIMENSAO) e.problemas.push(t);
+    else e.sobraram++;
   };
 
   (criticas || []).forEach((c) => {
@@ -426,12 +570,20 @@ function julgarCauso(criticas, achadosLocais, modo) {
     pior: reprovadas.length ? reprovadas[0].nota * 10 : (avaliadas.length ? Math.min(...avaliadas.map((a) => a.nota)) * 10 : 0),
     aprovado: reprovadas.length === 0 && avaliadas.length > 0,
     // As ordens de reescrita, em ordem de gravidade — o reescritor recebe só isto.
-    ordens: reprovadas.map((r) => ({
-      dimensao: r.dimensao,
-      ordem: r.correcao || r.problema || `melhorar ${r.dimensao}`,
-      problema: r.problema,
-      nota: r.nota,
-    })),
+    ordens: reprovadas.map((r) => {
+      const lista = (r.problemas || []).length
+        ? r.problemas.slice()
+        : [r.correcao || r.problema || `melhorar ${r.dimensao}`];
+      const resto = r.sobraram
+        ? ` (e mais ${r.sobraram} trecho${r.sobraram > 1 ? 's' : ''} com o mesmo defeito)`
+        : '';
+      return {
+        dimensao: r.dimensao,
+        ordem: lista.join(' TAMBÉM: ') + resto,
+        problema: r.problema,
+        nota: r.nota,
+      };
+    }),
   };
 }
 
@@ -679,7 +831,15 @@ function buildContarPrompt(dossie, opcoes) {
   linhas.push('- Não explique o que já mostrou, e não explique a graça nem o medo. Quem explica, mata.');
   linhas.push('- Comece onde a coisa já está acontecendo. Nada de "era uma noite escura" nem de anunciar que vai contar uma história.');
   linhas.push('- Deixe alguma coisa sem explicação. Causo que fecha tudo vira relatório.');
-  if (o.tamanho) linhas.push(`- Extensão: ${o.tamanho}.`);
+  linhas.push('');
+  linhas.push('== O TAMANHO É PARTE DA HISTÓRIA ==');
+  linhas.push(`Isto vai virar vídeo curto. Contado em voz alta, tem de caber entre 1 minuto e 1min30 — algo perto de ${Math.round(CAUSO_SEG_ALVO_MIN * CAUSO_PALAVRAS_POR_SEGUNDO)} a ${Math.round(CAUSO_SEG_ALVO_MAX * CAUSO_PALAVRAS_POR_SEGUNDO)} palavras.`);
+  linhas.push('NÃO escreva uma história longa e corte no fim. Construa já nesse tamanho: escolha os acontecimentos que cabem e conte só esses. É melhor uma história pequena inteira do que uma grande pela metade.');
+  linhas.push('');
+  linhas.push('CADA FRASE TEM DE FAZER A HISTÓRIA ANDAR. Se uma frase não acrescenta acontecimento, não muda o que se sabe e não muda o que se sente, ela sobra — e sobra atrapalha, porque quem ouve percebe que já entendeu e sai.');
+  linhas.push('NÃO REPITA O QUE JÁ DISSE. Dito uma vez, está dito. Não reforce com outras palavras, não retome para "deixar claro", não resuma no fim o que acabou de acontecer. Repetição é o jeito mais comum de uma história boa ficar chata.');
+  linhas.push('TERMINE QUANDO ACABOU. No instante em que a história entregou o que tinha para entregar, pare. Não amarre pontas, não comente, não feche com uma frase de efeito.');
+  if (o.tamanho) linhas.push(`- Extensão pedida: ${o.tamanho}.`);
   linhas.push('');
   linhas.push('Devolva SOMENTE a história contada. Sem título, sem introdução, sem comentário, sem moral no fim.');
   return linhas.join('\n');
@@ -813,6 +973,9 @@ function buildCriticoPrompt(criticoId, texto, dossie, achadosLocais) {
 }
 
 /** Etapa final — O REESCRITOR. Recebe só as ordens do juiz. */
+/* O reescritor recebe SÓ o que reprovou. Quando o que reprovou é tamanho ou
+ * repetição, ele precisa saber que a saída não é cortar o fim — é tirar o que
+ * não faz a história andar. Sem isso, "encurte" vira truncar. */
 function buildReescreverCausoPrompt(texto, ordens, dossie) {
   const linhas = [];
   linhas.push('Você é quem corrige o causo. Recebe a história e uma lista fechada de problemas.');
@@ -834,6 +997,11 @@ function buildReescreverCausoPrompt(texto, ordens, dossie) {
     linhas.push(`${i + 1}. [${o.dimensao}] ${o.problema || ''}`);
     if (o.ordem && o.ordem !== o.problema) linhas.push(`   → ${o.ordem}`);
   });
+  linhas.push('');
+  /* ENCURTAR NÃO É TRUNCAR. Sem esta linha, "a história está longa demais" vira
+   * cortar o fim — e a história perde justamente o pagamento. O que sai é o que
+   * não faz a história andar, em qualquer lugar do texto. */
+  linhas.push('Se o que reprovou foi TAMANHO ou REPETIÇÃO: não corte o fim nem resuma a história. Tire as frases que não acrescentam acontecimento, as explicações do que já foi mostrado e as informações que voltam com outras palavras. O fim fica; o que sai é a gordura do meio.');
   linhas.push('');
   const d = dossie || {};
   if ((d.personagens || []).length) {

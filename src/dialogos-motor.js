@@ -231,6 +231,38 @@ function dialogoRitmo(texto) {
   return { problemas, medido: true, curtos, proporcao, minimo: Math.min(...tamanhos), ok: problemas.length === 0 };
 }
 
+/* TAMANHO DA CONVERSA (r235).
+ *
+ * O pedido foi feito sobre as histórias, mas a razão dele vale para os dois
+ * modos: "o objetivo principal é criar conteúdo para plataformas de vídeos
+ * curtos". Este modo só media turno — quantos, de que tamanho, quem monopoliza
+ * — e nunca media QUANTO TEMPO a conversa leva. Uma conversa de 55 turnos passa
+ * fácil dos três minutos e nenhuma conta reclamava.
+ *
+ * SÓ CONTA O QUE É FALADO. A etiqueta `NOME:` não sai da boca de ninguém no
+ * vídeo; contá-la inflaria o tempo em uma palavra por turno — em 30 turnos, uns
+ * doze segundos de conversa que não existem. */
+function dialogoFalado(texto) {
+  const { turnos, soltas } = dialogoTurnos(texto);
+  return turnos.map((t) => t.fala).concat(soltas || []).join(' ');
+}
+
+/** Quanto tempo esta conversa leva. Mesma janela e mesma tolerância do outro
+ *  modo: a régua do formato é uma só.
+ *
+ *  Só o TETO reprova. O piso já existe aqui com outro nome — `dialogoTurnos`
+ *  cobra o mínimo de turnos —, e duas contas reclamando da mesma conversa curta
+ *  dariam dois avisos para um defeito só. */
+function dialogoDuracao(texto) {
+  if (typeof causoDuracao !== 'function') return { problemas: [], segundos: 0 };
+  const d = causoDuracao(dialogoFalado(texto));
+  const problemas = [];
+  if (d.segundos > CAUSO_SEG_TETO) {
+    problemas.push(`a conversa leva ${Math.floor(d.segundos / 60)}min${d.segundos % 60 ? ' e ' + (d.segundos % 60) + 's' : ''} para ser dita em voz alta — o formato pede 1 a 1min30. Não corte o fim: tire as voltas em que ninguém diz nada novo, e comece a conversa mais adiante.`);
+  }
+  return { problemas, segundos: d.segundos, palavras: d.palavras };
+}
+
 /* Vocabulário distintivo de cada falante — o que ele usa e o outro não. */
 function _dPalavrasDe(falas) {
   const t = String(falas || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -289,6 +321,7 @@ function conferirDialogoLocal(texto, dossie, opcoes) {
   const mono = dialogoMonopolio(texto);
   const ritmo = dialogoRitmo(texto);
   const vozes = dialogoVozes(texto);
+  const dur = dialogoDuracao(texto);
 
   const achados = []
     .concat(oral.problemas.map((p) => ({ dimensao: 'oralidade', texto: p })))
@@ -296,9 +329,10 @@ function conferirDialogoLocal(texto, dossie, opcoes) {
     .concat(narr.problemas.map((p) => ({ dimensao: 'naturalidade', texto: p })))
     .concat(mono.problemas.map((p) => ({ dimensao: 'dinamica', texto: p })))
     .concat(ritmo.problemas.map((p) => ({ dimensao: 'dinamica', texto: p })))
+    .concat(dur.problemas.map((p) => ({ dimensao: 'dinamica', texto: p })))
     .concat(vozes.problemas.map((p) => ({ dimensao: 'vozes', texto: p })));
 
-  return { achados, oralidade: oral, originalidade: orig, narracao: narr, monopolio: mono, ritmo, vozes, ok: achados.length === 0 };
+  return { achados, oralidade: oral, originalidade: orig, narracao: narr, monopolio: mono, ritmo, vozes, duracao: dur, ok: achados.length === 0 };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -447,6 +481,12 @@ function buildDialogoContarPrompt(dossie, opcoes) {
     '',
     '== COMO ESCREVER ==',
     `Tamanho: ${DIALOGO_TAMANHOS[o.tamanho] || DIALOGO_TAMANHOS.medio}.`,
+    /* A contagem de turnos sozinha não diz nada sobre tempo: trinta turnos
+     * podem dar quarenta segundos ou quatro minutos. Isto vira vídeo curto, e é
+     * o tempo que manda. */
+    `Isto vai virar vídeo curto: dita em voz alta, a conversa inteira tem de caber entre 1 minuto e 1min30 — algo perto de ${Math.round(CAUSO_SEG_ALVO_MIN * CAUSO_PALAVRAS_POR_SEGUNDO)} a ${Math.round(CAUSO_SEG_ALVO_MAX * CAUSO_PALAVRAS_POR_SEGUNDO)} palavras faladas, somando todos os turnos. Turnos curtos são o jeito de ter muitos turnos dentro desse tempo.`,
+    'CADA FALA TEM DE FAZER A CONVERSA ANDAR. Fala que não muda o que se sabe, não muda o que se sente e não muda o rumo do assunto sobra — e sobra faz quem ouve perceber que já entendeu e sair.',
+    'NÃO DÊ VOLTAS NO MESMO PONTO. Assunto tocado uma vez está tocado. Não retome com outras palavras para reforçar, e não feche resumindo o que acabou de ser dito.',
     'FORMATO, e não há outro: uma fala por linha, no formato `NOME: fala`. Nada antes, nada depois, nada entre.',
     'Sem narração. Sem rubrica entre parênteses. Sem "…, disse ele". Sem descrever o lugar. Só as falas.',
     'VARIE O TAMANHO DOS TURNOS de propósito: alguns de uma palavra, outros de três linhas. Uma conversa em que todos os turnos têm o mesmo tamanho é falsa antes de qualquer outra coisa.',
@@ -538,6 +578,9 @@ function buildDialogoReescreverPrompt(texto, ordens, dossie) {
     '== A CONVERSA ATUAL ==',
     String(texto || ''),
     '',
+    /* Mesma trava do outro modo: "está longa" não pode virar "corte o fim". A
+     * conversa perde justamente onde ela chega a algum lugar. */
+    'Se o que reprovou foi TAMANHO: não corte o fim nem resuma a conversa. Tire as falas que não mudam nada, as voltas no assunto já tocado e as explicações do que já ficou claro. O fim fica; o que sai é o meio que patina.',
     'FORMATO: uma fala por linha, `NOME: fala`. Sem narração, sem rubrica, sem verbo de dizer atribuído.',
     'Escreva a conversa corrigida. Nada além dela.',
   ].filter(Boolean).join('\n');

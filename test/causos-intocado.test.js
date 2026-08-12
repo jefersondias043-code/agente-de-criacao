@@ -35,18 +35,34 @@ beforeAll(() => {
   atual = assinaturasCausos(M);
 });
 
-/* AS ASSINATURAS DO CAUSOS APROVADO (r211–r226), tiradas do motor de antes do
- * seletor de modos. */
+/* AS ASSINATURAS DO CAUSOS.
+ *
+ * ATUALIZADAS NO r235, de propósito, pelo caminho previsto: o usuário pediu
+ * histórias de vídeo curto (1 a 1min30) e controle rigoroso de repetição. Seis
+ * assinaturas mudaram e seis ficaram iguais — a doutrina, os prompts de
+ * conceito e dossiê, a convocação de críticos e a tabela de dimensões não
+ * foram tocadas, e é isso que sustenta a promessa de não descaracterizar o
+ * modo que já funcionava.
+ *
+ * Os prompts dos críticos mudaram porque eles RECEBEM o que a conferência
+ * achou, e a conferência ganhou duas contas novas (duração e repetição).
+ *
+ * A do JUIZ mudou por um defeito que só apareceu medindo de ponta a ponta: com
+ * duas contas caindo na mesma dimensão (`ritmo`), o juiz guardava um problema
+ * por dimensão e a segunda sumia — história comprida E repetitiva mandava
+ * encurtar e nunca mandava tirar a repetição, que é o ponto principal do
+ * pedido. A NOTA continua uma só, e continua a pior; o que mudou é quantos
+ * problemas ela leva ao reescritor. */
 const ESPERADO = {
   doutrina: '54f6da77197421d5',
   conceitos: '2673fcc4f1a9c88c',
   dossie: '89417112e3618b9b',
-  contar: '5bc23b15774356d8',
-  criticoNarrativa: '68ac017051d027ae',
-  criticoExagero: '59652b92e16b1fb0',
-  reescrever: 'a761c508b0181ea5',
-  conferencia: '9b554c015267a076',
-  juizo: '9ae6d0aeea312884',
+  contar: '30bf8e036b4f4944',
+  criticoNarrativa: '66d8463a8398cb8d',
+  criticoExagero: 'e8452e418db98411',
+  reescrever: '26405fb66c0127fc',
+  conferencia: 'de6b819abab40bc6',
+  juizo: 'e074334f9e0cf4a0',
   criticos: 'pescador:narrativa+oralidade+originalidade+humor+exagero | assombracao:narrativa+oralidade+originalidade+humor+misterio | engracado:narrativa+oralidade+originalidade+humor | lenda:narrativa+oralidade+originalidade+humor+misterio | vida:narrativa+oralidade+originalidade+humor',
   dimensoes: 'oralidade=7,originalidade=7,coerencia=7,personagens=7,causalidade=7,exagero=6,ritmo=6,humor=7,absurdo=7,misterio=6,final=7,brasilidade=7,autenticidade=8',
 };

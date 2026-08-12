@@ -15,11 +15,11 @@
 let _causoResultadoVisivel = false;
 
 function causosDraft() {
-  if (!State.causoDraft) State.causoDraft = { ideia: '' };
+  if (!State.causoDraft) State.causoDraft = { ideia: '', modo: CAUSO_MODO_PADRAO };
   return State.causoDraft;
 }
 function saveCausoDraft() {
-  saveJSON(STORAGE_KEYS.causoDraft, State.causoDraft || { ideia: '' });
+  saveJSON(STORAGE_KEYS.causoDraft, State.causoDraft || { ideia: '', modo: CAUSO_MODO_PADRAO });
 }
 function saveCausos() {
   saveJSON(STORAGE_KEYS.causos, State.causos || []);
@@ -125,7 +125,7 @@ function causoNovo(semPerguntar) {
   if (!semPerguntar && ideia && !guardado
       && !confirm('Esta ideia ainda não virou causo e será apagada. Continuar?')) return false;
 
-  State.causoDraft = { ideia: '' };
+  State.causoDraft = { ideia: '', modo: causoModoAtual() };
   saveCausoDraft();
   const campo = $('#c-ideia');
   if (campo) {
@@ -152,7 +152,7 @@ function renderCausoResultado(item) {
       : `<span class="badge">Melhor versão · ${j.pior || 0}/100</span>`;
   }
   area.innerHTML = `
-    <div class="article-preview" id="c-result-content">${escapeHtml(item.conteudo)}</div>
+    <div class="article-preview${(item.modo === 'dialogos') ? ' sem-capitular' : ''}" id="c-result-content">${escapeHtml(item.conteudo)}</div>
     <div class="flex gap-1 flex-wrap mt-2">
       <button class="btn btn-accent btn-sm" id="c-result-novo" title="Limpa a ideia para contar outro causo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -248,8 +248,88 @@ function fecharCausoHistorico() {
 
 /* ----- Montagem da tela ----- */
 
+/* ----- O SELETOR DE MODO ---------------------------------------------------
+ *
+ * O modo decide o FORMATO do que a mesa produz. O motor é o mesmo — quatro
+ * conceitos, dossiê, escrita, críticos independentes, juiz de código —, e é
+ * justamente por isso que acrescentar um formato não exigiu ferramenta nova.
+ *
+ * O modo Causos é o padrão e continua sendo o que era: quem nunca tocar no
+ * seletor não percebe que ele existe, e é assim que tem de ser para quem já
+ * usa a ferramenta como está. */
+function causoModoAtual() {
+  const d = causosDraft();
+  // `causoModo` já cai no padrão diante de id desconhecido; aqui devolvemos o
+  // ID normalizado, para não gravar de volta no rascunho um modo que não existe.
+  return causoModo(d.modo).id;
+}
+
+function causoTrocarModo(id) {
+  const novo = causoModo(id).id;
+  if (novo === causoModoAtual()) return;
+  causosDraft().modo = novo;
+  saveCausoDraft();
+  renderCausoModos();
+  causoAplicarTextosDoModo();
+  /* O RESULTADO NA TELA É DO MODO ANTERIOR. Deixá-lo ali embaixo de um seletor
+   * que agora diz outra coisa é convidar a confusão — some da tela e continua
+   * guardado no histórico, como acontece ao trocar a ideia. */
+  causoLimparResultado();
+}
+
+/** Desenha os botões do seletor a partir do registro de modos do motor. */
+function renderCausoModos() {
+  const host = $('#c-modos');
+  if (!host) return;
+  const atual = causoModoAtual();
+  host.innerHTML = causoModosDisponiveis().map((m) => `
+    <button type="button" class="causo-modo${m.id === atual ? ' ativo' : ''}"
+            role="radio" aria-checked="${m.id === atual}" data-modo="${escapeHtml(m.id)}">
+      <span class="causo-modo-nome">${escapeHtml(m.label)}</span>
+      <span class="causo-modo-desc">${escapeHtml(m.descricao)}</span>
+    </button>`).join('');
+  host.querySelectorAll('[data-modo]').forEach((b) => {
+    b.onclick = () => causoTrocarModo(b.dataset.modo);
+  });
+}
+
+/** O rótulo e o exemplo do campo de ideia seguem o modo: "Qual é a ideia?" com
+ *  um exemplo de causo não ajuda quem acabou de escolher conversa. */
+const CAUSO_TEXTOS_DO_MODO = {
+  causos: { resultado: 'O causo', botao: 'Contar o causo', pronto: 'Causo pronto', vazio: 'Nenhum causo ainda' },
+  dialogos: { resultado: 'A conversa', botao: 'Escrever a conversa', pronto: 'Conversa pronta', vazio: 'Nenhuma conversa ainda' },
+};
+
+/** Os textos da tela seguem o modo. "O causo" e "Contar o causo" acima de um
+ *  diálogo é a ferramenta chamando a coisa pelo nome errado — pequeno, mas é o
+ *  tipo de detalhe que faz o modo novo parecer um enxerto. */
+function causoAplicarTextosDoModo() {
+  const m = causoModosDisponiveis().find((x) => x.id === causoModoAtual());
+  if (!m) return;
+  const t = CAUSO_TEXTOS_DO_MODO[m.id] || CAUSO_TEXTOS_DO_MODO.causos;
+  const campo = $('#c-ideia');
+  if (campo) campo.placeholder = `Uma linha basta: "${m.exemplo}".`;
+  const titulo = $('#view-causos .card-title');
+  if (titulo) titulo.textContent = t.resultado;
+  const botao = $('#c-submit');
+  if (botao && !botao.disabled) {
+    // Só o texto: o botão tem um ícone em SVG antes do rótulo.
+    const alvo = [...botao.childNodes].reverse().find((n) => n.nodeType === 3 && n.textContent.trim());
+    if (alvo) alvo.textContent = ` ${t.botao}\n        `;
+  }
+  const desc = $('#view-causos .appbar-desc');
+  if (desc) {
+    desc.textContent = m.id === 'dialogos'
+      ? 'A mesma mesa, agora escrevendo conversa: diga a situação, ela encontra as pessoas e escreve.'
+      : 'Uma mesa de contadores: diga a ideia, ela encontra a história e conta.';
+  }
+}
+
 function renderCausos() {
   { const p = $('#c-attach-pending'); if (p) p.innerHTML = ''; }
+
+  renderCausoModos();
+  causoAplicarTextosDoModo();
 
   const campo = $('#c-ideia');
   if (campo) campo.value = causosDraft().ideia || '';
@@ -334,11 +414,12 @@ function renderCausos() {
 
     try {
       const res = await runCausoPipeline({
-        ideia, memoria: causoMemoriaAtual(), onEtapa, call: callLLM,
+        ideia, modo: causoModoAtual(), memoria: causoMemoriaAtual(), onEtapa, call: callLLM,
       });
       const item = {
         id: uuid(),
         createdAt: new Date().toISOString(),
+        modo: res.modo,
         ideia,
         conteudo: res.conteudo,
         dossie: res.dossie,

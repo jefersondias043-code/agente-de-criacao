@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-11-r227" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-12-r228" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1285,10 +1285,15 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 
       <div id="c-api-warning" class="hidden card mb-3 callout-warn"></div>
 
-      <!-- UM CAMPO. O gênero não é perguntado: quem decide se aquilo é história
-           de pescador, assombração ou caso engraçado é a etapa de concepção,
-           lendo a ideia. -->
+      <!-- O SELETOR DE MODO decide o FORMATO do que a mesa vai produzir. Dentro
+           de cada modo, o gênero continua não sendo perguntado: quem decide se
+           aquilo é história de pescador ou conversa entre vizinhos é a etapa de
+           concepção, lendo a ideia. Uma escolha, não duas. -->
       <div class="card">
+        <div class="field">
+          <span class="label">O que a mesa vai criar</span>
+          <div class="causo-modos" id="c-modos" role="radiogroup" aria-label="Modo de criação"></div>
+        </div>
         <div class="field">
           <label class="label" for="c-ideia">Qual é a ideia?</label>
           <textarea class="textarea" id="c-ideia" rows="5" placeholder="Uma linha basta: &quot;uma história de pescador sobre um peixe impossível&quot;, &quot;um assombro na estrada velha&quot;, &quot;o dia em que meu avô mentiu para o padre&quot;."></textarea>
@@ -1462,6 +1467,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <script src="src/generate.js"></script>
 <script src="src/narrativa.js"></script>
 <script src="src/narrativa-motor.js"></script>
+<script src="src/dialogos-motor.js"></script>
 <script src="src/causos-motor.js"></script>
 <script src="src/causos.js"></script>
 <script src="src/transcricao.js"></script>

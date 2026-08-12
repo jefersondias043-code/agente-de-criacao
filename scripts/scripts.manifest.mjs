@@ -16,6 +16,7 @@ export const SCRIPTS = [
   'generate.js',
   'narrativa.js',
   'narrativa-motor.js',
+  'dialogos-motor.js',
   'causos-motor.js',
   'causos.js',
   'transcricao.js',

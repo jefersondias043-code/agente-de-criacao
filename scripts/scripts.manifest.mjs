@@ -24,6 +24,8 @@ export const SCRIPTS = [
   'julgador-motor.js',
   'julgador.js',
   'resumo.js',
+  'pacote-motor.js',
+  'pacote.js',
   'extract.js',
   'posters.js',
   'poster-templates.js',

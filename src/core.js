@@ -132,6 +132,8 @@ const STORAGE_KEYS = {
   causoDraft: 'agp.causo.draft',           // Causos: a ideia em construção
   julgamentos: 'agp.julgamentos',          // Julgador: os diagnósticos da banca (base das comparações entre versões)
   julgadorDraft: 'agp.julgador.draft',     // Julgador: o conteúdo e a embalagem em avaliação
+  pacotes: 'agp.pacotes',                  // Pacote: os pacotes de publicação já montados
+  pacoteDraft: 'agp.pacote.draft',         // Pacote: o conteúdo em construção
   posterPresets: 'agp.posterPresets',
   posterPanelH: 'agp.posterPanelH',   // altura (px) do painel de edição no mobile — divisor arrastável preview↔edição
 };
@@ -242,6 +244,8 @@ const State = (() => {
     julgamentos: loadJSON(STORAGE_KEYS.julgamentos, []),
     julgadorDraft: loadJSON(STORAGE_KEYS.julgadorDraft, null),
     julgadorOrigemId: null,   // qual julgamento esta próxima avaliação vai comparar
+    pacotes: loadJSON(STORAGE_KEYS.pacotes, []),
+    pacoteDraft: loadJSON(STORAGE_KEYS.pacoteDraft, null),
     posterPresets: loadJSON(STORAGE_KEYS.posterPresets, []),   // presets de identidade visual (nome + custom)
     currentView: 'welcome',
     activeExtractionId: null,

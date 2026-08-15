@@ -56,10 +56,30 @@
  * ao encerramento. É o que faz a ferramenta responder "se eu só puder mudar uma
  * coisa" com a coisa certa.
  *
+ * OS MÍNIMOS CONTINUAM 7/6/5, e a razão é medida, não herdada.
+ *
+ * A ferramenta estava reprovando conteúdo bom — 4000 simulações com notas de
+ * 6 a 9 davam só 23% de PUBLICARIA. Baixar os mínimos de 7 para 6 parecia a
+ * correção óbvia, e foi tentada. Não é: o problema não estava na régua, estava
+ * em ONDE A DOUTRINA ANCORAVA A NOTA. Ela dizia "7 é aceitável", então
+ * trabalho competente caía exatamente EM CIMA do mínimo — sem folga nenhuma,
+ * qualquer hesitação do avaliador virava reprovação.
+ *
+ * A doutrina agora ancora o trabalho competente em 8 (ver `julgBlocoDoutrina`),
+ * o que devolve a folga de um ponto que faltava. Medido com a doutrina nova,
+ * comparando as duas réguas num conteúdo que TEM um ponto fraco real:
+ *
+ *     mínimo 6 → 100% PUBLICARIA  ·  0% ajustes
+ *     mínimo 7 →   4% PUBLICARIA  · 78% ajustes
+ *
+ * Com o mínimo em 6, "publicaria após ajustes" simplesmente deixa de existir:
+ * a ferramenta vira carimbo. As duas mudanças empurram para o mesmo lado e se
+ * multiplicam — corrigida a âncora, mexer na régua também é contar duas vezes.
+ *
  * Os mínimos não são iguais de propósito. `impacto` e `embalagem` cobram alto
  * porque decidem se o vídeo é assistido; `compartilhamento` e `comentarios`
- * cobram baixo porque nem todo conteúdo bom precisa ser compartilhável — exigir
- * isso empurraria tudo para a isca de engajamento. */
+ * cobram baixo porque nem todo conteúdo bom precisa ser compartilhável —
+ * exigir isso empurraria tudo para a isca de engajamento. */
 const JULG_DIMENSOES = [
   { id: 'impacto', label: 'Primeiro impacto', eixo: 'atencao', minimo: 7, momento: 0.02,
     pergunta: 'Nos primeiros segundos, existe motivo para parar de rolar o feed?' },
@@ -501,15 +521,30 @@ function julgProgressao(texto) {
   return { problemas, novidades };
 }
 
-/* VÍDEO SEM CONCLUSÃO. O Causos já resolveu exatamente este sintoma no r236 —
- * `causoTerminaAbrupto`, em causos-motor.js, que carrega antes deste arquivo
- * no manifesto — então chama-se direto em vez de reescrever: texto sem
- * pontuação final, ou terminando numa palavra que pede continuação ("e",
- * "que"...). Isto não julga se o FIM é bom — isso é o `recompensa_final` do
- * crítico de retenção; isto pega só o corte mecânico. */
+/* VÍDEO SEM CONCLUSÃO — e só METADE da conta do Causos serve aqui.
+ *
+ * `causoTerminaAbrupto` (causos-motor.js, que carrega antes deste arquivo)
+ * acusa duas coisas: texto sem pontuação final, e texto terminando numa
+ * palavra que pede continuação ("e", "que"...). No Causos as duas valem,
+ * porque lá o texto foi ESCRITO PELA FERRAMENTA: faltar o ponto final quer
+ * dizer que a geração foi cortada no meio.
+ *
+ * Aqui o texto é do USUÁRIO, e quase sempre é transcrição — que sai da
+ * máquina sem pontuação nenhuma, e que a pessoa cola como veio. Faltar o
+ * ponto final não diz nada sobre o vídeo ter ou não conclusão: diz que o
+ * transcritor não pontuou. Era falso positivo garantido, e caro: derrubava
+ * `historia` para 5 (mínimo 6), o que reprovava a dimensão e levava o
+ * veredito de PUBLICARIA para PUBLICARIA APÓS AJUSTES — com a nota de
+ * cabeçalho caindo de 80 para 50 por causa de um ponto que ninguém digitou.
+ *
+ * Fica o sinal que continua valendo em transcrição: a última frase terminar
+ * numa palavra que pede continuação. Isso é corte de verdade, e sobrevive à
+ * falta de pontuação — por isso o ponto é acrescentado antes de perguntar. */
 function julgTerminaAbrupto(texto) {
   if (typeof causoTerminaAbrupto !== 'function') return { problemas: [] };
-  return causoTerminaAbrupto(texto);
+  const t = String(texto || '').trim();
+  if (!t) return { problemas: [] };
+  return causoTerminaAbrupto(/[.!?…"'”’)]$/.test(t) ? t : t + '.');
 }
 
 /* SPOILER NA EMBALAGEM. Diferente de `julgPromessaCumprida` (que pega a
@@ -747,8 +782,17 @@ function julgBlocoDoutrina() {
     'VOCÊ NÃO REESCREVE NADA. Você aponta — com o trecho na mão e, quando der, com o momento aproximado. O conteúdo é de quem fez; a decisão de mudar é dele.',
     'Elogio genérico não serve para nada. "Está bom" não ajuda ninguém. Se estiver bom, diga POR QUE em uma frase. Se estiver ruim, cite o pedaço exato.',
     '',
-    'NOTA É HONESTA. 10 é raro. 7 é aceitável. Abaixo de 5 é falha grave. Não infle para ser gentil: uma nota inflada faz a pessoa publicar um vídeo que ia falhar, e isso é pior do que um comentário duro.',
-    'Você não é o único avaliador, e não vê a opinião dos outros. Julgue só a sua parte, com rigor.',
+    'A RÉGUA DA NOTA, e ela tem os dois lados:',
+    '- 8 é o conteúdo que FUNCIONA. Faz o que se propõe, sem defeito que atrapalhe. Esta é a nota do trabalho competente, e trabalho competente é a maioria — não é caso excepcional.',
+    '- 9 e 10 são para o que se destaca de verdade: 10 é raro.',
+    '- 6 e 7 são "funciona, mas tem um ponto fraco que dá para consertar". Aponte qual.',
+    '- 5 ou menos é defeito real, que custa espectador. Diga onde.',
+    '',
+    'OS DOIS ERROS CUSTAM CARO, e o segundo é o mais comum em quem quer parecer criterioso:',
+    '- Não infle para ser gentil: nota alta num vídeo que ia falhar faz a pessoa publicar e falhar.',
+    '- Não rebaixe para parecer rigoroso. Dar 6 a um conteúdo que funciona é tão errado quanto dar 9 a um que não funciona — e é pior na prática, porque manda refazer o que já estava pronto. Rigor é achar o defeito CERTO, não distribuir nota baixa.',
+    'Se você não consegue nomear o que está errado numa dimensão, ela não está abaixo de 8.',
+    'Você não é o único avaliador, e não vê a opinião dos outros. Julgue só a sua parte.',
   ].join('\n');
 }
 
@@ -1005,8 +1049,22 @@ function julgarConteudo(avaliacoes, achadosLocais, opcoes) {
   const prioridade = (a) => (a.minimo - a.nota) * (1 + (1 - a.momento));
   const ordenadas = reprovadas.slice().sort((x, y) => prioridade(y) - prioridade(x));
 
+  /* O VEREDITO MAIS DURO PRECISA SIGNIFICAR ALGUMA COISA.
+   *
+   * "NÃO PUBLICARIA AINDA" é a sentença mais pesada que a ferramenta dá, e ela
+   * saía de três reprovações de QUALQUER gravidade — inclusive três "quase lá".
+   * Com dez avaliadores, dez dimensões e a pior nota vencendo em cada uma,
+   * acumular três quase-acertos é fácil: 11% dos conteúdos BONS levavam a
+   * sentença de conteúdo quebrado (medido em 4000 simulações).
+   *
+   * A falha ESTRUTURAL continua derrubando sozinha, e é o que sempre foi o
+   * coração da regra: uma dimensão crítica (3+ pontos abaixo do mínimo) força
+   * o 'nao' sem precisar de mais nada. O que mudou é o acúmulo de defeitos
+   * pequenos — que agora precisa de quatro, não três, para virar reprovação
+   * total. Abaixo disso continua sendo "publicaria após ajustes", que é o
+   * nome honesto do que aquilo é: dá para consertar antes de publicar. */
   let veredito = 'sim';
-  if (criticas.length || reprovadas.length >= 3) veredito = 'nao';
+  if (criticas.length || reprovadas.length >= 4) veredito = 'nao';
   else if (reprovadas.length) veredito = 'ajustes';
 
   /* O PRINCIPAL — a informação mais valiosa da ferramenta. Um conteúdo com 14

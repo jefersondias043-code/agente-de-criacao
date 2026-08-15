@@ -450,6 +450,43 @@ describe('se eu só puder mudar uma coisa', () => {
     expect(j.principal.dimensao).toBe('curiosidade');
   });
 
+  /* A AUDITORIA ACHOU ISTO, e era o defeito mais grave da ferramenta.
+   *
+   * Vale sempre a PIOR avaliação de cada dimensão, e o Espectador — leigo e
+   * lacônico por desenho — costuma ser o mais duro. Quando ele dava a nota
+   * mais baixa SEM escrever `problema`, a dimensão inteira caía do filtro
+   * `(correcao || problema)` e sumia de "o que eu mudaria". A tela exibia
+   * "NÃO PUBLICARIA — 10/100" com uma lista de correções que não mencionava
+   * a dimensão responsável por aquele 10. */
+  describe('nenhuma dimensão reprovada some da lista', () => {
+    it('a pior dimensão aparece mesmo quando quem a reprovou não escreveu nada', () => {
+      const j = J.julgarConteudo([
+        av('retencao', [{ dimensao: 'retencao', nota: 8, problema: 'quase bom', correcao: 'aperte o meio' }]),
+        // O leigo é mais duro E não explica — é o caso real que sumia.
+        av('espectador', [{ dimensao: 'retencao', nota: 1 }]),
+        av('valor', [{ dimensao: 'valor', nota: 3, problema: 'não entrega' }]),
+      ], []);
+      expect(j.avaliadas.find((a) => a.dimensao === 'retencao').nota, 'a pior nota precisa ter vencido').toBe(1);
+      const dims = j.acoes.map((a) => a.dimensao);
+      expect(dims, 'a dimensão que define a nota do cabeçalho sumiu da lista').toContain('retencao');
+    });
+
+    it('sem texto de ninguém, a pergunta da dimensão vira o ponto de partida', () => {
+      const j = J.julgarConteudo([av('espectador', [{ dimensao: 'retencao', nota: 1 }])], []);
+      const acao = j.acoes.find((a) => a.dimensao === 'retencao');
+      expect(acao.acao, 'linha muda não ajuda ninguém').toBeTruthy();
+      expect(acao.acao).toBe(J.julgDimensao('retencao').pergunta);
+    });
+
+    it('mas dimensão que PASSA e não tem texto continua fora — ali a linha seria ruído', () => {
+      // `comentarios` tem mínimo 5; 6 passa raspando (gravidade "medio") e
+      // ninguém escreveu nada sobre ela.
+      const j = J.julgarConteudo([av('comentarios', [{ dimensao: 'comentarios', nota: 6 }])], []);
+      expect(j.avaliadas[0].gravidade).toBe('medio');
+      expect(j.acoes.map((a) => a.dimensao)).not.toContain('comentarios');
+    });
+  });
+
   it('a lista priorizada deixa de fora o que já está bom', () => {
     const j = J.julgarConteudo([
       av('impacto', [{ dimensao: 'impacto', nota: 3, problema: 'não segura', correcao: 'comece pelo fato' }]),

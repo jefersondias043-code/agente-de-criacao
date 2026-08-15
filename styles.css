@@ -3047,18 +3047,24 @@ body.pe-full #view-posters { animation: none; }
   font-size: 0.72rem; font-weight: 700; font-variant-numeric: tabular-nums;
   color: var(--ink-mute); margin-left: 0.4rem;
 }
+/* TRÊS COLUNAS, NÃO QUATRO. Com peso e nota em colunas separadas, a linha
+   estourava a caixa num telefone de 390px (334px de conteúdo em 328px úteis),
+   porque o selo de estado tem `white-space: nowrap` e o rótulo da dimensão não
+   encolhe sozinho. `minmax(0,1fr)` deixa o rótulo ceder antes de empurrar. */
 .julg-peso {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.15rem 0.6rem;
   align-items: baseline;
   padding: 0.5rem 0;
   border-top: 1px solid var(--line);
   font-size: 0.88rem;
 }
-.julg-peso-dim { font-weight: 600; }
-.julg-peso-pct { font-variant-numeric: tabular-nums; color: var(--ink-mute); font-size: 0.78rem; }
-.julg-peso-nota { font-variant-numeric: tabular-nums; color: var(--ink-mute); }
+.julg-peso-dim { font-weight: 600; min-width: 0; }
+.julg-peso-valores {
+  font-variant-numeric: tabular-nums; color: var(--ink-mute);
+  font-size: 0.78rem; white-space: nowrap;
+}
 
 /* O fator positivo — par simétrico de .julg-principal, mesma estrutura, cor
    de sucesso em vez de alerta: o que já funciona não deve parecer problema. */
@@ -3070,6 +3076,11 @@ body.pe-full #view-posters { animation: none; }
   background: #e7f3ec;
 }
 .julg-fator-positivo .julg-principal-titulo { color: var(--green); }
+/* Quando nem a maior nota passa do mínimo, o bloco não é uma boa notícia — e
+   não pode ter cara de uma. Fundo neutro, título discreto: continua sendo o
+   ponto de partida, mas não finge ser elogio. */
+.julg-fator-positivo.julg-fator-fraco { background: var(--paper-2); }
+.julg-fator-positivo.julg-fator-fraco .julg-principal-titulo { color: var(--ink-mute); }
 
 /* A jornada do espectador — opinião do crítico de retenção, trecho por
    trecho; bloco próprio porque não é medição de código como .julg-medida. */

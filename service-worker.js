@@ -1,4 +1,4 @@
-const CACHE = 'agp-v243';
+const CACHE = 'agp-v244';
 const URLS = [
   './',
   './index.html',
@@ -30,8 +30,6 @@ const URLS = [
   './src/causos.js',
   './src/transcricao.js',
   './src/embalagem.js',
-  './src/julgador-motor.js',
-  './src/julgador.js',
   './src/resumo.js',
   './src/pacote-motor.js',
   './src/pacote.js',

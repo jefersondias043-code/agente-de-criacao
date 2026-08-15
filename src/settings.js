@@ -56,7 +56,7 @@ function renderSettings() {
   const sharedNote = provider === 'groq'
     ? `<div class="field"><div style="background: #eef3f7; border: 1px solid #d3deea; padding: 0.75rem 1rem; border-radius: var(--radius); font-size: 0.85rem; display: flex; gap: 0.6rem; align-items: flex-start;">
          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3a6ea5" stroke-width="2" style="flex-shrink:0; margin-top:1px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-         <span>A <strong>chave e o modelo Groq</strong> definidos aqui valem para <strong>todas as ferramentas</strong> — Gerar, Narrativa, Causos, Julgador, Extrair e Replicador. Configure uma vez.</span>
+         <span>A <strong>chave e o modelo Groq</strong> definidos aqui valem para <strong>todas as ferramentas</strong> — Gerar, Narrativa, Causos, Aferidor, Pacote, Extrair e Replicador. Configure uma vez.</span>
        </div></div>`
     : '';
 

@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-15-r243" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-15-r244" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1127,161 +1127,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     <!-- ====================== JULGADOR ====================== -->
     <!-- A banca que lê ANTES de publicar. Não promete adivinhar o algoritmo:
          diz se dá para publicar, onde está fraco e o que consertar primeiro. -->
-    <section class="page view mtabs-host" id="view-julgador" data-mtab="a">
-      <header class="appbar">
-        <div class="appbar-lead">
-          <div class="appbar-title">Julgador</div>
-          <div class="appbar-desc">Uma banca de avaliadores lê o conteúdo antes de você publicar e diz o que corrigir.</div>
-        </div>
-        <div class="appbar-actions">
-          <button class="btn btn-icon" id="j-history-open" type="button" title="Julgamentos guardados" aria-label="Histórico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
-          </button>
-        </div>
-      </header>
-
-      <div id="j-api-warning" class="hidden card mb-3 callout-warn"></div>
-
-      <div class="mtabs" id="j-mtabs">
-        <button type="button" data-mtab="a" class="active">Um conteúdo</button>
-        <button type="button" data-mtab="b">Seleção</button>
-      </div>
-
-      <div class="card mtab-a">
-        <div class="field">
-          <label class="label" for="j-formato">Formato do conteúdo</label>
-          <select class="select" id="j-formato"></select>
-          <span class="input-helper">Muda o peso editorial de cada dimensão na nota ponderada — não muda o veredito nem a pior dimensão.</span>
-        </div>
-        <div class="field">
-          <label class="label" for="j-conteudo">O conteúdo</label>
-          <textarea class="textarea" id="j-conteudo" rows="9" placeholder="Cole o roteiro, o texto ou a transcrição do vídeo. Se anexar o vídeo ou o áudio, ele é transcrito automaticamente."></textarea>
-          <div class="input-toolbar">
-            <input type="file" id="j-attach-input" hidden />
-            <button type="button" class="btn btn-ghost btn-sm" id="j-attach-btn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.5 18.5"/></svg>
-              Anexar vídeo, áudio ou arquivo
-            </button>
-            <span class="text-xs text-mute">Vídeo e áudio entram transcritos.</span>
-          </div>
-          <div id="j-attach-pending"></div>
-        </div>
-
-        <!-- A SEGUNDA FONTE. Vídeo não é podcast: quem aparece, onde está, o
-             que faz e o que há em volta podem não ser ditos por ninguém e
-             ainda assim ser o conteúdo. Sem este campo, a banca julgava só
-             metade do vídeo — e cobrava da fala o que a imagem já entregava. -->
-        <div class="field">
-          <label class="label" for="j-visual">O que se vê no vídeo <span class="text-xs text-mute">(opcional, mas muda muito a avaliação)</span></label>
-          <textarea class="textarea" id="j-visual" rows="4" placeholder="Descreva o que aparece na tela: quem está em cena, onde, vestido como, fazendo o quê. Objetos, paisagem, expressões, o que acontece visualmente. Texto escrito na tela também conta."></textarea>
-          <div class="text-xs text-mute">A transcrição é o que se ouve; isto é o que se vê. A banca lê as duas como o mesmo vídeo.</div>
-        </div>
-
-        <!-- A embalagem é opcional, e fica recolhida: sem ela a banca ainda
-             julga o conteúdo, só não consegue conferir se a promessa da capa é
-             cumprida — que é uma das coisas mais úteis que ela mede. -->
-        <details class="julg-embalagem">
-          <!-- O resumo anuncia a sugestão porque a seção nasce RECOLHIDA: um
-               botão dentro de um <details> fechado é um botão que não existe
-               para quem nunca abriu. -->
-          <summary>A embalagem — título, capa e legenda <span class="text-xs text-mute">(opcional · a IA pode sugerir os dois a partir do vídeo)</span></summary>
-          <div class="julg-embalagem-body">
-            <!-- SUGERIR A EMBALAGEM. A ferramenta já tem a transcrição inteira
-                 e a descrição visual — escrever o título do zero é deixar de
-                 usar o que já está aqui. A regra que manda: despertar a
-                 curiosidade sem entregar o desfecho. -->
-            <div class="julg-sugerir">
-              <button type="button" class="btn btn-secondary btn-sm" id="j-sugerir">✨ Sugerir título e legenda</button>
-              <div class="text-xs text-mute">A partir da transcrição e do que se vê. A sugestão desperta a curiosidade sem contar o fim — e o código confere isso antes de mostrar.</div>
-            </div>
-            <div id="j-sugestao"></div>
-
-            <div class="field">
-              <label class="label" for="j-titulo">Título</label>
-              <input class="input" id="j-titulo" type="text" placeholder="O título que vai junto com o vídeo." />
-            </div>
-            <div class="field">
-              <label class="label" for="j-capa">O que a capa mostra</label>
-              <input class="input" id="j-capa" type="text" placeholder="Descreva a capa em palavras: o que aparece e que texto está escrito nela." />
-              <div class="text-xs text-mute">A banca lê texto, não imagem — descreva a capa e ela entra na avaliação.</div>
-            </div>
-            <div class="field">
-              <label class="label" for="j-legenda">Legenda</label>
-              <textarea class="textarea" id="j-legenda" rows="2" placeholder="A legenda da publicação."></textarea>
-            </div>
-          </div>
-        </details>
-      </div>
-
-      <div class="card mtab-a">
-        <div class="card-head"><div class="card-title">O diagnóstico</div></div>
-        <div id="j-result-area"></div>
-      </div>
-
-      <div class="action-bar mtab-a">
-        <button class="btn btn-accent" id="j-submit" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 7h6z"/><path d="M19 7l3 7h-6z"/></svg>
-          Submeter à banca
-        </button>
-        <!-- Também vive aqui, não só no resultado: quem editou o campo já perdeu
-             o diagnóstico da tela, e é justamente aí que precisa recomeçar. -->
-        <button class="btn btn-ghost" id="j-novo" type="button" title="Limpa os campos para avaliar outro conteúdo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Novo
-        </button>
-        <span class="action-bar-hint">Dez avaliadores independentes e a conferência automática</span>
-      </div>
-
-      <!-- Seleção: triagem editorial de um acervo. -->
-      <div class="card mtab-b">
-        <div class="field">
-          <label class="label" for="j-lote">O acervo</label>
-          <textarea class="textarea" id="j-lote" rows="12" placeholder="Cole vários conteúdos, separando cada um por uma linha com três traços:&#10;&#10;primeiro roteiro…&#10;---&#10;segundo roteiro…"></textarea>
-          <div class="input-toolbar">
-            <input type="file" id="j-lote-attach-input" hidden />
-            <button type="button" class="btn btn-ghost btn-sm" id="j-lote-attach-btn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.5 18.5"/></svg>
-              Anexar mais um
-            </button>
-            <span class="text-xs text-mute">Cada anexo entra já separado.</span>
-          </div>
-          <div id="j-lote-attach-pending"></div>
-        </div>
-      </div>
-
-      <div class="card mtab-b">
-        <div id="j-lote-result">
-          <div class="empty">
-            <div class="empty-title">Triagem editorial</div>
-            <div class="empty-desc">Em vez de reassistir tudo para decidir onde mexer, a banca lê o acervo e devolve a fila — do mais pronto ao mais fraco.</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="action-bar mtab-b">
-        <button class="btn btn-accent" id="j-lote-submit" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="9" y2="18"/></svg>
-          Triar o acervo
-        </button>
-        <span class="action-bar-hint">Banca reduzida — abra os melhores e submeta à banca inteira</span>
-      </div>
-
-      <div id="j-history-backdrop" class="drawer-backdrop hidden"></div>
-      <aside id="j-history-drawer" class="history-drawer" aria-label="Julgamentos guardados">
-        <div class="history-drawer-head">
-          <div class="card-title">Julgamentos guardados</div>
-          <div class="flex gap-1">
-            <button class="btn btn-danger btn-sm" id="j-history-clear" type="button">Limpar tudo</button>
-            <button class="btn btn-ghost btn-sm" id="j-history-close" type="button" title="Fechar" aria-label="Fechar">✕</button>
-          </div>
-        </div>
-        <div id="j-history-list" class="list"></div>
-      </aside>
-    </section>
-
-    <!-- Settings -->
-    <!-- ====================== CAUSOS ====================== -->
-    <section class="page view" id="view-causos">
+<section class="page view" id="view-causos">
       <header class="appbar">
         <div class="appbar-lead">
           <div class="appbar-title">Causos</div>
@@ -1465,9 +1311,9 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
           <span class="input-helper">O mesmo questionário roda este número de vezes e vale a resposta predominante. Mais leituras custam mais chamadas e reduzem o efeito de uma resposta isolada.</span>
         </div>
 
-        <details class="julg-embalagem">
+        <details class="afer-detalhes">
           <summary>Título e legenda <span class="text-xs text-mute">(opcional · liberam os quesitos de embalagem)</span></summary>
-          <div class="julg-embalagem-body">
+          <div class="afer-detalhes-body">
             <div class="field">
               <label class="label" for="af-titulo">Título</label>
               <input class="input" id="af-titulo" type="text" placeholder="O título que vai junto com o conteúdo." />
@@ -1639,8 +1485,6 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <script src="src/causos.js"></script>
 <script src="src/transcricao.js"></script>
 <script src="src/embalagem.js"></script>
-<script src="src/julgador-motor.js"></script>
-<script src="src/julgador.js"></script>
 <script src="src/resumo.js"></script>
 <script src="src/pacote-motor.js"></script>
 <script src="src/pacote.js"></script>

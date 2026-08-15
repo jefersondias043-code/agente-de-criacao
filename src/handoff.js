@@ -14,8 +14,6 @@ const TEXT_CONSUMERS = [
   { id: 'narrativa', label: 'Narrativa', kind: 'native', view: 'narrativa' },
   // Causos: o texto vira a IDEIA de onde a mesa tira a história.
   { id: 'causos', label: 'Causos', kind: 'native', view: 'causos' },
-  // Julgador: o texto vira o CONTEÚDO a ser avaliado — é a transcrição do vídeo.
-  { id: 'julgador', label: 'Julgador', kind: 'native', view: 'julgador' },
   // Pacote: o texto vira o CONTEÚDO a empacotar — título, legenda, hashtags e
   // palavras-chave a partir do que qualquer outra ferramenta já produziu.
   { id: 'pacote', label: 'Pacote', kind: 'native', view: 'pacote' },

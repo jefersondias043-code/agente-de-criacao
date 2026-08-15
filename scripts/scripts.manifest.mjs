@@ -21,8 +21,6 @@ export const SCRIPTS = [
   'causos.js',
   'transcricao.js',
   'embalagem.js',
-  'julgador-motor.js',
-  'julgador.js',
   'resumo.js',
   'pacote-motor.js',
   'pacote.js',

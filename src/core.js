@@ -130,8 +130,6 @@ const STORAGE_KEYS = {
   narrativaDraft: 'agp.narrativa.draft',   // Narrativa: a história em construção (não perder ao trocar de ferramenta)
   causos: 'agp.causos',                    // Causos: as histórias contadas pela mesa (e a memória do que ela já contou)
   causoDraft: 'agp.causo.draft',           // Causos: a ideia em construção
-  julgamentos: 'agp.julgamentos',          // Julgador: os diagnósticos da banca (base das comparações entre versões)
-  julgadorDraft: 'agp.julgador.draft',     // Julgador: o conteúdo e a embalagem em avaliação
   pacotes: 'agp.pacotes',                  // Pacote: os pacotes de publicação já montados
   pacoteDraft: 'agp.pacote.draft',         // Pacote: o conteúdo em construção
   afericoes: 'agp.afericoes',              // Aferidor: as aferições binárias (questionário + conta)
@@ -243,9 +241,6 @@ const State = (() => {
     narrativaDraft: loadJSON(STORAGE_KEYS.narrativaDraft, null),
     causos: loadJSON(STORAGE_KEYS.causos, []),
     causoDraft: loadJSON(STORAGE_KEYS.causoDraft, null),
-    julgamentos: loadJSON(STORAGE_KEYS.julgamentos, []),
-    julgadorDraft: loadJSON(STORAGE_KEYS.julgadorDraft, null),
-    julgadorOrigemId: null,   // qual julgamento esta próxima avaliação vai comparar
     pacotes: loadJSON(STORAGE_KEYS.pacotes, []),
     pacoteDraft: loadJSON(STORAGE_KEYS.pacoteDraft, null),
     afericoes: loadJSON(STORAGE_KEYS.afericoes, []),

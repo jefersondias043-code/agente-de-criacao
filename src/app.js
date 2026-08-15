@@ -7,7 +7,6 @@ const NAV_ITEMS = [
   { id: 'generate',  label: 'Gerar',       icon: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>' },
   { id: 'narrativa', label: 'Narrativa',   icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>' },
   { id: 'causos',    label: 'Causos',      icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' },
-  { id: 'julgador',  label: 'Julgador',    icon: '<path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 7h6z"/><path d="M19 7l3 7h-6z"/>' },
   { id: 'extract',   label: 'Extrair',     icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' },
   { id: 'aferidor',  label: 'Aferidor',    icon: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' },
   { id: 'pacote',    label: 'Pacote',      icon: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/>' },
@@ -211,8 +210,8 @@ function openRecent(kind, id) {
 function goTo(viewId) {
   // Fecha qualquer drawer de histórico aberto (são position:fixed; não podem
   // ficar flutuando ao trocar de ferramenta — ex.: "Criar cartaz" leva aos Cartazes).
-  ['g-history-drawer', 'p-history-drawer', 'n-history-drawer', 'c-history-drawer', 'j-history-drawer', 'pk-history-drawer', 'af-history-drawer'].forEach(id => { const d = $(`#${id}`); if (d) d.classList.remove('open'); });
-  ['g-history-backdrop', 'p-history-backdrop', 'n-history-backdrop', 'c-history-backdrop', 'j-history-backdrop', 'pk-history-backdrop', 'af-history-backdrop'].forEach(id => { const b = $(`#${id}`); if (b) b.classList.add('hidden'); });
+  ['g-history-drawer', 'p-history-drawer', 'n-history-drawer', 'c-history-drawer', 'pk-history-drawer', 'af-history-drawer'].forEach(id => { const d = $(`#${id}`); if (d) d.classList.remove('open'); });
+  ['g-history-backdrop', 'p-history-backdrop', 'n-history-backdrop', 'c-history-backdrop', 'pk-history-backdrop', 'af-history-backdrop'].forEach(id => { const b = $(`#${id}`); if (b) b.classList.add('hidden'); });
   // Sai do modo focado do editor de cartazes ao navegar; renderPosters()
   // reativa quando a view de destino é 'posters' com editor aberto.
   document.body.classList.remove('pe-full');
@@ -229,7 +228,6 @@ function goTo(viewId) {
   if (viewId === 'generate') renderGenerate();
   if (viewId === 'narrativa') renderNarrativa();
   if (viewId === 'causos') renderCausos();
-  if (viewId === 'julgador') renderJulgador();
   if (viewId === 'extract') renderExtract();
   if (viewId === 'pacote') renderPacote();
   if (viewId === 'aferidor') renderAferidor();

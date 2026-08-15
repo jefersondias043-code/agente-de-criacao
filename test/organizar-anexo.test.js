@@ -1,10 +1,12 @@
-// ORGANIZAR O ANEXO — nas quatro ferramentas da plataforma
+// ORGANIZAR O ANEXO — em todas as telas que aceitam arquivo
 //
 // O que o usuário pediu no AutoPost foi "faça como nas outras ferramentas".
-// Ao conferir, "as outras" eram só duas: Causos e Julgador organizavam; Gerar e
-// Narrativa, não — anexar um áudio nelas ainda despejava fala corrida no campo.
-// A diferença não era decisão de ninguém, era o passo ter nascido em duas telas
-// e não ter sido levado às outras.
+// Ao conferir, "as outras" eram só duas — Gerar e Narrativa ainda despejavam
+// fala corrida no campo. A diferença não era decisão de ninguém, era o passo
+// ter nascido em duas telas e não ter sido levado às outras.
+//
+// O Julgador saiu da plataforma no r244 e os dois casos dele saíram daqui
+// junto; o passo em si não mudou.
 //
 // Este arquivo mede o caminho inteiro, sem dublê de função: um .txt DE VERDADE
 // entra pelo mesmo ponto que o usuário usa, e a única coisa substituída é a
@@ -46,10 +48,10 @@ beforeAll(() => {
   M = loadModules(
     ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js',
       'media-transcode.js', 'transcricao.js', 'ingest.js',
-      'causos-motor.js', 'causos.js', 'julgador-motor.js', 'julgador.js',
+      'causos-motor.js', 'causos.js',
       'narrativa-motor.js', 'narrativa.js', 'generate.js'],
     ['State', 'ingestLigarAnexo', 'handleGenAttach', 'handleNarrAttach',
-      'renderCausos', 'renderJulgador', 'STORAGE_KEYS']);
+      'renderCausos', 'STORAGE_KEYS']);
 });
 
 let chamadas;
@@ -136,24 +138,6 @@ describe('o passo de organizar, ligado ao anexo de cada ferramenta', () => {
 
     expect(chamadas.length).toBe(1);
     expect(document.getElementById('c-ideia').value).toContain('trezentos e cinquenta');
-  });
-
-  it('Julgador: o texto do arquivo chega organizado ao campo', async () => {
-    montarVista('view-julgador', 'j-history-backdrop');
-    M.renderJulgador();
-    await anexarPeloInput('#j-attach-input', txt(CRU));
-
-    expect(chamadas.length).toBe(1);
-    expect(document.getElementById('j-conteudo').value).toContain('trezentos e cinquenta');
-  });
-
-  it('Julgador em lote: o anexo de cada vídeo também é organizado', async () => {
-    montarVista('view-julgador', 'j-history-backdrop');
-    M.renderJulgador();
-    await anexarPeloInput('#j-lote-attach-input', txt(CRU));
-
-    expect(chamadas.length).toBe(1);
-    expect(document.getElementById('j-lote').value).toContain('trezentos e cinquenta');
   });
 
   it('sem pedir organização, o texto entra cru — o passo é opcional de fato', async () => {

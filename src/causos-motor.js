@@ -410,8 +410,9 @@ function _cConteudo(texto) {
  * reescritor, com a ordem na mão. Cortar por conta seria o "corte artificial"
  * que o usuário pediu para evitar. */
 
-/* Mesma taxa do Julgador (src/julgador-motor.js): fala corrida de causo, em
- * português, roda perto de 2,6 palavras por segundo. */
+/* Fala corrida de causo, em português, roda perto de 2,6 palavras por
+ * segundo. A taxa nasceu no Julgador (removido no r244) e ficou aqui, que é
+ * onde ela ainda é usada. */
 const CAUSO_PALAVRAS_POR_SEGUNDO = 2.6;
 
 /* A janela do formato. O teto é o que reprova; o piso existe porque história

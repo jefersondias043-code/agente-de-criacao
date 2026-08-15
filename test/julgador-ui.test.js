@@ -260,6 +260,121 @@ describe('a nota ponderada e o fator positivo na tela', () => {
     expect(f.textContent).toMatch(/Primeiro impacto está forte — 9\/10/);
   });
 
+  /* A AUDITORIA ACHOU ISTO: num conteúdo reprovado de ponta a ponta, a maior
+   * nota também está abaixo do mínimo — e a tela dizia "Naturalidade está
+   * forte — 3/10" ao lado de um NÃO PUBLICARIA e de um 10/100. Elogiar o que
+   * não é bom é o que a doutrina proíbe os avaliadores de fazer; a tela não
+   * pode fazer o que proíbe a banca. */
+  it('quando NEM a maior nota passa do mínimo, a tela não chama isso de forte', () => {
+    const juizo = U.julgarConteudo([
+      { avaliador: 'naturalidade', notas: [{ dimensao: 'naturalidade', nota: 3, problema: 'soa escrito' }] },
+      { avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 1, problema: 'não entrega nada' }] },
+    ], []);
+    expect(juizo.veredito).toBe('nao');
+    expect(juizo.pontoForte.nota).toBeLessThan(juizo.pontoForte.minimo);
+    U.renderJulgResultado({ id: 'fraco', juizo, local: {}, banca: [] });
+    const f = document.querySelector('.julg-fator-positivo');
+    expect(f.textContent, 'a tela elogiou uma nota reprovada').not.toMatch(/está forte/);
+    expect(f.textContent).toMatch(/menos fraco/i);
+    expect(f.textContent).toMatch(/maior nota da mesa/);
+    expect(f.className, 'sem a classe, o bloco continua com cara de boa notícia').toMatch(/julg-fator-fraco/);
+  });
+
+  it('e o texto copiável conta a mesma história que a tela', () => {
+    const juizo = U.julgarConteudo([
+      { avaliador: 'naturalidade', notas: [{ dimensao: 'naturalidade', nota: 3 }] },
+      { avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 1 }] },
+    ], []);
+    const texto = U.julgDiagnosticoEmTexto({ juizo, local: {}, avaliacoes: [] });
+    expect(texto).toMatch(/O MENOS FRACO/);
+    expect(texto).not.toMatch(/PRINCIPAL FATOR POSITIVO/);
+  });
+
+  it('o principal sem texto de problema não vira rótulo com dois-pontos e nada', () => {
+    // Quando quem deu a pior nota não escreveu `problema`, a versão anterior
+    // imprimia a linha solta "Retenção potencial: " — um rótulo e um vazio.
+    const juizo = U.julgarConteudo([
+      { avaliador: 'espectador', notas: [{ dimensao: 'retencao', nota: 2 }] },
+    ], []);
+    const texto = U.julgDiagnosticoEmTexto({ juizo, local: {}, avaliacoes: [] });
+    expect(texto).not.toMatch(/Retenção potencial:\s*\n/);
+    expect(texto, 'a nota precisa aparecer junto do rótulo').toMatch(/Retenção potencial — 2\/10/);
+  });
+
+  it('os eixos saem em bloco, com UMA linha em branco antes — não uma entre cada', () => {
+    const juizo = U.julgarConteudo([
+      { avaliador: 'impacto', notas: [{ dimensao: 'impacto', nota: 8 }, { dimensao: 'clareza', nota: 8 }] },
+      { avaliador: 'retencao', notas: [{ dimensao: 'retencao', nota: 8 }, { dimensao: 'historia', nota: 8 }] },
+      { avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 8 }] },
+      { avaliador: 'compartilhamento', notas: [{ dimensao: 'compartilhamento', nota: 8 }] },
+    ], []);
+    const texto = U.julgDiagnosticoEmTexto({ juizo, local: {}, avaliacoes: [] });
+    expect(texto).toMatch(/OS QUATRO EIXOS/);
+    const bloco = texto.slice(texto.indexOf('OS QUATRO EIXOS'));
+    expect(bloco, 'voltou a separar eixo a eixo com linha em branco').not.toMatch(/\n\n/);
+  });
+
+  /* O QUE A AUDITORIA ACHOU NESTE BLOCO. Ele ordenava por CONTRIBUIÇÃO
+   * (peso × quanto falta para 10), e o efeito era o oposto do título: num
+   * vídeo bom, as dimensões nota 10 contribuem zero e sumiam — "o que mais
+   * pesa na nota" mostrava Compartilhamento (12%), Reação (6%), Curiosidade
+   * (5%) e História (3%), enquanto Retenção (30%) e Impacto (20%) nem
+   * apareciam. E o texto de ajuda afirmava "do maior peso para o menor". */
+  const itemTudoAlto = () => {
+    const juizo = U.julgarConteudo([
+      { avaliador: 'retencao', notas: [{ dimensao: 'retencao', nota: 10 }, { dimensao: 'historia', nota: 9 }] },
+      { avaliador: 'impacto', notas: [{ dimensao: 'impacto', nota: 10 }, { dimensao: 'clareza', nota: 10 }] },
+      { avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 10 }] },
+      { avaliador: 'compartilhamento', notas: [{ dimensao: 'compartilhamento', nota: 9 }] },
+      { avaliador: 'comentarios', notas: [{ dimensao: 'comentarios', nota: 9 }] },
+    ], []);
+    return { id: 'alto', createdAt: new Date().toISOString(), conteudo: 'x', embalagem: {}, juizo, local: {}, banca: [] };
+  };
+
+  it('num vídeo bom, o bloco mostra as dimensões de MAIOR peso — não as de menor', () => {
+    U.renderJulgResultado(itemTudoAlto());
+    const dims = [...document.querySelectorAll('.julg-peso-dim')].map((e) => e.textContent);
+    expect(dims[0], 'a dimensão de maior peso precisa vir primeiro').toBe('Retenção potencial');
+    expect(dims[1]).toBe('Primeiro impacto');
+    expect(dims, 'o bloco escondia justamente o que mais pesa').toContain('Valor entregue');
+  });
+
+  it('a ordem é por peso decrescente, sempre', () => {
+    U.renderJulgResultado(itemTudoAlto());
+    const pesos = [...document.querySelectorAll('.julg-peso-valores')]
+      .map((e) => parseInt(/peso (\d+)%/.exec(e.textContent)[1], 10));
+    expect(pesos.length).toBeGreaterThan(1);
+    for (let i = 1; i < pesos.length; i++) expect(pesos[i - 1]).toBeGreaterThanOrEqual(pesos[i]);
+  });
+
+  it('uma dimensão de peso baixo e nota zero não fura a fila', () => {
+    // Era exatamente este o caso que a ordenação por contribuição invertia:
+    // embalagem (2%) zerada vinha na frente de retenção (30%) perfeita.
+    const juizo = U.julgarConteudo([
+      { avaliador: 'embalagem', notas: [{ dimensao: 'embalagem', nota: 0, problema: 'capa mente' }] },
+      { avaliador: 'retencao', notas: [{ dimensao: 'retencao', nota: 10 }] },
+    ], []);
+    U.renderJulgResultado({ id: 'z', juizo, local: {}, banca: [] });
+    const dims = [...document.querySelectorAll('.julg-peso-dim')].map((e) => e.textContent);
+    expect(dims[0]).toBe('Retenção potencial');
+  });
+
+  it('o texto de ajuda descreve a ordenação que existe de verdade', () => {
+    U.renderJulgResultado(itemTudoAlto());
+    const ajuda = document.querySelector('.julg-peso').previousElementSibling.textContent;
+    expect(ajuda).toMatch(/maior peso/);
+    expect(ajuda, 'a cobertura declarada é o que torna o recorte honesto').toMatch(/% da nota ponderada/);
+  });
+
+  it('o selo do bloco de peso diz ESTADO, não tamanho de problema', () => {
+    // "Baixo impacto · Compartilhamento · peso 12% · 9/10" era contraditório:
+    // o rótulo de gravidade descreve problema, e aqui a linha não é problema.
+    U.renderJulgResultado(itemTudoAlto());
+    const selos = [...document.querySelectorAll('.julg-peso .julg-acao-grav')].map((e) => e.textContent);
+    expect(selos[0]).toBe('OK');
+    expect(selos.join(' '), 'vocabulário de problema vazou para a tabela de pesos').not.toMatch(/impacto/i);
+  });
+
   it('sem ponderado no juízo (formato antigo, sem 3º parâmetro), o bloco de peso simplesmente não aparece', () => {
     const juizoAntigo = { avaliadas: [], reprovadas: [], criticas: [], veredito: 'sim',
       vereditoInfo: { label: 'PUBLICARIA', resumo: '' }, principal: null, pontoForte: null,
@@ -510,6 +625,86 @@ describe('o formato do conteúdo', () => {
     U.julgNovoConteudo(true);
     expect(U.State.julgadorDraft.formato, 'o formato não é conteúdo — não devia ser apagado').toBe('comedia');
     expect(document.getElementById('j-formato').value).toBe('comedia');
+  });
+
+  /* TROCAR O FORMATO COM UM DIAGNÓSTICO NA TELA.
+   *
+   * A auditoria pegou a tela mentindo: o seletor dizia "Comédia" e o bloco
+   * continuava mostrando "97/100 · Geral", sem aviso nenhum de que o número
+   * não era o do formato selecionado. Como a nota ponderada é função pura das
+   * avaliações já guardadas, o certo é recalcular na hora — sem gastar as dez
+   * chamadas de IA de uma nova submissão. */
+  describe('trocar o formato com um resultado na tela', () => {
+    const montarResultado = () => {
+      const juizo = U.julgarConteudo([
+        { avaliador: 'retencao', notas: [{ dimensao: 'retencao', nota: 5, problema: 'cai no meio' }] },
+        { avaliador: 'impacto', notas: [{ dimensao: 'impacto', nota: 9 }, { dimensao: 'clareza', nota: 9 }] },
+        { avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 9 }] },
+      ], [], { formato: 'geral' });
+      const item = { id: 'rec1', createdAt: new Date().toISOString(), nome: 'x',
+        conteudo: 'a fala do vídeo', visual: '', embalagem: {}, juizo, local: { achados: [] },
+        avaliacoes: [
+          { avaliador: 'retencao', notas: [{ dimensao: 'retencao', nota: 5, problema: 'cai no meio' }] },
+          { avaliador: 'impacto', notas: [{ dimensao: 'impacto', nota: 9 }, { dimensao: 'clareza', nota: 9 }] },
+          { avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 9 }] },
+        ],
+        banca: ['retencao', 'impacto', 'valor'] };
+      U.State.julgamentos = [item];
+      U.renderJulgResultado(item);
+      return item;
+    };
+    const trocar = (v) => {
+      const sel = document.getElementById('j-formato');
+      sel.value = v;
+      sel.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    it('a nota ponderada e o rótulo do formato acompanham o seletor', () => {
+      montarResultado();
+      const antes = document.querySelector('.julg-nota-ponderada').textContent;
+      expect(antes).toMatch(/Geral/);
+      trocar('curto');
+      const depois = document.querySelector('.julg-nota-ponderada').textContent;
+      expect(depois, 'a tela ficou mostrando o formato antigo').toMatch(/Shorts\/Reels\/TikTok/);
+      expect(depois, 'retenção pesa mais em "curto" — a nota tinha de cair').not.toBe(antes);
+    });
+
+    it('e NADA mais do juízo muda — veredito, pior dimensão, principal e ações', () => {
+      const item = montarResultado();
+      const antes = JSON.stringify({ v: item.juizo.veredito, n: item.juizo.nota,
+        p: item.juizo.principal.dimensao, a: item.juizo.acoes.map((x) => x.dimensao) });
+      trocar('comedia');
+      const depois = JSON.stringify({ v: item.juizo.veredito, n: item.juizo.nota,
+        p: item.juizo.principal.dimensao, a: item.juizo.acoes.map((x) => x.dimensao) });
+      expect(depois, 'o peso vazou para a decisão').toBe(antes);
+    });
+
+    it('o formato novo é gravado no histórico, não só desenhado', () => {
+      montarResultado();
+      trocar('informativo');
+      const guardado = JSON.parse(localStorage.getItem(U.STORAGE_KEYS.julgamentos) || '[]');
+      expect(guardado[0].juizo.ponderado.formato).toBe('informativo');
+    });
+
+    it('um julgamento antigo sem avaliações guardadas não é destruído pelo recálculo', () => {
+      // Sem `avaliacoes`, recalcular produziria um juízo vazio e apagaria o
+      // diagnóstico que já estava na tela. Melhor deixar como está.
+      const juizo = U.julgarConteudo([
+        { avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 9 }] }], []);
+      const item = { id: 'velho', createdAt: new Date().toISOString(), juizo, local: {}, banca: [] };
+      U.State.julgamentos = [item];
+      U.renderJulgResultado(item);
+      trocar('curto');
+      expect(item.juizo.avaliadas.length, 'o diagnóstico antigo foi apagado').toBe(1);
+      expect(document.querySelector('.julg-veredito')).toBeTruthy();
+    });
+
+    it('trocar o formato SEM resultado na tela não quebra nada', () => {
+      U.julgLimparResultado();
+      trocar('causo');
+      expect(U.State.julgadorDraft.formato).toBe('causo');
+      expect(document.querySelector('.julg-veredito')).toBeFalsy();
+    });
   });
 
   it('reabrir um julgamento do histórico traz o formato usado naquela avaliação', () => {

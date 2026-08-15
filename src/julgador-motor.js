@@ -1017,13 +1017,28 @@ function julgarConteudo(avaliacoes, achadosLocais, opcoes) {
     || avaliadas.slice().sort((x, y) => (x.nota - x.minimo) - (y.nota - y.minimo))[0]
     || null;
 
+  /* UMA DIMENSÃO REPROVADA NUNCA SOME DA LISTA, mesmo sem texto.
+   *
+   * O defeito que isto conserta era silencioso e grave. Vale sempre a PIOR
+   * avaliação de cada dimensão — e o Espectador, que é leigo e lacônico por
+   * desenho, costuma ser o mais duro. Quando ele dava a nota mais baixa sem
+   * escrever `problema`, a dimensão inteira caía do filtro `(correcao ||
+   * problema)` e desaparecia de "o que eu mudaria".
+   *
+   * O resultado era a ferramenta exibir "NÃO PUBLICARIA — 10/100" e uma lista
+   * de correções que não mencionava a dimensão responsável por aquele 10.
+   * Quem reprova aparece; sem texto de ninguém, a própria pergunta da dimensão
+   * serve de ponto de partida — é honesto e não inventa diagnóstico. Só as
+   * dimensões que PASSAM continuam podendo ficar de fora quando ninguém
+   * escreveu nada sobre elas: ali a linha seria ruído. */
   const acoes = avaliadas
-    .filter((a) => a.gravidade !== 'baixo' && (a.correcao || a.problema))
+    .filter((a) => a.gravidade !== 'baixo' && (a.correcao || a.problema || a.nota < a.minimo))
     .sort((x, y) => prioridade(y) - prioridade(x) || x.nota - y.nota)
     .map((a) => ({
       dimensao: a.dimensao, label: a.label, gravidade: a.gravidade, nota: a.nota,
       minimo: a.minimo, fonte: a.fonte,
-      acao: a.correcao || a.problema, problema: a.problema,
+      acao: a.correcao || a.problema || (julgDimensao(a.dimensao) || {}).pergunta || '',
+      problema: a.problema,
     }));
 
   /* Os eixos ficam com a PIOR dimensão do grupo, não com a média — pelo mesmo
@@ -1185,7 +1200,7 @@ async function runTriagemPipeline(opts) {
     try {
       const r = await runJulgamentoPipeline({
         conteudo: it.conteudo, embalagem: it.embalagem, visual: it.visual,
-        banca: o.banca || JULG_BANCA_TRIAGEM, call: o.call,
+        banca: o.banca || JULG_BANCA_TRIAGEM, call: o.call, formato: o.formato,
       });
       resultados.push({ nome: it.nome || `Conteúdo ${i + 1}`, id: it.id, ok: true, ...r });
     } catch (err) {

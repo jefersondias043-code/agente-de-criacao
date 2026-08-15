@@ -25,6 +25,12 @@
 let _julgResultadoVisivel = false;
 // A última sugestão de embalagem, para os botões "Usar" saberem o que aplicar.
 let _julgSugestao = null;
+/* O julgamento que está NA TELA. Existe para o seletor de formato poder
+ * recalcular a nota ponderada sem submeter tudo de novo — ver
+ * `julgRecalcularPonderado`. É o mesmo objeto que está em `State.julgamentos`,
+ * não uma cópia: mexer aqui atualiza o histórico junto, que é o certo, porque
+ * o formato passa a ser o daquele julgamento. */
+let _julgItemAtual = null;
 
 function julgadorDraft() {
   if (!State.julgadorDraft) {
@@ -91,24 +97,50 @@ function julgBlocoVeredito(juizo) {
 /* A NOTA PONDERADA — estatística SEGUNDA, sempre menor visualmente que a
  * "pior dimensão" acima, que continua sendo o número que decide o veredito.
  * Isto não é o algoritmo de nenhuma plataforma: é peso EDITORIAL desta
- * ferramenta, e o texto avisa isso toda vez que a nota aparece. */
+ * ferramenta, e o texto avisa isso toda vez que a nota aparece.
+ *
+ * A ORDEM É POR PESO, e a primeira versão errava justamente nisso. Ela
+ * ordenava por CONTRIBUIÇÃO (peso × quanto falta para 10), e o efeito era o
+ * oposto do que o título promete: num vídeo bom, as dimensões nota 10
+ * contribuem zero e sumiam da lista — "o que mais pesa na nota" mostrava
+ * Compartilhamento (12%), Reação (6%), Curiosidade (5%) e História (3%),
+ * enquanto Retenção (30%) e Primeiro impacto (20%) nem apareciam.
+ *
+ * Ordenar pelo peso faz o bloco dizer o que ele diz que diz, e a lista fica
+ * ESTÁVEL entre um julgamento e outro — é a tabela do formato escolhido, não
+ * um ranking que se reembaralha. Onde está o problema, quem responde é a cor
+ * da gravidade e a nota ao lado; "o que consertar primeiro" já é o trabalho
+ * de `julgBlocoAcoes`, que ordena por gravidade × momento. */
+const JULG_PESO_VISIVEL = 5;
+
+/* O ESTADO DA DIMENSÃO NESTE BLOCO — vocabulário próprio, e é necessário.
+ * `JULG_ROTULO_GRAVIDADE` descreve o TAMANHO DE UM PROBLEMA ("Baixo impacto"),
+ * que é o certo em "o que eu mudaria". Aqui as linhas não são problemas: são a
+ * tabela de pesos. Reusar aquele rótulo produzia a contradição literal
+ * "Baixo impacto · Compartilhamento · peso 12% · 9/10". */
+const JULG_ROTULO_ESTADO = {
+  critico: 'Crítico', alto: 'Reprovado', medio: 'No limite', baixo: 'OK',
+};
+
 function julgBlocoPeso(juizo) {
   const p = juizo.ponderado;
   if (!p || !(p.porDimensao || []).length) return '';
   const formato = (typeof JULG_FORMATOS !== 'undefined') ? julgFormato(p.formato) : null;
-  const linhas = p.porDimensao.slice(0, 4).map((d) => `
+  const porPeso = p.porDimensao.slice().sort((a, b) => b.peso - a.peso || b.nota - a.nota);
+  const mostradas = porPeso.slice(0, JULG_PESO_VISIVEL);
+  const cobertura = Math.round(mostradas.reduce((acc, d) => acc + d.peso, 0));
+  const linhas = mostradas.map((d) => `
     <div class="julg-peso julg-grav-${escapeHtml(d.gravidade)}">
-      <span class="julg-acao-grav">${escapeHtml(JULG_ROTULO_GRAVIDADE[d.gravidade] || d.gravidade)}</span>
+      <span class="julg-acao-grav">${escapeHtml(JULG_ROTULO_ESTADO[d.gravidade] || d.gravidade)}</span>
       <span class="julg-peso-dim">${escapeHtml(d.label)}</span>
-      <span class="julg-peso-pct">peso ${d.peso}%</span>
-      <span class="julg-peso-nota">${d.nota}/10</span>
+      <span class="julg-peso-valores">peso ${d.peso}% · ${d.nota}/10</span>
     </div>`).join('');
   return `
     <div class="julg-secao">
       <div class="julg-secao-titulo">O que mais pesa na nota
         <span class="julg-nota-ponderada" title="Peso editorial desta ferramenta — não é o algoritmo real de nenhuma plataforma, que ninguém publica.">${p.nota}/100${formato ? ` · ${escapeHtml(formato.label)}` : ''}</span>
       </div>
-      <div class="text-xs text-mute mb-1">Do maior peso editorial para o menor.</div>
+      <div class="text-xs text-mute mb-1">As ${mostradas.length} dimensões de maior peso no formato escolhido — ${cobertura}% da nota ponderada. Peso é opinião editorial desta ferramenta, não o algoritmo de nenhuma plataforma.</div>
       ${linhas}
     </div>`;
 }
@@ -130,16 +162,33 @@ function julgBlocoPrincipal(juizo) {
 
 /* O FATOR POSITIVO — o par simétrico do PRINCIPAL. Um conteúdo com catorze
  * problemas também tem alguma coisa que já funciona; dizer só o que falta
- * conserta o vídeo mas não ensina o que repetir no próximo. */
+ * conserta o vídeo mas não ensina o que repetir no próximo.
+ *
+ * MAS "A MAIOR NOTA" NÃO É "ESTÁ FORTE", e a primeira versão confundia as
+ * duas. Num conteúdo reprovado de ponta a ponta, a maior nota também está
+ * abaixo do mínimo — e a tela dizia "Naturalidade está forte — 3/10" ao lado
+ * de um veredito NÃO PUBLICARIA e de um 10/100. Elogiar o que não é bom é
+ * exatamente o que a doutrina dos avaliadores proíbe ("nota inflada faz a
+ * pessoa publicar um vídeo que ia falhar"), e a tela não pode fazer o que
+ * proíbe a banca de fazer.
+ *
+ * Quando nem a melhor dimensão passa, o bloco continua aparecendo — mas
+ * dizendo a verdade: é o que está MENOS fraco, e é por onde começar a
+ * reconstrução. Mesma honestidade que `julgBlocoPrincipal` já tem quando não
+ * há reprovação nenhuma ("já passa — é só o ponto mais baixo"). */
 function julgBlocoFatorPositivo(juizo) {
   const f = juizo.pontoForte;
   if (!f) return '';
   const dim = julgDimensao(f.dimensao);
+  const passa = f.nota >= f.minimo;
   return `
-    <div class="julg-fator-positivo">
-      <div class="julg-principal-titulo">Principal fator positivo</div>
-      <div class="julg-principal-dim">${escapeHtml(f.label)} está forte — ${f.nota}/10</div>
+    <div class="julg-fator-positivo ${passa ? '' : 'julg-fator-fraco'}">
+      <div class="julg-principal-titulo">${passa ? 'Principal fator positivo' : 'O menos fraco'}</div>
+      <div class="julg-principal-dim">${escapeHtml(f.label)} ${passa
+        ? `está forte — ${f.nota}/10`
+        : `— ${f.nota}/10, e ainda assim é a maior nota da mesa`}</div>
       ${dim && dim.pergunta ? `<div class="julg-principal-problema">${escapeHtml(dim.pergunta)}</div>` : ''}
+      ${passa ? '' : '<div class="julg-principal-acao">→ Nenhuma dimensão passou do mínimo. Comece por aqui: é a base que já existe.</div>'}
     </div>`;
 }
 
@@ -297,8 +346,38 @@ function julgBlocoComparacao(item) {
     </div>`;
 }
 
+/* TROCAR O FORMATO NÃO PODE EXIGIR NOVA CHAMADA DE IA.
+ *
+ * A nota ponderada é função pura de duas coisas que já estão guardadas no
+ * julgamento — as avaliações e os achados da conferência — mais a tabela de
+ * pesos. Trocar o formato muda só a tabela. Submeter tudo de novo gastaria dez
+ * chamadas para recalcular uma média que o código faz de graça.
+ *
+ * Sem isto, o defeito era pior do que gasto: o seletor dizia "Comédia" e a
+ * tela continuava mostrando "97/100 · Geral", sem nenhum aviso de que o número
+ * na tela não era o do formato selecionado.
+ *
+ * Nada mais do juízo muda, e não é coincidência: veredito, pior dimensão,
+ * principal e ações não dependem de peso nenhum, por desenho. O recálculo
+ * roda o MESMO `julgarConteudo` (em vez de refazer só a conta ponderada à
+ * parte) justamente para que isso continue verdadeiro sem ninguém precisar
+ * lembrar — se um dia o peso vazar para o veredito, vaza aqui também e o
+ * teste pega. */
+function julgRecalcularPonderado(formato) {
+  const it = _julgItemAtual;
+  // Julgamento antigo, gravado antes de as avaliações serem guardadas: sem
+  // elas o recálculo produziria um juízo vazio e apagaria o diagnóstico da
+  // tela. Melhor deixar como está do que destruir o que já foi medido.
+  if (!it || !Array.isArray(it.avaliacoes) || !it.avaliacoes.length) return false;
+  it.juizo = julgarConteudo(it.avaliacoes, ((it.local || {}).achados) || [], { formato });
+  if ((State.julgamentos || []).some((x) => x.id === it.id)) saveJulgamentos();
+  renderJulgResultado(it);
+  return true;
+}
+
 function julgLimparResultado() {
   _julgResultadoVisivel = false;
+  _julgItemAtual = null;
   const area = $('#j-result-area');
   if (!area) return;
   area.innerHTML = `
@@ -508,6 +587,7 @@ function renderJulgResultado(item) {
   const area = $('#j-result-area');
   if (!area) return;
   _julgResultadoVisivel = true;
+  _julgItemAtual = item;
   const juizo = item.juizo || {};
   area.innerHTML = `
     ${julgBlocoVeredito(juizo)}
@@ -577,15 +657,23 @@ function julgDiagnosticoEmTexto(item) {
     linhas.push(`Nota ponderada (peso editorial, não é o algoritmo de nenhuma plataforma): ${j.ponderado.nota}/100`);
   }
   if (j.principal) {
+    const p = j.principal;
     linhas.push('');
     linhas.push('SE VOCÊ SÓ PUDER MUDAR UMA COISA');
-    linhas.push(`${j.principal.label}: ${j.principal.problema || ''}`);
-    if (j.principal.correcao) linhas.push(`→ ${j.principal.correcao}`);
+    // A nota e o "já passa" vêm junto, como na tela. Sem eles, um principal sem
+    // texto de problema virava a linha solta "Retenção potencial: " — um
+    // rótulo, dois-pontos e nada, que não diz coisa alguma.
+    const estado = p.nota < p.minimo ? '' : ' (já passa — é só o ponto mais baixo)';
+    linhas.push(`${p.label} — ${p.nota}/10${estado}`);
+    if (p.problema) linhas.push(p.problema);
+    if (p.correcao && p.correcao !== p.problema) linhas.push(`→ ${p.correcao}`);
   }
   if (j.pontoForte) {
+    const f = j.pontoForte;
+    const passa = f.nota >= f.minimo;
     linhas.push('');
-    linhas.push('PRINCIPAL FATOR POSITIVO');
-    linhas.push(`${j.pontoForte.label}: ${j.pontoForte.nota}/10`);
+    linhas.push(passa ? 'PRINCIPAL FATOR POSITIVO' : 'O MENOS FRACO');
+    linhas.push(`${f.label} — ${f.nota}/10${passa ? '' : ', e ainda assim é a maior nota da mesa'}`);
   }
   const medidas = ((item.local || {}).achados) || [];
   if (medidas.length) {
@@ -605,10 +693,16 @@ function julgDiagnosticoEmTexto(item) {
     retencao.jornada.forEach((t) => linhas.push(`${t.trecho} [${JULG_ROTULO_RISCO[t.riscoAbandono] || t.riscoAbandono}]${t.observacao ? ` — ${t.observacao}` : ''}`));
     if (retencao.recompensaFinalTexto) linhas.push(`Recompensa no final: ${retencao.recompensaFinal ? 'sim' : 'não'} — ${retencao.recompensaFinalTexto}`);
   }
-  (j.eixos || []).filter((e) => e.nota != null).forEach((e) => {
-    if (linhas[linhas.length - 1] !== '') linhas.push('');
-    linhas.push(`${e.label}: ${e.nota}/100`);
-  });
+  /* UMA linha em branco antes do bloco de eixos, não uma entre cada eixo. A
+   * versão anterior testava "a última linha é vazia?" DENTRO do laço: valia
+   * para o primeiro eixo e, do segundo em diante, a última linha era sempre o
+   * eixo anterior — então separava todos, um a um. */
+  const eixos = (j.eixos || []).filter((e) => e.nota != null);
+  if (eixos.length) {
+    linhas.push('');
+    linhas.push('OS QUATRO EIXOS');
+    eixos.forEach((e) => linhas.push(`${e.label}: ${e.nota}/100`));
+  }
   return linhas.join('\n');
 }
 
@@ -814,13 +908,23 @@ function renderJulgador() {
     ['#j-capa', 'capa'], ['#j-legenda', 'legenda'], ['#j-lote', 'lote'], ['#j-formato', 'formato']].forEach(([sel, chave]) => {
     const el = $(sel);
     if (!el) return;
-    el.oninput = () => {
+    const guardar = () => {
       julgadorDraft()[chave] = el.value;
       saveJulgadorDraft();
       // Mexeu no conteúdo? O diagnóstico na tela é da versão anterior. Ele
       // sai, mas continua guardado no histórico — e vira base de comparação.
       if (chave === 'conteudo' && _julgResultadoVisivel) julgLimparResultado();
+      // Trocou o formato com um diagnóstico na tela? A nota ponderada é
+      // recalculada na hora, sem gastar chamada de IA nenhuma.
+      if (chave === 'formato' && _julgResultadoVisivel) julgRecalcularPonderado(el.value);
     };
+    el.oninput = guardar;
+    /* `change` também, e não é redundância: o `<select>` é o único campo desta
+     * tela em que o navegador é quem escolhe qual evento disparar, e a
+     * plataforma inteira liga seletor por `change` (ver generate.js,
+     * posters.js). Ligar os dois faz o formato guardar em qualquer navegador —
+     * e como o corpo é idempotente, disparar duas vezes não faz diferença. */
+    if (el.tagName === 'SELECT') el.onchange = guardar;
   });
 
   if ($('#j-novo')) $('#j-novo').onclick = () => {
@@ -855,6 +959,14 @@ function renderJulgador() {
     const original = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> A banca lê…';
+    /* A TELA DE ESPERA SUBSTITUI O DIAGNÓSTICO, e o estado tem de dizer isso.
+     * Sem zerar aqui, `_julgResultadoVisivel` continuava `true` durante a
+     * espera: trocar o formato no meio de uma submissão chamava o recálculo,
+     * que redesenhava o resultado ANTERIOR por cima da tela de carregamento —
+     * e as etapas seguintes do pipeline pintavam um progresso que já não
+     * estava mais na tela. */
+    _julgResultadoVisivel = false;
+    _julgItemAtual = null;
     $('#j-result-area').innerHTML = julgTelaDeEspera(`
       <span class="pipeline-step" data-step="conferencia">Medição</span>
       <span class="pipeline-step" data-step="banca">Banca</span>
@@ -919,7 +1031,10 @@ function renderJulgador() {
     btn.innerHTML = `<span class="spinner"></span> Triando ${itens.length}…`;
     $('#j-lote-result').innerHTML = julgTelaDeEspera('<span class="pipeline-step active" data-step="triagem">Triagem</span>');
     try {
-      const res = await runTriagemPipeline({ itens, call: callLLM, onEtapa: julgEtapaVisual('#j-lote-result') });
+      const res = await runTriagemPipeline({
+        itens, formato: julgadorDraft().formato,
+        call: callLLM, onEtapa: julgEtapaVisual('#j-lote-result'),
+      });
       renderJulgTriagem(res);
       const prontos = res.fila.filter((x) => x.ok && x.juizo.veredito === 'sim').length;
       toast(`Triagem pronta — ${prontos} de ${itens.length} sem falha crítica.`, 'success', 6000);

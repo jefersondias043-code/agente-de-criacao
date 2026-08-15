@@ -962,6 +962,46 @@ reais na mesma tarde e ainda disse que estava levando vantagem no negócio.`;
     expect(r.problemas).toEqual([]);
   });
 
+  /* A TAXA DE FALSO POSITIVO, e por que ela tem teste próprio.
+   *
+   * Esta checagem e `julgTerminaAbrupto` foram portadas juntas, no mesmo
+   * release, do mesmo jeito: uma função escrita para outro contexto passou a
+   * rodar aqui. A outra tinha erro de categoria — media geração cortada num
+   * texto que o USUÁRIO digitou — e reprovava toda transcrição sem ponto final
+   * (corrigido no r241). O erro é fácil de repetir e caro de perceber: um
+   * achado a mais derruba a dimensão para 5 e muda o veredito.
+   *
+   * Aqui o port é sólido, porque o sinal não depende de quem escreveu: um
+   * título que conta o fim é problema venha de quem vier. Mas isso é uma
+   * afirmação sobre COMPORTAMENTO, e comportamento se mede — daí uma bateria
+   * de títulos que uma pessoa real escreveria, todos precisando passar. */
+  it('não acusa nenhum título honesto de uma bateria de oito', () => {
+    const honestos = [
+      'Comprei um relógio do vizinho por vinte reais',
+      'O vizinho bateu na minha porta com um relógio na mão',
+      'Nunca imaginei o que tinha dentro daquele relógio',
+      'A peça que eu quase não comprei',
+      'Ele estava precisando de dinheiro naquele dia',
+      'O relógio da gaveta',
+      'Comprei por pena e me arrependi na hora',
+      'Um relógio velho, riscado e gasto',
+    ];
+    const acusados = honestos.filter((t) => J.julgSpoilerNaEmbalagem(TRANSCRICAO, { titulo: t }).problemas.length);
+    expect(acusados, 'título honesto virou achado — é um veredito mudado por engano').toEqual([]);
+  });
+
+  it('e pega o desfecho entregue de mais de um jeito', () => {
+    ['O Ricardo pagou duzentos reais no relógio', 'Revendi por duzentos na mesma tarde']
+      .forEach((t) => {
+        expect(J.julgSpoilerNaEmbalagem(TRANSCRICAO, { titulo: t }).problemas.length, t).toBeGreaterThan(0);
+      });
+  });
+
+  it('sem embalagem nenhuma, não inventa achado', () => {
+    expect(J.julgSpoilerNaEmbalagem(TRANSCRICAO, {}).problemas).toEqual([]);
+    expect(J.julgSpoilerNaEmbalagem(TRANSCRICAO, undefined).problemas).toEqual([]);
+  });
+
   it('entra na conferência local, mapeado para a dimensão embalagem', () => {
     const local = J.conferirJulgamentoLocal(TRANSCRICAO, { titulo: 'O Ricardo pagou duzentos reais pelo relógio' });
     const achado = local.achados.find((a) => /entrega o desfecho/.test(a.texto));

@@ -8,7 +8,10 @@
  *
  * Daí a ordem de leitura:
  *
- *   1. a nota, com a conta ao lado (peso ganho / peso que se aplicava);
+ *   1. a nota COM SINAL, e a conta ao lado: cada quesito soma o próprio peso
+ *      quando passa e subtrai o mesmo peso quando não passa, então a escala
+ *      vai de −100 a +100 e o zero é o equilíbrio — metade do peso passou,
+ *      metade não. "Meio bom" deixa de existir como leitura;
  *   2. ONDE A NOTA FOI EMBORA — os quesitos que não passaram, do mais caro
  *      para o mais barato. É a resposta a "o que eu conserto primeiro", e sai
  *      da mesma conta que produziu a nota;
@@ -65,9 +68,19 @@ function aferAvisarSemChave() {
 
 const AFER_CLASSE_FAIXA = { alto: 'afer-verde', bom: 'afer-verde', medio: 'afer-amarelo', baixo: 'afer-vermelho' };
 
-/* A NOTA COM A CONTA AO LADO. Mostrar "78/100" e mais nada seria repetir o que
- * o Julgador faz. O que esta ferramenta tem de diferente é poder escrever
- * "105 de 135 pontos" embaixo — e essa é a frase inteira do produto. */
+/** Número com sinal explícito — "+64", "−18", e "0" sem sinal nenhum. */
+function aferSinal(n) {
+  if (n > 0) return `+${n}`;
+  if (n < 0) return `−${Math.abs(n)}`;   // menos tipográfico, não hífen
+  return '0';
+}
+
+/* A NOTA COM A CONTA AO LADO, e a conta agora tem as DUAS parcelas.
+ *
+ * Cada quesito soma o peso dele ou subtrai o mesmo peso; a nota é o saldo,
+ * normalizado de −100 a +100. Escrever "+106 ganhos − 29 perdidos = +77 de 135
+ * em jogo" é a frase inteira do produto: o número do topo é conferível na
+ * linha de baixo, e a linha de baixo é conferível na auditoria. */
 function aferBlocoNota(res) {
   const f = res.faixa || {};
   return `
@@ -75,10 +88,10 @@ function aferBlocoNota(res) {
       <div class="afer-cabeca-lado">
         <div class="afer-faixa-label">${escapeHtml(f.label || '')}</div>
         <div class="afer-faixa-resumo">${escapeHtml(f.resumo || '')}</div>
-        <div class="afer-conta">${res.pesoGanho} de ${res.pesoTotal} pontos possíveis · ${res.avaliadas.length} quesitos verificados</div>
+        <div class="afer-conta">+${res.pesoGanho} ganhos − ${res.pesoPerdido} perdidos = ${aferSinal(res.saldo)} de ${res.pesoTotal} em jogo · ${res.avaliadas.length} quesitos verificados</div>
       </div>
-      <div class="afer-nota" title="Peso dos quesitos que passaram, dividido pelo peso dos que se aplicavam. A conta é do código — a IA só respondeu sim ou não.">
-        <span class="afer-nota-valor">${res.nota}</span>
+      <div class="afer-nota" title="Cada quesito soma o próprio peso quando passa e subtrai o mesmo peso quando não passa. A nota é esse saldo, de −100 a +100 — conta do código, não juízo da IA.">
+        <span class="afer-nota-valor">${aferSinal(res.nota)}</span>
         <span class="afer-nota-de">/100</span>
       </div>
     </div>`;
@@ -132,15 +145,19 @@ function aferBlocoBlocos(res) {
   const blocos = (res.porBloco || []).filter((b) => b.nota != null);
   if (!blocos.length) return '';
   const barras = blocos.map((b) => {
-    const faixa = b.nota >= 80 ? 'ok' : (b.nota >= 50 ? 'medio' : 'baixo');
+    const faixa = b.nota >= 60 ? 'ok' : (b.nota >= 0 ? 'medio' : 'baixo');
+    /* A barra mede a DISTÂNCIA do pior caso possível: −100 vira 0% e +100 vira
+     * 100%. Sem isso um bloco negativo pediria largura negativa e sumiria da
+     * tela — que é o mesmo desenho de um bloco perfeito. */
+    const largura = Math.max(2, Math.round((b.nota + 100) / 2));
     return `
       <div class="afer-bloco">
         <div class="afer-bloco-topo">
           <span class="afer-bloco-label">${escapeHtml(b.label)}</span>
-          <span class="afer-bloco-nota">${b.nota}</span>
+          <span class="afer-bloco-nota">${aferSinal(b.nota)}</span>
         </div>
-        <div class="afer-bloco-barra"><span class="afer-bloco-preenche afer-faixa-${faixa}" style="width:${Math.max(2, b.nota)}%"></span></div>
-        <div class="afer-bloco-desc">${escapeHtml(b.desc)} · ${b.peso} pontos em jogo</div>
+        <div class="afer-bloco-barra"><span class="afer-bloco-preenche afer-faixa-${faixa}" style="width:${largura}%"></span></div>
+        <div class="afer-bloco-desc">${escapeHtml(b.desc)} · +${b.ganho} − ${b.perdido} de ${b.peso} em jogo</div>
       </div>`;
   }).join('');
   return `
@@ -171,7 +188,7 @@ function aferBlocoQuestionario(item) {
       <div class="afer-q ${classe}">
         <span class="afer-q-resp">${resp}</span>
         <span class="afer-q-texto">${escapeHtml(q.pergunta)}</span>
-        <span class="afer-q-meta">${naoVerificada ? 'não verificado' : `pontua com ${q.bom === 'sim' ? 'SIM' : 'NÃO'} · ${q.sim}/${q.votos} sim · peso ${q.peso} · ${q.acertou ? `+${q.peso}` : '0'}`}</span>
+        <span class="afer-q-meta">${naoVerificada ? 'não verificado' : `pontua com ${q.bom === 'sim' ? 'SIM' : 'NÃO'} · ${q.sim}/${q.votos} sim · peso ${q.peso} · ${q.acertou ? `+${q.peso}` : `−${q.peso}`}`}</span>
       </div>`;
   }).join('');
   return `
@@ -270,8 +287,9 @@ function renderAferResultado(item) {
 function aferResultadoEmTexto(item) {
   const res = item.resultado || {};
   const linhas = [];
-  linhas.push(`${res.nota}/100 — ${(res.faixa || {}).label || ''}`);
-  linhas.push(`${res.pesoGanho} de ${res.pesoTotal} pontos · ${res.avaliadas.length} quesitos · ${item.rodadasValidas} leitura(s)`);
+  linhas.push(`${aferSinal(res.nota)}/100 — ${(res.faixa || {}).label || ''}`);
+  linhas.push(`+${res.pesoGanho} ganhos − ${res.pesoPerdido} perdidos = ${aferSinal(res.saldo)} de ${res.pesoTotal} em jogo`);
+  linhas.push(`${res.avaliadas.length} quesitos · ${item.rodadasValidas} leitura(s)`);
 
   if ((res.perdidos || []).length) {
     linhas.push('');
@@ -287,7 +305,7 @@ function aferResultadoEmTexto(item) {
   if (blocos.length) {
     linhas.push('');
     linhas.push('POR BLOCO');
-    blocos.forEach((b) => linhas.push(`${b.label}: ${b.nota}/100`));
+    blocos.forEach((b) => linhas.push(`${b.label}: ${aferSinal(b.nota)}/100  (+${b.ganho} −${b.perdido})`));
   }
   linhas.push('');
   linhas.push('A IA respondeu apenas SIM ou NÃO, sem ver os pesos. A nota é uma conta do código.');
@@ -312,7 +330,7 @@ function renderAferHistorico() {
           <div class="list-item-title">${escapeHtml(it.nome || 'Conteúdo')}</div>
           <button class="list-item-del" data-afer-del="${escapeHtml(it.id)}" title="Excluir" aria-label="Excluir">✕</button>
         </div>
-        <div class="list-item-meta">${r.nota}/100 · ${escapeHtml((r.faixa || {}).label || '')} · ${escapeHtml(formatDate(it.createdAt))}</div>
+        <div class="list-item-meta">${aferSinal(r.nota)}/100 · ${escapeHtml((r.faixa || {}).label || '')} · ${escapeHtml(formatDate(it.createdAt))}</div>
       </div>`;
   }).join('');
 
@@ -497,7 +515,7 @@ function renderAferidor() {
       if (res.falhas) {
         toast(`${res.falhas} leitura(s) não responderam — a nota saiu das ${res.rodadasValidas} que responderam.`, 'info', 6000);
       } else {
-        toast(`${res.resultado.nota}/100 · ${res.resultado.faixa.label}`, 'success');
+        toast(`${aferSinal(res.resultado.nota)}/100 · ${res.resultado.faixa.label}`, 'success');
       }
     } catch (err) {
       toast(err.message || 'Não foi possível aferir.', 'error', 6000);

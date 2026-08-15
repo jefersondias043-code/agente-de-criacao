@@ -118,6 +118,34 @@ describe('a ferramenta não promete adivinhar o algoritmo', () => {
       expect(p, `${id}: avaliador não reescreve`).toMatch(/VOCÊ NÃO REESCREVE NADA/);
     });
   });
+
+  /* A DOUTRINA GUARDA OS DOIS ERROS, não só um (r241).
+   *
+   * A versão anterior dizia "10 é raro, 7 é aceitável" e só proibia inflar.
+   * O efeito medido: trabalho competente caía em 7 — exatamente EM CIMA do
+   * mínimo da maioria das dimensões — e qualquer hesitação do avaliador virava
+   * reprovação. Só 23% dos conteúdos bons saíam como PUBLICARIA.
+   *
+   * A âncora agora é 8 para o que funciona, o que devolve a folga de um ponto
+   * que faltava, e o texto proíbe explicitamente o erro oposto: rebaixar para
+   * parecer criterioso. Esta é a peça que fez o afrouxamento funcionar SEM
+   * mexer nos mínimos — por isso ela precisa de trava própria. */
+  it('a doutrina ancora o trabalho competente em 8, com folga acima do mínimo', () => {
+    J.JULG_BANCA_COMPLETA.forEach((id) => {
+      const p = J.buildAvaliadorPrompt(id, BOM, {}, []);
+      expect(p, `${id}: sem âncora, a nota do competente volta a encostar no mínimo`)
+        .toMatch(/8 é o conteúdo que FUNCIONA/);
+      expect(p, `${id}: a doutrina precisa proibir TAMBÉM o rebaixamento`)
+        .toMatch(/Não rebaixe para parecer rigoroso/);
+      expect(p, `${id}: sem isto, "criterioso" continua significando "nota baixa"`)
+        .toMatch(/Rigor é achar o defeito CERTO/);
+    });
+  });
+
+  it('e não sobrou a régua antiga, que ancorava o aceitável em 7', () => {
+    const p = J.buildAvaliadorPrompt('valor', BOM, {}, []);
+    expect(p, 'as duas âncoras juntas se contradizem').not.toMatch(/7 é aceitável/);
+  });
 });
 
 /* ========================================================================== */
@@ -381,7 +409,14 @@ describe('o juiz é código', () => {
       expect(j.veredito).toBe('nao');
     });
 
-    it('três reprovações leves também somam NÃO PUBLICARIA', () => {
+    /* TRÊS QUASE-ACERTOS NÃO SÃO UM CONTEÚDO QUEBRADO (r241).
+     *
+     * A regra era `reprovadas >= 3`, e ela nasceu quando a banca era menor.
+     * Com dez avaliadores, dez dimensões e a pior nota vencendo em cada uma,
+     * juntar três reprovações leves é fácil: 11% dos conteúdos BONS levavam a
+     * sentença mais dura da ferramenta (medido em 4000 simulações). O acúmulo
+     * agora precisa de quatro; a falha ESTRUTURAL continua derrubando sozinha. */
+    it('três reprovações leves são AJUSTES, não reprovação total', () => {
       const j = J.julgarConteudo(notas({
         curiosidade: [{ dimensao: 'curiosidade', nota: 5 }],
         comentarios: [{ dimensao: 'comentarios', nota: 4 }],
@@ -389,6 +424,27 @@ describe('o juiz é código', () => {
       }), []);
       expect(j.criticas.length).toBe(0);
       expect(j.reprovadas.length).toBe(3);
+      expect(j.veredito).toBe('ajustes');
+    });
+
+    it('quatro já somam NÃO PUBLICARIA — o acúmulo continua existindo', () => {
+      const j = J.julgarConteudo(notas({
+        curiosidade: [{ dimensao: 'curiosidade', nota: 5 }],
+        comentarios: [{ dimensao: 'comentarios', nota: 4 }],
+        compartilhamento: [{ dimensao: 'compartilhamento', nota: 4 }],
+        historia: [{ dimensao: 'historia', nota: 5 }],
+      }), []);
+      expect(j.criticas.length).toBe(0);
+      expect(j.reprovadas.length).toBe(4);
+      expect(j.veredito).toBe('nao');
+    });
+
+    it('e UMA falha crítica continua derrubando sozinha, sem precisar de acúmulo', () => {
+      // É o que impede o afrouxamento de virar carimbo: o que está estruturalmente
+      // quebrado não espera companhia para reprovar.
+      const j = J.julgarConteudo(notas({ valor: [{ dimensao: 'valor', nota: 4 }] }), []);
+      expect(j.criticas.length).toBe(1);
+      expect(j.reprovadas.length).toBe(1);
       expect(j.veredito).toBe('nao');
     });
   });
@@ -840,9 +896,25 @@ describe('o ponto forte — o par simétrico do principal', () => {
 
 /* ========================================================================== */
 describe('vídeo sem conclusão — julgTerminaAbrupto reaproveita o Causos', () => {
-  it('acusa texto que para sem pontuação final', () => {
+  /* FALTAR PONTO FINAL NÃO É DEFEITO DO VÍDEO — é do transcritor.
+   *
+   * A primeira versão herdou as DUAS acusações do Causos, e uma delas não cabe
+   * aqui. Lá o texto foi escrito pela ferramenta, e faltar o ponto quer dizer
+   * geração cortada. Aqui o texto é do usuário e quase sempre é transcrição,
+   * que sai da máquina sem pontuação e é colada como veio. Acusar isso era
+   * falso positivo garantido, e caro: derrubava `historia` para 5 (mínimo 6) e
+   * levava o veredito de PUBLICARIA para PUBLICARIA APÓS AJUSTES, com a nota
+   * de cabeçalho caindo de 80 para 50 por causa de um ponto não digitado. */
+  it('NÃO acusa transcrição que simplesmente não foi pontuada no fim', () => {
     const r = J.julgTerminaAbrupto('O Zé chegou em casa e contou a história toda para a mulher');
-    expect(r.problemas.length).toBeGreaterThan(0);
+    expect(r.problemas, 'transcrição sem ponto final virou defeito do vídeo').toEqual([]);
+  });
+
+  it('e a conferência inteira fica limpa num texto bom sem ponto final', () => {
+    const semPonto = BOM.replace(/\.$/, '');
+    expect(/[.!?…]$/.test(semPonto), 'o texto do teste precisa mesmo terminar sem pontuação').toBe(false);
+    const local = J.conferirJulgamentoLocal(semPonto, {});
+    expect(local.achados, 'um ponto que ninguém digitou não pode custar uma dimensão').toEqual([]);
   });
 
   it('acusa texto que termina numa palavra que pede continuação', () => {

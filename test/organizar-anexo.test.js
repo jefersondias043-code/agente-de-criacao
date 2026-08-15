@@ -183,4 +183,56 @@ describe('o passo de organizar, ligado ao anexo de cada ferramenta', () => {
     expect(chamadas.length).toBe(0);
     expect(ta.value).toBe(CRU);
   });
+
+  /* A TRANSCRIÇÃO COM DIÁLOGO — o caso que voltava cru em silêncio.
+   *
+   * O prompt manda separar quem fala em travessões; quando o modelo obedecia,
+   * os "falou/falei/disse" sumiam (é o que o travessão faz) e a conferência
+   * reprovava a fatia por palavras apagadas. O texto entrava cru com um
+   * "Conteúdo adicionado." idêntico ao do sucesso — nada na tela dizia que a
+   * etapa tinha rodado e falhado. */
+  it('conversa virada em diálogo chega ORGANIZADA ao campo', async () => {
+    const conversa =
+      'ai o seu joao falou rapaz esse relogio aqui e original mesmo viu e eu falei ' +
+      'que nao acreditava naquilo de jeito nenhum e ele disse que tinha comprado numa ' +
+      'loja boa do centro da cidade e eu perguntei quanto tinha pagado e ele respondeu ' +
+      'que foram trezentos reais e ai eu falei que tinha visto igualzinho por trinta';
+    const emDialogo =
+      '— Rapaz, esse relógio aqui é original mesmo, viu?\n\n' +
+      '— Não acreditava naquilo de jeito nenhum.\n\n' +
+      '— Tinha comprado numa loja boa do centro da cidade.\n\n' +
+      '— Quanto tinha pagado?\n\n' +
+      '— Foram trezentos reais.\n\n' +
+      '— Tinha visto igualzinho por trinta.';
+    globalThis.fetch = async (_url, opcoes) => {
+      chamadas.push(JSON.parse(opcoes.body));
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: emDialogo } }] }) };
+    };
+    const ta = document.createElement('textarea');
+    document.body.appendChild(ta);
+    M.handleGenAttach(txt(conversa), ta);
+    await assentar();
+
+    expect(chamadas.length).toBe(1);
+    expect(ta.value, 'a conferência reprovou o diálogo que o próprio prompt pediu').toContain('—');
+    expect(ta.value).not.toBe(conversa);
+  });
+
+  it('quando a organização não passa, a tela DIZ que o texto entrou cru', async () => {
+    // O silêncio era o defeito mais caro: "não está funcionando" sem sintoma.
+    globalThis.fetch = async (_url, opcoes) => {
+      chamadas.push(JSON.parse(opcoes.body));
+      // Resumo descarado: a conferência reprova, e com razão.
+      return { ok: true, status: 200,
+        json: async () => ({ choices: [{ message: { content: 'O Seu João comprou um relógio falso.' } }] }) };
+    };
+    const ta = document.createElement('textarea');
+    document.body.appendChild(ta);
+    M.handleGenAttach(txt(CRU), ta);
+    await assentar();
+
+    expect(ta.value, 'o texto cru precisa entrar de qualquer jeito').toBe(CRU);
+    const avisos = document.getElementById('toast-stack').textContent;
+    expect(avisos, 'falhou calado — o usuário não tem como saber').toMatch(/entrou como veio/i);
+  });
 });

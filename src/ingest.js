@@ -294,10 +294,18 @@ function organizarEEntregar(entregar) {
         toast(`Texto organizado — ${r.descartes.length} de ${r.partes} trechos ficaram como vieram.`, 'info', 6000);
       } else if (r.limpou) {
         toast('Texto organizado: pontuação, falas separadas e números por extenso.', 'success', 5000);
+      } else {
+        /* NADA ORGANIZADO PRECISA SER DITO. Antes o silêncio era total: o texto
+         * cru entrava no campo com um "Conteúdo adicionado." igualzinho ao do
+         * caso bem-sucedido, e não havia como o usuário saber que a etapa tinha
+         * rodado e falhado — nem por quê. "Não está funcionando" sem sintoma é
+         * o defeito mais caro de diagnosticar que existe. */
+        toast(`O texto entrou como veio — a organização não passou na conferência${r.motivo ? ': ' + r.motivo : '.'}`, 'info', 7000);
       }
     } catch (_) {
       prog.done();
       entregar(texto);
+      toast('O texto entrou como veio — não foi possível organizá-lo.', 'info', 6000);
     }
   };
 }

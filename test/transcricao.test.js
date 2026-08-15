@@ -192,6 +192,89 @@ describe('a conferência do código', () => {
     expect(c.ok).toBe(false);
   });
 
+  /* O TRAVESSÃO SUBSTITUI O "FULANO FALOU" — e a conferência precisa saber.
+   *
+   * O defeito relatado, e ele era invisível: o prompt manda "separar QUEM FALA:
+   * cada fala numa linha própria, começando com travessão". Quando o modelo
+   * obedecia, os verbos de fala sumiam (é o que o travessão faz) e a conferência
+   * reprovava a fatia por "palavras do original sumiram". O texto voltava CRU e
+   * sem aviso nenhum — toda vez que a transcrição tinha diálogo, que é o caso
+   * mais comum em causo, entrevista e história contada. */
+  describe('diálogo: o travessão come o verbo de fala, e isso não é perda', () => {
+    const COM_VERBOS = 'ai o vizinho falou vizinho me compra esse relogio e eu falei quanto '
+      + 'e ele disse cinquenta reais ai eu falei ta caro demais isso ai e ele falou entao '
+      + 'me da vinte que eu deixo pra voce levar hoje mesmo';
+
+    it('aceita a conversa virada em diálogo, com os "falou/disse" absorvidos', () => {
+      const c = T.conferirTranscricao(COM_VERBOS,
+        '— Vizinho, me compra esse relógio.\n— Quanto é?\n— Cinquenta reais.\n'
+        + '— Tá caro demais isso aí.\n— Então me dá vinte que eu deixo pra você levar hoje mesmo.');
+      expect(c.problemas, 'a conferência brigou com a instrução do próprio prompt').toEqual([]);
+      expect(c.ok).toBe(true);
+    });
+
+    /* A TRAVA É O TRAVESSÃO, e este par isola exatamente isso.
+     *
+     * As duas versões abaixo são feitas de palavras que JÁ existem no original,
+     * do mesmo tamanho dele (proporção ~1,1) e sem nenhuma palavra nova — assim
+     * as contas de encolhimento, crescimento e invenção não têm o que dizer, e
+     * quem responde é só a retenção. A única diferença entre elas é o
+     * travessão. Sem essa isolação o teste passava pelo motivo errado: era a
+     * conta de tamanho que reprovava, e tirar a trava de diálogo não quebrava
+     * nada (a mutação sobreviveu). */
+    const CRU_COM_VERBOS = 'o vizinho falou que o relogio era antigo e eu perguntei quanto custava aquela peca dourada '
+      + 'ele respondeu que valia bastante dinheiro e depois gritou que ninguem entendia nada disso '
+      + 'entao ele disse que preferia guardar aquela lembranca antiga dentro da gaveta velha';
+    const SEM_OS_VERBOS = 'O vizinho, o relógio era antigo, e eu quanto custava aquela peça dourada. '
+      + 'Ele que valia bastante dinheiro e depois que ninguém entendia nada disso. '
+      + 'Então ele que preferia guardar aquela lembrança antiga dentro da gaveta velha. '
+      + 'O vizinho, o relógio antigo, aquela peça dourada bastante antiga.';
+
+    it('mas SEM travessão a isenção não vale — verbo que some continua sendo perda', () => {
+      const c = T.conferirTranscricao(CRU_COM_VERBOS, SEM_OS_VERBOS);
+      expect(c.problemas.join(' '), 'nenhuma outra conta pode ser quem pega')
+        .not.toMatch(/cresceu|encolheu|não existiam/);
+      expect(c.problemas.join(' ')).toMatch(/palavras do original sumiram/);
+      expect(c.ok, 'a isenção vazou para fora do diálogo').toBe(false);
+    });
+
+    it('e COM travessão o mesmo texto passa — é a única diferença entre os dois', () => {
+      const c = T.conferirTranscricao(CRU_COM_VERBOS, '— ' + SEM_OS_VERBOS.replace(/\. /g, '.\n— '));
+      expect(c.problemas).toEqual([]);
+      expect(c.ok).toBe(true);
+    });
+
+    it('e em diálogo o conteúdo de verdade continua protegido', () => {
+      // Palavras que NÃO são verbo de fala evaporando: a conta tem de pegar,
+      // travessão ou não.
+      const cru = 'o comprador ofereceu moedas antigas pela corrente dourada enquanto '
+        + 'o vendedor recusava propostas menores durante semanas seguidas naquela '
+        + 'feira barulhenta cheia de gente curiosa observando cada palavra dita';
+      const c = T.conferirTranscricao(cru,
+        '— O comprador ofereceu moedas antigas pela corrente dourada.\n'
+        + '— O comprador ofereceu moedas antigas pela corrente dourada.\n'
+        + '— O comprador ofereceu moedas antigas pela corrente dourada.');
+      expect(c.problemas.join(' ')).toMatch(/palavras do original sumiram/);
+      expect(c.ok).toBe(false);
+    });
+
+    it('resumo disfarçado de diálogo continua reprovado', () => {
+      const c = T.conferirTranscricao(COM_VERBOS, '— O vizinho vendeu o relógio por vinte reais.');
+      expect(c.ok, 'o piso de encolhimento cedeu demais').toBe(false);
+      expect(c.problemas.join(' ')).toMatch(/encolheu/);
+    });
+
+    it('alucinação em diálogo continua reprovada', () => {
+      const c = T.conferirTranscricao(COM_VERBOS,
+        '— Vizinho, me compra esse relógio suíço automático cromado.\n'
+        + '— Quanto custa essa joia maravilhosa importada?\n'
+        + '— Cinquenta reais, garantia vitalícia inclusa sempre.\n'
+        + '— Tá caro demais isso aí, prefiro comprar outro modelo.');
+      expect(c.ok).toBe(false);
+      expect(c.problemas.join(' ')).toMatch(/não existiam no original/);
+    });
+  });
+
   it('não é rigorosa a ponto de reprovar pontuação e travessão', () => {
     const c = T.conferirTranscricao(
       'ele chegou cansado e ninguem falou nada aquele dia foi longo demais para todo mundo',

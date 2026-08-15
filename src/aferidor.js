@@ -100,7 +100,7 @@ function aferBlocoPerdidos(res) {
     <div class="afer-perdido">
       <span class="afer-perdido-peso">−${q.peso}</span>
       <span class="afer-perdido-texto">${escapeHtml(q.pergunta)}</span>
-      <span class="afer-perdido-resp">respondido: <strong>${q.resposta === 'sim' ? 'SIM' : 'NÃO'}</strong>${q.consenso < 1 ? ` · ${Math.max(q.sim, q.nao)} de ${q.votos}` : ''}</span>
+      <span class="afer-perdido-resp">respondido <strong>${q.resposta === 'sim' ? 'SIM' : 'NÃO'}</strong> · pontuava com ${q.bom === 'sim' ? 'SIM' : 'NÃO'}${q.consenso < 1 ? ` · ${Math.max(q.sim, q.nao)} de ${q.votos} leituras` : ''}</span>
     </div>`).join('');
   return `
     <div class="afer-secao">
@@ -152,7 +152,13 @@ function aferBlocoBlocos(res) {
 
 /* O QUESTIONÁRIO INTEIRO — a auditoria. Recolhido porque quem quer saber o que
  * fazer já leu as duas listas acima; aberto porque quem discorda da nota tem o
- * direito de achar a linha e conferir. */
+ * direito de achar a linha e conferir.
+ *
+ * CADA LINHA DIZ QUAL RESPOSTA PONTUA, e isso não é redundância. Metade das
+ * perguntas descreve defeito: nelas o NÃO é a resposta boa. Sem o "pontua com
+ * NÃO" escrito, a linha `NÃO · [pergunta] · +7` obriga o leitor a deduzir a
+ * polaridade a partir do sinal do ponto — que é exatamente a conta que a
+ * ferramenta existe para não fazer ninguém refazer de cabeça. */
 function aferBlocoQuestionario(item) {
   const res = (item.resultado || {});
   const qs = res.questoes || [];
@@ -165,7 +171,7 @@ function aferBlocoQuestionario(item) {
       <div class="afer-q ${classe}">
         <span class="afer-q-resp">${resp}</span>
         <span class="afer-q-texto">${escapeHtml(q.pergunta)}</span>
-        <span class="afer-q-meta">${naoVerificada ? 'não verificado' : `${q.sim}/${q.votos} sim · peso ${q.peso} · ${q.acertou ? `+${q.peso}` : '0'}`}</span>
+        <span class="afer-q-meta">${naoVerificada ? 'não verificado' : `pontua com ${q.bom === 'sim' ? 'SIM' : 'NÃO'} · ${q.sim}/${q.votos} sim · peso ${q.peso} · ${q.acertou ? `+${q.peso}` : '0'}`}</span>
       </div>`;
   }).join('');
   return `

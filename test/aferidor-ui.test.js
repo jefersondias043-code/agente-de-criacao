@@ -103,12 +103,60 @@ describe('a tela existe e casa com o HTML', () => {
 });
 
 describe('o resultado mostra a CONTA, não só o número', () => {
-  it('a nota vem com o peso ganho e o peso possível ao lado', () => {
+  it('a nota vem com sinal e com as DUAS parcelas da conta ao lado', () => {
     U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
-    expect(document.querySelector('.afer-nota-valor').textContent).toBe('93');
+    expect(document.querySelector('.afer-nota-valor').textContent,
+      'o sinal é o que separa "ganha mais do que perde" de "perde mais do que ganha"').toBe('+85');
     const conta = document.querySelector('.afer-conta').textContent;
-    expect(conta, 'sem a conta, a ferramenta é só outro número de IA').toMatch(/125 de 135 pontos/);
+    expect(conta, 'sem a conta, a ferramenta é só outro número de IA').toMatch(/\+125 ganhos − 10 perdidos = \+115 de 135 em jogo/);
     expect(conta).toMatch(/quesitos verificados/);
+  });
+
+  it('nota negativa aparece com o menos, não escondida', () => {
+    const tudoErrado = {};
+    U.AFER_QUESTOES.forEach((q) => { tudoErrado[q.id] = q.bom === 'sim' ? 'nao' : 'sim'; });
+    U.renderAferResultado(item({ rodadas: [tudoErrado] }));
+    expect(document.querySelector('.afer-nota-valor').textContent).toBe('−100');
+    expect(document.querySelector('.afer-cabeca').className).toMatch(/afer-vermelho/);
+  });
+
+  it('a largura da barra mapeia a escala inteira, de −100 a +100', () => {
+    /* A largura vinha de `Math.max(2, nota)`, que só funciona numa escala
+     * 0..100. Numa escala com negativo ela achata TUDO abaixo de 2 no mesmo
+     * traço: um bloco em −100 e um em 0 ficam idênticos na tela.
+     *
+     * O caso que separa as duas fórmulas é o valor INTERMEDIÁRIO — em −100 as
+     * duas dão o mínimo, e em +100 as duas dão 100. Por isso o teste usa um
+     * bloco de saldo pequeno: `abertura` erra só a pergunta de peso 10 das
+     * três (10+7+7), ficando em +17, onde a fórmula certa dá 59% e a antiga
+     * daria 17%. */
+    U.renderAferResultado(item({ rodadas: [{ abre_no_fato: 'nao' }] }));
+    const abertura = [...document.querySelectorAll('.afer-bloco')]
+      .find((e) => /Abertura/.test(e.textContent));
+    expect(abertura.querySelector('.afer-bloco-nota').textContent).toBe('+17');
+    const w = parseFloat(abertura.querySelector('.afer-bloco-preenche').style.width);
+    expect(w, 'a largura tem de medir a distância do pior caso, não a nota crua')
+      .toBe(Math.round((17 + 100) / 2));
+  });
+
+  it('e um bloco no fundo da escala fica no mínimo, sem largura negativa', () => {
+    const tudoErrado = {};
+    U.AFER_QUESTOES.forEach((q) => { tudoErrado[q.id] = q.bom === 'sim' ? 'nao' : 'sim'; });
+    U.renderAferResultado(item({ rodadas: [tudoErrado] }));
+    const barras = [...document.querySelectorAll('.afer-bloco-preenche')];
+    expect(barras.length).toBeGreaterThan(0);
+    barras.forEach((b) => {
+      expect(parseFloat(b.style.width), 'largura negativa não existe em CSS').toBeGreaterThanOrEqual(0);
+      expect(b.className, 'bloco negativo precisa da cor de alerta').toMatch(/afer-faixa-baixo/);
+    });
+  });
+
+  it('cada bloco mostra as duas parcelas dele', () => {
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
+    const entrega = [...document.querySelectorAll('.afer-bloco')]
+      .find((e) => /Entrega e final/.test(e.textContent));
+    expect(entrega.textContent).toMatch(/\+22 − 10 de 32 em jogo/);
+    expect(entrega.querySelector('.afer-bloco-nota').textContent).toBe('+38');
   });
 
   it('"onde a nota foi embora" lista os quesitos perdidos, do mais caro ao mais barato', () => {
@@ -249,7 +297,7 @@ describe('o histórico', () => {
     U.renderAferidor();
     const linha = document.querySelector('[data-afer-id="a1"]');
     expect(linha, 'a aferição não apareceu no histórico').toBeTruthy();
-    expect(linha.textContent).toMatch(/93\/100/);
+    expect(linha.textContent).toMatch(/\+85\/100/);
     linha.click();
     expect(document.getElementById('af-conteudo').value).toBe('o conteúdo aferido');
     expect(document.querySelector('.afer-cabeca')).toBeTruthy();
@@ -264,8 +312,8 @@ describe('o histórico', () => {
 describe('o resultado copiável carrega a conta junto', () => {
   it('leva nota, conta, perdidos e a frase que separa a IA do cálculo', () => {
     const texto = U.aferResultadoEmTexto(item({ rodadas: [{ entrega_algo: 'nao' }] }));
-    expect(texto).toMatch(/93\/100/);
-    expect(texto).toMatch(/125 de 135 pontos/);
+    expect(texto).toMatch(/\+85\/100/);
+    expect(texto).toMatch(/\+125 ganhos − 10 perdidos = \+115 de 135 em jogo/);
     expect(texto).toMatch(/ONDE A NOTA FOI EMBORA/);
     expect(texto).toMatch(/apenas SIM ou NÃO/);
   });

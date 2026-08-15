@@ -351,20 +351,44 @@ describe('o cálculo é do código, e confere na mão', () => {
   const calcular = (over) => A.calcularAfericao(
     A.consolidarRespostas([A.normalizarRodada(rodada(over, qs()), qs())], qs()), { rodadas: 1 });
 
-  it('tudo certo é 100; tudo errado é 0', () => {
+  it('tudo certo é +100; tudo errado é −100', () => {
+    // A escala vai de −100 a +100: cada quesito SOMA o peso quando passa e
+    // SUBTRAI o mesmo peso quando não passa. Zero é o equilíbrio.
     expect(calcular({}).nota).toBe(100);
     const tudoErrado = {};
     qs().forEach((q) => { tudoErrado[q.id] = q.bom === 'sim' ? 'nao' : 'sim'; });
-    expect(calcular(tudoErrado).nota).toBe(0);
+    expect(calcular(tudoErrado).nota).toBe(-100);
   });
 
-  it('a nota é peso dos acertos sobre peso do que se aplicava', () => {
+  it('a nota é o SALDO: ganhos menos perdidos, sobre o peso que se aplicava', () => {
     // Erra só `entrega_algo` (peso 10) num total de 135.
     const r = calcular({ entrega_algo: 'nao' });
     expect(r.pesoTotal).toBe(135);
     expect(r.pesoGanho).toBe(125);
-    expect(r.nota).toBe(Math.round((125 / 135) * 100));
-    expect(r.nota).toBe(93);
+    expect(r.pesoPerdido).toBe(10);
+    expect(r.saldo, 'o saldo é ganhos − perdidos').toBe(115);
+    expect(r.nota).toBe(Math.round((115 / 135) * 100));
+    expect(r.nota).toBe(85);
+  });
+
+  it('metade do peso passando dá ZERO — nem positivo nem negativo', () => {
+    /* O motivo de a escala ter mudado. Na régua anterior isto marcava 50, que
+     * se lê como "meio bom"; aqui marca 0, que é o que de fato é — o que o
+     * conteúdo ganha e o que ele perde se anulam.
+     *
+     * O par é montado à mão, com pesos IGUAIS: os 135 pontos do questionário
+     * real são ímpares e não têm metade exata, e aproximar deixaria o teste
+     * medindo o arredondamento em vez da propriedade. */
+    const a = { id: 'a', bloco: 'abertura', peso: 8, bom: 'sim', pergunta: 'x' };
+    const b = { id: 'b', bloco: 'abertura', peso: 8, bom: 'nao', pergunta: 'y' };
+    const c = A.consolidarRespostas(
+      [new Map([['a', 'sim'], ['b', 'sim']])], [a, b]);   // acerta 'a', erra 'b'
+    const r = A.calcularAfericao(c, { rodadas: 1 });
+    expect(r.pesoGanho).toBe(8);
+    expect(r.pesoPerdido).toBe(8);
+    expect(r.saldo).toBe(0);
+    expect(r.nota, 'ganhos e perdas iguais têm de dar exatamente zero').toBe(0);
+    expect(r.faixa.id, 'zero é "médio", não "baixo"').toBe('medio');
   });
 
   it('errar uma pergunta cara custa mais do que errar uma barata', () => {
@@ -393,30 +417,37 @@ describe('o cálculo é do código, e confere na mão', () => {
     expect(r.perdidos.map((q) => q.id)).toEqual(['entrega_algo']);
   });
 
-  it('cada bloco tem a própria nota, pela mesma conta', () => {
+  it('cada bloco tem a própria nota, na MESMA escala da nota geral', () => {
     const r = calcular({ entrega_algo: 'nao' });
     const entrega = r.porBloco.find((b) => b.id === 'entrega');
     expect(entrega.peso).toBe(32);
-    expect(entrega.nota).toBe(Math.round((22 / 32) * 100));
+    expect(entrega.ganho).toBe(22);
+    expect(entrega.perdido).toBe(10);
+    expect(entrega.nota, 'saldo 12 sobre 32').toBe(Math.round(((22 - 10) / 32) * 100));
+    expect(entrega.nota).toBe(38);
     const abertura = r.porBloco.find((b) => b.id === 'abertura');
-    expect(abertura.nota, 'bloco intacto não devia ser afetado').toBe(100);
+    expect(abertura.nota, 'bloco intacto é +100').toBe(100);
   });
 
   it('a faixa é rótulo do número, e nunca decide nada', () => {
+    // Cortes convertidos pela mesma reta da nota (2n−100): 85→70, 70→40, 50→0.
     expect(A.aferFaixa(100).id).toBe('alto');
-    expect(A.aferFaixa(85).id).toBe('alto');
-    expect(A.aferFaixa(84).id).toBe('bom');
-    expect(A.aferFaixa(70).id).toBe('bom');
-    expect(A.aferFaixa(69).id).toBe('medio');
-    expect(A.aferFaixa(49).id).toBe('baixo');
-    expect(A.aferFaixa(0).id).toBe('baixo');
+    expect(A.aferFaixa(70).id).toBe('alto');
+    expect(A.aferFaixa(69).id).toBe('bom');
+    expect(A.aferFaixa(40).id).toBe('bom');
+    expect(A.aferFaixa(39).id).toBe('medio');
+    expect(A.aferFaixa(0).id, 'zero é o equilíbrio, ainda não é ruim').toBe('medio');
+    expect(A.aferFaixa(-1).id).toBe('baixo');
+    expect(A.aferFaixa(-100).id).toBe('baixo');
   });
 
-  it('sem observação nenhuma a nota é zero, não cem', () => {
-    // Divisor vazio: nada foi verificado. Devolver 100 seria premiar o vazio.
+  it('sem observação nenhuma a nota é zero, não cem nem menos cem', () => {
+    // Divisor vazio: nada foi verificado. Devolver +100 premiaria o vazio;
+    // devolver −100 o condenaria. Zero é o único honesto: não se mediu nada.
     const r = A.calcularAfericao([], { rodadas: 0 });
     expect(r.nota).toBe(0);
     expect(r.pesoTotal).toBe(0);
+    expect(r.saldo).toBe(0);
   });
 });
 

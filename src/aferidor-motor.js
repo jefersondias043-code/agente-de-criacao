@@ -319,13 +319,18 @@ function consolidarRespostas(rodadas, questoes) {
 /* §6 — O cálculo: determinístico, fora da IA                                  */
 /* -------------------------------------------------------------------------- */
 
-/* As faixas existem para dar nome ao número, não para decidir nada. Quem decide
- * é a lista de onde a nota foi embora, logo abaixo dela. */
+/* AS FAIXAS, na escala de −100 a +100. Elas dão nome ao número, não decidem
+ * nada — quem decide é a lista de onde a nota foi embora, logo abaixo dela.
+ *
+ * Os cortes são os antigos (85 / 70 / 50 numa escala de 0 a 100) convertidos
+ * pela mesma reta que converte a nota: `2n − 100`. Assim a mudança de escala
+ * não reclassificou nenhum conteúdo por acidente — o que era "Bom" continua
+ * "Bom". ZERO é o ponto de equilíbrio: metade do peso passou, metade não. */
 const AFER_FAIXAS = [
-  { min: 85, id: 'alto', label: 'Alto', resumo: 'Passa na maior parte do que foi verificado.' },
-  { min: 70, id: 'bom', label: 'Bom', resumo: 'Sustenta-se, com pontos identificados para corrigir.' },
-  { min: 50, id: 'medio', label: 'Médio', resumo: 'Metade dos quesitos ficou pelo caminho.' },
-  { min: 0, id: 'baixo', label: 'Baixo', resumo: 'A maior parte do que foi verificado não passou.' },
+  { min: 70, id: 'alto', label: 'Alto', resumo: 'Ganha muito mais do que perde no que foi verificado.' },
+  { min: 40, id: 'bom', label: 'Bom', resumo: 'Saldo positivo, com pontos identificados para corrigir.' },
+  { min: 0, id: 'medio', label: 'Médio', resumo: 'O que passa e o que não passa quase se anulam.' },
+  { min: -100, id: 'baixo', label: 'Baixo', resumo: 'Perde mais pontos do que ganha.' },
 ];
 
 function aferFaixa(nota) {
@@ -349,9 +354,26 @@ function calcularAfericao(consolidado, opcoes) {
   const o = opcoes || {};
   const itens = (consolidado || []).filter((q) => q.votos > 0);
 
+  /* CADA QUESITO SOMA OU SUBTRAI — nunca fica neutro.
+   *
+   * A resposta que pontua ACRESCENTA o peso; a que não pontua SUBTRAI o mesmo
+   * peso. Quem decide o sinal é a polaridade da pergunta, não a palavra da
+   * resposta: numa pergunta de defeito ("existe trecho removível?") o NÃO é
+   * que soma, e o SIM é que tira.
+   *
+   * A versão anterior deixava de somar em vez de subtrair. As duas escalas são
+   * a mesma reta (`saldo/total = 2·(ganho/total) − 1`) e ordenam os conteúdos
+   * igual, mas não se leem igual, e é a leitura que decide se o autor refaz o
+   * vídeo: um conteúdo que passa em metade do peso marcava 50 — que parece
+   * "meio bom" — e agora marca 0, que é o que ele é: o que ganha e o que
+   * perde se anulam. */
   const pesoTotal = itens.reduce((acc, q) => acc + q.peso, 0);
   const pesoGanho = itens.reduce((acc, q) => acc + (q.acertou ? q.peso : 0), 0);
-  const nota = pesoTotal ? Math.round((pesoGanho / pesoTotal) * 100) : 0;
+  const pesoPerdido = pesoTotal - pesoGanho;
+  const saldo = pesoGanho - pesoPerdido;
+  // De −100 a +100. Normalizado pelo peso APLICÁVEL, para que a nota de um
+  // conteúdo sem título continue comparável com a de um que tem.
+  const nota = pesoTotal ? Math.round((saldo / pesoTotal) * 100) : 0;
 
   /* ONDE A NOTA FOI EMBORA — os quesitos que não passaram, do mais caro para o
    * mais barato. É a resposta a "o que eu conserto primeiro", e ela sai da
@@ -364,16 +386,20 @@ function calcularAfericao(consolidado, opcoes) {
   const divergentes = itens.filter((q) => q.consenso < 1)
     .slice().sort((a, b) => a.consenso - b.consenso || b.peso - a.peso);
 
+  // Cada bloco na MESMA escala da nota geral, pela mesma conta — senão a barra
+  // de um bloco diria uma coisa e o número do topo diria outra.
   const porBloco = AFER_BLOCOS.map((b) => {
     const doBloco = itens.filter((q) => q.bloco === b.id);
     if (!doBloco.length) return { ...b, nota: null, peso: 0, questoes: [] };
     const p = doBloco.reduce((acc, q) => acc + q.peso, 0);
     const g = doBloco.reduce((acc, q) => acc + (q.acertou ? q.peso : 0), 0);
-    return { ...b, nota: Math.round((g / p) * 100), peso: p, questoes: doBloco.map((q) => q.id) };
+    return { ...b, nota: Math.round(((g - (p - g)) / p) * 100), peso: p,
+      ganho: g, perdido: p - g, questoes: doBloco.map((q) => q.id) };
   });
 
   return {
-    nota, faixa: aferFaixa(nota), pesoGanho, pesoTotal,
+    nota, faixa: aferFaixa(nota),
+    saldo, pesoGanho, pesoPerdido, pesoTotal,
     questoes: consolidado || [], avaliadas: itens,
     perdidos, divergentes, porBloco,
     rodadas: o.rodadas || 0,

@@ -3190,3 +3190,112 @@ body.pe-full #view-posters { animation: none; }
   .julg-medida { grid-template-columns: 1fr; gap: 0.1rem; }
   .julg-medida-dim { white-space: normal; }
 }
+
+/* ===========================================================================
+   AFERIDOR — a avaliação binária
+
+   A tela vende a AUDITABILIDADE da nota, então o CSS carrega uma regra só:
+   nada de decorativo pode competir com a conta. O número é grande, a conta
+   ("105 de 135 pontos") fica logo abaixo dele em corpo pequeno, e cada linha
+   perdida mostra quanto custou. Layouts em grade com `minmax(0,1fr)` no texto
+   longo — é o que impede o rótulo de empurrar a linha para fora da caixa num
+   telefone estreito (a lição do bloco de peso do Julgador, no r239).
+   ========================================================================= */
+
+.afer-cabeca {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 1rem; flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--paper-2);
+}
+.afer-cabeca.afer-verde    { border-left-color: var(--green); }
+.afer-cabeca.afer-amarelo  { border-left-color: var(--amber); }
+.afer-cabeca.afer-vermelho { border-left-color: var(--accent); }
+.afer-cabeca-lado { min-width: 0; flex: 1; }
+.afer-faixa-label { font-family: var(--serif); font-size: 1.05rem; font-weight: 700; letter-spacing: 0.01em; }
+.afer-verde    .afer-faixa-label { color: var(--green); }
+.afer-amarelo  .afer-faixa-label { color: var(--amber); }
+.afer-vermelho .afer-faixa-label { color: var(--accent-ink); }
+.afer-faixa-resumo { font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.15rem; }
+/* A CONTA. É a frase inteira do produto — por isso ela fica sob a faixa, não
+   escondida na auditoria lá embaixo. */
+.afer-conta {
+  font-size: 0.78rem; color: var(--ink-mute); margin-top: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
+.afer-nota { display: flex; align-items: baseline; gap: 0.15rem; }
+.afer-nota-valor { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.afer-nota-de { font-size: 0.85rem; color: var(--ink-mute); }
+
+.afer-secao { margin-top: 1.1rem; }
+.afer-secao-titulo { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem; }
+
+/* Onde a nota foi embora */
+.afer-perdido {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.15rem 0.6rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+.afer-perdido-peso {
+  font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap;
+  color: var(--accent-ink);
+}
+.afer-perdido-texto { min-width: 0; }
+.afer-perdido-resp { grid-column: 2 / -1; font-size: 0.76rem; color: var(--ink-mute); }
+
+/* Onde as leituras discordaram */
+.afer-divergente {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.15rem 0.6rem;
+  align-items: baseline;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+.afer-divergente-votos {
+  font-size: 0.7rem; font-weight: 700; white-space: nowrap;
+  color: var(--amber); font-variant-numeric: tabular-nums;
+}
+.afer-divergente-texto { min-width: 0; color: var(--ink-soft); }
+
+/* Blocos */
+.afer-blocos { display: grid; gap: 0.6rem; }
+.afer-bloco-topo { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; }
+.afer-bloco-label { font-weight: 600; }
+.afer-bloco-nota { font-variant-numeric: tabular-nums; font-weight: 700; }
+.afer-bloco-barra { height: 6px; border-radius: 999px; background: var(--line-soft); overflow: hidden; margin: 0.2rem 0 0.15rem; }
+.afer-bloco-preenche { display: block; height: 100%; border-radius: 999px; }
+.afer-faixa-ok    { background: var(--green); }
+.afer-faixa-medio { background: var(--amber); }
+.afer-faixa-baixo { background: var(--accent); }
+.afer-bloco-desc { font-size: 0.75rem; color: var(--ink-mute); }
+
+/* O questionário — a auditoria linha a linha */
+.afer-q {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.1rem 0.6rem;
+  align-items: baseline;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.84rem;
+}
+.afer-q-resp {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em;
+  padding: 0.1rem 0.4rem; border-radius: 999px; border: 1px solid var(--line);
+  white-space: nowrap; min-width: 2.8rem; text-align: center;
+}
+.afer-q-ok    .afer-q-resp { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, var(--line)); }
+.afer-q-falha .afer-q-resp { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent-soft); }
+.afer-q-vazia .afer-q-resp { color: var(--ink-mute); }
+.afer-q-texto { min-width: 0; }
+.afer-q-meta { grid-column: 2 / -1; font-size: 0.72rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.afer-q-vazia .afer-q-texto { color: var(--ink-mute); }

@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { id: 'causos',    label: 'Causos',      icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' },
   { id: 'julgador',  label: 'Julgador',    icon: '<path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 7h6z"/><path d="M19 7l3 7h-6z"/>' },
   { id: 'extract',   label: 'Extrair',     icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' },
+  { id: 'aferidor',  label: 'Aferidor',    icon: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' },
   { id: 'pacote',    label: 'Pacote',      icon: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/>' },
   { id: 'posters',   label: 'Cartazes',    icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>' },
   { id: 'replicador', label: 'Replicador', icon: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>' },
@@ -210,8 +211,8 @@ function openRecent(kind, id) {
 function goTo(viewId) {
   // Fecha qualquer drawer de histórico aberto (são position:fixed; não podem
   // ficar flutuando ao trocar de ferramenta — ex.: "Criar cartaz" leva aos Cartazes).
-  ['g-history-drawer', 'p-history-drawer', 'n-history-drawer', 'c-history-drawer', 'j-history-drawer', 'pk-history-drawer'].forEach(id => { const d = $(`#${id}`); if (d) d.classList.remove('open'); });
-  ['g-history-backdrop', 'p-history-backdrop', 'n-history-backdrop', 'c-history-backdrop', 'j-history-backdrop', 'pk-history-backdrop'].forEach(id => { const b = $(`#${id}`); if (b) b.classList.add('hidden'); });
+  ['g-history-drawer', 'p-history-drawer', 'n-history-drawer', 'c-history-drawer', 'j-history-drawer', 'pk-history-drawer', 'af-history-drawer'].forEach(id => { const d = $(`#${id}`); if (d) d.classList.remove('open'); });
+  ['g-history-backdrop', 'p-history-backdrop', 'n-history-backdrop', 'c-history-backdrop', 'j-history-backdrop', 'pk-history-backdrop', 'af-history-backdrop'].forEach(id => { const b = $(`#${id}`); if (b) b.classList.add('hidden'); });
   // Sai do modo focado do editor de cartazes ao navegar; renderPosters()
   // reativa quando a view de destino é 'posters' com editor aberto.
   document.body.classList.remove('pe-full');
@@ -231,6 +232,7 @@ function goTo(viewId) {
   if (viewId === 'julgador') renderJulgador();
   if (viewId === 'extract') renderExtract();
   if (viewId === 'pacote') renderPacote();
+  if (viewId === 'aferidor') renderAferidor();
   if (viewId === 'posters') renderPosters();
   if (viewId === 'replicador') renderReplicador();
   if (viewId === 'removedor') renderRemovedor();

@@ -1,0 +1,457 @@
+'use strict';
+/* ============================================================================
+ * AFERIDOR — avaliação binária de conteúdo
+ *
+ * O JULGADOR PERGUNTA "QUE NOTA ISSO MERECE?". AQUI NINGUÉM PERGUNTA ISSO.
+ *
+ * Pedir a uma IA uma nota de 0 a 100 é pedir um resumo de dezenas de juízos
+ * que ela faz de uma vez e não mostra. O número sai, mas ninguém — nem ela —
+ * sabe reconstruir de onde veio; e a mesma entrada, no dia seguinte, sai com
+ * outro número. Esta ferramenta parte de outro lugar:
+ *
+ *     A IA responde SIM ou NÃO. O CÓDIGO calcula quanto aquilo vale.
+ *
+ * Três consequências, e são elas que justificam a ferramenta existir:
+ *
+ *  1. TRANSPARÊNCIA. A nota é a soma dos pesos das perguntas em que o conteúdo
+ *     passou, dividida pela soma dos pesos que se aplicavam. Dá para conferir
+ *     a conta na mão, pergunta por pergunta.
+ *  2. CONTROLE. Mudar a importância de um quesito é mudar um número nesta
+ *     tabela. Não mexe em prompt, não mexe em lógica, não precisa reaprender
+ *     nada — e o efeito é previsível antes de rodar.
+ *  3. ESTABILIDADE. Uma pergunta binária tem duas respostas possíveis; uma
+ *     nota de 0 a 100 tem cento e uma. O ruído de amostragem que faz um 74
+ *     virar 68 não faz um SIM virar NÃO com a mesma facilidade.
+ *
+ * O RESTO DO RUÍDO MORRE NA REPETIÇÃO. Cada aferição roda o MESMO questionário
+ * sobre o MESMO conteúdo várias vezes, em chamadas independentes, e vale a
+ * resposta predominante. Uma leitura torta isolada é voto vencido. E o quanto
+ * as rodadas concordaram fica registrado: 5 de 5 é uma coisa, 3 de 5 é outra,
+ * e esconder essa diferença seria inventar uma firmeza que não houve.
+ *
+ * A IA NUNCA VÊ OS PESOS — ver `buildAferPrompt`. É o que impede a separação
+ * de ser só retórica: quem sabe que uma pergunta vale 10 e outra vale 3
+ * responde diferente.
+ *
+ * As funções puras daqui não tocam no DOM e recebem a chamada de IA por
+ * parâmetro: dá para exercitar a aferição inteira com IA dublada, offline.
+ * ========================================================================== */
+
+/* -------------------------------------------------------------------------- */
+/* §1 — Os blocos                                                              */
+/* -------------------------------------------------------------------------- */
+
+const AFER_BLOCOS = [
+  { id: 'abertura', label: 'Abertura', desc: 'O que decide se a pessoa fica ou vai embora.' },
+  { id: 'curiosidade', label: 'Curiosidade e progressão', desc: 'O que dá motivo para continuar.' },
+  { id: 'retencao', label: 'Trechos mortos', desc: 'O que faz a pessoa sair no meio.' },
+  { id: 'entrega', label: 'Entrega e final', desc: 'O que a pessoa leva por ter assistido.' },
+  { id: 'naturalidade', label: 'Naturalidade', desc: 'Se soa gente falando ou texto gerado.' },
+  { id: 'distribuicao', label: 'Distribuição', desc: 'Se existe motivo para circular.' },
+  { id: 'embalagem', label: 'Embalagem', desc: 'Título e legenda contra o que o vídeo entrega.' },
+];
+
+function aferBloco(id) {
+  return AFER_BLOCOS.find((b) => b.id === id) || null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* §2 — O questionário                                                         */
+/* -------------------------------------------------------------------------- */
+
+/* O QUE FAZ UMA PERGUNTA PRESTAR AQUI, e é a coisa mais importante do arquivo.
+ *
+ * Uma pergunta ruim devolve a subjetividade pela janela. "O gancho é forte?"
+ * não é binária coisa nenhuma: é uma nota de 0 a 10 disfarçada de SIM/NÃO, e
+ * duas leituras do mesmo vídeo respondem diferente. A pergunta precisa ser
+ * VERIFICÁVEL NO CONTEÚDO — alguém que discorde da resposta tem de conseguir
+ * apontar o trecho que prova.
+ *
+ * Daí a forma delas: "nos primeiros segundos JÁ ACONTECE alguma coisa
+ * concreta?" em vez de "a abertura é boa?". A primeira se resolve olhando; a
+ * segunda se resolve opinando.
+ *
+ * `bom` DIZ QUAL RESPOSTA PONTUA, e existe porque metade das perguntas é
+ * armadilha por desenho. "Existe trecho repetitivo?" pontua com NÃO. Sem esse
+ * campo, ou todas as perguntas teriam de ser escritas na forma positiva —
+ * o que força construções torcidas ("o conteúdo está LIVRE de repetição?") e
+ * convida a IA a concordar por educação —, ou o cálculo teria de saber de cor
+ * quais invertem, que é a mesma informação em lugar pior.
+ *
+ * `peso` é o único número da tabela. Mudar aqui muda a nota, e nada mais.
+ *
+ * `exige` marca a pergunta que só faz sentido com aquela informação na mão.
+ * Sem título nem legenda, as duas de embalagem não são respondidas NEM contam
+ * no divisor — ver `calcularAfericao`. Perguntar sobre o que não existe e
+ * descontar pontos por isso seria punir quem ainda não escreveu o título. */
+const AFER_QUESTOES = [
+  /* ---- Abertura: peso alto porque age antes de todo o resto ---- */
+  { id: 'abre_no_fato', bloco: 'abertura', peso: 10, bom: 'sim',
+    pergunta: 'Nos primeiros segundos já acontece alguma coisa concreta — um fato, uma ação, uma afirmação específica — em vez de saudação, apresentação ou anúncio do que virá?' },
+  { id: 'sem_preambulo', bloco: 'abertura', peso: 7, bom: 'nao',
+    pergunta: 'O conteúdo começa com saudação ("oi gente", "sejam bem-vindos"), apresentação do canal ou pedido de inscrição?' },
+  { id: 'assunto_claro', bloco: 'abertura', peso: 7, bom: 'sim',
+    pergunta: 'Lendo só o começo, e sem depender do título, dá para dizer do que o conteúdo trata?' },
+
+  /* ---- Curiosidade e progressão ---- */
+  { id: 'pergunta_aberta', bloco: 'curiosidade', peso: 8, bom: 'sim',
+    pergunta: 'Fica alguma pergunta em aberto que só o restante do conteúdo responde?' },
+  { id: 'previsivel', bloco: 'curiosidade', peso: 6, bom: 'nao',
+    pergunta: 'Dá para adivinhar como termina antes de chegar à metade?' },
+  { id: 'progride', bloco: 'curiosidade', peso: 8, bom: 'sim',
+    pergunta: 'Cada parte acrescenta informação que não estava na anterior?' },
+  { id: 'causalidade', bloco: 'curiosidade', peso: 5, bom: 'sim',
+    pergunta: 'As coisas se puxam — uma causa a outra — em vez de apenas se sucederem?' },
+
+  /* ---- Trechos mortos ---- */
+  { id: 'repeticao', bloco: 'retencao', peso: 7, bom: 'nao',
+    pergunta: 'Alguma informação é dita duas vezes, com palavras diferentes?' },
+  { id: 'trecho_cortavel', bloco: 'retencao', peso: 7, bom: 'nao',
+    pergunta: 'Existe algum trecho que poderia ser removido inteiro sem o conteúdo perder nada?' },
+  { id: 'explicacao_longa', bloco: 'retencao', peso: 5, bom: 'nao',
+    pergunta: 'Alguma explicação se estende além do necessário para ser entendida?' },
+
+  /* ---- Entrega e final: o que sobra depois de assistir ---- */
+  { id: 'entrega_algo', bloco: 'entrega', peso: 10, bom: 'sim',
+    pergunta: 'Quem chegou ao fim leva alguma coisa concreta — uma informação, uma emoção, uma surpresa, uma graça?' },
+  { id: 'tem_conclusao', bloco: 'entrega', peso: 8, bom: 'sim',
+    pergunta: 'O conteúdo termina com uma conclusão, em vez de simplesmente parar?' },
+  { id: 'promessa_cumprida', bloco: 'entrega', peso: 8, bom: 'sim',
+    pergunta: 'O que o começo prometeu é entregue até o fim?' },
+  { id: 'final_responde', bloco: 'entrega', peso: 6, bom: 'sim',
+    pergunta: 'O final responde à pergunta que o começo abriu?' },
+
+  /* ---- Naturalidade ---- */
+  { id: 'soa_falado', bloco: 'naturalidade', peso: 6, bom: 'sim',
+    pergunta: 'O texto soa como uma pessoa falando, em vez de texto escrito para ser lido?' },
+  { id: 'frase_de_ia', bloco: 'naturalidade', peso: 4, bom: 'nao',
+    pergunta: 'Aparece alguma frase de vocabulário genérico de IA — "vamos mergulhar", "é importante ressaltar", "em um mundo onde", "não é apenas"?' },
+
+  /* ---- Distribuição ---- */
+  { id: 'motivo_compartilhar', bloco: 'distribuicao', peso: 6, bom: 'sim',
+    pergunta: 'Existe uma razão concreta para alguém mandar isto a outra pessoa — algo que valha um "olha isso"?' },
+  { id: 'provoca_reacao', bloco: 'distribuicao', peso: 4, bom: 'sim',
+    pergunta: 'O conteúdo toma alguma posição ou deixa algo com que dê para concordar ou discordar?' },
+  { id: 'cta_artificial', bloco: 'distribuicao', peso: 3, bom: 'nao',
+    pergunta: 'Existe pedido explícito de like, inscrição, comentário ou compartilhamento?' },
+
+  /* ---- Embalagem: só quando houver título ou legenda ---- */
+  { id: 'titulo_promete', bloco: 'embalagem', peso: 5, bom: 'sim', exige: 'embalagem',
+    pergunta: 'O título promete alguma coisa específica, em vez de ser vago?' },
+  { id: 'titulo_spoiler', bloco: 'embalagem', peso: 5, bom: 'nao', exige: 'embalagem',
+    pergunta: 'O título ou a legenda entrega o desfecho, a ponto de tornar o conteúdo dispensável?' },
+];
+
+function aferQuestao(id) {
+  return AFER_QUESTOES.find((q) => q.id === id) || null;
+}
+
+/** As perguntas que se aplicam ao material que existe. */
+function aferQuestoesAplicaveis(ctx) {
+  const c = ctx || {};
+  const temEmbalagem = !!(String((c.embalagem || {}).titulo || '').trim()
+    || String((c.embalagem || {}).legenda || '').trim());
+  return AFER_QUESTOES.filter((q) => (q.exige === 'embalagem' ? temEmbalagem : true));
+}
+
+/* Quantas vezes o mesmo questionário roda. ÍMPAR de propósito: com número par
+ * existe empate, e empate obriga a inventar uma regra de desempate para uma
+ * coisa que não precisava ter empatado. Cinco é o padrão porque três já corrige
+ * a leitura torta isolada mas deixa uma segunda coincidência decidir, e sete
+ * custa 40% mais para mudar pouca coisa. */
+const AFER_RODADAS = [3, 5, 7];
+const AFER_RODADAS_PADRAO = 5;
+
+function aferRodadas(n) {
+  const v = Math.round(Number(n));
+  return AFER_RODADAS.indexOf(v) >= 0 ? v : AFER_RODADAS_PADRAO;
+}
+
+/* -------------------------------------------------------------------------- */
+/* §3 — O prompt                                                               */
+/* -------------------------------------------------------------------------- */
+
+function _aTexto(v) { return (v == null) ? '' : String(v).trim(); }
+
+/**
+ * O questionário como a IA o vê — e o que ela NÃO vê é a parte importante.
+ *
+ * Não vai peso, não vai pontuação, não vai qual resposta pontua, não vai
+ * quantas rodadas existem nem que existe mais de uma. Se fosse, a separação
+ * entre "quem observa" e "quem calcula" seria só uma história que o código
+ * conta para si mesmo: um modelo que sabe que a pergunta vale 10 responde
+ * diferente de um que acha que ela vale 3, e um que sabe que NÃO é a resposta
+ * premiada tende a achar o motivo de responder NÃO.
+ *
+ * Também não vai nenhum pedido de nota, de resumo ou de opinião. A única coisa
+ * que se pede é a observação.
+ */
+function buildAferPrompt(conteudo, embalagem, visual, questoes) {
+  const qs = (questoes && questoes.length) ? questoes : AFER_QUESTOES;
+  const e = embalagem || {};
+  const linhas = [];
+
+  linhas.push('Você examina um conteúdo e responde a um questionário objetivo. Você NÃO dá nota, NÃO resume e NÃO opina sobre qualidade geral — outra etapa cuida disso.');
+  linhas.push('');
+  linhas.push('== COMO RESPONDER ==');
+  linhas.push('Cada pergunta admite exatamente duas respostas: "sim" ou "nao". Não existe "talvez", "parcialmente" nem "depende".');
+  linhas.push('Responda pelo que ESTÁ no conteúdo, não pelo que ele poderia ser nem pelo que seria simpático dizer.');
+  linhas.push('Antes de responder, procure o trecho que sustenta a resposta. Se você não acha o trecho, a resposta é a que descreve o conteúdo como ele está.');
+  linhas.push('Algumas perguntas descrevem defeitos. Responder "sim" nelas não é ser severo, é constatar — e responder "nao" quando o defeito está lá atrapalha quem vai usar isto para corrigir o conteúdo.');
+  linhas.push('Nenhuma pergunta vale mais que outra para você. Responda cada uma isoladamente.');
+  linhas.push('');
+
+  if (e.titulo || e.legenda) {
+    linhas.push('== A EMBALAGEM (o que a pessoa vê ANTES de dar play) ==');
+    if (e.titulo) linhas.push(`Título: ${e.titulo}`);
+    if (e.legenda) linhas.push(`Legenda: ${e.legenda}`);
+    linhas.push('');
+  }
+
+  linhas.push('== O QUE SE OUVE (transcrição ou roteiro) ==');
+  linhas.push(_aTexto(conteudo));
+
+  const v = _aTexto(visual);
+  if (v) {
+    linhas.push('');
+    linhas.push('== O QUE SE VÊ (descrição visual) ==');
+    linhas.push(v);
+    linhas.push('');
+    linhas.push('As duas seções acima são o MESMO conteúdo, por dois canais. Uma informação pode estar inteira na imagem sem ninguém dizer uma palavra sobre ela — e continua entregue.');
+  }
+
+  linhas.push('');
+  linhas.push('== O QUESTIONÁRIO ==');
+  qs.forEach((q) => linhas.push(`${q.id}: ${q.pergunta}`));
+
+  linhas.push('');
+  linhas.push('Devolva SOMENTE JSON, sem cercas e sem comentário:');
+  linhas.push('{');
+  linhas.push('  "respostas": [');
+  qs.slice(0, 2).forEach((q, i) => {
+    linhas.push(`    { "id": "${q.id}", "resposta": "sim" }${i === 0 ? ',' : ','}`);
+  });
+  linhas.push('    ... uma entrada para CADA pergunta acima');
+  linhas.push('  ]');
+  linhas.push('}');
+  return linhas.join('\n');
+}
+
+/* -------------------------------------------------------------------------- */
+/* §4 — Normalização de uma rodada                                             */
+/* -------------------------------------------------------------------------- */
+
+/* O que o modelo devolve não é confiável por construção: pode vir "Sim", "SIM",
+ * "sim.", "true", um id que não existe, uma pergunta faltando ou uma resposta
+ * que não é nenhuma das duas. Nada disso pode derrubar a aferição — e nada
+ * disso pode ser CHUTADO para o lado bom, porque chutar é exatamente a
+ * subjetividade que a ferramenta existe para tirar do caminho.
+ *
+ * Resposta que não é reconhecível vira ausência: aquela rodada não votou
+ * naquela pergunta. A consolidação lida com isso contando só quem votou. */
+function _aResposta(v) {
+  const s = _aTexto(v).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
+  if (s === 'sim' || s === 's' || s === 'true' || s === 'yes') return 'sim';
+  if (s === 'nao' || s === 'n' || s === 'false' || s === 'no') return 'nao';
+  return null;
+}
+
+/** Uma rodada → Map(id → 'sim'|'nao'). Ids desconhecidos e lixo saem fora. */
+function normalizarRodada(obj, questoes) {
+  const qs = (questoes && questoes.length) ? questoes : AFER_QUESTOES;
+  const validos = new Set(qs.map((q) => q.id));
+  const out = new Map();
+  const lista = obj && Array.isArray(obj.respostas) ? obj.respostas : [];
+  lista.forEach((r) => {
+    if (!r) return;
+    const id = _aTexto(r.id);
+    if (!validos.has(id) || out.has(id)) return;   // primeira vale; repetição é ruído
+    const resp = _aResposta(r.resposta);
+    if (resp) out.set(id, resp);
+  });
+  return out;
+}
+
+/* -------------------------------------------------------------------------- */
+/* §5 — Consolidação: várias rodadas viram uma resposta                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Junta as rodadas e decide cada pergunta pela resposta predominante.
+ *
+ * O CONSENSO É GUARDADO, e não é enfeite. Cinco rodadas concordando e três
+ * contra duas produzem a MESMA resposta consolidada — e não são a mesma coisa.
+ * A primeira é uma observação firme; a segunda é a ferramenta dizendo, sem
+ * disfarce, que aquela pergunta ficou no fio. Quem vai usar isso para decidir
+ * o que corrigir merece saber a diferença, e a tela mostra.
+ *
+ * EMPATE. Não deveria acontecer — as rodadas são ímpares — mas acontece quando
+ * uma chamada falha ou quando uma rodada devolve lixo naquela pergunta e some
+ * da contagem. A regra é conservadora e fixa: empate NÃO pontua. Dar o ponto
+ * numa moeda ao ar seria fabricar meio acerto, e a nota deixaria de ser
+ * reproduzível — que é a única coisa que esta ferramenta promete.
+ */
+function consolidarRespostas(rodadas, questoes) {
+  const qs = (questoes && questoes.length) ? questoes : AFER_QUESTOES;
+  const mapas = (rodadas || []).filter((m) => m && typeof m.get === 'function');
+
+  return qs.map((q) => {
+    const votos = mapas.map((m) => m.get(q.id)).filter(Boolean);
+    const sim = votos.filter((v) => v === 'sim').length;
+    const nao = votos.length - sim;
+
+    let resposta = null;
+    if (sim > nao) resposta = 'sim';
+    else if (nao > sim) resposta = 'nao';
+    else if (votos.length) resposta = (q.bom === 'sim' ? 'nao' : 'sim');  // empate não pontua
+
+    return {
+      id: q.id, bloco: q.bloco, pergunta: q.pergunta, peso: q.peso, bom: q.bom,
+      resposta, sim, nao, votos: votos.length, empate: votos.length > 0 && sim === nao,
+      // 1 = todas as rodadas concordaram; 0,6 = três contra duas.
+      consenso: votos.length ? Math.max(sim, nao) / votos.length : 0,
+      acertou: resposta != null && resposta === q.bom,
+    };
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* §6 — O cálculo: determinístico, fora da IA                                  */
+/* -------------------------------------------------------------------------- */
+
+/* As faixas existem para dar nome ao número, não para decidir nada. Quem decide
+ * é a lista de onde a nota foi embora, logo abaixo dela. */
+const AFER_FAIXAS = [
+  { min: 85, id: 'alto', label: 'Alto', resumo: 'Passa na maior parte do que foi verificado.' },
+  { min: 70, id: 'bom', label: 'Bom', resumo: 'Sustenta-se, com pontos identificados para corrigir.' },
+  { min: 50, id: 'medio', label: 'Médio', resumo: 'Metade dos quesitos ficou pelo caminho.' },
+  { min: 0, id: 'baixo', label: 'Baixo', resumo: 'A maior parte do que foi verificado não passou.' },
+];
+
+function aferFaixa(nota) {
+  return AFER_FAIXAS.find((f) => nota >= f.min) || AFER_FAIXAS[AFER_FAIXAS.length - 1];
+}
+
+/**
+ * A conta, e ela cabe numa linha: peso dos acertos sobre peso do que se
+ * aplicava, vezes cem.
+ *
+ * O DIVISOR É O QUE SE APLICAVA, não o questionário inteiro. Sem título nem
+ * legenda, as duas perguntas de embalagem não entram em lugar nenhum — nem no
+ * numerador, nem no divisor. Somá-las ao divisor e nunca ao numerador seria
+ * descontar dez pontos de quem ainda não escreveu o título, o que faz a nota
+ * medir o preenchimento do formulário em vez do conteúdo.
+ *
+ * Uma pergunta sem voto nenhum (todas as rodadas falharam nela) também sai do
+ * divisor pelo mesmo motivo: não foi verificada, então não pode custar pontos.
+ */
+function calcularAfericao(consolidado, opcoes) {
+  const o = opcoes || {};
+  const itens = (consolidado || []).filter((q) => q.votos > 0);
+
+  const pesoTotal = itens.reduce((acc, q) => acc + q.peso, 0);
+  const pesoGanho = itens.reduce((acc, q) => acc + (q.acertou ? q.peso : 0), 0);
+  const nota = pesoTotal ? Math.round((pesoGanho / pesoTotal) * 100) : 0;
+
+  /* ONDE A NOTA FOI EMBORA — os quesitos que não passaram, do mais caro para o
+   * mais barato. É a resposta a "o que eu conserto primeiro", e ela sai da
+   * mesma conta que produziu a nota: nada de prioridade inventada à parte. */
+  const perdidos = itens.filter((q) => !q.acertou)
+    .slice().sort((a, b) => b.peso - a.peso || a.id.localeCompare(b.id));
+
+  /* ONDE AS RODADAS DISCORDARAM. Consenso incompleto não muda a resposta, mas
+   * muda o quanto se pode confiar nela — e some se ninguém mostrar. */
+  const divergentes = itens.filter((q) => q.consenso < 1)
+    .slice().sort((a, b) => a.consenso - b.consenso || b.peso - a.peso);
+
+  const porBloco = AFER_BLOCOS.map((b) => {
+    const doBloco = itens.filter((q) => q.bloco === b.id);
+    if (!doBloco.length) return { ...b, nota: null, peso: 0, questoes: [] };
+    const p = doBloco.reduce((acc, q) => acc + q.peso, 0);
+    const g = doBloco.reduce((acc, q) => acc + (q.acertou ? q.peso : 0), 0);
+    return { ...b, nota: Math.round((g / p) * 100), peso: p, questoes: doBloco.map((q) => q.id) };
+  });
+
+  return {
+    nota, faixa: aferFaixa(nota), pesoGanho, pesoTotal,
+    questoes: consolidado || [], avaliadas: itens,
+    perdidos, divergentes, porBloco,
+    rodadas: o.rodadas || 0,
+    // Consenso médio da aferição inteira: o quanto as rodadas concordaram.
+    consensoMedio: itens.length
+      ? Math.round((itens.reduce((acc, q) => acc + q.consenso, 0) / itens.length) * 100) : 0,
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* §7 — O pipeline                                                             */
+/* -------------------------------------------------------------------------- */
+
+function _aLimpar(texto) {
+  let t = String(texto == null ? '' : texto).trim();
+  t = t.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '');
+  return (typeof cleanText === 'function') ? cleanText(t).trim() : t.trim();
+}
+
+/**
+ * Roda o questionário N vezes em paralelo e calcula.
+ *
+ * As rodadas são independentes e IDÊNTICAS: mesmo prompt, mesmo conteúdo. A
+ * variação vem da amostragem do modelo, e é justamente ela que se quer medir —
+ * mudar o prompt entre as rodadas mediria o prompt, não o conteúdo.
+ *
+ * Uma rodada que falha não derruba a aferição: as outras continuam e o divisor
+ * se ajusta. Todas falharem, aí sim é erro — uma nota tirada de zero
+ * observação não é uma nota.
+ *
+ * @param {object} opts
+ *   conteudo, visual, embalagem {titulo, legenda}
+ *   rodadas    3, 5 ou 7 (padrão 5)
+ *   call(prompt)  chamada de IA — injetável; é o que torna a aferição testável
+ *   onEtapa(chave, titulo, desc)
+ */
+async function runAfericaoPipeline(opts) {
+  const o = opts || {};
+  const chamar = o.call || (typeof callLLM === 'function' ? callLLM : null);
+  if (!chamar) throw new Error('Sem função de chamada de IA.');
+  const conteudo = _aLimpar(o.conteudo);
+  if (!conteudo) throw new Error('Não há conteúdo para aferir.');
+
+  const embalagem = o.embalagem || {};
+  const visual = _aTexto(o.visual);
+  const n = aferRodadas(o.rodadas);
+  const questoes = aferQuestoesAplicaveis({ embalagem });
+  const prompt = buildAferPrompt(conteudo, embalagem, visual, questoes);
+  const etapa = (k, t, d) => { if (typeof o.onEtapa === 'function') o.onEtapa(k, t, d); };
+  const lerJSON = (r) => (typeof extractJSON === 'function' ? extractJSON(r && r.content) : null);
+
+  etapa('rodadas', 'Respondendo ao questionário…',
+    `${n} leituras independentes de ${questoes.length} perguntas.`);
+
+  let modelo = '';
+  let falhas = 0;
+  const rodadas = await Promise.all(Array.from({ length: n }, async () => {
+    try {
+      const r = await chamar(prompt);
+      if (r && r.model) modelo = r.model;
+      return normalizarRodada(lerJSON(r), questoes);
+    } catch (_) {
+      falhas++;
+      return null;
+    }
+  }));
+
+  const validas = rodadas.filter(Boolean);
+  if (!validas.length) throw new Error('Nenhuma das leituras respondeu — verifique a chave e o modelo.');
+
+  etapa('calculo', 'Calculando…', 'A conta é do código: peso dos acertos sobre peso do que se aplicava.');
+  const consolidado = consolidarRespostas(validas, questoes);
+  const resultado = calcularAfericao(consolidado, { rodadas: validas.length });
+
+  etapa('pronto', 'Pronto.', `${resultado.nota}/100 · ${resultado.faixa.label}`);
+  return {
+    conteudo, visual, embalagem,
+    rodadasPedidas: n, rodadasValidas: validas.length, falhas,
+    questoes, resultado, model: modelo,
+  };
+}

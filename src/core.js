@@ -134,6 +134,8 @@ const STORAGE_KEYS = {
   julgadorDraft: 'agp.julgador.draft',     // Julgador: o conteúdo e a embalagem em avaliação
   pacotes: 'agp.pacotes',                  // Pacote: os pacotes de publicação já montados
   pacoteDraft: 'agp.pacote.draft',         // Pacote: o conteúdo em construção
+  afericoes: 'agp.afericoes',              // Aferidor: as aferições binárias (questionário + conta)
+  aferidorDraft: 'agp.aferidor.draft',     // Aferidor: o conteúdo em aferição
   posterPresets: 'agp.posterPresets',
   posterPanelH: 'agp.posterPanelH',   // altura (px) do painel de edição no mobile — divisor arrastável preview↔edição
 };
@@ -246,6 +248,8 @@ const State = (() => {
     julgadorOrigemId: null,   // qual julgamento esta próxima avaliação vai comparar
     pacotes: loadJSON(STORAGE_KEYS.pacotes, []),
     pacoteDraft: loadJSON(STORAGE_KEYS.pacoteDraft, null),
+    afericoes: loadJSON(STORAGE_KEYS.afericoes, []),
+    aferidorDraft: loadJSON(STORAGE_KEYS.aferidorDraft, null),
     posterPresets: loadJSON(STORAGE_KEYS.posterPresets, []),   // presets de identidade visual (nome + custom)
     currentView: 'welcome',
     activeExtractionId: null,

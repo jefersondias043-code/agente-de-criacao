@@ -19,6 +19,9 @@ const TEXT_CONSUMERS = [
   // Pacote: o texto vira o CONTEÚDO a empacotar — título, legenda, hashtags e
   // palavras-chave a partir do que qualquer outra ferramenta já produziu.
   { id: 'pacote', label: 'Pacote', kind: 'native', view: 'pacote' },
+  // Aferidor: o texto vira o CONTEÚDO a aferir — o questionário binário roda
+  // sobre ele e a nota sai de uma conta do código.
+  { id: 'aferidor', label: 'Aferidor', kind: 'native', view: 'aferidor' },
   // Cartazes: cria um cartaz a partir do texto (reusa o parser de matéria → headline/categoria/etc.)
   { id: 'cartazes', label: 'Cartaz', kind: 'native', view: 'posters',
     deliver: (text) => createPosterFromGeneration({ id: uuid(), content: text, style: '—', tone: '—', createdAt: new Date().toISOString() }) },

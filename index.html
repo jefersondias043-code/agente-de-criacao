@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-15-r242" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-15-r243" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1420,6 +1420,97 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       </aside>
     </section>
 
+    <section class="page view" id="view-aferidor">
+      <header class="appbar">
+        <div class="appbar-lead">
+          <div class="appbar-title">Aferidor</div>
+          <div class="appbar-desc">A IA responde a um questionário de SIM ou NÃO, várias vezes. A nota é calculada pelo código — e você confere a conta.</div>
+        </div>
+        <div class="appbar-actions">
+          <button class="btn btn-icon" id="af-history-open" type="button" title="Aferições guardadas" aria-label="Histórico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div id="af-api-warning" class="hidden card mb-3 callout-warn"></div>
+
+      <div class="card">
+        <div class="field">
+          <label class="label" for="af-conteudo">O conteúdo</label>
+          <textarea class="textarea" id="af-conteudo" rows="9" placeholder="Cole o roteiro, o texto ou a transcrição. Se anexar o vídeo ou o áudio, ele é transcrito automaticamente."></textarea>
+          <div class="input-toolbar">
+            <input type="file" id="af-attach-input" hidden />
+            <button type="button" class="btn btn-ghost btn-sm" id="af-attach-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.5 18.5"/></svg>
+              Anexar vídeo, áudio ou arquivo
+            </button>
+            <span class="text-xs text-mute">Vídeo e áudio entram transcritos.</span>
+          </div>
+          <div id="af-attach-pending"></div>
+        </div>
+
+        <div class="field">
+          <label class="label" for="af-visual">O que se vê no vídeo <span class="text-xs text-mute">(opcional)</span></label>
+          <textarea class="textarea" id="af-visual" rows="3" placeholder="Descreva o que aparece na tela: quem está em cena, onde, fazendo o quê. Texto escrito na tela também conta."></textarea>
+        </div>
+
+        <!-- QUANTAS LEITURAS. É a peça que separa esta ferramenta de uma
+             pergunta única: o mesmo questionário roda várias vezes e vale a
+             resposta predominante, então uma leitura torta isolada vira voto
+             vencido. Números ímpares, para não existir empate. -->
+        <div class="field">
+          <label class="label" for="af-rodadas">Quantas leituras independentes</label>
+          <select class="select" id="af-rodadas"></select>
+          <span class="input-helper">O mesmo questionário roda este número de vezes e vale a resposta predominante. Mais leituras custam mais chamadas e reduzem o efeito de uma resposta isolada.</span>
+        </div>
+
+        <details class="julg-embalagem">
+          <summary>Título e legenda <span class="text-xs text-mute">(opcional · liberam os quesitos de embalagem)</span></summary>
+          <div class="julg-embalagem-body">
+            <div class="field">
+              <label class="label" for="af-titulo">Título</label>
+              <input class="input" id="af-titulo" type="text" placeholder="O título que vai junto com o conteúdo." />
+            </div>
+            <div class="field">
+              <label class="label" for="af-legenda">Legenda</label>
+              <textarea class="textarea" id="af-legenda" rows="2" placeholder="A legenda da publicação."></textarea>
+            </div>
+            <div class="text-xs text-mute">Sem título nem legenda, os dois quesitos de embalagem não são perguntados — e não entram no divisor da nota.</div>
+          </div>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">O resultado</div></div>
+        <div id="af-result-area"></div>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn btn-accent" id="af-submit" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Aferir
+        </button>
+        <button class="btn btn-ghost" id="af-novo" type="button" title="Limpa os campos para aferir outro conteúdo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Novo
+        </button>
+        <span class="action-bar-hint">A IA responde sim ou não; a nota é uma conta do código</span>
+      </div>
+
+      <div id="af-history-backdrop" class="drawer-backdrop hidden"></div>
+      <aside id="af-history-drawer" class="history-drawer" aria-label="Aferições guardadas">
+        <div class="history-drawer-head">
+          <div class="card-title">Aferições guardadas</div>
+          <div class="flex gap-1">
+            <button class="btn btn-danger btn-sm" id="af-history-clear" type="button">Limpar tudo</button>
+            <button class="btn btn-ghost btn-sm" id="af-history-close" type="button" title="Fechar" aria-label="Fechar">✕</button>
+          </div>
+        </div>
+        <div id="af-history-list" class="list"></div>
+      </aside>
+    </section>
+
     <section class="page view" id="view-settings">
       <header class="appbar">
         <div class="appbar-lead">
@@ -1553,6 +1644,8 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <script src="src/resumo.js"></script>
 <script src="src/pacote-motor.js"></script>
 <script src="src/pacote.js"></script>
+<script src="src/aferidor-motor.js"></script>
+<script src="src/aferidor.js"></script>
 <script src="src/extract.js"></script>
 <script src="src/posters.js"></script>
 <script src="src/poster-templates.js"></script>

@@ -3039,6 +3039,56 @@ body.pe-full #view-posters { animation: none; }
 .julg-delta-valor.desce { color: var(--accent-ink); }
 .julg-delta-de { color: var(--ink-mute); font-variant-numeric: tabular-nums; }
 
+/* A nota ponderada — estatística SEGUNDA, nunca do tamanho da "pior dimensão"
+   que decide o veredito. O selo ao lado do título da seção é o mesmo padrão
+   visual de peso/gravidade que .julg-acao já usa, para não introduzir uma
+   segunda linguagem de cor na mesma tela. */
+.julg-nota-ponderada {
+  font-size: 0.72rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--ink-mute); margin-left: 0.4rem;
+}
+.julg-peso {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 0.15rem 0.6rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+.julg-peso-dim { font-weight: 600; }
+.julg-peso-pct { font-variant-numeric: tabular-nums; color: var(--ink-mute); font-size: 0.78rem; }
+.julg-peso-nota { font-variant-numeric: tabular-nums; color: var(--ink-mute); }
+
+/* O fator positivo — par simétrico de .julg-principal, mesma estrutura, cor
+   de sucesso em vez de alerta: o que já funciona não deve parecer problema. */
+.julg-fator-positivo {
+  margin-top: 0.9rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #e7f3ec;
+}
+.julg-fator-positivo .julg-principal-titulo { color: var(--green); }
+
+/* A jornada do espectador — opinião do crítico de retenção, trecho por
+   trecho; bloco próprio porque não é medição de código como .julg-medida. */
+.julg-trecho {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.6rem;
+  align-items: baseline;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+.julg-trecho-nome { font-weight: 600; }
+.julg-trecho-risco { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.julg-risco-alto  .julg-trecho-risco { color: var(--accent-ink); }
+.julg-risco-medio .julg-trecho-risco { color: var(--amber); }
+.julg-risco-baixo .julg-trecho-risco { color: var(--green); }
+.julg-trecho-obs { grid-column: 1 / -1; color: var(--ink-soft); }
+
 .julg-embalagem { margin-top: 0.9rem; border: 1px solid var(--line); border-radius: var(--radius); }
 .julg-embalagem > summary {
   cursor: pointer; padding: 0.6rem 0.85rem; font-size: 0.85rem; font-weight: 600;

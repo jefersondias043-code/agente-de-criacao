@@ -28,7 +28,7 @@ let _julgSugestao = null;
 
 function julgadorDraft() {
   if (!State.julgadorDraft) {
-    State.julgadorDraft = { conteudo: '', visual: '', titulo: '', capa: '', legenda: '', lote: '' };
+    State.julgadorDraft = { conteudo: '', visual: '', titulo: '', capa: '', legenda: '', lote: '', formato: 'geral' };
   }
   return State.julgadorDraft;
 }
@@ -88,6 +88,31 @@ function julgBlocoVeredito(juizo) {
     </div>`;
 }
 
+/* A NOTA PONDERADA — estatística SEGUNDA, sempre menor visualmente que a
+ * "pior dimensão" acima, que continua sendo o número que decide o veredito.
+ * Isto não é o algoritmo de nenhuma plataforma: é peso EDITORIAL desta
+ * ferramenta, e o texto avisa isso toda vez que a nota aparece. */
+function julgBlocoPeso(juizo) {
+  const p = juizo.ponderado;
+  if (!p || !(p.porDimensao || []).length) return '';
+  const formato = (typeof JULG_FORMATOS !== 'undefined') ? julgFormato(p.formato) : null;
+  const linhas = p.porDimensao.slice(0, 4).map((d) => `
+    <div class="julg-peso julg-grav-${escapeHtml(d.gravidade)}">
+      <span class="julg-acao-grav">${escapeHtml(JULG_ROTULO_GRAVIDADE[d.gravidade] || d.gravidade)}</span>
+      <span class="julg-peso-dim">${escapeHtml(d.label)}</span>
+      <span class="julg-peso-pct">peso ${d.peso}%</span>
+      <span class="julg-peso-nota">${d.nota}/10</span>
+    </div>`).join('');
+  return `
+    <div class="julg-secao">
+      <div class="julg-secao-titulo">O que mais pesa na nota
+        <span class="julg-nota-ponderada" title="Peso editorial desta ferramenta — não é o algoritmo real de nenhuma plataforma, que ninguém publica.">${p.nota}/100${formato ? ` · ${escapeHtml(formato.label)}` : ''}</span>
+      </div>
+      <div class="text-xs text-mute mb-1">Do maior peso editorial para o menor.</div>
+      ${linhas}
+    </div>`;
+}
+
 /* O PRINCIPAL. Um conteúdo com catorze problemas não tem catorze problemas:
  * tem um que importa e treze que vêm depois dele. */
 function julgBlocoPrincipal(juizo) {
@@ -100,6 +125,21 @@ function julgBlocoPrincipal(juizo) {
       <div class="julg-principal-dim">${escapeHtml(p.label)} · ${p.nota}/10${reprovado ? '' : ' (já passa — é só o ponto mais baixo)'}</div>
       ${p.problema ? `<div class="julg-principal-problema">${escapeHtml(p.problema)}</div>` : ''}
       ${p.correcao && p.correcao !== p.problema ? `<div class="julg-principal-acao">→ ${escapeHtml(p.correcao)}</div>` : ''}
+    </div>`;
+}
+
+/* O FATOR POSITIVO — o par simétrico do PRINCIPAL. Um conteúdo com catorze
+ * problemas também tem alguma coisa que já funciona; dizer só o que falta
+ * conserta o vídeo mas não ensina o que repetir no próximo. */
+function julgBlocoFatorPositivo(juizo) {
+  const f = juizo.pontoForte;
+  if (!f) return '';
+  const dim = julgDimensao(f.dimensao);
+  return `
+    <div class="julg-fator-positivo">
+      <div class="julg-principal-titulo">Principal fator positivo</div>
+      <div class="julg-principal-dim">${escapeHtml(f.label)} está forte — ${f.nota}/10</div>
+      ${dim && dim.pergunta ? `<div class="julg-principal-problema">${escapeHtml(dim.pergunta)}</div>` : ''}
     </div>`;
 }
 
@@ -147,6 +187,33 @@ function julgBlocoMedicao(item) {
       <div class="text-xs text-mute mb-1">Isto não é opinião de ninguém: foi medido no texto. ${(item.local || {}).duracao ? `Duração estimada: ${julgMomento(item.local.duracao)}.` : ''}</div>
       ${linhas}
     </div>`;
+}
+
+const JULG_ROTULO_RISCO = { baixo: 'risco baixo', medio: 'risco médio', alto: 'risco alto' };
+
+/* A JORNADA DO ESPECTADOR — opinião do crítico de retenção, trecho por
+ * trecho, não uma medição de código (por isso bloco próprio, não reusa
+ * .julg-medida). Só aparece quando esse avaliador rodou e devolveu a
+ * travessia; nunca influencia nota nenhuma — é leitura, não conta. */
+function julgBlocoJornada(item) {
+  const retencao = (item.avaliacoes || []).find((a) => a.avaliador === 'retencao');
+  const jornada = (retencao || {}).jornada || [];
+  if (!jornada.length) return '';
+  const linhas = jornada.map((j) => `
+    <div class="julg-trecho julg-risco-${escapeHtml(j.riscoAbandono)}">
+      <span class="julg-trecho-nome">${escapeHtml(j.trecho)}</span>
+      <span class="julg-trecho-risco">${escapeHtml(JULG_ROTULO_RISCO[j.riscoAbandono] || j.riscoAbandono)}</span>
+      ${j.observacao ? `<span class="julg-trecho-obs">${escapeHtml(j.observacao)}</span>` : ''}
+    </div>`).join('');
+  return `
+    <details class="causo-mesa">
+      <summary>A jornada do espectador, trecho por trecho</summary>
+      <div class="causo-mesa-body">
+        <div class="text-xs text-mute mb-1">Como o crítico de retenção viu o vídeo passar, segundo a segundo — onde o risco de abandono sobe e onde desce.</div>
+        ${linhas}
+        ${retencao.recompensaFinalTexto ? `<div class="text-xs text-mute mt-1">Recompensa no final: ${retencao.recompensaFinal ? 'sim' : 'não'} — ${escapeHtml(retencao.recompensaFinalTexto)}</div>` : ''}
+      </div>
+    </details>`;
 }
 
 /* Os quatro eixos. Cada um fica com a PIOR dimensão do grupo, pelo mesmo motivo
@@ -268,7 +335,9 @@ function julgNovoConteudo(semPerguntar) {
       && !confirm('Este conteúdo ainda não foi julgado e será apagado. Continuar?')) return false;
 
   const d = julgadorDraft();
-  State.julgadorDraft = { conteudo: '', visual: '', titulo: '', capa: '', legenda: '', lote: d.lote || '' };
+  // Formato e lote sobrevivem: são configuração da sessão de trabalho, não do
+  // conteúdo específico que acabou de ser julgado.
+  State.julgadorDraft = { conteudo: '', visual: '', titulo: '', capa: '', legenda: '', lote: d.lote || '', formato: d.formato || 'geral' };
   saveJulgadorDraft();
   State.julgadorOrigemId = null;
   julgPreencher();
@@ -442,10 +511,13 @@ function renderJulgResultado(item) {
   const juizo = item.juizo || {};
   area.innerHTML = `
     ${julgBlocoVeredito(juizo)}
+    ${julgBlocoPeso(juizo)}
     ${julgBlocoComparacao(item)}
     ${julgBlocoPrincipal(juizo)}
+    ${julgBlocoFatorPositivo(juizo)}
     ${julgBlocoAcoes(juizo)}
     ${julgBlocoMedicao(item)}
+    ${julgBlocoJornada(item)}
     ${julgBlocoEixos(juizo)}
     ${julgBlocoAta(item)}
     <div class="flex gap-1 flex-wrap mt-2">
@@ -501,11 +573,19 @@ function julgDiagnosticoEmTexto(item) {
   const j = item.juizo || {};
   const linhas = [];
   linhas.push(`${(j.vereditoInfo || {}).label || ''} — ${j.nota}/100 (pior dimensão)`);
+  if (j.ponderado && (j.ponderado.porDimensao || []).length) {
+    linhas.push(`Nota ponderada (peso editorial, não é o algoritmo de nenhuma plataforma): ${j.ponderado.nota}/100`);
+  }
   if (j.principal) {
     linhas.push('');
     linhas.push('SE VOCÊ SÓ PUDER MUDAR UMA COISA');
     linhas.push(`${j.principal.label}: ${j.principal.problema || ''}`);
     if (j.principal.correcao) linhas.push(`→ ${j.principal.correcao}`);
+  }
+  if (j.pontoForte) {
+    linhas.push('');
+    linhas.push('PRINCIPAL FATOR POSITIVO');
+    linhas.push(`${j.pontoForte.label}: ${j.pontoForte.nota}/10`);
   }
   const medidas = ((item.local || {}).achados) || [];
   if (medidas.length) {
@@ -517,6 +597,13 @@ function julgDiagnosticoEmTexto(item) {
     linhas.push('');
     linhas.push('O QUE EU MUDARIA, EM ORDEM');
     j.acoes.forEach((a, i) => linhas.push(`${i + 1}. [${JULG_ROTULO_GRAVIDADE[a.gravidade]}] ${a.label} (${a.nota}/10) — ${a.acao}`));
+  }
+  const retencao = (item.avaliacoes || []).find((a) => a.avaliador === 'retencao');
+  if ((retencao || {}).jornada && retencao.jornada.length) {
+    linhas.push('');
+    linhas.push('A JORNADA DO ESPECTADOR, TRECHO POR TRECHO');
+    retencao.jornada.forEach((t) => linhas.push(`${t.trecho} [${JULG_ROTULO_RISCO[t.riscoAbandono] || t.riscoAbandono}]${t.observacao ? ` — ${t.observacao}` : ''}`));
+    if (retencao.recompensaFinalTexto) linhas.push(`Recompensa no final: ${retencao.recompensaFinal ? 'sim' : 'não'} — ${retencao.recompensaFinalTexto}`);
   }
   (j.eixos || []).filter((e) => e.nota != null).forEach((e) => {
     if (linhas[linhas.length - 1] !== '') linhas.push('');
@@ -602,6 +689,7 @@ function renderJulgHistorico() {
       d.titulo = (it.embalagem || {}).titulo || '';
       d.capa = (it.embalagem || {}).capa || '';
       d.legenda = (it.embalagem || {}).legenda || '';
+      d.formato = ((it.juizo || {}).ponderado || {}).formato || d.formato;
       saveJulgadorDraft();
       julgPreencher();
       renderJulgResultado(it);
@@ -643,6 +731,7 @@ function julgPreencher() {
   set('#j-capa', d.capa);
   set('#j-legenda', d.legenda);
   set('#j-lote', d.lote);
+  set('#j-formato', d.formato || 'geral');
 }
 
 function julgEmbalagemAtual() {
@@ -694,6 +783,14 @@ function renderJulgador() {
     }
   }
 
+  // O seletor de formato — populado a partir do registro, não gravado no HTML,
+  // para o perfil de pesos poder ganhar entradas sem tocar em index.html.
+  const formatoSel = $('#j-formato');
+  if (formatoSel) {
+    formatoSel.innerHTML = JULG_FORMATOS.map((f) =>
+      `<option value="${escapeHtml(f.id)}">${escapeHtml(f.label)}</option>`).join('');
+  }
+
   julgPreencher();
   { const a = $('#j-api-warning'); if (a) a.classList.add('hidden'); }
   ['#j-attach-pending', '#j-lote-attach-pending'].forEach((sel) => {
@@ -714,7 +811,7 @@ function renderJulgador() {
 
   // Rascunho — cada campo guarda sozinho.
   [['#j-conteudo', 'conteudo'], ['#j-visual', 'visual'], ['#j-titulo', 'titulo'],
-    ['#j-capa', 'capa'], ['#j-legenda', 'legenda'], ['#j-lote', 'lote']].forEach(([sel, chave]) => {
+    ['#j-capa', 'capa'], ['#j-legenda', 'legenda'], ['#j-lote', 'lote'], ['#j-formato', 'formato']].forEach(([sel, chave]) => {
     const el = $(sel);
     if (!el) return;
     el.oninput = () => {
@@ -768,7 +865,8 @@ function renderJulgador() {
       // O que se VÊ — a segunda fonte, tão parte do vídeo quanto a fala.
       const visual = String(($('#j-visual') || {}).value || '').trim();
       const res = await runJulgamentoPipeline({
-        conteudo, embalagem, visual, call: callLLM, onEtapa: julgEtapaVisual('#j-result-area'),
+        conteudo, embalagem, visual, formato: julgadorDraft().formato,
+        call: callLLM, onEtapa: julgEtapaVisual('#j-result-area'),
       });
       // A comparação só existe quando o autor pediu para reavaliar: comparar
       // com um vídeo qualquer do histórico não diria nada.

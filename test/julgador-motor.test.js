@@ -20,11 +20,13 @@ let J;
 beforeAll(() => {
   clearStorage();
   J = loadModules(
-    ['catalogs.js', 'core.js', 'poster-templates.js', 'agents.js', 'narrativa-motor.js', 'julgador-motor.js'],
+    ['catalogs.js', 'core.js', 'poster-templates.js', 'agents.js', 'narrativa-motor.js',
+      'causos-motor.js', 'embalagem.js', 'julgador-motor.js'],
     ['JULG_DIMENSOES', 'JULG_EIXOS', 'JULG_AVALIADORES', 'JULG_BANCA_COMPLETA', 'JULG_BANCA_TRIAGEM',
-      'JULG_VEREDITOS', 'julgDimensao', 'julgSegundos', 'julgMomento',
+      'JULG_VEREDITOS', 'JULG_FORMATOS', 'julgFormato', 'julgDimensao', 'julgSegundos', 'julgMomento',
       'julgTempoAteOGancho', 'julgRepeticao', 'julgExplicacaoExcessiva', 'julgCtaArtificial',
-      'julgFrasesDeIA', 'julgPromessaCumprida', 'julgProgressao', 'conferirJulgamentoLocal',
+      'julgFrasesDeIA', 'julgPromessaCumprida', 'julgProgressao', 'julgTerminaAbrupto',
+      'julgSpoilerNaEmbalagem', 'conferirJulgamentoLocal',
       'julgarConteudo', 'compararJulgamentos', 'normalizarAvaliacao',
       'buildAvaliadorPrompt', 'runJulgamentoPipeline', 'runTriagemPipeline']);
 });
@@ -693,5 +695,232 @@ describe('o modo Seleção', () => {
     const r = await J.runTriagemPipeline({ itens: [{ nome: 'vazio', conteudo: '' }, { nome: 'bom', conteudo: BOM }], call });
     expect(r.fila.map((x) => x.nome)).toEqual(['bom', 'vazio']);
     expect(r.fila.find((x) => x.nome === 'vazio').ok).toBe(false);
+  });
+});
+
+/* ========================================================================== */
+describe('a nota ponderada — camada nova, paralela, que nunca decide o veredito', () => {
+  const notas = (over) => Object.entries({ ...TUDO_BOM, ...over })
+    .map(([quem, ns]) => av(quem, ns));
+
+  it('sem opções, cai no formato geral', () => {
+    // Chamada com dois argumentos é a de toda a suíte acima — precisa continuar
+    // funcionando sem o terceiro parâmetro.
+    const j = J.julgarConteudo(notas({}), []);
+    expect(j.ponderado.formato).toBe('geral');
+    expect(j.ponderado.nota).toBeGreaterThan(0);
+  });
+
+  it('um id de formato desconhecido também cai no geral', () => {
+    const j = J.julgarConteudo(notas({}), [], { formato: 'formato-que-nao-existe' });
+    expect(j.ponderado.formato).toBe('geral');
+  });
+
+  it('a nota ponderada muda com o formato, sem mexer no veredito nem na pior nota', () => {
+    const avals = notas({ retencao: [{ dimensao: 'retencao', nota: 5 }, { dimensao: 'historia', nota: 8 }] });
+    const geral = J.julgarConteudo(avals, [], { formato: 'geral' });
+    const curto = J.julgarConteudo(avals, [], { formato: 'curto' });
+    // Retenção pesa mais no perfil "curto" (35) que no "geral" (30): puxar a
+    // nota de retenção para baixo tem de doer mais na ponderada do "curto".
+    expect(curto.ponderado.nota).toBeLessThan(geral.ponderado.nota);
+    expect(curto.veredito).toBe(geral.veredito);
+    expect(curto.nota).toBe(geral.nota);
+    expect(curto.principal).toEqual(geral.principal);
+  });
+
+  it('uma falha crítica em dimensão de peso baixo continua reprovando o veredito — a ponderada não dilui', () => {
+    // Naturalidade pesa só 3% no perfil geral. Se o peso entrasse no veredito,
+    // uma nota ótima no resto quase apagaria essa falha da média.
+    const j = J.julgarConteudo(notas({
+      naturalidade: [{ dimensao: 'naturalidade', nota: 1, problema: 'soa gerado por IA' }],
+    }), []);
+    expect(j.criticas.length, 'tem de ser reconhecida como crítica').toBe(1);
+    expect(j.veredito, 'peso baixo não pode comprar o veredito').toBe('nao');
+    // E, mesmo reprovando, a nota ponderada continua sendo um número plausível
+    // de qualidade geral — não zera por causa de uma dimensão de peso baixo.
+    expect(j.ponderado.nota).toBeGreaterThan(50);
+  });
+
+  it('os pesos são renormalizados para as dimensões presentes — a triagem não deve parecer pior só por ter menos avaliadores', () => {
+    // Duas avaliações completas, mesmas notas, mas uma delas só tem a banca
+    // de triagem (poucas dimensões). A nota ponderada de cada uma deve refletir
+    // a qualidade das dimensões que existem, não a cobertura.
+    const completa = J.julgarConteudo(notas({}), []);
+    const reduzida = J.julgarConteudo([
+      av('retencao', TUDO_BOM.retencao), av('impacto', TUDO_BOM.impacto), av('valor', TUDO_BOM.valor),
+    ], []);
+    expect(reduzida.ponderado.porDimensao.length).toBeLessThan(completa.ponderado.porDimensao.length);
+    // As notas dadas são todas altas nos dois casos — sem renormalizar, faltar
+    // cobertura faria a nota cair; com renormalização, ela fica no mesmo patamar.
+    expect(Math.abs(reduzida.ponderado.nota - completa.ponderado.nota)).toBeLessThan(15);
+  });
+
+  it('porDimensao vem ordenado do que mais pesa na nota para o que menos pesa', () => {
+    const j = J.julgarConteudo(notas({
+      retencao: [{ dimensao: 'retencao', nota: 4 }, { dimensao: 'historia', nota: 8 }],
+    }), []);
+    for (let i = 1; i < j.ponderado.porDimensao.length; i++) {
+      expect(j.ponderado.porDimensao[i - 1].contribuicao)
+        .toBeGreaterThanOrEqual(j.ponderado.porDimensao[i].contribuicao);
+    }
+    // Retenção reprovada e de maior peso: precisa estar entre as primeiras.
+    expect(j.ponderado.porDimensao.slice(0, 2).map((d) => d.dimensao)).toContain('retencao');
+  });
+
+  it('sem avaliações, a ponderada não quebra — fica zerada e vazia', () => {
+    const j = J.julgarConteudo([], []);
+    expect(j.ponderado.nota).toBe(0);
+    expect(j.ponderado.porDimensao).toEqual([]);
+  });
+});
+
+/* ========================================================================== */
+describe('o ponto forte — o par simétrico do principal', () => {
+  const notas = (over) => Object.entries({ ...TUDO_BOM, ...over })
+    .map(([quem, ns]) => av(quem, ns));
+
+  it('pega a maior nota entre as avaliadas', () => {
+    const j = J.julgarConteudo(notas({}), []);
+    const maior = Math.max(...j.avaliadas.map((a) => a.nota));
+    expect(j.pontoForte.nota).toBe(maior);
+  });
+
+  it('null quando não há nada avaliado', () => {
+    expect(J.julgarConteudo([], []).pontoForte).toBeNull();
+  });
+
+  it('não interfere em principal, veredito, criticas nem acoes', () => {
+    // O ponto forte é lido do mesmo array `avaliadas`, mas por um sort
+    // diferente — precisa ser aditivo, nunca mudar o resto do juízo.
+    const semFormato = J.julgarConteudo(notas({}), []);
+    const comFormato = J.julgarConteudo(notas({}), [], { formato: 'informativo' });
+    expect(comFormato.principal).toEqual(semFormato.principal);
+    expect(comFormato.veredito).toBe(semFormato.veredito);
+    expect(comFormato.criticas).toEqual(semFormato.criticas);
+    expect(comFormato.acoes).toEqual(semFormato.acoes);
+  });
+});
+
+/* ========================================================================== */
+describe('vídeo sem conclusão — julgTerminaAbrupto reaproveita o Causos', () => {
+  it('acusa texto que para sem pontuação final', () => {
+    const r = J.julgTerminaAbrupto('O Zé chegou em casa e contou a história toda para a mulher');
+    expect(r.problemas.length).toBeGreaterThan(0);
+  });
+
+  it('acusa texto que termina numa palavra que pede continuação', () => {
+    // Termina COM pontuação, mas a última palavra antes dela é um conectivo —
+    // é o segundo ramo da conta, distinto do "sem pontuação nenhuma" acima.
+    const r = J.julgTerminaAbrupto('O Zé chegou em casa e contou a história toda para a mulher que.');
+    expect(r.problemas.join(' ')).toMatch(/pede continuação/);
+  });
+
+  it('não acusa um texto que fecha de verdade', () => {
+    expect(J.julgTerminaAbrupto(BOM).problemas).toEqual([]);
+  });
+
+  it('entra na conferência local, mapeado para a dimensão história', () => {
+    const cortado = 'O Zé chegou em casa sem a carteira e sem o carro e a mulher perguntou o que tinha acontecido e';
+    const local = J.conferirJulgamentoLocal(cortado, {});
+    const achado = local.achados.find((a) => /pede continuação|sem terminar a frase/.test(a.texto));
+    expect(achado, 'o achado precisa chegar até a lista final de achados').toBeTruthy();
+    expect(achado.dimensao).toBe('historia');
+  });
+});
+
+/* ========================================================================== */
+describe('spoiler na embalagem — julgSpoilerNaEmbalagem reaproveita a auditoria da Embalagem', () => {
+  // Desfecho claramente no último terço: o número e o nome próprio só aparecem
+  // lá, igual ao fixture que test/embalagem.test.js já usa para esta conta.
+  const TRANSCRICAO = `O vizinho apareceu na porta de casa com um relógio na mão dizendo que estava
+precisando de dinheiro naquele mesmo dia. Perguntei quanto ele queria pelo relógio e ele
+respondeu que vendia por vinte se fosse na hora. Olhei a peça de perto, era pesada, o vidro
+riscado, a pulseira gasta de tanto uso, mas o ponteiro dos segundos andava certinho.
+Fiquei com pena da situação dele e resolvi comprar mesmo sem saber se prestava. Guardei o
+relógio na gaveta e fui trabalhar sem pensar mais no assunto durante o resto da manhã.
+Na hora do almoço mostrei a peça para um colega do escritório que entende dessas coisas.
+Ele olhou o fundo da caixa, viu a inscrição e ficou quieto por um tempo bem longo.
+Disse que aquilo ali não era um relógio comum de banca de camelô. O Ricardo pagou duzentos
+reais na mesma tarde e ainda disse que estava levando vantagem no negócio.`;
+
+  it('acusa o título que o próprio usuário escreveu entregando o desfecho', () => {
+    const r = J.julgSpoilerNaEmbalagem(TRANSCRICAO, { titulo: 'O Ricardo pagou duzentos reais pelo relógio' });
+    expect(r.problemas.length).toBeGreaterThan(0);
+  });
+
+  it('não acusa um título que não entrega o fim', () => {
+    const r = J.julgSpoilerNaEmbalagem(TRANSCRICAO, { titulo: 'Achei um relógio estranho na rua' });
+    expect(r.problemas).toEqual([]);
+  });
+
+  it('entra na conferência local, mapeado para a dimensão embalagem', () => {
+    const local = J.conferirJulgamentoLocal(TRANSCRICAO, { titulo: 'O Ricardo pagou duzentos reais pelo relógio' });
+    const achado = local.achados.find((a) => /entrega o desfecho/.test(a.texto));
+    expect(achado, 'o achado precisa chegar até a lista final de achados').toBeTruthy();
+    expect(achado.dimensao).toBe('embalagem');
+  });
+});
+
+/* ========================================================================== */
+describe('a jornada do espectador — só o crítico de retenção percorre por trecho', () => {
+  it('o prompt do crítico de retenção pede a travessia por trecho', () => {
+    const p = J.buildAvaliadorPrompt('retencao', BOM, {}, []);
+    expect(p).toMatch(/PERCORRA O VÍDEO POR TRECHO/);
+    expect(p).toMatch(/"jornada":/);
+    expect(p).toMatch(/"recompensa_final":/);
+  });
+
+  it('nenhum outro avaliador ganha o esquema de jornada', () => {
+    J.JULG_BANCA_COMPLETA.filter((id) => id !== 'retencao').forEach((id) => {
+      const p = J.buildAvaliadorPrompt(id, BOM, {}, []);
+      expect(p, id).not.toMatch(/PERCORRA O VÍDEO POR TRECHO/);
+      expect(p, id).not.toMatch(/"jornada":/);
+    });
+  });
+
+  it('normaliza a jornada só para o avaliador de retenção', () => {
+    const payload = {
+      notas: [{ dimensao: 'retencao', nota: 7 }],
+      jornada: [{ trecho: '0-3s', risco_abandono: 'alto', observacao: 'começa devagar' }],
+      recompensa_final: true, recompensa_final_texto: 'fecha o gancho do início',
+    };
+    const retencao = J.normalizarAvaliacao(payload, 'retencao');
+    expect(retencao.jornada).toEqual([{ trecho: '0-3s', riscoAbandono: 'alto', observacao: 'começa devagar' }]);
+    expect(retencao.recompensaFinal).toBe(true);
+    expect(retencao.recompensaFinalTexto).toBe('fecha o gancho do início');
+
+    const outro = J.normalizarAvaliacao(payload, 'impacto');
+    expect(outro.jornada, 'jornada não pertence a nenhum outro avaliador').toBeUndefined();
+  });
+
+  it('degrada em silêncio diante de jornada ausente ou malformada', () => {
+    const semJornada = J.normalizarAvaliacao({ notas: [{ dimensao: 'retencao', nota: 7 }] }, 'retencao');
+    expect(semJornada.jornada).toEqual([]);
+    expect(semJornada.recompensaFinal).toBe(false);
+
+    const malformada = J.normalizarAvaliacao({
+      notas: [{ dimensao: 'retencao', nota: 7 }],
+      jornada: [
+        { trecho: 'trecho-que-nao-existe', risco_abandono: 'alto' },
+        { trecho: 'clímax', risco_abandono: 'furioso', observacao: 'x' },
+        'nem um objeto',
+      ],
+    }, 'retencao');
+    // O trecho inválido é descartado; o risco inválido cai no valor mais seguro.
+    expect(malformada.jornada).toEqual([{ trecho: 'clímax', riscoAbandono: 'baixo', observacao: 'x' }]);
+  });
+
+  it('a jornada nunca vira nota — o juiz continua lendo só .notas', () => {
+    // Mesma avaliação, com e sem os campos de jornada: o julgamento tem de
+    // sair idêntico, porque julgarConteudo só olha para `.notas`.
+    const semJornada = [{ avaliador: 'retencao', notas: [{ dimensao: 'retencao', nota: 6 }], resumo: '' }];
+    const comJornada = [{
+      ...semJornada[0],
+      jornada: [{ trecho: 'final', riscoAbandono: 'alto', observacao: 'termina sem fechar' }],
+      recompensaFinal: false, recompensaFinalTexto: 'não paga o que prometeu',
+    }];
+    const a = J.julgarConteudo(semJornada, []);
+    const b = J.julgarConteudo(comJornada, []);
+    expect(b).toEqual(a);
   });
 });

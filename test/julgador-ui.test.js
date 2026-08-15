@@ -33,6 +33,7 @@ const montarTela = () => {
         <button type="button" data-mtab="a" class="active">Um</button>
         <button type="button" data-mtab="b">Seleção</button>
       </div>
+      <select id="j-formato"></select>
       <textarea id="j-conteudo"></textarea>
       <textarea id="j-visual"></textarea>
       <input id="j-titulo" /><input id="j-capa" /><textarea id="j-legenda"></textarea>
@@ -221,6 +222,106 @@ Comenta aqui embaixo se já aconteceu com você.`;
   });
 });
 
+describe('a nota ponderada e o fator positivo na tela', () => {
+  const itemComPeso = (formato) => {
+    const juizo = U.julgarConteudo([
+      { avaliador: 'retencao', notas: [{ dimensao: 'retencao', nota: 4, problema: 'perde gente cedo' },
+        { dimensao: 'historia', nota: 8 }] },
+      { avaliador: 'impacto', notas: [{ dimensao: 'impacto', nota: 9 }, { dimensao: 'clareza', nota: 8 }] },
+      { avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 8 }] },
+    ], [], formato ? { formato } : undefined);
+    return { id: 'p1', createdAt: new Date().toISOString(), conteudo: 'x', embalagem: {}, juizo, local: {}, banca: [] };
+  };
+
+  it('mostra "o que mais pesa na nota", visualmente separado da pior dimensão', () => {
+    U.renderJulgResultado(itemComPeso());
+    const bloco = [...document.querySelectorAll('.julg-secao-titulo')]
+      .find((e) => /O que mais pesa na nota/.test(e.textContent));
+    expect(bloco, 'o bloco de peso precisa existir').toBeTruthy();
+    expect(document.querySelectorAll('.julg-peso').length).toBeGreaterThan(0);
+  });
+
+  it('avisa que a nota ponderada não é o algoritmo de nenhuma plataforma', () => {
+    U.renderJulgResultado(itemComPeso());
+    const selo = document.querySelector('.julg-nota-ponderada');
+    expect(selo).toBeTruthy();
+    expect(selo.getAttribute('title')).toMatch(/não é o algoritmo real de nenhuma plataforma/);
+  });
+
+  it('o rótulo do formato escolhido aparece junto da nota ponderada', () => {
+    U.renderJulgResultado(itemComPeso('curto'));
+    expect(document.querySelector('.julg-nota-ponderada').textContent).toMatch(/Shorts\/Reels\/TikTok/);
+  });
+
+  it('mostra o fator positivo — o par simétrico do principal', () => {
+    U.renderJulgResultado(itemComPeso());
+    const f = document.querySelector('.julg-fator-positivo');
+    expect(f, 'a maior nota da mesa precisa aparecer como fator positivo').toBeTruthy();
+    expect(f.textContent).toMatch(/Primeiro impacto está forte — 9\/10/);
+  });
+
+  it('sem ponderado no juízo (formato antigo, sem 3º parâmetro), o bloco de peso simplesmente não aparece', () => {
+    const juizoAntigo = { avaliadas: [], reprovadas: [], criticas: [], veredito: 'sim',
+      vereditoInfo: { label: 'PUBLICARIA', resumo: '' }, principal: null, pontoForte: null,
+      acoes: [], eixos: [], nota: 0, media: 0 };
+    U.renderJulgResultado({ id: 'y', juizo: juizoAntigo, local: {}, banca: [] });
+    expect(document.querySelector('.julg-peso')).toBeFalsy();
+    expect(document.querySelector('.julg-fator-positivo')).toBeFalsy();
+  });
+});
+
+describe('a jornada do espectador na tela', () => {
+  const itemComJornada = () => {
+    const juizo = U.julgarConteudo([
+      { avaliador: 'retencao', notas: [{ dimensao: 'retencao', nota: 7 }, { dimensao: 'historia', nota: 8 }] },
+    ], []);
+    return {
+      id: 'j1', createdAt: new Date().toISOString(), conteudo: 'x', embalagem: {}, juizo, local: {}, banca: [],
+      avaliacoes: [{
+        avaliador: 'retencao', notas: [{ dimensao: 'retencao', nota: 7 }],
+        jornada: [
+          { trecho: '0-3s', riscoAbandono: 'alto', observacao: 'começa devagar, sem gancho' },
+          { trecho: 'final', riscoAbandono: 'baixo', observacao: 'fecha o que abriu' },
+        ],
+        recompensaFinal: true, recompensaFinalTexto: 'a pergunta do início é respondida',
+      }],
+    };
+  };
+
+  it('mostra a travessia trecho por trecho quando o crítico de retenção devolveu jornada', () => {
+    U.renderJulgResultado(itemComJornada());
+    const detalhes = [...document.querySelectorAll('summary')]
+      .find((e) => /A jornada do espectador, trecho por trecho/.test(e.textContent));
+    expect(detalhes, 'o bloco de jornada precisa existir').toBeTruthy();
+    const trechos = document.querySelectorAll('.julg-trecho');
+    expect(trechos.length).toBe(2);
+    expect(trechos[0].textContent).toMatch(/0-3s/);
+    expect(trechos[0].textContent).toMatch(/começa devagar/);
+  });
+
+  it('mostra se há recompensa no final', () => {
+    U.renderJulgResultado(itemComJornada());
+    const area = document.getElementById('j-result-area').textContent;
+    expect(area).toMatch(/Recompensa no final: sim/);
+    expect(area).toMatch(/a pergunta do início é respondida/);
+  });
+
+  it('sem jornada nenhuma (ou sem crítico de retenção na banca), o bloco não aparece', () => {
+    const juizo = U.julgarConteudo([{ avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 8 }] }], []);
+    U.renderJulgResultado({ id: 'j2', juizo, local: {}, banca: [], avaliacoes: [] });
+    const detalhes = [...document.querySelectorAll('summary')]
+      .find((e) => /A jornada do espectador/.test(e.textContent));
+    expect(detalhes).toBeFalsy();
+  });
+
+  it('a jornada também sobrevive na versão copiável', () => {
+    const texto = U.julgDiagnosticoEmTexto(itemComJornada());
+    expect(texto).toMatch(/A JORNADA DO ESPECTADOR, TRECHO POR TRECHO/);
+    expect(texto).toMatch(/0-3s.*começa devagar/);
+    expect(texto).toMatch(/Recompensa no final: sim/);
+  });
+});
+
 describe('julgar outro conteúdo', () => {
   const encher = () => {
     document.getElementById('j-conteudo').value = 'o roteiro do primeiro vídeo, com bastante texto aqui';
@@ -372,6 +473,53 @@ describe('a descrição visual', () => {
     U.renderJulgador();
     document.querySelector('[data-julg-id="v1"]').click();
     expect(document.getElementById('j-visual').value).toBe('o Zé de chapéu na calçada');
+  });
+});
+
+describe('o formato do conteúdo', () => {
+  beforeEach(() => { U.State.apiKeys = { groq: 'gsk_teste' }; U.renderJulgador(); });
+
+  it('o seletor vem populado com os formatos do registro, começando em Geral', () => {
+    const sel = document.getElementById('j-formato');
+    const rotulos = [...sel.options].map((o) => o.textContent);
+    expect(rotulos).toContain('Geral');
+    expect(rotulos.length).toBeGreaterThan(1);
+    expect(sel.value, 'default é o formato neutro').toBe('geral');
+  });
+
+  it('o campo guarda sozinho, como os outros', () => {
+    const sel = document.getElementById('j-formato');
+    sel.value = 'curto';
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(U.State.julgadorDraft.formato).toBe('curto');
+  });
+
+  it('volta ao reabrir a ferramenta', () => {
+    const sel = document.getElementById('j-formato');
+    sel.value = 'informativo';
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    montarTela();
+    U.renderJulgador();
+    expect(document.getElementById('j-formato').value).toBe('informativo');
+  });
+
+  it('"Julgar outro conteúdo" preserva o formato — é configuração da sessão, não do vídeo', () => {
+    const sel = document.getElementById('j-formato');
+    sel.value = 'comedia';
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    U.julgNovoConteudo(true);
+    expect(U.State.julgadorDraft.formato, 'o formato não é conteúdo — não devia ser apagado').toBe('comedia');
+    expect(document.getElementById('j-formato').value).toBe('comedia');
+  });
+
+  it('reabrir um julgamento do histórico traz o formato usado naquela avaliação', () => {
+    const juizo = U.julgarConteudo(
+      [{ avaliador: 'valor', notas: [{ dimensao: 'valor', nota: 9 }] }], [], { formato: 'causo' });
+    U.State.julgamentos = [{ id: 'v1', createdAt: new Date().toISOString(), nome: 'x',
+      conteudo: 'a fala do vídeo', visual: '', embalagem: {}, juizo }];
+    U.renderJulgador();
+    document.querySelector('[data-julg-id="v1"]').click();
+    expect(document.getElementById('j-formato').value).toBe('causo');
   });
 });
 

@@ -99,6 +99,80 @@ const JULG_EIXOS = [
 ];
 
 /* -------------------------------------------------------------------------- */
+/* §1b — Pesos editoriais: quanto cada dimensão vale na nota ponderada         */
+/*                                                                             */
+/* NADA AQUI É O ALGORITMO DE NENHUMA PLATAFORMA. As plataformas não publicam  */
+/* pesos — o YouTube é explícito que usa "centenas de sinais" e que a         */
+/* importância de cada um varia por recurso. Estes números são uma OPINIÃO    */
+/* EDITORIAL desta ferramenta, calibrada a partir do que é público (retenção  */
+/* e tempo de exibição relativo pesam muito para vídeo curto; satisfação e    */
+/* sinais de interação entram na compreensão de resposta do espectador) — não */
+/* uma tentativa de adivinhar o algoritmo. Todo lugar da tela que mostra esta */
+/* nota precisa dizer isso.                                                   */
+/*                                                                             */
+/* A NOTA PONDERADA NUNCA DECIDE O VEREDITO. O veredito continua sendo        */
+/* decidido só por `criticas`/`reprovadas`, exatamente como sempre foi —      */
+/* senão uma falha crítica numa dimensão de peso baixo (ex.: naturalidade,    */
+/* 3%) poderia ficar diluída e deixar de derrubar o veredito, que é           */
+/* exatamente o problema que "nota baixa não se esconde na média" existe      */
+/* para evitar. A ponderada é uma SEGUNDA informação, paralela, nunca uma     */
+/* substituta da primeira.                                                    */
+/* -------------------------------------------------------------------------- */
+
+/* O perfil `geral` — pesos válidos para qualquer conteúdo, sem presumir
+ * formato. É o item [0] e o default de `julgFormato`: ao contrário do Causos
+ * (que tem um gênero mais comum para cair de volta), o Julgador não tem uma
+ * etapa de concepção que descubra o formato sozinho — quem julga já sabe o
+ * formato do próprio conteúdo, e presumir um por padrão seria inventar uma
+ * opinião que o usuário não deu. */
+const JULG_FORMATOS = [
+  {
+    id: 'geral', label: 'Geral',
+    contexto: 'Sem presumir formato — pesos equilibrados para qualquer tipo de conteúdo.',
+    pesos: {
+      retencao: 30, impacto: 20, valor: 15, compartilhamento: 12, comentarios: 6,
+      curiosidade: 5, historia: 3, clareza: 4, naturalidade: 3, embalagem: 2,
+    },
+  },
+  {
+    id: 'curto', label: 'Vídeo curto (Shorts/Reels/TikTok)',
+    contexto: 'Retenção e gancho dominam: é onde a imensa maioria do público decide ir embora.',
+    pesos: {
+      retencao: 35, impacto: 25, valor: 12, compartilhamento: 10, curiosidade: 5,
+      comentarios: 5, historia: 2, clareza: 3, naturalidade: 2, embalagem: 1,
+    },
+  },
+  {
+    id: 'informativo', label: 'Informativo',
+    contexto: 'Clareza e valor entregue ganham peso — quem assiste veio buscar entendimento.',
+    pesos: {
+      valor: 22, retencao: 20, clareza: 15, impacto: 12, compartilhamento: 8,
+      comentarios: 6, curiosidade: 5, naturalidade: 5, historia: 4, embalagem: 3,
+    },
+  },
+  {
+    id: 'comedia', label: 'Comédia',
+    contexto: 'Retenção, compartilhamento e a surpresa que sustenta a piada.',
+    pesos: {
+      retencao: 28, compartilhamento: 18, impacto: 15, valor: 12, comentarios: 10,
+      curiosidade: 6, historia: 3, clareza: 3, naturalidade: 3, embalagem: 2,
+    },
+  },
+  {
+    id: 'causo', label: 'Causo / história',
+    contexto: 'Retenção com curiosidade e conclusão — uma história vive ou morre pelo arco.',
+    pesos: {
+      retencao: 26, valor: 15, curiosidade: 12, historia: 12, impacto: 12,
+      compartilhamento: 10, comentarios: 5, clareza: 3, naturalidade: 3, embalagem: 2,
+    },
+  },
+];
+
+function julgFormato(id) {
+  return JULG_FORMATOS.find((f) => f.id === id) || JULG_FORMATOS[0];
+}
+
+/* -------------------------------------------------------------------------- */
 /* §2 — Conferência medida (roda no código, sem IA)                            */
 /* -------------------------------------------------------------------------- */
 
@@ -427,6 +501,29 @@ function julgProgressao(texto) {
   return { problemas, novidades };
 }
 
+/* VÍDEO SEM CONCLUSÃO. O Causos já resolveu exatamente este sintoma no r236 —
+ * `causoTerminaAbrupto`, em causos-motor.js, que carrega antes deste arquivo
+ * no manifesto — então chama-se direto em vez de reescrever: texto sem
+ * pontuação final, ou terminando numa palavra que pede continuação ("e",
+ * "que"...). Isto não julga se o FIM é bom — isso é o `recompensa_final` do
+ * crítico de retenção; isto pega só o corte mecânico. */
+function julgTerminaAbrupto(texto) {
+  if (typeof causoTerminaAbrupto !== 'function') return { problemas: [] };
+  return causoTerminaAbrupto(texto);
+}
+
+/* SPOILER NA EMBALAGEM. Diferente de `julgPromessaCumprida` (que pega a
+ * promessa NÃO cumprida), isto pega o oposto: o título/legenda que o AUTOR
+ * digitou entregando o desfecho antes da hora. `embAuditarSpoiler`
+ * (embalagem.js, que também carrega antes deste arquivo) já faz exatamente
+ * essa conta — hoje só é usada para auditar sugestão gerada pela própria
+ * ferramenta; aqui aplica-se ao que o usuário já escreveu. */
+function julgSpoilerNaEmbalagem(texto, embalagem, visual) {
+  if (typeof embAuditarSpoiler !== 'function') return { problemas: [] };
+  const a = embAuditarSpoiler(embalagem || {}, texto, visual);
+  return { problemas: a.problemas };
+}
+
 /**
  * Tudo o que dá para medir sem perguntar nada a ninguém. Vira munição para os
  * avaliadores (que não devem gastar atenção com o que a conta já resolveu) e
@@ -449,6 +546,8 @@ function conferirJulgamentoLocal(texto, embalagem, visual) {
   const ia = julgFrasesDeIA(texto);
   const promessa = julgPromessaCumprida(texto, embalagem, visual);
   const prog = julgProgressao(texto);
+  const fim = julgTerminaAbrupto(texto);
+  const spoilerEmb = julgSpoilerNaEmbalagem(texto, embalagem, visual);
 
   const achados = []
     .concat(gancho.problemas.map((p) => ({ dimensao: 'impacto', texto: p })))
@@ -457,11 +556,13 @@ function conferirJulgamentoLocal(texto, embalagem, visual) {
     .concat(prog.problemas.map((p) => ({ dimensao: 'retencao', texto: p })))
     .concat(cta.problemas.map((p) => ({ dimensao: 'comentarios', texto: p })))
     .concat(ia.problemas.map((p) => ({ dimensao: 'naturalidade', texto: p })))
-    .concat(promessa.problemas.map((p) => ({ dimensao: 'embalagem', texto: p })));
+    .concat(promessa.problemas.map((p) => ({ dimensao: 'embalagem', texto: p })))
+    .concat(fim.problemas.map((p) => ({ dimensao: 'historia', texto: p })))
+    .concat(spoilerEmb.problemas.map((p) => ({ dimensao: 'embalagem', texto: p })));
 
   return {
     achados, gancho, repeticao: repet, reexplicacao: reexp, cta,
-    frasesDeIA: ia, promessa, progressao: prog,
+    frasesDeIA: ia, promessa, progressao: prog, fim, spoilerEmbalagem: spoilerEmb,
     duracao: julgSegundos(_jPalavras(texto).length),
     ok: achados.length === 0,
   };
@@ -686,6 +787,18 @@ function julgBlocoConteudo(conteudo, embalagem, visual) {
   return linhas.join('\n');
 }
 
+/* A JORNADA DO ESPECTADOR — só o crítico de retenção recebe isto.
+ *
+ * O resto da banca julga com uma pergunta holística por dimensão. Retenção é
+ * diferente: "existe motivo para continuar até o fim?" depende de ONDE no
+ * vídeo o motivo aparece ou desaparece, e uma nota só apaga essa informação.
+ * Por isso este crítico também devolve uma travessia por trechos — onde há
+ * risco de abandono, onde a curiosidade sobe ou cai, se há recompensa no
+ * fim — que não vira nota de nenhuma dimensão (só as notas de sempre fazem
+ * isso): serve para MOSTRAR, não para PONDERAR. */
+const JULG_TRECHOS_JORNADA = ['0-3s', '3-10s', '10-20s', 'desenvolvimento', 'clímax', 'final'];
+const JULG_RISCOS_ABANDONO = ['baixo', 'medio', 'alto'];
+
 function buildAvaliadorPrompt(avaliadorId, conteudo, embalagem, achadosLocais, visual) {
   const a = JULG_AVALIADORES[avaliadorId];
   if (!a) throw new Error('Avaliador desconhecido: ' + avaliadorId);
@@ -693,6 +806,7 @@ function buildAvaliadorPrompt(avaliadorId, conteudo, embalagem, achadosLocais, v
     const d = julgDimensao(id);
     return d ? `  ${d.id} — ${d.label}: ${d.pergunta}` : '';
   }).filter(Boolean);
+  const ehRetencao = avaliadorId === 'retencao';
 
   const linhas = [];
   linhas.push(a.persona);
@@ -713,10 +827,22 @@ function buildAvaliadorPrompt(avaliadorId, conteudo, embalagem, achadosLocais, v
   linhas.push('== SUAS DIMENSÕES (dê nota de 0 a 10 em cada uma) ==');
   dims.forEach((d) => linhas.push(d));
   linhas.push('');
+  if (ehRetencao) {
+    linhas.push('== ALÉM DA NOTA: PERCORRA O VÍDEO POR TRECHO ==');
+    linhas.push('Não julgue a retenção como uma coisa só — percorra a jornada de quem assiste, trecho por trecho: ' + JULG_TRECHOS_JORNADA.join(', ') + '.');
+    linhas.push('Em cada um: existe risco de abandono? A informação se repete? A curiosidade sobe ou cai? Tem coisa desnecessária ali?');
+    linhas.push('E no fim: existe recompensa — a pergunta aberta lá atrás é respondida, o esforço de assistir até ali valeu?');
+  }
+  linhas.push('');
   linhas.push('Devolva SOMENTE JSON, sem cercas:');
   linhas.push('{');
   linhas.push('  "notas": [{ "dimensao": "' + a.dimensoes[0] + '", "nota": 7, "problema": "o que está errado e onde (com o momento aproximado, se der)", "correcao": "o que fazer — uma ação, não um conselho" }],');
-  linhas.push('  "resumo": "em uma frase, o que mais atrapalha"');
+  linhas.push('  "resumo": "em uma frase, o que mais atrapalha"' + (ehRetencao ? ',' : ''));
+  if (ehRetencao) {
+    linhas.push('  "jornada": [{ "trecho": "0-3s", "risco_abandono": "baixo|medio|alto", "observacao": "o que acontece nesse trecho" }, ... um por trecho listado acima],');
+    linhas.push('  "recompensa_final": true,');
+    linhas.push('  "recompensa_final_texto": "por que há ou não recompensa no fim"');
+  }
   linhas.push('}');
   return linhas.join('\n');
 }
@@ -738,7 +864,26 @@ function normalizarAvaliacao(obj, avaliadorId) {
       problema: _jTexto(n.problema),
       correcao: _jTexto(n.correcao),
     }));
-  return { avaliador: avaliadorId, notas, resumo: _jTexto(o.resumo) };
+  const base = { avaliador: avaliadorId, notas, resumo: _jTexto(o.resumo) };
+  if (avaliadorId !== 'retencao') return base;
+
+  /* A JORNADA nunca vira nota — é sanitizada à parte e só serve para exibir.
+   * Degrada em silêncio diante de payload ausente ou malformado, mesmo padrão
+   * do resto do normalizador: um crítico com resposta ruim não pode derrubar
+   * o julgamento inteiro. */
+  const jornada = (Array.isArray(o.jornada) ? o.jornada : [])
+    .filter((j) => j && JULG_TRECHOS_JORNADA.indexOf(_jTexto(j.trecho)) >= 0)
+    .map((j) => ({
+      trecho: _jTexto(j.trecho),
+      riscoAbandono: JULG_RISCOS_ABANDONO.indexOf(_jTexto(j.risco_abandono)) >= 0 ? _jTexto(j.risco_abandono) : 'baixo',
+      observacao: _jTexto(j.observacao),
+    }));
+  return {
+    ...base,
+    jornada,
+    recompensaFinal: !!o.recompensa_final,
+    recompensaFinalTexto: _jTexto(o.recompensa_final_texto),
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -775,7 +920,8 @@ function _jGravidade(nota, minimo) {
  * A REGRA: nota baixa não se esconde na média. Qualquer dimensão abaixo do
  * mínimo dela reprova o conteúdo — 95+95+95+95+40 não é 84.
  */
-function julgarConteudo(avaliacoes, achadosLocais) {
+function julgarConteudo(avaliacoes, achadosLocais, opcoes) {
+  const o = opcoes || {};
   const porDimensao = new Map();
 
   const registrar = (dimensao, nota, problema, correcao, fonte) => {
@@ -811,6 +957,43 @@ function julgarConteudo(avaliacoes, achadosLocais) {
     .map((a) => ({ ...a, gravidade: _jGravidade(a.nota, a.minimo) }));
   const reprovadas = avaliadas.filter((a) => a.nota < a.minimo);
   const criticas = reprovadas.filter((a) => a.gravidade === 'critico');
+
+  /* A NOTA PONDERADA — camada NOVA e PARALELA, nunca substituindo a de cima.
+   *
+   * Calculada sobre o MESMO `avaliadas` que o resto do juiz usa: uma dimensão
+   * que um achado de código ou o Espectador já derrubou entra aqui pelo seu
+   * valor real, sem duplicar lógica nenhuma. Os pesos são renormalizados para
+   * somar 100% só entre as dimensões PRESENTES — a triagem em lote roda com
+   * 3-4 avaliadores, e sem renormalizar a nota ponderada cairia por falta de
+   * cobertura, não por qualidade. Nunca alimenta `veredito`/`criticas`/
+   * `principal`/`acoes`/`nota` — ver a doutrina em `JULG_FORMATOS`. */
+  const formato = julgFormato(o.formato);
+  const pesosPresentes = avaliadas
+    .map((a) => ({ a, peso: formato.pesos[a.dimensao] || 0 }))
+    .filter((x) => x.peso > 0);
+  const somaPesos = pesosPresentes.reduce((acc, x) => acc + x.peso, 0);
+  const porDimensaoPonderado = pesosPresentes
+    .map((x) => ({
+      dimensao: x.a.dimensao, label: x.a.label, nota: x.a.nota, peso: x.peso,
+      gravidade: x.a.gravidade,
+      contribuicao: somaPesos ? (x.peso / somaPesos) * (10 - x.a.nota) : 0,
+    }))
+    .sort((x, y) => y.contribuicao - x.contribuicao);
+  const ponderado = {
+    formato: formato.id,
+    nota: somaPesos
+      ? Math.round((pesosPresentes.reduce((acc, x) => acc + x.a.nota * x.peso, 0) / somaPesos) * 10)
+      : 0,
+    porDimensao: porDimensaoPonderado,
+  };
+
+  /* O PONTO FORTE — simétrico ao `principal`, mas para o que já está bom: a
+   * maior nota em `avaliadas` (já passada pelo pior-vence de cada dimensão,
+   * então é "a melhor das piores", não uma opinião isolada de um avaliador
+   * complacente). */
+  const pontoForte = avaliadas.length
+    ? avaliadas.slice().sort((x, y) => y.nota - x.nota || x.momento - y.momento)[0]
+    : null;
 
   /* A PRIORIDADE — gravidade × onde o defeito age.
    *
@@ -860,7 +1043,9 @@ function julgarConteudo(avaliacoes, achadosLocais) {
     veredito,
     vereditoInfo: JULG_VEREDITOS[veredito],
     principal,
+    pontoForte,
     acoes,
+    ponderado,
     /* A nota geral é a PIOR dimensão, não a média — e por isso ela é honesta.
      * Uma média de 84 esconderia um 4 em naturalidade; a pior, não. A média fica
      * disponível ao lado, só para mostrar. */
@@ -971,7 +1156,7 @@ async function runJulgamentoPipeline(opts) {
 
   // 3) O JUIZ — código, não opinião.
   etapa('juiz', 'Decidindo…', 'A pior nota decide; média não esconde defeito.');
-  const juizo = julgarConteudo(avaliacoes, local.achados);
+  const juizo = julgarConteudo(avaliacoes, local.achados, { formato: o.formato });
   etapas.push('juiz');
 
   etapa('pronto', 'Pronto.', JULG_VEREDITOS[juizo.veredito].label);

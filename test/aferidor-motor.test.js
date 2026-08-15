@@ -91,6 +91,77 @@ describe('o questionário só admite pergunta verificável', () => {
 });
 
 /* ========================================================================== */
+describe('a POLARIDADE da pergunta decide o ponto, não a palavra da resposta', () => {
+  /* A tabela-verdade que governa a ferramenta, escrita como teste porque é o
+   * requisito mais fácil de quebrar sem ninguém ver: basta alguém "simplificar"
+   * o cálculo para `resposta === 'sim'` e metade do questionário passa a
+   * pontuar ao contrário — com a nota continuando a sair, plausível e errada.
+   *
+   * Das 21 perguntas, 8 descrevem DEFEITO ("existe trecho repetitivo?"). Nelas
+   * o SIM é má notícia e o NÃO é que pontua. */
+  const positiva = () => A.AFER_QUESTOES.find((q) => q.bom === 'sim');
+  const negativa = () => A.AFER_QUESTOES.find((q) => q.bom === 'nao');
+
+  const pontuou = (q, resposta) => {
+    const c = A.consolidarRespostas([new Map([[q.id, resposta]])], [q]);
+    const r = A.calcularAfericao(c, { rodadas: 1 });
+    return { acertou: c[0].acertou, ganho: r.pesoGanho, total: r.pesoTotal };
+  };
+
+  it('pergunta POSITIVA + SIM = pontua', () => {
+    const q = positiva();
+    const r = pontuou(q, 'sim');
+    expect(r.acertou).toBe(true);
+    expect(r.ganho).toBe(q.peso);
+  });
+
+  it('pergunta POSITIVA + NÃO = não pontua', () => {
+    const q = positiva();
+    const r = pontuou(q, 'nao');
+    expect(r.acertou).toBe(false);
+    expect(r.ganho).toBe(0);
+    expect(r.total, 'o peso continua no divisor — a pergunta foi verificada').toBe(q.peso);
+  });
+
+  it('pergunta NEGATIVA + SIM = não pontua (o defeito foi encontrado)', () => {
+    const q = negativa();
+    const r = pontuou(q, 'sim');
+    expect(r.acertou, 'SIM numa pergunta de defeito virou ponto').toBe(false);
+    expect(r.ganho).toBe(0);
+  });
+
+  it('pergunta NEGATIVA + NÃO = pontua (o defeito não existe)', () => {
+    const q = negativa();
+    const r = pontuou(q, 'nao');
+    expect(r.acertou, 'NÃO numa pergunta de defeito deixou de pontuar').toBe(true);
+    expect(r.ganho).toBe(q.peso);
+  });
+
+  it('e o questionário tem perguntas das DUAS naturezas, em quantidade', () => {
+    // Se um dia todas virassem positivas, os quatro testes acima continuariam
+    // passando e não estariam medindo nada.
+    const pos = A.AFER_QUESTOES.filter((q) => q.bom === 'sim');
+    const neg = A.AFER_QUESTOES.filter((q) => q.bom === 'nao');
+    expect(pos.length).toBeGreaterThanOrEqual(5);
+    expect(neg.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('trocar a polaridade de uma pergunta inverte o ponto dela, e só o dela', () => {
+    /* A prova de que o peso e a polaridade são independentes: mesma resposta da
+     * IA, mesma pergunta, mesmo peso — só o campo `bom` muda, e o resultado
+     * vira. É o que permite recalibrar a tabela sem tocar na análise. */
+    const q = positiva();
+    const comoEsta = pontuou(q, 'sim');
+    const invertida = { ...q, bom: 'nao' };
+    const c = A.consolidarRespostas([new Map([[q.id, 'sim']])], [invertida]);
+    const r = A.calcularAfericao(c, { rodadas: 1 });
+    expect(comoEsta.acertou).toBe(true);
+    expect(r.questoes[0].acertou).toBe(false);
+    expect(r.pesoTotal, 'o peso não pode ter mudado junto').toBe(q.peso);
+  });
+});
+
+/* ========================================================================== */
 describe('a IA não vê o peso — é o que sustenta a separação', () => {
   it('nenhum peso aparece no prompt', () => {
     const p = A.buildAferPrompt(CONTEUDO, {}, '', A.AFER_QUESTOES);

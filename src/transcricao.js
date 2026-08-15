@@ -121,6 +121,39 @@ const TRANSC_NUMERO_EXTENSO = new Set([
   'centenas', 'primeiro', 'segundo', 'terceiro',
 ]);
 
+/* VERBO DE FALA — o que o travessão substitui.
+ *
+ * O prompt manda, com todas as letras, "separar QUEM FALA: cada fala numa linha
+ * própria, começando com travessão (—)". Quando o modelo obedece, "aí o vizinho
+ * FALOU vizinho me compra esse relógio e eu FALEI quanto e ele DISSE cinquenta"
+ * vira quatro linhas de diálogo — e os verbos de fala somem, porque é
+ * exatamente isso que o travessão faz: ele É o "fulano falou".
+ *
+ * A conferência contava esses verbos como palavras apagadas e REPROVAVA a
+ * fatia. O texto voltava cru, sem aviso nenhum, toda vez que a transcrição
+ * tinha diálogo — que é o caso mais comum em causo, entrevista e história
+ * contada. A ferramenta brigava com a própria instrução.
+ *
+ * Ficam de fora daqui os verbos que carregam conteúdo além do ato de falar
+ * ("contou", "pediu", "mandou", "chamou"): esses somem por resumo, não por
+ * formatação, e a conferência precisa continuar pegando isso. */
+const TRANSC_VERBO_DE_FALA = new Set([
+  'falou', 'falei', 'falamos', 'falaram', 'falava', 'falavam', 'falando',
+  'disse', 'dissi', 'disseram', 'dizia', 'diziam', 'dizendo', 'dizer',
+  'respondeu', 'respondi', 'responderam', 'respondia', 'respondendo',
+  'perguntou', 'perguntei', 'perguntaram', 'perguntava', 'perguntando',
+  'gritou', 'gritei', 'gritaram', 'gritava', 'gritando',
+  'retrucou', 'emendou', 'exclamou', 'indagou', 'replicou', 'comentou',
+  'murmurou', 'sussurrou', 'berrou', 'balbuciou', 'completou',
+]);
+
+/* O texto organizado virou DIÁLOGO? Só então a isenção acima se aplica — e é o
+ * que a mantém estreita: sem travessão de fala no resultado, nenhum verbo é
+ * perdoado, e a conferência segue tão dura quanto era. */
+function transcricaoVirouDialogo(novo) {
+  return /(^|\n)\s*[—–-]\s+\S/.test(String(novo || ''));
+}
+
 /* Preâmbulo de assistente. O modelo às vezes entrega "Aqui está o texto
  * corrigido:" antes do texto — e isso entraria no roteiro como se fosse fala. */
 const TRANSC_PREAMBULO = /^\s*(aqui est[áa][^\n:]{0,40}:|segue[^\n:]{0,40}:|texto (corrigido|organizado|revisado)[^\n:]{0,20}:|claro[!,.][^\n]{0,60}:)\s*/i;
@@ -152,20 +185,30 @@ function conferirTranscricao(original, limpo) {
   const novo = String(limpo || '');
   if (!novo.trim()) return { ok: false, problemas: ['a IA não devolveu texto.'] };
 
+  /* Virou diálogo? Então o travessão comeu os "fulano falou" de propósito, e as
+   * duas contas abaixo precisam saber disso — senão a conferência reprova
+   * justamente o trabalho que o prompt pediu. */
+  const dialogo = transcricaoVirouDialogo(novo);
+
   const pOrig = _tPalavras(orig).length;
   const pNovo = _tPalavras(novo).length;
   const proporcao = pOrig ? pNovo / pOrig : 1;
 
   // Encolher é resumo ou resposta cortada. Crescer muito é invenção.
-  if (proporcao < 0.75) {
+  // Em diálogo o piso cede: cada travessão substitui de duas a quatro palavras
+  // ("aí o vizinho falou"), então o texto encolhe de verdade sem perder nada.
+  const piso = dialogo ? 0.55 : 0.75;
+  if (proporcao < piso) {
     problemas.push(`o texto encolheu de ${pOrig} para ${pNovo} palavras — isso é resumo ou resposta cortada, não organização.`);
   } else if (proporcao > 1.35) {
     problemas.push(`o texto cresceu de ${pOrig} para ${pNovo} palavras — organizar não acrescenta conteúdo.`);
   }
 
   // O que estava dito continua dito? Números em algarismo saem da conta: eles
-  // viram extenso de propósito.
-  const doOriginal = [...new Set(_tConteudo(orig))].filter((w) => !/^\d+$/.test(w));
+  // viram extenso de propósito — e verbo de fala também, quando virou diálogo.
+  const doOriginal = [...new Set(_tConteudo(orig))]
+    .filter((w) => !/^\d+$/.test(w))
+    .filter((w) => !(dialogo && TRANSC_VERBO_DE_FALA.has(w)));
   if (doOriginal.length >= 10) {
     const noNovo = new Set(_tConteudo(novo));
     const sumiram = doOriginal.filter((w) => !noNovo.has(w));

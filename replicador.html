@@ -1071,10 +1071,9 @@ textarea::placeholder {
       <div class="model-row">
         <label>Modelo</label>
         <select id="modelo">
-          <option value="llama-3.3-70b-versatile">Llama 3.3 70B — qualidade máxima</option>
-          <option value="llama-3.1-8b-instant">Llama 3.1 8B — instantâneo</option>
-          <option value="openai/gpt-oss-120b">GPT-OSS 120B — maior modelo</option>
+          <option value="openai/gpt-oss-120b">GPT-OSS 120B — qualidade máxima</option>
           <option value="openai/gpt-oss-20b">GPT-OSS 20B — equilibrado</option>
+          <option value="qwen/qwen3.6-27b">Qwen3.6 27B — prévia</option>
         </select>
       </div>
 
@@ -1370,7 +1369,7 @@ async function gerar() {
   // foi removido da UI. Fallback para o seletor (oculto) so por seguranca.
   const modelo = (window.__AGENTE_CONFIG__ && window.__AGENTE_CONFIG__.groqModel)
     || (document.getElementById('modelo') && document.getElementById('modelo').value)
-    || 'llama-3.3-70b-versatile';
+    || 'openai/gpt-oss-120b';
 
   erro.style.display = 'none';
 

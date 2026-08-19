@@ -15,7 +15,7 @@
 //   --pauta <arquivo>   texto de entrada (padrão: test/fixtures/pauta-cajutiba.txt)
 //   --estilo <id>       padrão: Noticioso
 //   --tom <id>          padrão: Pessimista
-//   --modelo <id>       padrão: llama-3.3-70b-versatile
+//   --modelo <id>       padrão: openai/gpt-oss-120b
 //   --repetir <n>       n gerações seguidas (o modelo varia; 1 amostra não conclui)
 //   --base <url>        endpoint compatível com OpenAI (padrão: api.groq.com)
 //   --json              despeja o resultado bruto em vez do relatório
@@ -35,7 +35,7 @@ function parseArgs(argv) {
     pauta: path.join(RAIZ, 'test/fixtures/pauta-cajutiba.txt'),
     estilo: 'Noticioso',
     tom: 'Pessimista',
-    modelo: 'llama-3.3-70b-versatile',
+    modelo: 'openai/gpt-oss-120b',
     base: 'https://api.groq.com/openai/v1',
     repetir: 1,
     json: false,

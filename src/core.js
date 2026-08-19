@@ -215,7 +215,7 @@ const State = (() => {
   const oldModel = localStorage.getItem(STORAGE_KEYS.model);
   // Migrate old single-provider state to multi-provider
   const apiKeys = savedKeys || (oldKey ? { groq: oldKey, openai: '', anthropic: '' } : { groq: '', openai: '', anthropic: '' });
-  const models = savedModels || (oldModel ? { groq: oldModel, openai: 'gpt-5.4', anthropic: 'claude-sonnet-4-6' } : { groq: 'llama-3.3-70b-versatile', openai: 'gpt-5.4', anthropic: 'claude-sonnet-4-6' });
+  const models = savedModels || (oldModel ? { groq: oldModel, openai: 'gpt-5.4', anthropic: 'claude-sonnet-4-6' } : { groq: 'openai/gpt-oss-120b', openai: 'gpt-5.4', anthropic: 'claude-sonnet-4-6' });
   // Bloqueio do workspace: se há chaves CIFRADAS, não gravamos o padrão em claro
   // (as chaves reais só entram na memória após o desbloqueio com senha).
   const locked = !!localStorage.getItem(STORAGE_KEYS.apiKeysEnc);
@@ -231,7 +231,7 @@ const State = (() => {
     unlocked: !locked,  // já há chave utilizável em memória nesta sessão?
     // backwards compat — kept for legacy safety
     apiKey: oldKey || apiKeys.groq || '',
-    model: oldModel || models.groq || 'llama-3.3-70b-versatile',
+    model: oldModel || models.groq || 'openai/gpt-oss-120b',
     activePortalIndex: 0,
     portals: loadPortals(),
     generations: loadJSON(STORAGE_KEYS.generations, []),

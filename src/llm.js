@@ -214,8 +214,21 @@ async function callGroq({ apiKey, model, prompt }) {
     let msg = `Erro na Groq (${res.status})`;
     try {
       const j = await res.json();
-      if (j?.error?.message) msg = j.error.message;
-    } catch {}
+      const code = j?.error?.code || '';
+      const bruto = j?.error?.message || '';
+      // A Groq aposenta modelos periodicamente (a família Llama saiu em 2026).
+      // O texto cru vem em inglês e manda ler a documentação — quem está no meio
+      // de uma matéria precisa saber o que FAZER. O catálogo da plataforma já
+      // traz os sucessores, então o conserto é trocar o modelo ou só recarregar.
+      if (code === 'model_decommissioned' || code === 'model_not_found'
+          || /decommissioned|has been deprecated|does not exist/i.test(bruto)) {
+        msg = `O modelo "${model}" foi retirado do ar pela Groq e não atende mais. `
+            + 'Recarregue a página — a plataforma reajusta sozinha para um modelo atual. '
+            + 'Se preferir escolher, abra as Configurações e selecione outro modelo da lista.';
+      } else if (bruto) {
+        msg = bruto;
+      }
+    } catch { /* corpo não-JSON: fica a mensagem genérica com o status */ }
     throw new Error(msg);
   }
   const json = await res.json();

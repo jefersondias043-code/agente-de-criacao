@@ -1053,12 +1053,26 @@ function comentarioBloco(id, tone) {
   ].join('\n');
 }
 
+/* Catálogo Groq — atualizado em agosto de 2026.
+ *
+ * A Groq retirou TODA a família Llama que este catálogo oferecia. O Maverick
+ * saiu em março de 2026; o Llama 3.3 70B, o Llama 3.1 8B Instant e o Llama 4
+ * Scout foram anunciados em junho e deixaram de ser atendidos em agosto de
+ * 2026 — pedidos a esses IDs voltam com erro, não com texto. Os sucessores
+ * abaixo são os indicados pela própria Groq na migração.
+ *
+ * O primeiro item é o PADRÃO: quem tinha um modelo retirado salvo no navegador
+ * cai nele sozinho no boot (syncGroqModel, em apikey-sync.js, normaliza contra
+ * este catálogo). Manter o mais capaz na frente é o que preserva a qualidade
+ * de quem nunca abriu as Configurações.
+ *
+ * Ao mexer aqui, confira a lista viva em console.groq.com/docs/models — um ID
+ * fora do catálogo da Groq derruba todas as ferramentas de uma vez. */
 const PROVIDER_MODELS = {
   groq: [
-    { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', desc: 'Recomendado · ótimo custo-benefício, 128k ctx' },
-    { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B Instant', desc: 'Rápido e econômico' },
-    { id: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B', desc: 'Novo · contexto longo' },
-    { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick 17B', desc: 'Novo · mais capaz' },
+    { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', desc: 'Recomendado · o mais capaz, sucessor do Llama 3.3 70B' },
+    { id: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B', desc: 'Rápido e econômico · sucessor do Llama 3.1 8B' },
+    { id: 'qwen/qwen3.6-27b', label: 'Qwen3.6 27B', desc: 'Prévia da Groq · para experimentar, não para produção' },
   ],
   openai: [
     { id: 'gpt-5.5', label: 'GPT-5.5', desc: 'Último e mais capaz da OpenAI' },

@@ -28,6 +28,8 @@ export const SCRIPTS = [
   'aferidor.js',
   'm23-motor.js',
   'm23.js',
+  'matriz-motor.js',
+  'matriz.js',
   'extract.js',
   'posters.js',
   'poster-templates.js',

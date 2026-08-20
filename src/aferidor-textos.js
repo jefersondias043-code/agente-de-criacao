@@ -201,18 +201,27 @@ const AFER_FALA = {
     curtoBom: 'não fica pedindo like',
   },
 
-  /* ---- Humor: o que o questionário informativo nunca mediu ---- */
-  humor_deixa: {
-    conserto: 'Falta a virada no final. Guarde uma revelação ou um trocadilho que faça o começo ganhar outro sentido.',
-    forte: 'O final vira a mesa e faz reinterpretar tudo o que veio antes.',
-    curto: 'termina sem uma virada',
-    curtoBom: 'fecha com uma virada que reinterpreta o começo',
+  /* ---- Humor: o que o questionário informativo nunca mediu ----
+     As frases valem para os dois motores da comédia — a piada que vira no fim
+     e a situação que escala. Uma frase que só fale em "virada" manda o autor
+     de um humor de teimosia inventar um trocadilho que a cena não pede. */
+  humor_fecha: {
+    conserto: 'O final apenas para. Feche a graça: uma virada, um trocadilho, ou a situação levada ao ponto mais absurdo.',
+    forte: 'O final fecha a graça em vez de simplesmente parar.',
+    curto: 'o final apenas para, sem fechar a graça',
+    curtoBom: 'fecha a graça no final',
   },
-  humor_armacao: {
-    conserto: 'Nada é insistido ao longo do conteúdo para preparar o final. Repita alguma coisa de propósito — é a repetição que arma a piada.',
-    forte: 'Repete de propósito e usa isso para armar o final.',
-    curto: 'não prepara o final',
-    curtoBom: 'arma o final com a repetição certa',
+  humor_escalada: {
+    conserto: 'A graça fica no mesmo nível do começo ao fim. Faça a situação apertar: insista, repita, deixe piorar.',
+    forte: 'A graça vai crescendo — a situação aperta em vez de ficar parada.',
+    curto: 'a graça não cresce ao longo do conteúdo',
+    curtoBom: 'a graça vai crescendo até o fim',
+  },
+  humor_impasse: {
+    conserto: 'São piadas soltas, sem nada ligando uma à outra. Ponha um mal-entendido ou uma teimosia para sustentar a coisa.',
+    forte: 'Tem um impasse sustentando a graça do começo ao fim.',
+    curto: 'não tem impasse sustentando a graça',
+    curtoBom: 'tem um impasse que sustenta a graça',
   },
   humor_personagem: {
     conserto: 'As vozes soam iguais. Dê a cada uma um jeito próprio de falar, para dar de saber quem fala sem dizer o nome.',
@@ -221,9 +230,9 @@ const AFER_FALA = {
     curtoBom: 'cada voz tem jeito próprio de falar',
   },
   humor_gordura: {
-    conserto: 'Tem fala que não prepara o final nem caracteriza ninguém. Essa dá para cortar.',
-    forte: 'Cada fala serve à piada ou ao personagem.',
-    curto: 'tem fala que não serve à piada nem ao personagem',
+    conserto: 'Tem fala que não faz graça, não constrói a situação nem caracteriza ninguém. Essa dá para cortar.',
+    forte: 'Cada fala faz graça, constrói a situação ou caracteriza alguém.',
+    curto: 'tem fala que não serve à graça nem ao personagem',
     curtoBom: 'não tem fala sobrando',
   },
 

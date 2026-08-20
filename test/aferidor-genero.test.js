@@ -14,11 +14,21 @@
 // E havia o outro lado: NADA media a virada final, o timing ou os personagens.
 // O conteúdo perdia por ser causo e não ganhava por ser um causo bom.
 //
+// DEPOIS VEIO UM SEGUNDO VÍDEO, e ele reprovou com o gênero CERTO. A carona da
+// galinha — o homem com a galinha numa mão, a bacia debaixo do braço e o cacho
+// de banana na outra — foi lida como humor e reprovada assim mesmo, porque as
+// perguntas de humor que eu havia escrito descreviam a PIADA COM DEIXA: "o
+// final traz uma virada?", "alguma coisa prepara o final?". Isso é o causo das
+// galinhas; não é a carona, onde ninguém revela nada no fim e o absurdo só vai
+// subindo até os dois desistirem. Confundir um subgênero com o gênero é o mesmo
+// erro do questionário original, uma camada abaixo.
+//
 // O que os testes daqui seguram:
 //   1. a classificação acontece ISOLADA — quem escolhe o gênero não vê nenhuma
 //      pergunta de avaliação, senão classifica já procurando defeito;
 //   2. cada gênero traz as perguntas que fazem sentido nele;
-//   3. o causo lá de cima passa — e continua passando.
+//   3. os DOIS vídeos passam — o que vira no fim e o que escala até o fim;
+//   4. humor ruim continua reprovando: a régua afrouxou, não caiu.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { loadModules, clearStorage } from './helpers/load.mjs';
 
@@ -119,13 +129,13 @@ describe('cada gênero traz a régua que faz sentido nele', () => {
 
   it('e entram as perguntas que medem se a piada FUNCIONA', () => {
     const humor = ids(doGenero('humor'));
-    ['humor_deixa', 'humor_armacao', 'humor_personagem', 'humor_gordura']
+    ['humor_fecha', 'humor_escalada', 'humor_impasse', 'humor_personagem', 'humor_gordura']
       .forEach((id) => expect(humor, `falta "${id}"`).toContain(id));
   });
 
   it('mas essas perguntas não vazam para os outros gêneros', () => {
     ['noticia', 'educativo', 'historia', 'opiniao', A.AFER_GENERO_PADRAO].forEach((g) => {
-      expect(ids(doGenero(g)), `humor_deixa apareceu em "${g}"`).not.toContain('humor_deixa');
+      expect(ids(doGenero(g)), `humor_fecha apareceu em "${g}"`).not.toContain('humor_fecha');
     });
   });
 
@@ -224,6 +234,91 @@ describe('o causo das galinhas — o caso que obrigou tudo isto', () => {
 });
 
 /* ========================================================================== */
+describe('a carona da galinha — comédia sem deixa também é comédia', () => {
+  /* O SEGUNDO VÍDEO DE MILHÕES DE VIEWS REPROVADO, e desta vez o gênero estava
+   * certo: a ferramenta acertou "humor" e reprovou mesmo assim.
+   *
+   * O defeito era das perguntas de humor da primeira versão. Elas descreviam a
+   * PIADA COM DEIXA — "o final traz uma virada?", "alguma coisa prepara o
+   * final?" — que é o causo das galinhas e não é este vídeo. Aqui a graça é o
+   * impasse: o homem com a galinha numa mão, a bacia debaixo do braço e o cacho
+   * de banana na outra, discutindo como pegar carona. Ninguém revela nada no
+   * fim; o absurdo sobe até os dois desistirem.
+   *
+   * Comédia tem dois motores — deixa e escalada — e um questionário que só
+   * conhece o primeiro reprova o segundo por não ser o primeiro. */
+  const CARONA = `— Vizinho, não me pegue.
+— Mas vizinho, como é que eu vou te pegar? Eu com a galinha numa mão, a bacia
+debaixo do braço e um cacho de banana na outra mão. Me diz aí.
+— É só você pegar a galinha, botar embaixo da bacia e a banana em cima.
+— Me mostra aí como é isso. Faz aí que eu quero ver.
+— Bote a galinha no chão. Agora pegue a banana.
+— Mas vizinho, eu tenho medo.
+— E larga minhas coisas aqui, meu cacho de banana pros outros comer, minha
+bacia pros outros carregar.
+— Depois você vem pegar.
+— Os outros vão comer minhas bananas.
+— Por isso que eu gosto dos caminhoneiro. Eu quero é prova.`;
+
+  const humorIds = () => ids(doGenero('humor'));
+
+  it('as perguntas de humor não exigem mais uma virada final', () => {
+    // A trava direta do defeito: nenhuma pergunta do gênero pode cobrar
+    // exclusivamente a estrutura de piada com deixa.
+    const perguntas = doGenero('humor').filter((q) => q.so).map((q) => q.pergunta.toLowerCase());
+    perguntas.forEach((p) => {
+      if (!/virada|trocadilho|revela/.test(p)) return;
+      expect(p, 'a pergunta cobra a virada sem admitir a escalada')
+        .toMatch(/absurdo|escala|situação|seja/);
+    });
+  });
+
+  it('e o previsível deixou de descontar no humor', () => {
+    /* Em comédia de situação o público SABE desde o começo que não vai dar
+     * certo — e a graça é ver a coisa não dar certo. */
+    expect(humorIds()).not.toContain('previsivel');
+  });
+
+  it('existe quesito para a graça que CRESCE, não só para a que vira', () => {
+    expect(humorIds()).toContain('humor_escalada');
+    expect(humorIds()).toContain('humor_impasse');
+  });
+
+  it('a carona passa', () => {
+    const qs = doGenero('humor');
+    // Como o vídeo se lê: fecha no ápice do absurdo, a graça escala, o impasse
+    // sustenta, as duas vozes se distinguem, e nenhuma fala sobra.
+    const leitura = {
+      humor_fecha: 'sim', humor_escalada: 'sim', humor_impasse: 'sim',
+      humor_personagem: 'sim', humor_gordura: 'nao',
+      assunto_claro: 'nao',   // "Vizinho, não me pegue" abre no meio da cena
+    };
+    const mapa = A.normalizarRodada({
+      respostas: qs.map((q) => ({ id: q.id, resposta: leitura[q.id] || q.bom })),
+    }, qs);
+    const res = A.calcularAfericao(A.consolidarRespostas([mapa], qs), { rodadas: 1 });
+    expect(A.aferRecomendacao(res).selo).toBe('POSTE');
+    expect(CARONA.length, 'a transcrição sumiu do teste').toBeGreaterThan(100);
+  });
+
+  it('mas humor ruim continua reprovando — a régua afrouxou, não caiu', () => {
+    /* O risco de corrigir um falso negativo é criar um "passa tudo". Um
+     * conteúdo que não fecha, não escala, não tem impasse e ainda tem fala
+     * sobrando precisa continuar reprovando. */
+    const qs = doGenero('humor');
+    const ruim = {
+      humor_fecha: 'nao', humor_escalada: 'nao', humor_impasse: 'nao',
+      humor_gordura: 'sim', entrega_algo: 'nao',
+    };
+    const mapa = A.normalizarRodada({
+      respostas: qs.map((q) => ({ id: q.id, resposta: ruim[q.id] || q.bom })),
+    }, qs);
+    const res = A.calcularAfericao(A.consolidarRespostas([mapa], qs), { rodadas: 1 });
+    expect(A.aferRecomendacao(res).selo).toBe('NÃO POSTE');
+  });
+});
+
+/* ========================================================================== */
 describe('o fluxo completo, de ponta a ponta', () => {
   /** IA dublada que responde as duas conversas do pipeline. */
   const dublar = (genero, over, opcoes) => {
@@ -251,7 +346,7 @@ describe('o fluxo completo, de ponta a ponta', () => {
     const call = dublar('humor');
     const r = await A.runAfericaoPipeline({ conteudo: CAUSO, rodadas: 3, call });
     expect(r.genero).toBe('humor');
-    expect(ids(r.questoes)).toContain('humor_deixa');
+    expect(ids(r.questoes)).toContain('humor_fecha');
     expect(ids(r.questoes)).not.toContain('repeticao');
     // A classificação vem ANTES: é o primeiro prompt enviado.
     expect(/OS GÊNEROS/.test(call.chamadas[0]), 'a avaliação correu antes da classificação').toBe(true);

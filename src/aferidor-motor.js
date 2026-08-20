@@ -159,7 +159,12 @@ const AFER_QUESTOES = [
   /* ---- Curiosidade e progressão ---- */
   { id: 'pergunta_aberta', bloco: 'curiosidade', peso: 8, bom: 'sim',
     pergunta: 'Fica alguma pergunta em aberto que só o restante do conteúdo responde?' },
-  { id: 'previsivel', bloco: 'curiosidade', peso: 6, bom: 'nao',
+  /* FORA DO HUMOR: em comédia de situação o público SABE desde o começo que
+     não vai dar certo, e a graça está justamente em ver a coisa não dar certo.
+     A pergunta separa bem o previsível do surpreendente num conteúdo que
+     promete informação; diante de uma teimosia circular ela não tem resposta
+     honesta, e no binário a dúvida vira desconto. */
+  { id: 'previsivel', bloco: 'curiosidade', peso: 6, bom: 'nao', exceto: ['humor'],
     pergunta: 'Dá para adivinhar como termina antes de chegar à metade?' },
   /* FORA DO HUMOR: uma piada não informa, ela arma. O vai-e-vem de um diálogo
      cômico não "acrescenta informação" e não deveria pagar por isso. */
@@ -209,15 +214,37 @@ const AFER_QUESTOES = [
   { id: 'cta_artificial', bloco: 'distribuicao', peso: 3, bom: 'nao',
     pergunta: 'Existe pedido explícito de like, inscrição, comentário ou compartilhamento?' },
 
-  /* ================= HUMOR ================= */
-  { id: 'humor_deixa', bloco: 'entrega', peso: 10, bom: 'sim', so: ['humor'],
-    pergunta: 'O final traz uma virada, trocadilho ou revelação que faz reinterpretar o que veio antes?' },
-  { id: 'humor_armacao', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
-    pergunta: 'Alguma coisa é repetida ou insistida ao longo do conteúdo de um jeito que prepara o final?' },
+  /* ================= HUMOR =================
+   *
+   * A PRIMEIRA VERSÃO DESTAS PERGUNTAS CONFUNDIU UM SUBGÊNERO COM O GÊNERO, e
+   * reprovou um segundo vídeo de milhões de views por isso. Elas exigiam a
+   * estrutura da PIADA COM DEIXA — "o final traz uma virada?", "alguma coisa
+   * prepara o final?" —, que descreve o causo das galinhas ("levaram", não
+   * "roubaram") e não descreve a carona da galinha, da bacia e do cacho de
+   * banana, onde a graça é o impasse circular: ninguém revela nada no fim, o
+   * absurdo só vai subindo até os dois desistirem.
+   *
+   * Comédia tem pelo menos dois motores, e um questionário que só conhece um
+   * reprova o outro por não ser o primeiro:
+   *
+   *   deixa    — tudo converge para uma revelação que reinterpreta o que veio;
+   *   escalada — a situação se repete e piora, e a graça está em vê-la piorar.
+   *
+   * As perguntas agora medem o que os DOIS têm em comum: que a coisa feche, que
+   * a graça cresça, que haja um impasse sustentando, que as vozes se
+   * distingam, e que nada sobre. Cada uma admite as duas formas por escrito —
+   * "com uma virada OU levando ao ponto mais absurdo" —, porque num binário a
+   * forma não prevista vira "não". */
+  { id: 'humor_fecha', bloco: 'entrega', peso: 10, bom: 'sim', so: ['humor'],
+    pergunta: 'O final fecha a graça — seja com uma virada, um trocadilho ou uma revelação, seja levando a situação ao ponto mais absurdo — em vez de simplesmente parar?' },
+  { id: 'humor_escalada', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
+    pergunta: 'A graça CRESCE ao longo do conteúdo — por insistência, por repetição ou porque a situação vai ficando cada vez mais absurda?' },
+  { id: 'humor_impasse', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
+    pergunta: 'Existe um mal-entendido, um impasse ou uma teimosia que sustenta a graça, em vez de piadas soltas sem nada as ligando?' },
   { id: 'humor_personagem', bloco: 'naturalidade', peso: 6, bom: 'sim', so: ['humor'],
     pergunta: 'Havendo mais de uma voz, dá para diferenciar quem fala pelo jeito de falar, sem ninguém dizer o nome?' },
   { id: 'humor_gordura', bloco: 'retencao', peso: 5, bom: 'nao', so: ['humor'],
-    pergunta: 'Existe fala que não prepara o final nem caracteriza quem está falando — ou seja, que não serve à piada nem ao personagem?' },
+    pergunta: 'Existe fala que não faz graça, não constrói a situação nem caracteriza quem está falando?' },
 
   /* ================= HISTÓRIA / RELATO ================= */
   { id: 'hist_acontece', bloco: 'curiosidade', peso: 10, bom: 'sim', so: ['historia'],

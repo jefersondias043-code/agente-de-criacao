@@ -281,8 +281,8 @@ bacia pros outros carregar.
     const perguntas = doGenero('humor').filter((q) => q.so).map((q) => q.pergunta.toLowerCase());
     perguntas.forEach((p) => {
       if (!/virada|trocadilho|revela/.test(p)) return;
-      expect(p, 'a pergunta cobra a virada sem admitir a escalada')
-        .toMatch(/absurdo|escala|situação|seja/);
+      expect(p, 'a pergunta cobra a virada sem admitir outras formas de arremate')
+        .toMatch(/absurdo|escala|situação|seja|recusa|desabafo|tirada|inesperada/);
     });
   });
 
@@ -354,6 +354,29 @@ bacia pros outros carregar.
     }, qs);
     const res = A.calcularAfericao(A.consolidarRespostas([mapa], qs), { rodadas: 1 });
     expect(A.aferRecomendacao(res).selo).toBe('POSTE');
+  });
+
+  it('NENHUMA pergunta pede um juízo — a régua do §2 vale para os gêneros também', () => {
+    /* A CAUSA-RAIZ DE TODO O VAIVÉM DESTA SEMANA, e ela estava escrita no
+     * motor desde o primeiro dia: "'O gancho é forte?' não é binária coisa
+     * nenhuma: é uma nota de 0 a 10 disfarçada de SIM/NÃO".
+     *
+     * As perguntas de gênero que escrevi violaram isso — "acontece alguma coisa
+     * que FAZ RIR?", "a GRAÇA cresce?", "a fala tem JEITO PRÓPRIO?". E
+     * subjetividade não erra para os dois lados por igual: um modelo lendo
+     * TRANSCRIÇÃO não tem entonação, cara nem ritmo, então diante de "isso faz
+     * rir?" ele responde "não" quase sempre. Foi assim que um vídeo de milhões
+     * de views reprovou duas vezes, a segunda por causa do meu conserto da
+     * primeira.
+     *
+     * Uma pergunta verificável aponta o que está ESCRITO — a última fala,
+     * quantas vezes algo volta, que expressões aparecem. Quem discordar acha o
+     * trecho. */
+    const JUIZO = /\b(faz rir|engraçad|a graça (cresce|vai)|jeito próprio|é (bom|forte|boa)|de qualidade|interessante|bem (feito|contad))/i;
+    A.AFER_QUESTOES.forEach((q) => {
+      expect(q.pergunta, `"${q.id}" pede um juízo em vez de uma observação`)
+        .not.toMatch(JUIZO);
+    });
   });
 
   it('as formas curtas encaixam depois de "Ele" — são predicados, não frases', () => {
@@ -452,14 +475,20 @@ describe('o causo da caçada — o primeiro FALSO POSITIVO', () => {
     });
   });
 
-  it('"fecha a graça" deixou de aceitar um final que só conclui', () => {
+  it('"fecha a graça" separa arremate de conclusão — pelo que está ESCRITO', () => {
     /* Era por essa porta que um relato entrava como piada: um causo que termina
      * com o cachorro achando a paca "fecha" — amarra a história, não para no
-     * meio. Só que ninguém ri. A pergunta agora cobra o EFEITO. */
+     * meio.
+     *
+     * A primeira correção cobrava o EFEITO ("faz rir?") e criou um defeito
+     * pior: um modelo lendo transcrição, sem entonação nem cara, quase sempre
+     * responde que não faz rir. A pergunta agora aponta a ÚLTIMA FALA e
+     * pergunta o que ela é — resposta inesperada e recusa de um lado,
+     * conclusão que explica do outro. Isso se confere lendo. */
     const q = A.AFER_QUESTOES.find((x) => x.id === 'humor_fecha');
-    expect(q.pergunta).toMatch(/FAZ RIR/);
-    expect(q.pergunta, 'falta contrastar com a história que apenas se resolve')
-      .toMatch(/apenas chegar ao fim|se resolve/i);
+    expect(q.pergunta).toMatch(/última fala/i);
+    expect(q.pergunta, 'falta contrastar com a conclusão que explica')
+      .toMatch(/explica|amarra/i);
   });
 
   it('um monólogo não perde ponto por não ter um segundo personagem', () => {
@@ -467,7 +496,27 @@ describe('o causo da caçada — o primeiro FALSO POSITIVO', () => {
     // primeira pessoa o modelo respondia "não" em vez de "não se aplica".
     const q = A.AFER_QUESTOES.find((x) => x.id === 'humor_voz');
     expect(q, 'humor_voz sumiu').toBeTruthy();
-    expect(q.pergunta).toMatch(/^Quem fala tem jeito próprio/);
+    expect(q.pergunta, 'voltou a depender de haver duas vozes')
+      .not.toMatch(/havendo mais de uma voz/i);
+    expect(q.pergunta).toMatch(/express|gíria/i);
+  });
+
+  it('a carona não perde mais por "entrega" e "assunto claro"', () => {
+    /* Ela reprovou DUAS vezes, e a segunda foi consertando a primeira. Duas
+     * perguntas universais a derrubavam por juízo:
+     *
+     *   entrega_algo   "quem chegou ao fim leva uma GRAÇA?" — pede que o modelo
+     *                  ria lendo transcrição; `humor_fecha` mede o mesmo pela
+     *                  última fala, que se confere olhando;
+     *   assunto_claro  "lendo só o começo dá para dizer do que trata?" —
+     *                  "Vizinho, não me pegue" não diz, e é por isso que
+     *                  funciona: entrar no meio da cena é técnica. */
+    const humor = ids(doGenero('humor'));
+    expect(humor).not.toContain('entrega_algo');
+    expect(humor).not.toContain('assunto_claro');
+    // Mas nos outros gêneros as duas continuam de pé.
+    expect(ids(doGenero('noticia'))).toContain('entrega_algo');
+    expect(ids(doGenero('historia'))).toContain('assunto_claro');
   });
 
   it('E OS TRÊS VIRAIS CONTINUAM PASSANDO — é a trava dos dois lados', () => {

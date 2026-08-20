@@ -166,7 +166,10 @@ const AFER_QUESTOES = [
    * educativo também dramatizam. */
   { id: 'sem_preambulo', bloco: 'abertura', peso: 7, bom: 'nao',
     pergunta: 'O conteúdo começa com alguém falando DIRETAMENTE COM O ESPECTADOR — saudação ("oi gente", "sejam bem-vindos"), apresentação do canal ou pedido de inscrição? Atenção: cumprimento entre personagens dentro da cena ("boa tarde, cidadã") NÃO conta aqui — isso é a cena começando, não preâmbulo.' },
-  { id: 'assunto_claro', bloco: 'abertura', peso: 7, bom: 'sim',
+  /* FORA DO HUMOR: entrar no meio da cena é técnica, não descuido. "Vizinho,
+     não me pegue" não diz do que o vídeo trata, e é exatamente por isso que
+     funciona — a situação se explica sozinha na terceira fala. */
+  { id: 'assunto_claro', bloco: 'abertura', peso: 7, bom: 'sim', exceto: ['humor'],
     pergunta: 'Lendo só o começo, e sem depender do título, dá para dizer do que o conteúdo trata?' },
   /* O GANCHO — e ele não é a mesma coisa que `abre_no_fato`.
    *
@@ -217,7 +220,13 @@ const AFER_QUESTOES = [
     pergunta: 'Alguma explicação se estende além do necessário para ser entendida?' },
 
   /* ---- Entrega e final: o que sobra depois de assistir ---- */
-  { id: 'entrega_algo', bloco: 'entrega', peso: 10, bom: 'sim',
+  /* FORA DO HUMOR. "Quem chegou ao fim leva alguma coisa concreta — uma
+     informação, uma emoção, uma surpresa, uma GRAÇA?" é juízo, não observação:
+     graça lida em transcrição, sem entonação e sem cara, quase sempre volta
+     "não". Num conteúdo informativo a pergunta se resolve olhando (levou a
+     informação ou não levou); numa piada ela pede que o modelo ria lendo. No
+     humor, `humor_fecha` mede o mesmo pelo que está ESCRITO na última fala. */
+  { id: 'entrega_algo', bloco: 'entrega', peso: 10, bom: 'sim', exceto: ['humor'],
     pergunta: 'Quem chegou ao fim leva alguma coisa concreta — uma informação, uma emoção, uma surpresa, uma graça?' },
   /* No humor a conclusão é a DEIXA, e ela tem pergunta própria — cobrar
      "conclusão" de uma piada faz o modelo procurar um fecho explicativo que
@@ -244,7 +253,7 @@ const AFER_QUESTOES = [
    * e virou item 2 de uma lista de ajustes. Ver um sinal e pesá-lo como detalhe
    * é o mesmo que não vê-lo. */
   { id: 'motivo_compartilhar', bloco: 'distribuicao', peso: 10, bom: 'sim',
-    pergunta: 'Existe uma razão concreta para alguém mandar isto a outra pessoa — algo que valha um "olha isso"?' },
+    pergunta: 'Dá para contar a outra pessoa, em UMA frase, o que acontece aqui — uma situação, uma tirada, um absurdo — de um jeito que ela entenda a graça ou o interesse sem ver o conteúdo?' },
   /* QUEM ESTÁ DE FORA ENTENDE?
    *
    * Não é sobre tirar a cor local: "paca", "oco de pau" e "pabulagem" são o que
@@ -287,20 +296,37 @@ const AFER_QUESTOES = [
    * que ninguém ri: é um desfecho de competência, não de comédia. A pergunta
    * agora cobra o EFEITO (alguém ri, se surpreende, reconhece o absurdo) em vez
    * da estrutura, e um relato bem amarrado deixa de passar por piada. */
+  /* ATENÇÃO AO QUE ESTAS QUATRO PERGUNTAS NÃO PODEM SER.
+   *
+   * A primeira leva delas perguntava "no final acontece alguma coisa que FAZ
+   * RIR?", "a GRAÇA cresce?", "a fala tem JEITO PRÓPRIO?" — e isso é
+   * exatamente o que o §2 deste arquivo proíbe desde o primeiro dia: nota de 0
+   * a 10 disfarçada de sim/não. Duas leituras do mesmo vídeo respondem
+   * diferente, e um modelo lendo TRANSCRIÇÃO — sem entonação, sem cara, sem
+   * ritmo — quase sempre responde "não", porque graça no papel é pouca.
+   *
+   * Um vídeo de milhões de views reprovou por isso: a mesma carona da galinha
+   * que já havia sido consertada uma vez voltou a reprovar quando eu endureci
+   * "fecha a graça" para "faz rir". A régua não ficou mais exata, ficou mais
+   * subjetiva — e subjetividade não erra para os dois lados por igual.
+   *
+   * Agora elas descrevem ESTRUTURA OBSERVÁVEL: o que está escrito na última
+   * fala, quantas vezes a mesma dificuldade volta, se alguém quer algo que o
+   * outro não faz. Quem discordar da resposta consegue apontar o trecho. */
   { id: 'humor_fecha', bloco: 'entrega', peso: 10, bom: 'sim', so: ['humor'],
-    pergunta: 'No final acontece alguma coisa que FAZ RIR — uma virada, um trocadilho, um absurdo levado ao limite, uma tirada — em vez de a história apenas chegar ao fim e se resolver?' },
+    pergunta: 'A última fala é uma resposta inesperada, uma recusa, um desabafo, um trocadilho ou uma tirada — em vez de uma conclusão que explica ou amarra o que foi contado?' },
   { id: 'humor_escalada', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
-    pergunta: 'A graça CRESCE ao longo do conteúdo — por insistência, por repetição ou porque a situação vai ficando cada vez mais absurda?' },
+    pergunta: 'A mesma dificuldade, recusa ou desentendimento reaparece mais de uma vez ao longo do conteúdo, em vez de ser resolvida na primeira vez em que surge?' },
   { id: 'humor_impasse', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
-    pergunta: 'Existe um mal-entendido, um impasse ou uma teimosia que sustenta a graça, em vez de piadas soltas sem nada as ligando?' },
+    pergunta: 'Existe alguma coisa que uma parte quer e a outra não faz — ou que uma afirma e a outra nega — atravessando o conteúdo do começo ao fim?' },
   /* A REDAÇÃO ANTERIOR COMEÇAVA COM "HAVENDO MAIS DE UMA VOZ", e num monólogo o
    * modelo respondia "não" em vez de "não se aplica" — descontando 6 pontos de
    * um causo contado em primeira pessoa por não ter um segundo personagem. A
    * pergunta agora mede a VOZ, que existe nos dois casos. */
   { id: 'humor_voz', bloco: 'naturalidade', peso: 6, bom: 'sim', so: ['humor'],
-    pergunta: 'Quem fala tem jeito próprio e reconhecível — vocabulário, ritmo, expressões — a ponto de, havendo mais de uma voz, dar para saber quem é quem sem dizer o nome?' },
+    pergunta: 'Aparecem expressões, gírias ou construções de fala de uma região ou de um jeito específico de falar — em vez de português neutro de texto escrito?' },
   { id: 'humor_gordura', bloco: 'retencao', peso: 5, bom: 'nao', so: ['humor'],
-    pergunta: 'Existe fala que não faz graça, não constrói a situação nem caracteriza quem está falando?' },
+    pergunta: 'Existe fala que não faz avançar o impasse, não repete a dificuldade e não traz expressão característica de quem fala?' },
 
   /* ================= HISTÓRIA / RELATO ================= */
   { id: 'hist_acontece', bloco: 'curiosidade', peso: 10, bom: 'sim', so: ['historia'],

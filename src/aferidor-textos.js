@@ -183,10 +183,10 @@ const AFER_FALA = {
 
   /* ---- Distribuição ---- */
   motivo_compartilhar: {
-    conserto: 'Falta o motivo do "olha isso". Sem uma razão concreta para alguém mandar a outra pessoa, o conteúdo não circula por conta própria.',
-    forte: 'Tem motivo para alguém mandar a outra pessoa.',
-    curto: 'não dá vontade de mandar para alguém',
-    curtoBom: 'dá vontade de mandar para alguém',
+    conserto: 'Não dá para resumir numa frase o que acontece aqui. Sem isso ninguém consegue contar a outra pessoa, e o conteúdo não circula sozinho.',
+    forte: 'Dá para contar numa frase — e é isso que faz circular.',
+    curto: 'não cabe numa frase para contar a alguém',
+    curtoBom: 'cabe numa frase para contar a alguém',
   },
   gancho: {
     conserto: 'O começo explica em vez de fisgar. Abra com a tensão, o conflito ou a estranheza — a explicação, se precisar, vem depois.',
@@ -218,16 +218,16 @@ const AFER_FALA = {
      e a situação que escala. Uma frase que só fale em "virada" manda o autor
      de um humor de teimosia inventar um trocadilho que a cena não pede. */
   humor_fecha: {
-    conserto: 'O final resolve a história, mas não faz rir. Termine numa tirada, numa virada ou no absurdo levado ao limite.',
-    forte: 'O final faz rir, não só conclui.',
-    curto: 'termina resolvendo a história, sem fazer rir',
-    curtoBom: 'termina fazendo rir',
+    conserto: 'A última fala explica ou amarra o que foi contado. Termine numa tirada, numa recusa, num trocadilho — alguma coisa que não se esperava.',
+    forte: 'Termina numa tirada, não numa explicação.',
+    curto: 'termina explicando em vez de arrematar',
+    curtoBom: 'arremata na última fala',
   },
   humor_escalada: {
-    conserto: 'A graça fica no mesmo nível do começo ao fim. Faça a situação apertar: insista, repita, deixe piorar.',
-    forte: 'A graça vai crescendo — a situação aperta em vez de ficar parada.',
-    curto: 'não faz a graça crescer',
-    curtoBom: 'faz a graça crescer até o fim',
+    conserto: 'A dificuldade se resolve na primeira vez em que aparece. Faça ela voltar — e voltar pior.',
+    forte: 'A mesma dificuldade volta e aperta, em vez de se resolver de primeira.',
+    curto: 'resolve a dificuldade logo na primeira vez',
+    curtoBom: 'faz a mesma dificuldade voltar e apertar',
   },
   humor_impasse: {
     conserto: 'São piadas soltas, sem nada ligando uma à outra. Ponha um mal-entendido ou uma teimosia para sustentar a coisa.',
@@ -236,15 +236,15 @@ const AFER_FALA = {
     curtoBom: 'tem um impasse que sustenta a graça',
   },
   humor_voz: {
-    conserto: 'A fala é neutra demais. Dê a ela um jeito próprio — vocabulário, ritmo, expressões de quem está falando.',
-    forte: 'Quem fala tem um jeito próprio e reconhecível.',
-    curto: 'fala de um jeito neutro demais',
-    curtoBom: 'tem um jeito próprio de falar',
+    conserto: 'A fala está em português neutro. Ponha as expressões e as gírias de quem realmente falaria assim.',
+    forte: 'Fala com expressões de gente de verdade, não de texto escrito.',
+    curto: 'fala em português neutro demais',
+    curtoBom: 'fala com expressão de gente de verdade',
   },
   humor_gordura: {
-    conserto: 'Tem fala que não faz graça, não constrói a situação nem caracteriza ninguém. Essa dá para cortar.',
-    forte: 'Cada fala faz graça, constrói a situação ou caracteriza alguém.',
-    curto: 'tem fala que não serve à graça nem ao personagem',
+    conserto: 'Tem fala que não faz o impasse avançar, não repete a dificuldade e não traz expressão de ninguém. Essa dá para cortar.',
+    forte: 'Cada fala faz o impasse avançar ou caracteriza quem fala.',
+    curto: 'tem fala que não serve ao impasse nem ao personagem',
     curtoBom: 'não tem fala sobrando',
   },
 

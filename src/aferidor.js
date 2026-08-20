@@ -2,25 +2,32 @@
 /* ============================================================================
  * AFERIDOR — a tela
  *
- * A ferramenta vende UMA coisa: a nota é uma conta que dá para conferir. Se a
- * tela mostrar só o número, ela desperdiça exatamente o que a distingue do
- * Julgador — ali a nota é juízo, aqui é aritmética, e aritmética se audita.
+ * A CONTA CONTINUA INTEIRA. O QUE MUDOU É QUEM PRECISA OLHAR PARA ELA.
  *
- * Daí a ordem de leitura:
+ * A versão anterior abria com "+106 ganhos − 29 perdidos = +77 de 135 em jogo ·
+ * 27 quesitos verificados" e listava, um a um, os quesitos perdidos pelo texto
+ * da PERGUNTA do questionário, com peso, placar de votos e polaridade ao lado.
+ * Tudo verdadeiro, tudo auditável — e ilegível para quem acabou de gravar um
+ * vídeo e só quer saber se dá para publicar. A tela falava a língua de quem
+ * escreveu o motor, não a de quem usa a ferramenta.
  *
- *   1. a nota COM SINAL, e a conta ao lado: cada quesito soma o próprio peso
- *      quando passa e subtrai o mesmo peso quando não passa, então a escala
- *      vai de −100 a +100 e o zero é o equilíbrio — metade do peso passou,
- *      metade não. "Meio bom" deixa de existir como leitura;
- *   2. ONDE A NOTA FOI EMBORA — os quesitos que não passaram, do mais caro
- *      para o mais barato. É a resposta a "o que eu conserto primeiro", e sai
- *      da mesma conta que produziu a nota;
- *   3. onde as rodadas DISCORDARAM — porque uma resposta decidida por 3 a 2
- *      não é uma resposta decidida por 5 a 0, e esconder isso seria fingir
- *      uma firmeza que não houve;
- *   4. os blocos, para ver de que lado o conteúdo é forte;
- *   5. o questionário INTEIRO, recolhido — pergunta, resposta, votos e peso.
- *      É a auditoria: quem discorda da nota vai ali e acha a linha.
+ * A tese da ferramenta não mudou: a nota é uma conta que dá para conferir, e
+ * quem discordar tem de conseguir achar a linha. Mas AUDITÁVEL não quer dizer
+ * AUDITADO O TEMPO TODO. A conta agora espera atrás de um clique, inteira, do
+ * mesmo jeito que estava; o que abre a tela é a resposta à pergunta que o autor
+ * de fato tem:
+ *
+ *   1. DÁ PARA PUBLICAR? — um veredito em português, e a nota ao lado, pequena;
+ *   2. O QUE EU FAÇO? — as correções em ordem de impacto, escritas como ação
+ *      ("corte a saudação do começo"), não como pergunta respondida. A ordem
+ *      sai do peso, então a prioridade continua vindo da mesma conta — o que
+ *      sumiu foi o número, não o critério;
+ *   3. O QUE JÁ ESTÁ BOM — porque uma ferramenta que só devolve defeito ensina
+ *      o autor a não abri-la;
+ *   4. COMO A NOTA FOI CALCULADA — recolhido: a conta, os blocos, onde as
+ *      leituras discordaram e o questionário inteiro, pergunta por pergunta.
+ *
+ * As frases de 2 e 3 moram em `aferidor-textos.js`. Nenhum número passa por lá.
  * ========================================================================== */
 
 let _aferResultadoVisivel = false;
@@ -75,56 +82,109 @@ function aferSinal(n) {
   return '0';
 }
 
-/* A NOTA COM A CONTA AO LADO, e a conta agora tem as DUAS parcelas.
+/* O CARD — e ele é a tela inteira.
  *
- * Cada quesito soma o peso dele ou subtrai o mesmo peso; a nota é o saldo,
- * normalizado de −100 a +100. Escrever "+106 ganhos − 29 perdidos = +77 de 135
- * em jogo" é a frase inteira do produto: o número do topo é conferível na
- * linha de baixo, e a linha de baixo é conferível na auditoria. */
-function aferBlocoNota(res) {
-  const f = res.faixa || {};
+ * Uma palavra, uma linha e um porquê. Nada de nota, faixa, barra, lista ou
+ * placar: quem terminou de gravar não quer analisar métrica, quer que a
+ * ferramenta analise por ele e responda posta ou não posta.
+ *
+ * A NOTA SAIU DA TELA — e isso é decisão de produto, não descuido. Ela continua
+ * calculada, continua guardada em cada aferição e continua conferível na
+ * auditoria; o que ela não faz mais é ser a primeira coisa que o autor lê e
+ * precisa interpretar. Um "+45" não diz a ninguém se o vídeo sobe hoje. */
+function aferCard(res) {
+  const r = aferRecomendacao(res);
   return `
-    <div class="afer-cabeca ${AFER_CLASSE_FAIXA[f.id] || ''}">
-      <div class="afer-cabeca-lado">
-        <div class="afer-faixa-label">${escapeHtml(f.label || '')}</div>
-        <div class="afer-faixa-resumo">${escapeHtml(f.resumo || '')}</div>
-        <div class="afer-conta">+${res.pesoGanho} ganhos − ${res.pesoPerdido} perdidos = ${aferSinal(res.saldo)} de ${res.pesoTotal} em jogo · ${res.avaliadas.length} quesitos verificados</div>
-      </div>
-      <div class="afer-nota" title="Cada quesito soma o próprio peso quando passa e subtrai o mesmo peso quando não passa. A nota é esse saldo, de −100 a +100 — conta do código, não juízo da IA.">
-        <span class="afer-nota-valor">${aferSinal(res.nota)}</span>
-        <span class="afer-nota-de">/100</span>
-      </div>
+    <div class="afer-card ${r.postar ? 'afer-card-sim' : 'afer-card-nao'}">
+      <div class="afer-card-selo">${escapeHtml(r.selo)}</div>
+      <div class="afer-card-titulo">${escapeHtml(r.titulo)}</div>
+      <p class="afer-card-motivo">${escapeHtml(r.motivo)}</p>
     </div>`;
 }
 
-/* ONDE A NOTA FOI EMBORA. Do mais caro para o mais barato, porque é a ordem em
- * que compensa consertar — e o peso aparece em cada linha para a conta não
- * virar mistério. */
-function aferBlocoPerdidos(res) {
+/* O QUE MELHORAR — a mesma lista de antes, dita em português.
+ *
+ * A ORDEM É A DO PESO, como sempre foi: o que mais mexe na nota aparece
+ * primeiro, e é por isso que a lista responde a "o que eu conserto primeiro"
+ * sem inventar prioridade nenhuma. O que saiu da linha foi o `−10`, não o
+ * critério — o número dizia ao leitor quanto aquilo valia num total que ele não
+ * tinha visto, e a posição na lista já diz a mesma coisa sem exigir a conta.
+ *
+ * A DIVERGÊNCIA VIROU UMA FRASE NO ITEM. Ela era uma seção à parte, com o
+ * placar "3×SIM · 2×NÃO", o que obrigava o leitor a cruzar duas listas para
+ * descobrir que uma das correções pedidas era das duvidosas. Colada no item, a
+ * informação chega quando é útil: na hora de decidir se mexe naquilo. O placar
+ * continua exato lá dentro, na auditoria. */
+function aferBlocoMelhorar(res) {
   const perdidos = res.perdidos || [];
   if (!perdidos.length) {
     return `
       <div class="afer-secao">
-        <div class="afer-secao-titulo">Onde a nota foi embora</div>
-        <div class="text-sm text-soft">Nenhum quesito ficou pelo caminho — o conteúdo passou em tudo que foi verificado.</div>
+        <div class="afer-secao-titulo">O que melhorar</div>
+        <div class="afer-nada">Nada ficou pelo caminho — o conteúdo passou em tudo que foi verificado.</div>
       </div>`;
   }
-  const linhas = perdidos.map((q) => `
-    <div class="afer-perdido">
-      <span class="afer-perdido-peso">−${q.peso}</span>
-      <span class="afer-perdido-texto">${escapeHtml(q.pergunta)}</span>
-      <span class="afer-perdido-resp">respondido <strong>${q.resposta === 'sim' ? 'SIM' : 'NÃO'}</strong> · pontuava com ${q.bom === 'sim' ? 'SIM' : 'NÃO'}${q.consenso < 1 ? ` · ${Math.max(q.sim, q.nao)} de ${q.votos} leituras` : ''}</span>
+  const linhas = perdidos.map((q, i) => `
+    <div class="afer-acao${i === 0 ? ' afer-acao-primeira' : ''}">
+      <span class="afer-acao-num">${i + 1}</span>
+      <div class="afer-acao-corpo">
+        <div class="afer-acao-texto">${escapeHtml(aferConserto(q))}</div>
+        ${q.consenso < 1 ? '<div class="afer-acao-duvida">As leituras ficaram divididas neste ponto — vale conferir com os seus olhos.</div>' : ''}
+      </div>
     </div>`).join('');
   return `
     <div class="afer-secao">
-      <div class="afer-secao-titulo">Onde a nota foi embora</div>
-      <div class="text-xs text-mute mb-1">Do mais caro para o mais barato. O número é quanto cada quesito custou na nota.</div>
+      <div class="afer-secao-titulo">O que melhorar</div>
+      <div class="afer-secao-desc">Na ordem que mais muda o resultado.</div>
       ${linhas}
     </div>`;
 }
 
+/* O QUE JÁ ESTÁ BOM.
+ *
+ * Isto não existia, e a falta tinha um custo: a tela inteira era uma lista de
+ * defeitos, e uma ferramenta que só aponta defeito ensina o autor a não abri-la
+ * — ainda mais quando ele acertou dezoito dos vinte e um pontos e a tela só
+ * falou dos três.
+ *
+ * Mostra os mais pesados, não todos: a lista completa está na auditoria, e
+ * repetir dezoito elogios empurraria "o que melhorar" para fora da tela, que é
+ * exatamente o problema que este trabalho veio resolver. */
+const AFER_FORTES_NA_TELA = 4;
+
+function aferBlocoForte(res) {
+  const ganhos = (res.avaliadas || []).filter((q) => q.acertou)
+    .slice().sort((a, b) => b.peso - a.peso || a.id.localeCompare(b.id));
+  if (!ganhos.length) return '';
+  const mostrados = ganhos.slice(0, AFER_FORTES_NA_TELA);
+  const resto = ganhos.length - mostrados.length;
+  const linhas = mostrados.map((q) => `
+    <div class="afer-forte">
+      <svg class="afer-forte-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+      <span>${escapeHtml(aferForte(q))}</span>
+    </div>`).join('');
+  return `
+    <div class="afer-secao">
+      <div class="afer-secao-titulo">O que já está bom</div>
+      ${linhas}
+      ${resto > 0 ? `<div class="afer-secao-desc">E mais ${resto} ${resto > 1 ? 'pontos que passaram' : 'ponto que passou'} — a lista inteira está logo abaixo.</div>` : ''}
+    </div>`;
+}
+
+/* A CONTA — agora aqui dentro, e inteira. É a linha que torna o número do topo
+ * conferível: as duas parcelas, o saldo entre elas e o total em jogo. */
+function aferBlocoConta(res) {
+  return `
+    <div class="afer-secao">
+      <div class="afer-secao-titulo">A conta</div>
+      <div class="afer-conta">+${res.pesoGanho} ganhos − ${res.pesoPerdido} perdidos = ${aferSinal(res.saldo)} de ${res.pesoTotal} em jogo · ${res.avaliadas.length} quesitos verificados</div>
+      <div class="afer-secao-desc">Cada quesito soma o próprio peso quando passa e subtrai o mesmo peso quando não passa. A nota é esse saldo, de −100 a +100.</div>
+    </div>`;
+}
+
 /* ONDE AS RODADAS DISCORDARAM. Não muda a resposta — muda o quanto se pode
- * confiar nela, e isso o usuário precisa ver antes de refazer um vídeo. */
+ * confiar nela. Na tela principal isso virou uma frase colada na correção
+ * correspondente; aqui fica o placar exato, para quem quiser o número. */
 function aferBlocoDivergencias(res) {
   const div = res.divergentes || [];
   if (!div.length) return '';
@@ -136,7 +196,7 @@ function aferBlocoDivergencias(res) {
   return `
     <div class="afer-secao">
       <div class="afer-secao-titulo">Onde as leituras discordaram</div>
-      <div class="text-xs text-mute mb-1">A resposta predominante valeu, mas nestes quesitos ela ficou no fio — vale conferir você mesmo.</div>
+      <div class="afer-secao-desc">A resposta predominante valeu, mas nestes quesitos ela ficou no fio.</div>
       ${linhas}
     </div>`;
 }
@@ -192,13 +252,53 @@ function aferBlocoQuestionario(item) {
       </div>`;
   }).join('');
   return `
-    <details class="causo-mesa">
-      <summary>O questionário — pergunta por pergunta</summary>
-      <div class="causo-mesa-body">
-        <div class="text-xs text-mute mb-1">${item.rodadasValidas} leitura(s) independente(s) do mesmo questionário. A IA respondeu apenas SIM ou NÃO, sem ver peso nenhum; a nota é a soma que aparece na coluna da direita.</div>
-        ${linhas}
+    <div class="afer-secao">
+      <div class="afer-secao-titulo">O questionário — pergunta por pergunta</div>
+      <div class="afer-secao-desc">O conteúdo foi lido ${item.rodadasValidas} vez${item.rodadasValidas > 1 ? 'es' : ''}, sempre com o mesmo questionário. A IA respondeu apenas SIM ou NÃO, sem ver os pesos; a nota é a soma que aparece na coluna da direita.</div>
+      ${linhas}
+    </div>`;
+}
+
+/* COMO A NOTA FOI CALCULADA — a auditoria inteira, recolhida.
+ *
+ * Nada foi removido daqui: a conta, os blocos, o placar das divergências e o
+ * questionário pergunta por pergunta são os mesmos de antes, no mesmo nível de
+ * detalhe. Mudou o lugar. Quem quer saber o que fazer não abre; quem discorda
+ * da nota abre e acha a linha, que é a promessa que a ferramenta faz desde o
+ * primeiro dia.
+ *
+ * FECHADO POR PADRÃO, e isso é a mudança inteira em uma linha. */
+function aferDetalhes(item) {
+  const res = item.resultado || {};
+  return `
+    <details class="afer-detalhes afer-auditoria">
+      <summary>Ver o que foi analisado</summary>
+      <div class="afer-detalhes-body">
+        ${aferBlocoMelhorar(res)}
+        ${aferBlocoForte(res)}
+        ${aferBlocoNota(res)}
+        ${aferBlocoConta(res)}
+        ${aferBlocoBlocos(res)}
+        ${aferBlocoDivergencias(res)}
+        ${aferBlocoQuestionario(item)}
       </div>
     </details>`;
+}
+
+/* A NOTA, agora só aqui dentro. Ela não sumiu do produto — sumiu da primeira
+ * leitura. Quem quiser comparar duas versões do mesmo vídeo continua tendo o
+ * número, e ele continua sendo o mesmo de sempre. */
+function aferBlocoNota(res) {
+  return `
+    <div class="afer-secao">
+      <div class="afer-secao-titulo">A nota</div>
+      <div class="afer-nota">
+        <span class="afer-nota-valor">${aferSinal(res.nota)}</span>
+        <span class="afer-nota-de">/100</span>
+        <span class="afer-nota-faixa">${escapeHtml((res.faixa || {}).label || '')}</span>
+      </div>
+      <div class="afer-secao-desc">Vai de −100 a +100. É a conta que decidiu a recomendação lá em cima.</div>
+    </div>`;
 }
 
 function aferLimparResultado() {
@@ -212,7 +312,7 @@ function aferLimparResultado() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       </div>
       <div class="empty-title">Aguardando</div>
-      <div class="empty-desc">Cole o conteúdo acima. A IA responde a um questionário de SIM ou NÃO, várias vezes; a nota é calculada aqui, pelo código, e você pode conferir a conta.</div>
+      <div class="empty-desc">Cole o roteiro ou a transcrição acima. Você recebe de volta se dá para publicar e o que melhorar primeiro.</div>
     </div>`;
 }
 
@@ -246,11 +346,8 @@ function renderAferResultado(item) {
   _aferItemAtual = item;
   const res = item.resultado || {};
   area.innerHTML = `
-    ${aferBlocoNota(res)}
-    ${aferBlocoPerdidos(res)}
-    ${aferBlocoDivergencias(res)}
-    ${aferBlocoBlocos(res)}
-    ${aferBlocoQuestionario(item)}
+    ${aferCard(res)}
+    ${aferDetalhes(item)}
     <div class="flex gap-1 flex-wrap mt-2">
       <button class="btn btn-accent btn-sm" id="af-result-novo" title="Limpa os campos para aferir outro conteúdo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -261,7 +358,7 @@ function renderAferResultado(item) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
       </button>
     </div>
-    <div class="text-xs text-mute mt-2">A IA respondeu ao questionário ${item.rodadasValidas} vez(es), sem ver os pesos. A nota saiu de uma conta do código, não de um juízo dela — e as leituras concordaram em ${res.consensoMedio}% dos quesitos.</div>`;
+`;
 
   const novo = $('#af-result-novo');
   if (novo) novo.onclick = () => {
@@ -283,32 +380,28 @@ function renderAferResultado(item) {
   };
 }
 
-/** O resultado em texto puro — e ele carrega a conta, não só o número. */
+/* O resultado em texto puro — na MESMA ordem da tela.
+ *
+ * Quem copia isto manda para o editor, cola no grupo da equipe ou guarda para
+ * comparar depois. Abrir com "+125 ganhos − 10 perdidos" fazia a mensagem
+ * chegar como planilha do outro lado; abrir com o veredito e as ações faz
+ * chegar como recado. A conta continua no fim, para quem for conferir. */
 function aferResultadoEmTexto(item) {
   const res = item.resultado || {};
+  const r = aferRecomendacao(res);
   const linhas = [];
-  linhas.push(`${aferSinal(res.nota)}/100 — ${(res.faixa || {}).label || ''}`);
-  linhas.push(`+${res.pesoGanho} ganhos − ${res.pesoPerdido} perdidos = ${aferSinal(res.saldo)} de ${res.pesoTotal} em jogo`);
-  linhas.push(`${res.avaliadas.length} quesitos · ${item.rodadasValidas} leitura(s)`);
+  linhas.push(r.selo);
+  linhas.push(r.titulo);
+  linhas.push('');
+  linhas.push(r.motivo);
 
+  // O que ajustar só vai junto quando há o que ajustar — e é a única lista que
+  // sobra, porque é a única que o outro lado consegue transformar em trabalho.
   if ((res.perdidos || []).length) {
     linhas.push('');
-    linhas.push('ONDE A NOTA FOI EMBORA');
-    res.perdidos.forEach((q) => linhas.push(`-${q.peso} · ${q.pergunta} → ${q.resposta === 'sim' ? 'SIM' : 'NÃO'}`));
+    linhas.push('O QUE AJUSTAR');
+    res.perdidos.forEach((q, i) => linhas.push(`${i + 1}. ${aferConserto(q)}`));
   }
-  if ((res.divergentes || []).length) {
-    linhas.push('');
-    linhas.push('ONDE AS LEITURAS DISCORDARAM');
-    res.divergentes.forEach((q) => linhas.push(`${q.sim}×SIM ${q.nao}×NÃO · ${q.pergunta}`));
-  }
-  const blocos = (res.porBloco || []).filter((b) => b.nota != null);
-  if (blocos.length) {
-    linhas.push('');
-    linhas.push('POR BLOCO');
-    blocos.forEach((b) => linhas.push(`${b.label}: ${aferSinal(b.nota)}/100  (+${b.ganho} −${b.perdido})`));
-  }
-  linhas.push('');
-  linhas.push('A IA respondeu apenas SIM ou NÃO, sem ver os pesos. A nota é uma conta do código.');
   return linhas.join('\n');
 }
 
@@ -330,7 +423,7 @@ function renderAferHistorico() {
           <div class="list-item-title">${escapeHtml(it.nome || 'Conteúdo')}</div>
           <button class="list-item-del" data-afer-del="${escapeHtml(it.id)}" title="Excluir" aria-label="Excluir">✕</button>
         </div>
-        <div class="list-item-meta">${aferSinal(r.nota)}/100 · ${escapeHtml((r.faixa || {}).label || '')} · ${escapeHtml(formatDate(it.createdAt))}</div>
+        <div class="list-item-meta">${escapeHtml(aferRecomendacao(r).selo)} · ${escapeHtml(formatDate(it.createdAt))}</div>
       </div>`;
   }).join('');
 
@@ -394,8 +487,8 @@ function aferTelaDeEspera(passos) {
   return `
     <div class="empty">
       <div class="spinner spinner-lg" style="color: var(--accent); border-right-color: transparent; margin: 0 auto 1rem;"></div>
-      <div class="empty-title afer-loading-title">Respondendo ao questionário…</div>
-      <div class="empty-desc afer-loading-desc">Leituras independentes do mesmo conteúdo.</div>
+      <div class="empty-title afer-loading-title">Lendo o conteúdo…</div>
+      <div class="empty-desc afer-loading-desc">Algumas leituras independentes, para uma opinião torta não decidir sozinha.</div>
       <div class="pipeline-steps">${passos}</div>
     </div>`;
 }
@@ -487,8 +580,8 @@ function renderAferidor() {
     _aferResultadoVisivel = false;
     _aferItemAtual = null;
     $('#af-result-area').innerHTML = aferTelaDeEspera(`
-      <span class="pipeline-step" data-step="rodadas">Questionário</span>
-      <span class="pipeline-step" data-step="calculo">Cálculo</span>`);
+      <span class="pipeline-step" data-step="rodadas">Leitura</span>
+      <span class="pipeline-step" data-step="calculo">Resultado</span>`);
 
     try {
       const embalagem = aferEmbalagemAtual();
@@ -513,9 +606,9 @@ function renderAferidor() {
       renderAferResultado(item);
       renderAferHistorico();
       if (res.falhas) {
-        toast(`${res.falhas} leitura(s) não responderam — a nota saiu das ${res.rodadasValidas} que responderam.`, 'info', 6000);
+        toast(`${res.falhas} leitura(s) não responderam — o resultado saiu das ${res.rodadasValidas} que responderam.`, 'info', 6000);
       } else {
-        toast(`${aferSinal(res.resultado.nota)}/100 · ${res.resultado.faixa.label}`, 'success');
+        toast(aferRecomendacao(res.resultado).selo, 'success');
       }
     } catch (err) {
       toast(err.message || 'Não foi possível aferir.', 'error', 6000);

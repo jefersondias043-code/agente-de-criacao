@@ -3007,18 +3007,96 @@ body.pe-full #view-posters { animation: none; }
 .afer-amarelo  .afer-faixa-label { color: var(--amber); }
 .afer-vermelho .afer-faixa-label { color: var(--accent-ink); }
 .afer-faixa-resumo { font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.15rem; }
-/* A CONTA. É a frase inteira do produto — por isso ela fica sob a faixa, não
-   escondida na auditoria lá embaixo. */
+
+/* O CARD — a tela inteira do resultado.
+   Uma palavra, uma linha e um porquê. O selo é dimensionado para ser lido de
+   longe, de pé, com o celular na mão: é a única informação que o autor precisa
+   para decidir se o vídeo sobe hoje. */
+.afer-card {
+  padding: 1.6rem 1.4rem;
+  border: 1px solid var(--line);
+  border-left-width: 5px;
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  text-align: center;
+}
+.afer-card-sim { border-left-color: var(--green); }
+.afer-card-nao { border-left-color: var(--accent); }
+.afer-card-selo {
+  font-family: var(--serif); font-weight: 700;
+  font-size: clamp(2rem, 8vw, 2.9rem); line-height: 1;
+  letter-spacing: 0.01em;
+}
+.afer-card-sim .afer-card-selo { color: var(--green); }
+.afer-card-nao .afer-card-selo { color: var(--accent-ink); }
+.afer-card-titulo {
+  font-size: 1rem; font-weight: 600; margin-top: 0.6rem;
+  text-wrap: balance;
+}
+.afer-card-motivo {
+  font-size: 0.92rem; color: var(--ink-soft); line-height: 1.55;
+  margin: 0.5rem auto 0; max-width: 46ch; text-wrap: pretty;
+}
+/* A nota, dentro da auditoria: não compete mais com o selo. */
+.afer-nota-faixa { font-size: 0.85rem; color: var(--ink-soft); margin-left: 0.4rem; }
+
+/* A CONTA. Continua exata, agora dentro da auditoria — o número do topo é
+   conferível aqui, e quem não quiser conferir não precisa mais desviar dela. */
 .afer-conta {
-  font-size: 0.78rem; color: var(--ink-mute); margin-top: 0.35rem;
+  font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.2rem;
   font-variant-numeric: tabular-nums;
 }
-.afer-nota { display: flex; align-items: baseline; gap: 0.15rem; }
-.afer-nota-valor { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
-.afer-nota-de { font-size: 0.85rem; color: var(--ink-mute); }
+/* O número perdeu o tamanho de manchete, não a precisão: ele ainda é o que o
+   histórico compara e o que o autor acompanha de uma versão para a outra. */
+.afer-nota { display: flex; align-items: baseline; gap: 0.2rem; }
+.afer-nota-rotulo {
+  font-size: 0.7rem; color: var(--ink-mute); text-transform: uppercase;
+  letter-spacing: 0.06em; margin-right: 0.1rem;
+}
+.afer-nota-valor { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.afer-nota-de { font-size: 0.8rem; color: var(--ink-mute); }
 
 .afer-secao { margin-top: 1.1rem; }
 .afer-secao-titulo { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem; }
+.afer-secao-desc { font-size: 0.78rem; color: var(--ink-mute); margin-bottom: 0.45rem; }
+.afer-nada { font-size: 0.88rem; color: var(--ink-soft); }
+.afer-rodape { font-size: 0.75rem; color: var(--ink-mute); margin-top: 0.9rem; }
+
+/* O QUE MELHORAR — uma ação por linha, numerada pela ordem de impacto.
+   O número é a posição na fila, não o peso: peso é conta, e conta agora mora
+   na auditoria. */
+.afer-acao {
+  display: grid; grid-template-columns: auto 1fr; gap: 0.55rem;
+  align-items: start;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 0.4rem;
+  background: var(--paper-2);
+}
+/* A primeira é a que mais muda o resultado — e o autor que só fizer uma coisa
+   precisa acertar qual. */
+.afer-acao-primeira { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.afer-acao-num {
+  display: flex; align-items: center; justify-content: center;
+  width: 1.35rem; height: 1.35rem; flex: none;
+  border-radius: 999px;
+  background: var(--line-soft); color: var(--ink-soft);
+  font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.afer-acao-primeira .afer-acao-num { background: var(--accent); color: #fff; }
+.afer-acao-corpo { min-width: 0; }
+.afer-acao-texto { font-size: 0.9rem; line-height: 1.4; }
+.afer-acao-duvida { font-size: 0.75rem; color: var(--ink-mute); margin-top: 0.2rem; }
+
+/* O QUE JÁ ESTÁ BOM. Sem caixa e sem numeração: é para ser lido de relance,
+   não trabalhado item a item. */
+.afer-forte {
+  display: flex; gap: 0.45rem; align-items: flex-start;
+  font-size: 0.88rem; color: var(--ink-soft);
+  padding: 0.15rem 0;
+}
+.afer-forte-check { width: 14px; height: 14px; flex: none; margin-top: 0.25rem; color: var(--green); }
 
 /* Onde a nota foi embora */
 .afer-perdido {

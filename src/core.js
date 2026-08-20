@@ -134,9 +134,6 @@ const STORAGE_KEYS = {
   pacoteDraft: 'agp.pacote.draft',         // Pacote: o conteúdo em construção
   afericoes: 'agp.afericoes',              // Aferidor: as aferições binárias (questionário + conta)
   aferidorDraft: 'agp.aferidor.draft',     // Aferidor: o conteúdo em aferição
-  m23Runs: 'agp.m23.runs',                 // M23: campanhas de busca já rodadas (parâmetros + resultados)
-  m23Params: 'agp.m23.params',             // M23: os últimos parâmetros usados no formulário
-  matrizParams: 'agp.matriz.params',       // Matriz: parâmetros do otimizador (a matriz em si é grande demais para o localStorage — exporta-se em arquivo)
   posterPresets: 'agp.posterPresets',
   posterPanelH: 'agp.posterPanelH',   // altura (px) do painel de edição no mobile — divisor arrastável preview↔edição
 };
@@ -248,9 +245,6 @@ const State = (() => {
     pacoteDraft: loadJSON(STORAGE_KEYS.pacoteDraft, null),
     afericoes: loadJSON(STORAGE_KEYS.afericoes, []),
     aferidorDraft: loadJSON(STORAGE_KEYS.aferidorDraft, null),
-    m23Runs: loadJSON(STORAGE_KEYS.m23Runs, []),
-    m23Params: loadJSON(STORAGE_KEYS.m23Params, null),
-    matrizParams: loadJSON(STORAGE_KEYS.matrizParams, null),
     posterPresets: loadJSON(STORAGE_KEYS.posterPresets, []),   // presets de identidade visual (nome + custom)
     currentView: 'welcome',
     activeExtractionId: null,

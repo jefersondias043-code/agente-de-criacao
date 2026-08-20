@@ -301,6 +301,48 @@ bacia pros outros carregar.
     expect(CARONA.length, 'a transcrição sumiu do teste').toBeGreaterThan(100);
   });
 
+  it('"boa tarde, cidadã" não é preâmbulo — é a cena começando', () => {
+    /* TERCEIRO VÍDEO REPROVADO, e este defeito não era só do humor.
+     *
+     * Uma esquete de guarda parando uma motociclista abre com o cumprimento
+     * entre os dois personagens. A pergunta dizia apenas "começa com saudação?"
+     * e o modelo marcou o defeito que ela descrevia ao pé da letra — custando
+     * 7 pontos a uma cena que começa do jeito certo.
+     *
+     * O defeito real é o autor falando COM O ESPECTADOR antes de entregar
+     * alguma coisa. Dois personagens se cumprimentando dentro da história é o
+     * oposto disso: é a ficção já em andamento no primeiro segundo. Vale para
+     * todo gênero — notícia, relato e educativo também dramatizam. */
+    const q = A.AFER_QUESTOES.find((x) => x.id === 'sem_preambulo');
+    expect(q.pergunta, 'a pergunta não distingue o espectador do personagem')
+      .toMatch(/ESPECTADOR/);
+    expect(q.pergunta, 'falta dizer que fala de personagem não conta')
+      .toMatch(/personagens?.*NÃO conta|NÃO conta.*personagem/is);
+    // E a de abertura não pode empurrar o mesmo engano pelo outro lado.
+    const abre = A.AFER_QUESTOES.find((x) => x.id === 'abre_no_fato');
+    expect(abre.pergunta).toMatch(/fala de personagem/i);
+  });
+
+  it('a esquete do guarda passa', () => {
+    const qs = doGenero('humor');
+    /* Bate-boca de autoridade: ninguém abre pergunta nem promete nada, e o que
+     * segura é o conflito. As duas perguntas que cobravam essa arquitetura
+     * ("fica pergunta em aberto?", "o começo promete e entrega?") saíram do
+     * humor — `humor_impasse` e `humor_fecha` medem a mesma coisa pelo
+     * critério certo. */
+    expect(ids(qs)).not.toContain('pergunta_aberta');
+    expect(ids(qs)).not.toContain('promessa_cumprida');
+    const leitura = {
+      humor_fecha: 'sim', humor_escalada: 'sim', humor_impasse: 'sim',
+      humor_personagem: 'sim', humor_gordura: 'nao',
+    };
+    const mapa = A.normalizarRodada({
+      respostas: qs.map((q) => ({ id: q.id, resposta: leitura[q.id] || q.bom })),
+    }, qs);
+    const res = A.calcularAfericao(A.consolidarRespostas([mapa], qs), { rodadas: 1 });
+    expect(A.aferRecomendacao(res).selo).toBe('POSTE');
+  });
+
   it('mas humor ruim continua reprovando — a régua afrouxou, não caiu', () => {
     /* O risco de corrigir um falso negativo é criar um "passa tudo". Um
      * conteúdo que não fecha, não escala, não tem impasse e ainda tem fala

@@ -150,14 +150,34 @@ function aferGeneroNome(id) {
 const AFER_QUESTOES = [
   /* ---- Abertura: peso alto porque age antes de todo o resto ---- */
   { id: 'abre_no_fato', bloco: 'abertura', peso: 10, bom: 'sim',
-    pergunta: 'Nos primeiros segundos já acontece alguma coisa concreta — um fato, uma ação, uma afirmação específica — em vez de saudação, apresentação ou anúncio do que virá?' },
+    pergunta: 'Nos primeiros segundos já acontece alguma coisa concreta — um fato, uma ação, uma fala de personagem, uma afirmação específica — em vez de o apresentador cumprimentar o público ou anunciar o que virá?' },
+  /* "BOA TARDE, CIDADÃ" NÃO É PREÂMBULO — É A CENA COMEÇANDO.
+   *
+   * A redação anterior dizia só "começa com saudação", e um terceiro vídeo de
+   * milhões de views reprovou por causa disso: uma esquete de guarda parando
+   * uma motociclista abre com o cumprimento entre os dois personagens, e o
+   * modelo marcou o defeito que a pergunta descrevia ao pé da letra.
+   *
+   * O defeito real é o autor falando COM O ESPECTADOR antes de entregar
+   * qualquer coisa ("oi gente, tudo bem?"). Dois personagens se cumprimentando
+   * dentro da história é o oposto: é a ficção já em andamento no primeiro
+   * segundo. A pergunta agora nomeia a diferença em vez de contar com o bom
+   * senso do modelo — e vale para todo gênero, porque notícia, relato e
+   * educativo também dramatizam. */
   { id: 'sem_preambulo', bloco: 'abertura', peso: 7, bom: 'nao',
-    pergunta: 'O conteúdo começa com saudação ("oi gente", "sejam bem-vindos"), apresentação do canal ou pedido de inscrição?' },
+    pergunta: 'O conteúdo começa com alguém falando DIRETAMENTE COM O ESPECTADOR — saudação ("oi gente", "sejam bem-vindos"), apresentação do canal ou pedido de inscrição? Atenção: cumprimento entre personagens dentro da cena ("boa tarde, cidadã") NÃO conta aqui — isso é a cena começando, não preâmbulo.' },
   { id: 'assunto_claro', bloco: 'abertura', peso: 7, bom: 'sim',
     pergunta: 'Lendo só o começo, e sem depender do título, dá para dizer do que o conteúdo trata?' },
 
   /* ---- Curiosidade e progressão ---- */
-  { id: 'pergunta_aberta', bloco: 'curiosidade', peso: 8, bom: 'sim',
+  /* FORA DO HUMOR, junto com `promessa_cumprida`. As duas descrevem a mesma
+     arquitetura — abrir uma pergunta, prometer, entregar — que é o causo das
+     galinhas e não é uma esquete de bate-boca: numa briga de guarda com
+     motociclista ninguém abre pergunta nenhuma nem promete nada, e o que
+     segura é o conflito. `humor_impasse` e `humor_fecha` já medem isso pelo
+     critério certo; manter estas aqui era cobrar a mesma coisa duas vezes, uma
+     delas pela forma errada. */
+  { id: 'pergunta_aberta', bloco: 'curiosidade', peso: 8, bom: 'sim', exceto: ['humor'],
     pergunta: 'Fica alguma pergunta em aberto que só o restante do conteúdo responde?' },
   /* FORA DO HUMOR: em comédia de situação o público SABE desde o começo que
      não vai dar certo, e a graça está justamente em ver a coisa não dar certo.
@@ -193,7 +213,7 @@ const AFER_QUESTOES = [
      mataria a graça se existisse. */
   { id: 'tem_conclusao', bloco: 'entrega', peso: 8, bom: 'sim', exceto: ['humor'],
     pergunta: 'O conteúdo termina com uma conclusão, em vez de simplesmente parar?' },
-  { id: 'promessa_cumprida', bloco: 'entrega', peso: 8, bom: 'sim',
+  { id: 'promessa_cumprida', bloco: 'entrega', peso: 8, bom: 'sim', exceto: ['humor'],
     pergunta: 'O que o começo prometeu é entregue até o fim?' },
   { id: 'final_responde', bloco: 'entrega', peso: 6, bom: 'sim', exceto: ['humor'],
     pergunta: 'O final responde à pergunta que o começo abriu?' },

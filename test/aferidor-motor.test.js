@@ -39,21 +39,41 @@ const rodada = (over, questoes) => ({
   })),
 });
 
-/** IA dublada: cada chamada devolve a rodada da vez (cicla se acabarem). */
+/** IA dublada. Agora ela atende DUAS conversas diferentes: a que identifica o
+ *  gênero e a que responde ao questionário. Distinguir pelo prompt é de
+ *  propósito — se um dia a classificação passar a enxergar o questionário, o
+ *  dublê deixa de separar as duas e os testes de isolamento caem junto. */
+const EH_CLASSIFICACAO = (p) => /OS GÊNEROS/.test(p);
+
 const dublar = (roteiro, opcoes) => {
   const o = opcoes || {};
   const prompts = [];
   let i = 0;
   const call = async (prompt) => {
     prompts.push(prompt);
+    if (EH_CLASSIFICACAO(prompt)) {
+      // A identificação não consome rodada nem entra na contagem de falhas:
+      // ela é uma chamada à parte, e é assim que o pipeline a trata.
+      if (o.generoCai) throw new Error('classificação caiu');
+      return { content: JSON.stringify({ genero: o.genero || 'geral' }), model: 'dublado' };
+    }
     const n = i++;
     if (o.falharEm && o.falharEm.indexOf(n) >= 0) throw new Error('rodada caiu');
     const r = Array.isArray(roteiro) ? roteiro[n % roteiro.length] : roteiro;
     return { content: JSON.stringify(r), model: 'dublado' };
   };
   call.prompts = prompts;
+  /** Só os prompts de avaliação. */
+  call.avaliacoes = () => prompts.filter((p) => !EH_CLASSIFICACAO(p));
+  /** Só os prompts de classificação. */
+  call.classificacoes = () => prompts.filter(EH_CLASSIFICACAO);
   return call;
 };
+
+/** O questionário de um conteúdo cujo gênero NÃO foi identificado: as perguntas
+ *  que valem para qualquer coisa. É o que os testes de cálculo usam como "o
+ *  questionário", já que o conjunto agora depende do gênero. */
+const universais = (emb) => A.aferQuestoesAplicaveis({ embalagem: emb || { titulo: 'x' } });
 
 /* ========================================================================== */
 describe('o questionário só admite pergunta verificável', () => {
@@ -213,8 +233,10 @@ describe('perguntas que não se aplicam saem da conta inteira', () => {
   });
 
   it('com título, elas voltam', () => {
-    const qs = A.aferQuestoesAplicaveis({ embalagem: { titulo: 'O carro sumiu' } });
-    expect(qs.length).toBe(A.AFER_QUESTOES.length);
+    const sem = A.aferQuestoesAplicaveis({ embalagem: {} });
+    const com = A.aferQuestoesAplicaveis({ embalagem: { titulo: 'O carro sumiu' } });
+    expect(com.length).toBe(sem.length + 2);
+    expect(com.filter((q) => q.exige === 'embalagem').length).toBe(2);
   });
 
   it('e não entram no DIVISOR — senão a nota mediria o formulário, não o conteúdo', () => {
@@ -234,19 +256,19 @@ describe('perguntas que não se aplicam saem da conta inteira', () => {
     // Todas as rodadas falharam NAQUELA pergunta: ela não foi verificada, então
     // não pode custar pontos. Contá-la no divisor seria descontar por uma
     // observação que não houve.
-    const qs = A.AFER_QUESTOES;
+    const qs = universais();
     const semUma = { respostas: rodada({}, qs).respostas.filter((r) => r.id !== 'entrega_algo') };
     const r = A.calcularAfericao(
       A.consolidarRespostas([A.normalizarRodada(semUma, qs)], qs), { rodadas: 1 });
     expect(r.nota, 'a pergunta não respondida derrubou a nota').toBe(100);
     expect(r.avaliadas.some((q) => q.id === 'entrega_algo')).toBe(false);
-    expect(r.pesoTotal).toBe(135 - A.aferQuestao('entrega_algo').peso);
+    expect(r.pesoTotal).toBe(131 - A.aferQuestao('entrega_algo').peso);
   });
 });
 
 /* ========================================================================== */
 describe('a consolidação: várias leituras viram uma resposta', () => {
-  const qs = () => A.AFER_QUESTOES;
+  const qs = () => universais();
   const consolidar = (overs) => A.consolidarRespostas(
     overs.map((o) => A.normalizarRodada(rodada(o, qs()), qs())), qs());
   const de = (c, id) => c.find((q) => q.id === id);
@@ -298,7 +320,7 @@ describe('a consolidação: várias leituras viram uma resposta', () => {
 
 /* ========================================================================== */
 describe('o normalizador não deixa lixo entrar', () => {
-  const qs = () => A.AFER_QUESTOES;
+  const qs = () => universais();
 
   it('aceita as formas que o modelo realmente devolve', () => {
     const m = A.normalizarRodada({ respostas: [
@@ -347,7 +369,7 @@ describe('o normalizador não deixa lixo entrar', () => {
 
 /* ========================================================================== */
 describe('o cálculo é do código, e confere na mão', () => {
-  const qs = () => A.AFER_QUESTOES;
+  const qs = () => universais();
   const calcular = (over) => A.calcularAfericao(
     A.consolidarRespostas([A.normalizarRodada(rodada(over, qs()), qs())], qs()), { rodadas: 1 });
 
@@ -361,13 +383,13 @@ describe('o cálculo é do código, e confere na mão', () => {
   });
 
   it('a nota é o SALDO: ganhos menos perdidos, sobre o peso que se aplicava', () => {
-    // Erra só `entrega_algo` (peso 10) num total de 135.
+    // Erra só `entrega_algo` (peso 10) num total de 131.
     const r = calcular({ entrega_algo: 'nao' });
-    expect(r.pesoTotal).toBe(135);
-    expect(r.pesoGanho).toBe(125);
+    expect(r.pesoTotal).toBe(131);
+    expect(r.pesoGanho).toBe(121);
     expect(r.pesoPerdido).toBe(10);
-    expect(r.saldo, 'o saldo é ganhos − perdidos').toBe(115);
-    expect(r.nota).toBe(Math.round((115 / 135) * 100));
+    expect(r.saldo, 'o saldo é ganhos − perdidos').toBe(111);
+    expect(r.nota).toBe(Math.round((111 / 131) * 100));
     expect(r.nota).toBe(85);
   });
 
@@ -456,8 +478,9 @@ describe('a aferição inteira, de ponta a ponta', () => {
   it('roda o questionário o número pedido de vezes, com o MESMO prompt', async () => {
     const call = dublar(rodada({}));
     const r = await A.runAfericaoPipeline({ conteudo: CONTEUDO, rodadas: 5, call });
-    expect(call.prompts.length).toBe(5);
-    expect(new Set(call.prompts).size, 'as rodadas precisam ser idênticas').toBe(1);
+    expect(call.avaliacoes().length).toBe(5);
+    expect(new Set(call.avaliacoes()).size, 'as rodadas precisam ser idênticas').toBe(1);
+    expect(call.classificacoes().length, 'o gênero é UMA chamada, não uma por rodada').toBe(1);
     expect(r.resultado.nota).toBe(100);
     expect(r.rodadasValidas).toBe(5);
   });
@@ -503,7 +526,7 @@ describe('a aferição inteira, de ponta a ponta', () => {
       conteudo: CONTEUDO, rodadas: 3, call: dublar(rodada({})),
       onEtapa: (k) => vistas.push(k),
     });
-    expect(vistas).toEqual(['rodadas', 'calculo', 'pronto']);
+    expect(vistas).toEqual(['genero', 'rodadas', 'calculo', 'pronto']);
   });
 
   it('com embalagem, o questionário cresce e a IA recebe o título', async () => {

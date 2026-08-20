@@ -201,6 +201,88 @@ const AFER_FALA = {
     curtoBom: 'não fica pedindo like',
   },
 
+  /* ---- Humor: o que o questionário informativo nunca mediu ---- */
+  humor_deixa: {
+    conserto: 'Falta a virada no final. Guarde uma revelação ou um trocadilho que faça o começo ganhar outro sentido.',
+    forte: 'O final vira a mesa e faz reinterpretar tudo o que veio antes.',
+    curto: 'termina sem uma virada',
+    curtoBom: 'fecha com uma virada que reinterpreta o começo',
+  },
+  humor_armacao: {
+    conserto: 'Nada é insistido ao longo do conteúdo para preparar o final. Repita alguma coisa de propósito — é a repetição que arma a piada.',
+    forte: 'Repete de propósito e usa isso para armar o final.',
+    curto: 'não prepara o final',
+    curtoBom: 'arma o final com a repetição certa',
+  },
+  humor_personagem: {
+    conserto: 'As vozes soam iguais. Dê a cada uma um jeito próprio de falar, para dar de saber quem fala sem dizer o nome.',
+    forte: 'Dá para saber quem está falando pelo jeito de falar.',
+    curto: 'as vozes soam todas iguais',
+    curtoBom: 'cada voz tem jeito próprio de falar',
+  },
+  humor_gordura: {
+    conserto: 'Tem fala que não prepara o final nem caracteriza ninguém. Essa dá para cortar.',
+    forte: 'Cada fala serve à piada ou ao personagem.',
+    curto: 'tem fala que não serve à piada nem ao personagem',
+    curtoBom: 'não tem fala sobrando',
+  },
+
+  /* ---- História / relato ---- */
+  hist_acontece: {
+    conserto: 'Nada muda de estado do começo ao fim. Uma história precisa de um problema, uma virada ou uma decisão.',
+    forte: 'Alguma coisa acontece e muda a situação.',
+    curto: 'nada acontece de fato',
+    curtoBom: 'tem alguma coisa acontecendo de verdade',
+  },
+  hist_concreto: {
+    conserto: 'A história está sendo resumida em vez de contada. Traga o lugar, a gente, o que foi dito.',
+    forte: 'Tem lugar, gente e fala — é contada, não resumida.',
+    curto: 'é resumida em vez de contada',
+    curtoBom: 'tem detalhe concreto de lugar e de gente',
+  },
+  hist_desfecho: {
+    conserto: 'A história para no meio do acontecimento. Leve até o desfecho.',
+    forte: 'Chega a um desfecho.',
+    curto: 'para no meio do acontecimento',
+    curtoBom: 'chega a um desfecho',
+  },
+
+  /* ---- Educativo ---- */
+  edu_aplicavel: {
+    conserto: 'Quem assistiu não sai sabendo fazer. Feche o suficiente para a pessoa conseguir tentar sozinha.',
+    forte: 'Quem assistiu sai sabendo o suficiente para tentar.',
+    curto: 'não deixa a pessoa apta a tentar',
+    curtoBom: 'deixa quem assistiu apto a tentar',
+  },
+  edu_ordem: {
+    conserto: 'Os passos dependem de informação que só aparece depois. Ponha na ordem em que se faz.',
+    forte: 'Os passos vêm na ordem em que dá para seguir.',
+    curto: 'os passos estão fora de ordem',
+    curtoBom: 'os passos vêm na ordem certa',
+  },
+
+  /* ---- Opinião ---- */
+  opi_tese: {
+    conserto: 'Não dá para dizer numa frase o que está sendo defendido. Deixe a posição explícita.',
+    forte: 'A posição defendida cabe numa frase.',
+    curto: 'não deixa claro o que defende',
+    curtoBom: 'deixa clara a posição que defende',
+  },
+  opi_razao: {
+    conserto: 'A posição vem sem sustentação. Dê pelo menos uma razão, um dado ou um exemplo concreto.',
+    forte: 'Sustenta a posição com razão ou exemplo.',
+    curto: 'defende sem sustentar',
+    curtoBom: 'sustenta o que defende',
+  },
+
+  /* ---- Notícia ---- */
+  not_apuracao: {
+    conserto: 'Não fica claro de onde veio a informação. Diga quem disse, onde e quando.',
+    forte: 'Dá para saber de onde veio a informação.',
+    curto: 'não diz de onde veio a informação',
+    curtoBom: 'deixa claro de onde veio a informação',
+  },
+
   /* ---- Embalagem ---- */
   titulo_promete: {
     conserto: 'O título está vago. Prometa uma coisa específica.',

@@ -56,6 +56,57 @@ function aferBloco(id) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* §1b — Os gêneros                                                            */
+/* -------------------------------------------------------------------------- */
+
+/* POR QUE O GÊNERO EXISTE, e por que ele custou um vídeo de milhões de views.
+ *
+ * O questionário original media UM tipo de conteúdo — o informativo — e media
+ * bem. Aplicado a um causo de humor, ele reprovava por motivos que são, no
+ * humor, virtudes: "alguma informação é dita duas vezes?" (a repetição é o
+ * timing da piada), "existe trecho removível?" (o vai-e-vem constrói a deixa),
+ * "cada parte acrescenta informação nova?" (uma piada não informa, ela arma).
+ * Somadas, essas perguntas tiravam 25% do peso de um causo BEM CONTADO, antes
+ * de qualquer defeito de verdade.
+ *
+ * E havia o outro lado, mais silencioso: nada no questionário media a virada
+ * final, o timing ou a construção dos personagens — justamente o que faz um
+ * causo funcionar. O conteúdo perdia por ser causo e não ganhava por ser um
+ * causo bom.
+ *
+ * Um gênero não é um rótulo decorativo: ele decide QUAIS PERGUNTAS se aplicam.
+ * A régua muda; a aritmética, não. */
+const AFER_GENEROS = [
+  { id: 'noticia', label: 'notícia', artigo: 'uma',
+    desc: 'Informa um fato: o que aconteceu, com quem, onde.' },
+  { id: 'educativo', label: 'conteúdo educativo', artigo: 'um',
+    desc: 'Ensina a fazer ou entender alguma coisa.' },
+  { id: 'humor', label: 'humor', artigo: 'um',
+    desc: 'A graça é o objetivo: piada, causo engraçado, esquete, diálogo cômico.' },
+  { id: 'historia', label: 'história', artigo: 'uma',
+    desc: 'Conta um acontecimento — real ou não. O interesse está no que aconteceu.' },
+  { id: 'opiniao', label: 'opinião', artigo: 'uma',
+    desc: 'Defende um ponto de vista sobre alguma coisa.' },
+];
+
+/* O gênero de quem não foi identificado. Não é um gênero de verdade: é o
+ * conjunto das perguntas que valem para qualquer conteúdo. Quando a chamada de
+ * identificação falha, é MELHOR AFERIR PELO QUE SERVE A TODOS do que chutar um
+ * gênero — um chute errado aplica a régua errada em silêncio, que é exatamente
+ * o defeito que este trabalho veio consertar. */
+const AFER_GENERO_PADRAO = 'geral';
+
+function aferGenero(id) {
+  return AFER_GENEROS.find((g) => g.id === id) || null;
+}
+
+/** Nome do gênero para a tela: "um humor" fica errado, "humor" fica seco. */
+function aferGeneroNome(id) {
+  const g = aferGenero(id);
+  return g ? g.label : '';
+}
+
+/* -------------------------------------------------------------------------- */
 /* §2 — O questionário                                                         */
 /* -------------------------------------------------------------------------- */
 
@@ -83,7 +134,19 @@ function aferBloco(id) {
  * `exige` marca a pergunta que só faz sentido com aquela informação na mão.
  * Sem título nem legenda, as duas de embalagem não são respondidas NEM contam
  * no divisor — ver `calcularAfericao`. Perguntar sobre o que não existe e
- * descontar pontos por isso seria punir quem ainda não escreveu o título. */
+ * descontar pontos por isso seria punir quem ainda não escreveu o título.
+ *
+ * `so` e `exceto` SÃO A RÉGUA POR GÊNERO, e é aqui que mora a correção que um
+ * causo de milhões de views obrigou a fazer:
+ *
+ *   `so: ['humor']`      — a pergunta só existe naquele gênero. É como entram
+ *                          os quesitos que medem o que faz o gênero funcionar,
+ *                          e que o questionário informativo nunca mediu.
+ *   `exceto: ['humor']`  — a pergunta vale em todo lugar MENOS ali, porque ali
+ *                          ela pune o que deveria premiar.
+ *
+ * Sem os dois campos, a pergunta vale para todos — inclusive para o conteúdo
+ * cujo gênero não foi identificado. */
 const AFER_QUESTOES = [
   /* ---- Abertura: peso alto porque age antes de todo o resto ---- */
   { id: 'abre_no_fato', bloco: 'abertura', peso: 10, bom: 'sim',
@@ -98,27 +161,36 @@ const AFER_QUESTOES = [
     pergunta: 'Fica alguma pergunta em aberto que só o restante do conteúdo responde?' },
   { id: 'previsivel', bloco: 'curiosidade', peso: 6, bom: 'nao',
     pergunta: 'Dá para adivinhar como termina antes de chegar à metade?' },
-  { id: 'progride', bloco: 'curiosidade', peso: 8, bom: 'sim',
+  /* FORA DO HUMOR: uma piada não informa, ela arma. O vai-e-vem de um diálogo
+     cômico não "acrescenta informação" e não deveria pagar por isso. */
+  { id: 'progride', bloco: 'curiosidade', peso: 8, bom: 'sim', exceto: ['humor'],
     pergunta: 'Cada parte acrescenta informação que não estava na anterior?' },
-  { id: 'causalidade', bloco: 'curiosidade', peso: 5, bom: 'sim',
+  { id: 'causalidade', bloco: 'curiosidade', peso: 5, bom: 'sim', exceto: ['humor'],
     pergunta: 'As coisas se puxam — uma causa a outra — em vez de apenas se sucederem?' },
 
-  /* ---- Trechos mortos ---- */
-  { id: 'repeticao', bloco: 'retencao', peso: 7, bom: 'nao',
+  /* ---- Trechos mortos ----
+     O bloco inteiro sai do humor. Repetir é o timing da piada; o trecho que
+     "poderia ser removido" é o que constrói a deixa; a explicação que "se
+     estende" é o suspense. No humor, quem cuida disso é `humor_gordura`, que
+     pergunta a mesma coisa pelo critério certo. */
+  { id: 'repeticao', bloco: 'retencao', peso: 7, bom: 'nao', exceto: ['humor'],
     pergunta: 'Alguma informação é dita duas vezes, com palavras diferentes?' },
-  { id: 'trecho_cortavel', bloco: 'retencao', peso: 7, bom: 'nao',
+  { id: 'trecho_cortavel', bloco: 'retencao', peso: 7, bom: 'nao', exceto: ['humor'],
     pergunta: 'Existe algum trecho que poderia ser removido inteiro sem o conteúdo perder nada?' },
-  { id: 'explicacao_longa', bloco: 'retencao', peso: 5, bom: 'nao',
+  { id: 'explicacao_longa', bloco: 'retencao', peso: 5, bom: 'nao', exceto: ['humor'],
     pergunta: 'Alguma explicação se estende além do necessário para ser entendida?' },
 
   /* ---- Entrega e final: o que sobra depois de assistir ---- */
   { id: 'entrega_algo', bloco: 'entrega', peso: 10, bom: 'sim',
     pergunta: 'Quem chegou ao fim leva alguma coisa concreta — uma informação, uma emoção, uma surpresa, uma graça?' },
-  { id: 'tem_conclusao', bloco: 'entrega', peso: 8, bom: 'sim',
+  /* No humor a conclusão é a DEIXA, e ela tem pergunta própria — cobrar
+     "conclusão" de uma piada faz o modelo procurar um fecho explicativo que
+     mataria a graça se existisse. */
+  { id: 'tem_conclusao', bloco: 'entrega', peso: 8, bom: 'sim', exceto: ['humor'],
     pergunta: 'O conteúdo termina com uma conclusão, em vez de simplesmente parar?' },
   { id: 'promessa_cumprida', bloco: 'entrega', peso: 8, bom: 'sim',
     pergunta: 'O que o começo prometeu é entregue até o fim?' },
-  { id: 'final_responde', bloco: 'entrega', peso: 6, bom: 'sim',
+  { id: 'final_responde', bloco: 'entrega', peso: 6, bom: 'sim', exceto: ['humor'],
     pergunta: 'O final responde à pergunta que o começo abriu?' },
 
   /* ---- Naturalidade ---- */
@@ -130,10 +202,46 @@ const AFER_QUESTOES = [
   /* ---- Distribuição ---- */
   { id: 'motivo_compartilhar', bloco: 'distribuicao', peso: 6, bom: 'sim',
     pergunta: 'Existe uma razão concreta para alguém mandar isto a outra pessoa — algo que valha um "olha isso"?' },
-  { id: 'provoca_reacao', bloco: 'distribuicao', peso: 4, bom: 'sim',
+  /* Tomar posição é virtude na opinião e defeito na notícia; numa piada e num
+     tutorial, não é nem uma coisa nem outra. */
+  { id: 'provoca_reacao', bloco: 'distribuicao', peso: 4, bom: 'sim', so: ['opiniao', 'historia'],
     pergunta: 'O conteúdo toma alguma posição ou deixa algo com que dê para concordar ou discordar?' },
   { id: 'cta_artificial', bloco: 'distribuicao', peso: 3, bom: 'nao',
     pergunta: 'Existe pedido explícito de like, inscrição, comentário ou compartilhamento?' },
+
+  /* ================= HUMOR ================= */
+  { id: 'humor_deixa', bloco: 'entrega', peso: 10, bom: 'sim', so: ['humor'],
+    pergunta: 'O final traz uma virada, trocadilho ou revelação que faz reinterpretar o que veio antes?' },
+  { id: 'humor_armacao', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
+    pergunta: 'Alguma coisa é repetida ou insistida ao longo do conteúdo de um jeito que prepara o final?' },
+  { id: 'humor_personagem', bloco: 'naturalidade', peso: 6, bom: 'sim', so: ['humor'],
+    pergunta: 'Havendo mais de uma voz, dá para diferenciar quem fala pelo jeito de falar, sem ninguém dizer o nome?' },
+  { id: 'humor_gordura', bloco: 'retencao', peso: 5, bom: 'nao', so: ['humor'],
+    pergunta: 'Existe fala que não prepara o final nem caracteriza quem está falando — ou seja, que não serve à piada nem ao personagem?' },
+
+  /* ================= HISTÓRIA / RELATO ================= */
+  { id: 'hist_acontece', bloco: 'curiosidade', peso: 10, bom: 'sim', so: ['historia'],
+    pergunta: 'Acontece alguma coisa que muda a situação — um problema, uma virada, uma decisão?' },
+  { id: 'hist_concreto', bloco: 'curiosidade', peso: 6, bom: 'sim', so: ['historia'],
+    pergunta: 'A história traz detalhes concretos — lugar, gente, o que foi dito — em vez de ser contada por resumo?' },
+  { id: 'hist_desfecho', bloco: 'entrega', peso: 8, bom: 'sim', so: ['historia'],
+    pergunta: 'A história chega a um desfecho, em vez de parar no meio do acontecimento?' },
+
+  /* ================= EDUCATIVO ================= */
+  { id: 'edu_aplicavel', bloco: 'entrega', peso: 10, bom: 'sim', so: ['educativo'],
+    pergunta: 'Quem assistiu até o fim consegue fazer a coisa, ou fica sabendo o suficiente para tentar?' },
+  { id: 'edu_ordem', bloco: 'curiosidade', peso: 7, bom: 'sim', so: ['educativo'],
+    pergunta: 'Os passos vêm numa ordem que dá para seguir, sem depender de informação que só aparece depois?' },
+
+  /* ================= OPINIÃO ================= */
+  { id: 'opi_tese', bloco: 'abertura', peso: 10, bom: 'sim', so: ['opiniao'],
+    pergunta: 'Dá para dizer em uma frase qual é a posição que o conteúdo defende?' },
+  { id: 'opi_razao', bloco: 'entrega', peso: 8, bom: 'sim', so: ['opiniao'],
+    pergunta: 'A posição vem acompanhada de pelo menos uma razão, dado ou exemplo concreto?' },
+
+  /* ================= NOTÍCIA ================= */
+  { id: 'not_apuracao', bloco: 'entrega', peso: 7, bom: 'sim', so: ['noticia'],
+    pergunta: 'Fica claro de onde veio a informação — quem disse, onde aconteceu, quando?' },
 
   /* ---- Embalagem: só quando houver título ou legenda ---- */
   { id: 'titulo_promete', bloco: 'embalagem', peso: 5, bom: 'sim', exige: 'embalagem',
@@ -146,12 +254,20 @@ function aferQuestao(id) {
   return AFER_QUESTOES.find((q) => q.id === id) || null;
 }
 
-/** As perguntas que se aplicam ao material que existe. */
+/** As perguntas que se aplicam ao material que existe E ao gênero identificado. */
 function aferQuestoesAplicaveis(ctx) {
   const c = ctx || {};
   const temEmbalagem = !!(String((c.embalagem || {}).titulo || '').trim()
     || String((c.embalagem || {}).legenda || '').trim());
-  return AFER_QUESTOES.filter((q) => (q.exige === 'embalagem' ? temEmbalagem : true));
+  const genero = c.genero || AFER_GENERO_PADRAO;
+  return AFER_QUESTOES.filter((q) => {
+    if (q.exige === 'embalagem' && !temEmbalagem) return false;
+    // `so` restringe; `exceto` exclui. Sem nenhum dos dois, vale para todos —
+    // inclusive para o conteúdo cujo gênero não foi identificado.
+    if (q.so && q.so.indexOf(genero) < 0) return false;
+    if (q.exceto && q.exceto.indexOf(genero) >= 0) return false;
+    return true;
+  });
 }
 
 /* Quantas vezes o mesmo questionário roda. ÍMPAR de propósito: com número par
@@ -172,6 +288,66 @@ function aferRodadas(n) {
 /* -------------------------------------------------------------------------- */
 
 function _aTexto(v) { return (v == null) ? '' : String(v).trim(); }
+
+/**
+ * O prompt que IDENTIFICA O GÊNERO — e o que ele não contém é a razão de ele
+ * existir separado.
+ *
+ * Aqui não entra nenhuma pergunta do questionário, nenhum critério de
+ * qualidade, nenhuma menção a nota, peso ou avaliação. A classificação acontece
+ * numa CHAMADA PRÓPRIA, antes de qualquer julgamento, e o motivo é o mesmo que
+ * mantém os pesos escondidos da avaliação: um modelo que já leu "existe trecho
+ * removível?" começa a ler o conteúdo procurando defeito, e classifica sob essa
+ * luz. Um causo lido com olhos de auditor vira "conteúdo repetitivo"; lido sem
+ * agenda nenhuma, vira o que é — humor.
+ *
+ * Também não se pede justificativa, resumo nem confiança: só o rótulo. Cada
+ * palavra a mais que o modelo escreve aqui é uma chance de ele se convencer de
+ * uma classificação e arrastá-la.
+ */
+function buildGeneroPrompt(conteudo, embalagem) {
+  const e = embalagem || {};
+  const linhas = [];
+  /* A instrução é POSITIVA e curta de propósito. A primeira versão listava o
+   * que não fazer ("não avalie a qualidade, não dê nota, não aponte defeito") e
+   * conseguia o oposto do que queria: para proibir, precisava nomear — e
+   * nomear já põe as ideias de nota e defeito na frente de quem só deveria
+   * dizer que tipo de coisa é aquilo. */
+  linhas.push('Sua única tarefa é dizer QUE TIPO de conteúdo é este. Nada além disso.');
+  linhas.push('');
+  linhas.push('== OS GÊNEROS ==');
+  AFER_GENEROS.forEach((g) => linhas.push(`${g.id}: ${g.desc}`));
+  linhas.push('');
+  linhas.push('== COMO ESCOLHER ==');
+  linhas.push('Escolha pela INTENÇÃO PRINCIPAL do conteúdo — o que ele está tentando ser, não o assunto de que trata.');
+  linhas.push('Uma história engraçada, um causo cômico ou um diálogo de piada são "humor", mesmo que contem um acontecimento.');
+  linhas.push('Um relato de algo que aconteceu, sem a graça como objetivo, é "historia".');
+  linhas.push('Se mais de um couber, escolha aquele que a pessoa perderia mais se fosse retirado.');
+  linhas.push('Se nenhum couber bem, responda "geral".');
+  linhas.push('');
+
+  if (e.titulo || e.legenda) {
+    linhas.push('== EMBALAGEM ==');
+    if (e.titulo) linhas.push(`Título: ${e.titulo}`);
+    if (e.legenda) linhas.push(`Legenda: ${e.legenda}`);
+    linhas.push('');
+  }
+
+  linhas.push('== O CONTEÚDO ==');
+  linhas.push(_aTexto(conteudo));
+  linhas.push('');
+  linhas.push('Devolva SOMENTE JSON, sem cercas e sem comentário:');
+  linhas.push('{ "genero": "um dos ids acima" }');
+  return linhas.join('\n');
+}
+
+/** O gênero que veio da IA, ou o padrão. Rótulo desconhecido não é chute: é
+ *  ausência de identificação, e cai nas perguntas que valem para todos. */
+function normalizarGenero(obj) {
+  const bruto = _aTexto(obj && obj.genero).toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
+  return aferGenero(bruto) ? bruto : AFER_GENERO_PADRAO;
+}
 
 /**
  * O questionário como a IA o vê — e o que ela NÃO vê é a parte importante.
@@ -420,11 +596,20 @@ function _aLimpar(texto) {
 }
 
 /**
- * Roda o questionário N vezes em paralelo e calcula.
+ * Identifica o gênero, escolhe a régua e roda o questionário N vezes.
  *
- * As rodadas são independentes e IDÊNTICAS: mesmo prompt, mesmo conteúdo. A
- * variação vem da amostragem do modelo, e é justamente ela que se quer medir —
- * mudar o prompt entre as rodadas mediria o prompt, não o conteúdo.
+ *   conteúdo → gênero (chamada isolada) → questionário do gênero → N leituras → conta
+ *
+ * A PRIMEIRA ETAPA É SEPARADA DE PROPÓSITO. Quem classifica não vê pergunta de
+ * avaliação nenhuma; quem avalia já recebe a régua escolhida. Misturar as duas
+ * numa chamada só economizaria uma requisição e devolveria a classificação
+ * enviesada pelos critérios — que é como um causo de humor virava "conteúdo
+ * repetitivo" e reprovava por isso.
+ *
+ * As rodadas de avaliação são independentes e IDÊNTICAS: mesmo prompt, mesmo
+ * conteúdo. A variação vem da amostragem do modelo, e é justamente ela que se
+ * quer medir — mudar o prompt entre as rodadas mediria o prompt, não o
+ * conteúdo.
  *
  * Uma rodada que falha não derruba a aferição: as outras continuam e o divisor
  * se ajusta. Todas falharem, aí sim é erro — uma nota tirada de zero
@@ -446,12 +631,30 @@ async function runAfericaoPipeline(opts) {
   const embalagem = o.embalagem || {};
   const visual = _aTexto(o.visual);
   const n = aferRodadas(o.rodadas);
-  const questoes = aferQuestoesAplicaveis({ embalagem });
-  const prompt = buildAferPrompt(conteudo, embalagem, visual, questoes);
   const etapa = (k, t, d) => { if (typeof o.onEtapa === 'function') o.onEtapa(k, t, d); };
   const lerJSON = (r) => (typeof extractJSON === 'function' ? extractJSON(r && r.content) : null);
 
-  etapa('rodadas', 'Respondendo ao questionário…',
+  /* ETAPA 1 — QUE TIPO DE CONTEÚDO É ESTE?
+   *
+   * Chamada própria, com prompt próprio, ANTES de qualquer avaliação. A ordem
+   * não é detalhe de implementação: é o que impede a classificação de nascer
+   * contaminada pelos critérios de qualidade. Ver `buildGeneroPrompt`.
+   *
+   * Falhar aqui NÃO derruba a aferição. Sem gênero, valem as perguntas que
+   * servem a qualquer conteúdo — menos preciso, e honesto quanto a isso. */
+  etapa('genero', 'Vendo que tipo de conteúdo é este…',
+    'Uma leitura separada, antes de qualquer avaliação.');
+  let genero = AFER_GENERO_PADRAO;
+  try {
+    const rg = await chamar(buildGeneroPrompt(conteudo, embalagem));
+    genero = normalizarGenero(lerJSON(rg));
+  } catch (_) { /* segue no conjunto geral */ }
+
+  /* ETAPA 2 — a avaliação, com a régua do gênero. */
+  const questoes = aferQuestoesAplicaveis({ embalagem, genero });
+  const prompt = buildAferPrompt(conteudo, embalagem, visual, questoes);
+
+  etapa('rodadas', 'Lendo o conteúdo…',
     `${n} leituras independentes de ${questoes.length} perguntas.`);
 
   let modelo = '';
@@ -470,13 +673,16 @@ async function runAfericaoPipeline(opts) {
   const validas = rodadas.filter(Boolean);
   if (!validas.length) throw new Error('Nenhuma das leituras respondeu — verifique a chave e o modelo.');
 
-  etapa('calculo', 'Calculando…', 'A conta é do código: peso dos acertos sobre peso do que se aplicava.');
+  etapa('calculo', 'Fechando a resposta…', 'A conta é do código, não um juízo da IA.');
   const consolidado = consolidarRespostas(validas, questoes);
   const resultado = calcularAfericao(consolidado, { rodadas: validas.length });
+  // O gênero viaja DENTRO do resultado: a tela mostra sob que régua o conteúdo
+  // foi lido, e a aferição guardada continua explicável meses depois.
+  resultado.genero = genero;
 
   etapa('pronto', 'Pronto.', `${resultado.nota}/100 · ${resultado.faixa.label}`);
   return {
-    conteudo, visual, embalagem,
+    conteudo, visual, embalagem, genero,
     rodadasPedidas: n, rodadasValidas: validas.length, falhas,
     questoes, resultado, model: modelo,
   };

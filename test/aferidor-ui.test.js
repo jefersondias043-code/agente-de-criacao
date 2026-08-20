@@ -34,7 +34,7 @@ beforeAll(() => {
     ['State', 'renderAferidor', 'renderAferResultado', 'aferLimparResultado',
       'aferNovoConteudo', 'aferTemChave', 'aferAvisarSemChave', 'aferResultadoEmTexto',
       'consolidarRespostas', 'calcularAfericao', 'normalizarRodada', 'AFER_QUESTOES',
-      'AFER_RODADAS_PADRAO', 'aferQuestao', 'STORAGE_KEYS',
+      'AFER_RODADAS_PADRAO', 'aferQuestao', 'STORAGE_KEYS', 'aferQuestoesAplicaveis', 'AFER_GENEROS',
       'AFER_FAIXAS', 'AFER_FALA', 'aferFala', 'aferConserto', 'aferForte',
       'aferRecomendacao', 'aferMotivo', 'aferPostar', 'aferEnumerar']);
 });
@@ -52,7 +52,7 @@ const montarTela = () => {
 
 /** Uma aferição pronta, com `over` trocando respostas por id. */
 const item = (over, extra) => {
-  const qs = U.AFER_QUESTOES;
+  const qs = U.aferQuestoesAplicaveis({ embalagem: {} });
   const rodadas = (over && over.rodadas) || [{}];
   const mapas = rodadas.map((r) => U.normalizarRodada({
     respostas: qs.map((q) => ({ id: q.id, resposta: r[q.id] || q.bom })),
@@ -212,7 +212,7 @@ describe('a conta continua inteira — uma camada abaixo', () => {
     U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
     const conta = document.querySelector('.afer-conta');
     expect(conta, 'sem a conta, a ferramenta é só outro número de IA').toBeTruthy();
-    expect(conta.textContent).toMatch(/\+125 ganhos − 10 perdidos = \+115 de 135 em jogo/);
+    expect(conta.textContent).toMatch(/\+111 ganhos − 10 perdidos = \+101 de 121 em jogo/);
     expect(conta.textContent).toMatch(/quesitos verificados/);
     expect(conta.closest('.afer-auditoria'), 'a conta tem de morar dentro da auditoria').toBeTruthy();
   });
@@ -277,7 +277,8 @@ describe('a conta continua inteira — uma camada abaixo', () => {
       .find((d) => /questionário/i.test(d.textContent));
     expect(det, 'sem o questionário não há o que auditar').toBeTruthy();
     expect(det.hasAttribute('open'), 'quem quer saber o que fazer não quer a planilha aberta').toBe(false);
-    expect(document.querySelectorAll('.afer-q').length).toBe(U.AFER_QUESTOES.length);
+    expect(document.querySelectorAll('.afer-q').length)
+      .toBe(U.aferQuestoesAplicaveis({ embalagem: {} }).length);
   });
 
   it('cada linha da auditoria mostra resposta, votos e peso', () => {

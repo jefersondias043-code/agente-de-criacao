@@ -3037,6 +3037,10 @@ body.pe-full #view-posters { animation: none; }
   font-size: 0.92rem; color: var(--ink-soft); line-height: 1.55;
   margin: 0.5rem auto 0; max-width: 46ch; text-wrap: pretty;
 }
+.afer-card-genero {
+  font-size: 0.74rem; color: var(--ink-mute); margin-top: 0.85rem;
+  text-transform: lowercase; letter-spacing: 0.02em;
+}
 /* A nota, dentro da auditoria: não compete mais com o selo. */
 .afer-nota-faixa { font-size: 0.85rem; color: var(--ink-soft); margin-left: 0.4rem; }
 

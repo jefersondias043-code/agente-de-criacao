@@ -94,11 +94,17 @@ function aferSinal(n) {
  * precisa interpretar. Um "+45" não diz a ninguém se o vídeo sobe hoje. */
 function aferCard(res) {
   const r = aferRecomendacao(res);
+  /* SOB QUE RÉGUA o conteúdo foi lido. Não é métrica — é a premissa da
+   * resposta, e é a única informação que o autor precisa para desconfiar dela:
+   * um causo lido como notícia seria reprovado por repetir, e sem esta linha
+   * ele não teria como saber por quê. */
+  const genero = aferGeneroNome(res.genero);
   return `
     <div class="afer-card ${r.postar ? 'afer-card-sim' : 'afer-card-nao'}">
       <div class="afer-card-selo">${escapeHtml(r.selo)}</div>
       <div class="afer-card-titulo">${escapeHtml(r.titulo)}</div>
       <p class="afer-card-motivo">${escapeHtml(r.motivo)}</p>
+      ${genero ? `<div class="afer-card-genero">lido como ${escapeHtml(genero)}</div>` : ''}
     </div>`;
 }
 
@@ -580,6 +586,7 @@ function renderAferidor() {
     _aferResultadoVisivel = false;
     _aferItemAtual = null;
     $('#af-result-area').innerHTML = aferTelaDeEspera(`
+      <span class="pipeline-step" data-step="genero">Tipo</span>
       <span class="pipeline-step" data-step="rodadas">Leitura</span>
       <span class="pipeline-step" data-step="calculo">Resultado</span>`);
 
@@ -595,6 +602,7 @@ function renderAferidor() {
         createdAt: new Date().toISOString(),
         nome: embalagem.titulo || conteudo.slice(0, 60).replace(/\s+/g, ' '),
         conteudo, embalagem, visual,
+        genero: res.genero,
         rodadasPedidas: res.rodadasPedidas,
         rodadasValidas: res.rodadasValidas,
         resultado: res.resultado,

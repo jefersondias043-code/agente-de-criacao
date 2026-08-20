@@ -3086,3 +3086,46 @@ body.pe-full #view-posters { animation: none; }
 .afer-q-texto { min-width: 0; }
 .afer-q-meta { grid-column: 2 / -1; font-size: 0.72rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
 .afer-q-vazia .afer-q-texto { color: var(--ink-mute); }
+
+/* ============================================================================
+   M23 — laboratório matemático do cenário 25/23
+   ============================================================================ */
+.m23-premissa-grid,
+.m23-form-grid,
+.m23-prize-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+.m23-stat-valor {
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.m23-parede-conta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  font-variant-numeric: tabular-nums;
+}
+.m23-result { cursor: pointer; }
+.m23-result-detail { margin-top: 0.4rem; }
+.m23-faixa-row {
+  display: grid;
+  grid-template-columns: 5rem 1fr 1fr;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  padding: 0.2rem 0;
+  border-top: 1px solid var(--line-soft);
+}
+.m23-faixa-row:first-child { border-top: none; }
+@media (max-width: 640px) {
+  .m23-faixa-row { grid-template-columns: 1fr; gap: 0.1rem; }
+}

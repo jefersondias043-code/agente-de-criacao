@@ -88,7 +88,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       <span class="brand-tag">Plataforma de conteúdo</span>
     </div>
     <nav class="nav" id="nav"></nav>
-    <div class="sidebar-footer" data-build="2026-08-19-r247" title="Plataforma de conteúdo">
+    <div class="sidebar-footer" data-build="2026-08-20-r248" title="Plataforma de conteúdo">
       Plataforma — Versão 1
     </div>
   </aside>
@@ -1357,6 +1357,67 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       </aside>
     </section>
 
+    <section class="page view" id="view-m23">
+      <header class="appbar">
+        <div class="appbar-lead">
+          <div class="appbar-title">M23</div>
+          <div class="appbar-desc">Laboratório matemático do cenário 25/23 — busca por uma construção que garanta 15 acertos em pelo menos uma cartela, com viabilidade econômica.</div>
+        </div>
+        <div class="appbar-actions">
+          <button class="btn btn-icon" id="m23-history-open" type="button" title="Campanhas guardadas" aria-label="Histórico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">A premissa</div></div>
+        <div id="m23-premissa"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">A parede provada (cartela de 15, meta de 15)</div></div>
+        <div id="m23-parede"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">Parâmetros da investigação</div></div>
+        <div id="m23-form"></div>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn btn-accent" id="m23-start-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Investigar
+        </button>
+        <button class="btn btn-ghost hidden" id="m23-stop-btn" type="button">Parar</button>
+        <span class="action-bar-hint" id="m23-status"></span>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">Progresso da busca</div></div>
+        <div id="m23-progress"><span class="text-sm text-soft">Ainda não rodou nesta sessão.</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">Soluções encontradas, ranqueadas</div></div>
+        <p class="text-xs text-mute">Ordem: garantia matemática completa primeiro; entre garantidas, a de menor custo; entre experimentais, a de maior cobertura e depois o maior retorno por real investido.</p>
+        <div id="m23-results" class="list"><span class="text-sm text-soft">Nenhuma campanha rodada ainda nesta sessão.</span></div>
+      </div>
+
+      <div id="m23-history-backdrop" class="drawer-backdrop hidden"></div>
+      <aside id="m23-history-drawer" class="history-drawer" aria-label="Campanhas guardadas">
+        <div class="history-drawer-head">
+          <div class="card-title">Campanhas guardadas</div>
+          <div class="flex gap-1">
+            <button class="btn btn-danger btn-sm" id="m23-history-clear" type="button">Limpar tudo</button>
+            <button class="btn btn-ghost btn-sm" id="m23-history-close" type="button" title="Fechar" aria-label="Fechar">✕</button>
+          </div>
+        </div>
+        <div id="m23-history-list" class="list"></div>
+      </aside>
+    </section>
+
     <section class="page view" id="view-settings">
       <header class="appbar">
         <div class="appbar-lead">
@@ -1490,6 +1551,8 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 <script src="src/pacote.js"></script>
 <script src="src/aferidor-motor.js"></script>
 <script src="src/aferidor.js"></script>
+<script src="src/m23-motor.js"></script>
+<script src="src/m23.js"></script>
 <script src="src/extract.js"></script>
 <script src="src/posters.js"></script>
 <script src="src/poster-templates.js"></script>

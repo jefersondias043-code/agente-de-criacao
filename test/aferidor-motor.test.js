@@ -262,7 +262,7 @@ describe('perguntas que não se aplicam saem da conta inteira', () => {
       A.consolidarRespostas([A.normalizarRodada(semUma, qs)], qs), { rodadas: 1 });
     expect(r.nota, 'a pergunta não respondida derrubou a nota').toBe(100);
     expect(r.avaliadas.some((q) => q.id === 'entrega_algo')).toBe(false);
-    expect(r.pesoTotal).toBe(131 - A.aferQuestao('entrega_algo').peso);
+    expect(r.pesoTotal).toBe(153 - A.aferQuestao('entrega_algo').peso);
   });
 });
 
@@ -383,14 +383,14 @@ describe('o cálculo é do código, e confere na mão', () => {
   });
 
   it('a nota é o SALDO: ganhos menos perdidos, sobre o peso que se aplicava', () => {
-    // Erra só `entrega_algo` (peso 10) num total de 131.
+    // Erra só `entrega_algo` (peso 10) num total de 153.
     const r = calcular({ entrega_algo: 'nao' });
-    expect(r.pesoTotal).toBe(131);
-    expect(r.pesoGanho).toBe(121);
+    expect(r.pesoTotal).toBe(153);
+    expect(r.pesoGanho).toBe(143);
     expect(r.pesoPerdido).toBe(10);
-    expect(r.saldo, 'o saldo é ganhos − perdidos').toBe(111);
-    expect(r.nota).toBe(Math.round((111 / 131) * 100));
-    expect(r.nota).toBe(85);
+    expect(r.saldo, 'o saldo é ganhos − perdidos').toBe(133);
+    expect(r.nota).toBe(Math.round((133 / 153) * 100));
+    expect(r.nota).toBe(87);
   });
 
   it('metade do peso passando dá ZERO — nem positivo nem negativo', () => {

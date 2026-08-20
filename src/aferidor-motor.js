@@ -168,6 +168,17 @@ const AFER_QUESTOES = [
     pergunta: 'O conteúdo começa com alguém falando DIRETAMENTE COM O ESPECTADOR — saudação ("oi gente", "sejam bem-vindos"), apresentação do canal ou pedido de inscrição? Atenção: cumprimento entre personagens dentro da cena ("boa tarde, cidadã") NÃO conta aqui — isso é a cena começando, não preâmbulo.' },
   { id: 'assunto_claro', bloco: 'abertura', peso: 7, bom: 'sim',
     pergunta: 'Lendo só o começo, e sem depender do título, dá para dizer do que o conteúdo trata?' },
+  /* O GANCHO — e ele não é a mesma coisa que `abre_no_fato`.
+   *
+   * Aquela pergunta checa se o conteúdo ENTRA direto, sem preâmbulo. Esta checa
+   * se o que entra PUXA. Um causo de caçada que abre explicando qual cachorro
+   * presta para caçar entra direto num assunto concreto e não puxa ninguém: é
+   * uma aula de dez segundos antes de a história começar.
+   *
+   * Nasceu de um conteúdo APROVADO que não performou — o primeiro falso
+   * positivo da série. A construção estava boa; o começo não segurava. */
+  { id: 'gancho', bloco: 'abertura', peso: 10, bom: 'sim',
+    pergunta: 'Os primeiros segundos criam tensão, conflito, estranheza ou curiosidade — alguma coisa que faça querer saber o que vem depois — em vez de explicar, contextualizar ou apresentar o assunto?' },
 
   /* ---- Curiosidade e progressão ---- */
   /* FORA DO HUMOR, junto com `promessa_cumprida`. As duas descrevem a mesma
@@ -225,8 +236,23 @@ const AFER_QUESTOES = [
     pergunta: 'Aparece alguma frase de vocabulário genérico de IA — "vamos mergulhar", "é importante ressaltar", "em um mundo onde", "não é apenas"?' },
 
   /* ---- Distribuição ---- */
-  { id: 'motivo_compartilhar', bloco: 'distribuicao', peso: 6, bom: 'sim',
+  /* PESO 10, e antes era 6. Este é o quesito mais próximo do que decide se um
+   * vídeo circula, e estava valendo menos que "o conteúdo começa com saudação".
+   *
+   * No falso positivo da série, a ferramenta ACERTOU aqui — disse "falta o
+   * motivo do olha isso" — e mesmo assim aprovou, porque o acerto valia 6 de 90
+   * e virou item 2 de uma lista de ajustes. Ver um sinal e pesá-lo como detalhe
+   * é o mesmo que não vê-lo. */
+  { id: 'motivo_compartilhar', bloco: 'distribuicao', peso: 10, bom: 'sim',
     pergunta: 'Existe uma razão concreta para alguém mandar isto a outra pessoa — algo que valha um "olha isso"?' },
+  /* QUEM ESTÁ DE FORA ENTENDE?
+   *
+   * Não é sobre tirar a cor local: "paca", "oco de pau" e "pabulagem" são o que
+   * dá sabor ao causo, e trocá-los por português de dicionário mataria o
+   * conteúdo. É sobre DEPENDER deles — se quem nunca caçou não acompanha o que
+   * está acontecendo, o vídeo não sai do nicho, por melhor que seja contado. */
+  { id: 'alcance', bloco: 'distribuicao', peso: 8, bom: 'sim',
+    pergunta: 'Alguém de fora desse assunto, dessa região ou dessa turma acompanha o que está acontecendo, mesmo sem conhecer os termos usados?' },
   /* Tomar posição é virtude na opinião e defeito na notícia; numa piada e num
      tutorial, não é nem uma coisa nem outra. */
   { id: 'provoca_reacao', bloco: 'distribuicao', peso: 4, bom: 'sim', so: ['opiniao', 'historia'],
@@ -255,14 +281,24 @@ const AFER_QUESTOES = [
    * distingam, e que nada sobre. Cada uma admite as duas formas por escrito —
    * "com uma virada OU levando ao ponto mais absurdo" —, porque num binário a
    * forma não prevista vira "não". */
+  /* "FECHA A GRAÇA" ERA FROUXO DEMAIS, e foi por essa porta que um relato
+   * entrou como piada. Um causo de caçada que termina com o cachorro achando a
+   * paca "fecha" — conclui o assunto, amarra a história, não para no meio. Só
+   * que ninguém ri: é um desfecho de competência, não de comédia. A pergunta
+   * agora cobra o EFEITO (alguém ri, se surpreende, reconhece o absurdo) em vez
+   * da estrutura, e um relato bem amarrado deixa de passar por piada. */
   { id: 'humor_fecha', bloco: 'entrega', peso: 10, bom: 'sim', so: ['humor'],
-    pergunta: 'O final fecha a graça — seja com uma virada, um trocadilho ou uma revelação, seja levando a situação ao ponto mais absurdo — em vez de simplesmente parar?' },
+    pergunta: 'No final acontece alguma coisa que FAZ RIR — uma virada, um trocadilho, um absurdo levado ao limite, uma tirada — em vez de a história apenas chegar ao fim e se resolver?' },
   { id: 'humor_escalada', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
     pergunta: 'A graça CRESCE ao longo do conteúdo — por insistência, por repetição ou porque a situação vai ficando cada vez mais absurda?' },
   { id: 'humor_impasse', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
     pergunta: 'Existe um mal-entendido, um impasse ou uma teimosia que sustenta a graça, em vez de piadas soltas sem nada as ligando?' },
-  { id: 'humor_personagem', bloco: 'naturalidade', peso: 6, bom: 'sim', so: ['humor'],
-    pergunta: 'Havendo mais de uma voz, dá para diferenciar quem fala pelo jeito de falar, sem ninguém dizer o nome?' },
+  /* A REDAÇÃO ANTERIOR COMEÇAVA COM "HAVENDO MAIS DE UMA VOZ", e num monólogo o
+   * modelo respondia "não" em vez de "não se aplica" — descontando 6 pontos de
+   * um causo contado em primeira pessoa por não ter um segundo personagem. A
+   * pergunta agora mede a VOZ, que existe nos dois casos. */
+  { id: 'humor_voz', bloco: 'naturalidade', peso: 6, bom: 'sim', so: ['humor'],
+    pergunta: 'Quem fala tem jeito próprio e reconhecível — vocabulário, ritmo, expressões — a ponto de, havendo mais de uma voz, dar para saber quem é quem sem dizer o nome?' },
   { id: 'humor_gordura', bloco: 'retencao', peso: 5, bom: 'nao', so: ['humor'],
     pergunta: 'Existe fala que não faz graça, não constrói a situação nem caracteriza quem está falando?' },
 

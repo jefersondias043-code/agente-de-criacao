@@ -117,8 +117,8 @@ const AFER_FALA = {
   causalidade: {
     conserto: 'Os acontecimentos apenas se sucedem. Ligue um ao outro: isto aconteceu PORQUE aquilo aconteceu.',
     forte: 'Uma coisa puxa a outra, não é só sequência.',
-    curto: 'os fatos não se conectam',
-    curtoBom: 'os fatos se puxam um ao outro',
+    curto: 'não liga um acontecimento ao outro',
+    curtoBom: 'liga um acontecimento ao outro',
   },
 
   /* ---- Trechos mortos ---- */
@@ -163,8 +163,8 @@ const AFER_FALA = {
   final_responde: {
     conserto: 'O final não responde à pergunta que o começo abriu. Feche esse ciclo.',
     forte: 'O final responde ao que o começo abriu.',
-    curto: 'o final não fecha o que o começo abriu',
-    curtoBom: 'o final responde ao começo',
+    curto: 'não fecha no final o que abriu no começo',
+    curtoBom: 'fecha no final o que abriu no começo',
   },
 
   /* ---- Naturalidade ---- */
@@ -183,10 +183,22 @@ const AFER_FALA = {
 
   /* ---- Distribuição ---- */
   motivo_compartilhar: {
-    conserto: 'Falta o motivo do "olha isso". Dê à pessoa uma razão concreta para mandar o conteúdo a alguém.',
+    conserto: 'Falta o motivo do "olha isso". Sem uma razão concreta para alguém mandar a outra pessoa, o conteúdo não circula por conta própria.',
     forte: 'Tem motivo para alguém mandar a outra pessoa.',
     curto: 'não dá vontade de mandar para alguém',
     curtoBom: 'dá vontade de mandar para alguém',
+  },
+  gancho: {
+    conserto: 'O começo explica em vez de fisgar. Abra com a tensão, o conflito ou a estranheza — a explicação, se precisar, vem depois.',
+    forte: 'O começo fisga logo de cara.',
+    curto: 'explica antes de fisgar',
+    curtoBom: 'fisga nos primeiros segundos',
+  },
+  alcance: {
+    conserto: 'Quem é de fora do assunto não acompanha. Não troque as palavras que dão sabor — só deixe dar para entender o que está acontecendo sem elas.',
+    forte: 'Quem é de fora do assunto acompanha do mesmo jeito.',
+    curto: 'só é entendido por quem é do assunto',
+    curtoBom: 'se faz entender por quem é de fora',
   },
   provoca_reacao: {
     conserto: 'Não há com o que concordar nem discordar. Tome uma posição.',
@@ -206,16 +218,16 @@ const AFER_FALA = {
      e a situação que escala. Uma frase que só fale em "virada" manda o autor
      de um humor de teimosia inventar um trocadilho que a cena não pede. */
   humor_fecha: {
-    conserto: 'O final apenas para. Feche a graça: uma virada, um trocadilho, ou a situação levada ao ponto mais absurdo.',
-    forte: 'O final fecha a graça em vez de simplesmente parar.',
-    curto: 'o final apenas para, sem fechar a graça',
-    curtoBom: 'fecha a graça no final',
+    conserto: 'O final resolve a história, mas não faz rir. Termine numa tirada, numa virada ou no absurdo levado ao limite.',
+    forte: 'O final faz rir, não só conclui.',
+    curto: 'termina resolvendo a história, sem fazer rir',
+    curtoBom: 'termina fazendo rir',
   },
   humor_escalada: {
     conserto: 'A graça fica no mesmo nível do começo ao fim. Faça a situação apertar: insista, repita, deixe piorar.',
     forte: 'A graça vai crescendo — a situação aperta em vez de ficar parada.',
-    curto: 'a graça não cresce ao longo do conteúdo',
-    curtoBom: 'a graça vai crescendo até o fim',
+    curto: 'não faz a graça crescer',
+    curtoBom: 'faz a graça crescer até o fim',
   },
   humor_impasse: {
     conserto: 'São piadas soltas, sem nada ligando uma à outra. Ponha um mal-entendido ou uma teimosia para sustentar a coisa.',
@@ -223,11 +235,11 @@ const AFER_FALA = {
     curto: 'não tem impasse sustentando a graça',
     curtoBom: 'tem um impasse que sustenta a graça',
   },
-  humor_personagem: {
-    conserto: 'As vozes soam iguais. Dê a cada uma um jeito próprio de falar, para dar de saber quem fala sem dizer o nome.',
-    forte: 'Dá para saber quem está falando pelo jeito de falar.',
-    curto: 'as vozes soam todas iguais',
-    curtoBom: 'cada voz tem jeito próprio de falar',
+  humor_voz: {
+    conserto: 'A fala é neutra demais. Dê a ela um jeito próprio — vocabulário, ritmo, expressões de quem está falando.',
+    forte: 'Quem fala tem um jeito próprio e reconhecível.',
+    curto: 'fala de um jeito neutro demais',
+    curtoBom: 'tem um jeito próprio de falar',
   },
   humor_gordura: {
     conserto: 'Tem fala que não faz graça, não constrói a situação nem caracteriza ninguém. Essa dá para cortar.',
@@ -240,13 +252,13 @@ const AFER_FALA = {
   hist_acontece: {
     conserto: 'Nada muda de estado do começo ao fim. Uma história precisa de um problema, uma virada ou uma decisão.',
     forte: 'Alguma coisa acontece e muda a situação.',
-    curto: 'nada acontece de fato',
+    curto: 'não faz nada acontecer de fato',
     curtoBom: 'tem alguma coisa acontecendo de verdade',
   },
   hist_concreto: {
     conserto: 'A história está sendo resumida em vez de contada. Traga o lugar, a gente, o que foi dito.',
     forte: 'Tem lugar, gente e fala — é contada, não resumida.',
-    curto: 'é resumida em vez de contada',
+    curto: 'resume em vez de contar',
     curtoBom: 'tem detalhe concreto de lugar e de gente',
   },
   hist_desfecho: {
@@ -266,8 +278,8 @@ const AFER_FALA = {
   edu_ordem: {
     conserto: 'Os passos dependem de informação que só aparece depois. Ponha na ordem em que se faz.',
     forte: 'Os passos vêm na ordem em que dá para seguir.',
-    curto: 'os passos estão fora de ordem',
-    curtoBom: 'os passos vêm na ordem certa',
+    curto: 'põe os passos fora de ordem',
+    curtoBom: 'põe os passos na ordem certa',
   },
 
   /* ---- Opinião ---- */

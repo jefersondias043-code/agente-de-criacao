@@ -23,11 +23,24 @@
 // subindo até os dois desistirem. Confundir um subgênero com o gênero é o mesmo
 // erro do questionário original, uma camada abaixo.
 //
+// O TERCEIRO caso não era do humor: uma esquete de guarda abrindo com "boa
+// tarde, cidadã" era marcada como quem começa com saudação ao público. Fala de
+// personagem não é preâmbulo, e isso valia para todo gênero.
+//
+// O QUARTO INVERTEU O SINAL, e é o mais caro: um causo de caçada APROVADO que
+// não performou. Depois de três rodadas afrouxando a régua do humor, ela passou
+// a deixar entrar um relato de nicho que não faz rir. A ferramenta chegou a
+// dizer "falta o motivo do olha isso" — e aprovou assim mesmo, porque aquilo
+// valia 6 pontos de 90. Ver o sinal e pesá-lo como detalhe é o mesmo que não
+// vê-lo.
+//
 // O que os testes daqui seguram:
 //   1. a classificação acontece ISOLADA — quem escolhe o gênero não vê nenhuma
 //      pergunta de avaliação, senão classifica já procurando defeito;
 //   2. cada gênero traz as perguntas que fazem sentido nele;
-//   3. os DOIS vídeos passam — o que vira no fim e o que escala até o fim;
+//   3. OS QUATRO CASOS SE SEPARAM NA MESMA RODADA: os três virais passam e o
+//      causo da caçada reprova. Sem isso, cada conserto de um lado empurra a
+//      régua para cima do outro;
 //   4. humor ruim continua reprovando: a régua afrouxou, não caiu.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { loadModules, clearStorage } from './helpers/load.mjs';
@@ -129,7 +142,7 @@ describe('cada gênero traz a régua que faz sentido nele', () => {
 
   it('e entram as perguntas que medem se a piada FUNCIONA', () => {
     const humor = ids(doGenero('humor'));
-    ['humor_fecha', 'humor_escalada', 'humor_impasse', 'humor_personagem', 'humor_gordura']
+    ['humor_fecha', 'humor_escalada', 'humor_impasse', 'humor_voz', 'humor_gordura']
       .forEach((id) => expect(humor, `falta "${id}"`).toContain(id));
   });
 
@@ -290,7 +303,7 @@ bacia pros outros carregar.
     // sustenta, as duas vozes se distinguem, e nenhuma fala sobra.
     const leitura = {
       humor_fecha: 'sim', humor_escalada: 'sim', humor_impasse: 'sim',
-      humor_personagem: 'sim', humor_gordura: 'nao',
+      humor_voz: 'sim', humor_gordura: 'nao',
       assunto_claro: 'nao',   // "Vizinho, não me pegue" abre no meio da cena
     };
     const mapa = A.normalizarRodada({
@@ -334,13 +347,29 @@ bacia pros outros carregar.
     expect(ids(qs)).not.toContain('promessa_cumprida');
     const leitura = {
       humor_fecha: 'sim', humor_escalada: 'sim', humor_impasse: 'sim',
-      humor_personagem: 'sim', humor_gordura: 'nao',
+      humor_voz: 'sim', humor_gordura: 'nao',
     };
     const mapa = A.normalizarRodada({
       respostas: qs.map((q) => ({ id: q.id, resposta: leitura[q.id] || q.bom })),
     }, qs);
     const res = A.calcularAfericao(A.consolidarRespostas([mapa], qs), { rodadas: 1 });
     expect(A.aferRecomendacao(res).selo).toBe('POSTE');
+  });
+
+  it('as formas curtas encaixam depois de "Ele" — são predicados, não frases', () => {
+    /* O motivo do card costura três formas curtas depois de "Ele ": uma que
+     * comece com artigo produz "Ele o começo explica em vez de fisgar". Saiu
+     * assim na tela antes deste teste existir, e são justamente as frases que
+     * ninguém relê depois de escrever. */
+    const ARTIGO = /^(o|a|os|as|um|uma|quem|nada)\s/i;
+    Object.entries(A.AFER_FALA).forEach(([id, f]) => {
+      expect(f.curto, `"${id}": curto começa com artigo → "Ele ${f.curto}"`)
+        .not.toMatch(ARTIGO);
+      expect(f.curtoBom, `"${id}": curtoBom começa com artigo → "Ele ${f.curtoBom}"`)
+        .not.toMatch(ARTIGO);
+      expect(f.curto, `"${id}": curto termina com ponto`).not.toMatch(/\.$/);
+      expect(f.curtoBom, `"${id}": curtoBom termina com ponto`).not.toMatch(/\.$/);
+    });
   });
 
   it('mas humor ruim continua reprovando — a régua afrouxou, não caiu', () => {
@@ -357,6 +386,103 @@ bacia pros outros carregar.
     }, qs);
     const res = A.calcularAfericao(A.consolidarRespostas([mapa], qs), { rodadas: 1 });
     expect(A.aferRecomendacao(res).selo).toBe('NÃO POSTE');
+  });
+});
+
+/* ========================================================================== */
+describe('o causo da caçada — o primeiro FALSO POSITIVO', () => {
+  /* Os três casos anteriores eram conteúdo viral que a ferramenta reprovava.
+   * Este é o inverso, e é o erro mais caro dos dois: um causo de caçada
+   * APROVADO que não performou. Depois de três rodadas afrouxando a régua do
+   * humor para deixar os virais passarem, ela passou a deixar passar um relato
+   * de nicho que não faz rir.
+   *
+   * O QUE A FERRAMENTA JÁ TINHA VISTO, e pesou como detalhe: "falta o motivo do
+   * olha isso". Ela acertou o diagnóstico e o classificou como item 2 de uma
+   * lista de ajustes, porque `motivo_compartilhar` valia 6 de 90 — menos que
+   * "o conteúdo começa com saudação". Ver o sinal e pesá-lo como detalhe é o
+   * mesmo que não vê-lo.
+   *
+   * O QUE FALTAVA MEDIR: o gancho (o vídeo abre explicando qual cachorro presta
+   * para caçar — uma aula de dez segundos antes de a história começar) e o
+   * alcance (paca, oco de pau, pabulagem: quem nunca caçou não acompanha). */
+
+  const aferir = (over) => {
+    const qs = doGenero('humor');
+    const mapa = A.normalizarRodada({
+      respostas: qs.map((q) => ({ id: q.id, resposta: over[q.id] || q.bom })),
+    }, qs);
+    const res = A.calcularAfericao(A.consolidarRespostas([mapa], qs), { rodadas: 1 });
+    return { res, rec: A.aferRecomendacao(res) };
+  };
+
+  /* Como o causo da caçada se lê, item a item. */
+  const CACADA = {
+    gancho: 'nao',                // abre explicando, não fisgando
+    alcance: 'nao',               // depende do vocabulário de caça
+    motivo_compartilhar: 'nao',   // não rende um "olha isso"
+    humor_fecha: 'nao',           // o cachorro acha a paca: conclui, não faz rir
+    humor_escalada: 'nao',        // a graça não cresce
+    humor_gordura: 'sim',         // sobra fala
+  };
+
+  it('o causo da caçada reprova', () => {
+    expect(aferir(CACADA).rec.selo).toBe('NÃO POSTE');
+  });
+
+  it('e o motivo aponta o gancho e o compartilhamento, não uma miudeza', () => {
+    const motivo = aferir(CACADA).rec.motivo;
+    expect(motivo).toContain(A.AFER_FALA.gancho.curto);
+    expect(motivo).toContain(A.AFER_FALA.motivo_compartilhar.curto);
+  });
+
+  it('"o motivo do olha isso" pesa como preditor, não como detalhe', () => {
+    // Valia 6 quando a ferramenta aprovou um conteúdo que não circulou.
+    const q = A.AFER_QUESTOES.find((x) => x.id === 'motivo_compartilhar');
+    expect(q.peso).toBeGreaterThanOrEqual(10);
+    const preambulo = A.AFER_QUESTOES.find((x) => x.id === 'sem_preambulo');
+    expect(q.peso, 'circular continua valendo menos que não dar bom-dia')
+      .toBeGreaterThan(preambulo.peso);
+  });
+
+  it('gancho e alcance existem, e valem para todo gênero', () => {
+    [...A.AFER_GENEROS.map((g) => g.id), A.AFER_GENERO_PADRAO].forEach((g) => {
+      expect(ids(doGenero(g)), `"${g}" sem gancho`).toContain('gancho');
+      expect(ids(doGenero(g)), `"${g}" sem alcance`).toContain('alcance');
+    });
+  });
+
+  it('"fecha a graça" deixou de aceitar um final que só conclui', () => {
+    /* Era por essa porta que um relato entrava como piada: um causo que termina
+     * com o cachorro achando a paca "fecha" — amarra a história, não para no
+     * meio. Só que ninguém ri. A pergunta agora cobra o EFEITO. */
+    const q = A.AFER_QUESTOES.find((x) => x.id === 'humor_fecha');
+    expect(q.pergunta).toMatch(/FAZ RIR/);
+    expect(q.pergunta, 'falta contrastar com a história que apenas se resolve')
+      .toMatch(/apenas chegar ao fim|se resolve/i);
+  });
+
+  it('um monólogo não perde ponto por não ter um segundo personagem', () => {
+    // A pergunta começava com "havendo mais de uma voz", e num causo em
+    // primeira pessoa o modelo respondia "não" em vez de "não se aplica".
+    const q = A.AFER_QUESTOES.find((x) => x.id === 'humor_voz');
+    expect(q, 'humor_voz sumiu').toBeTruthy();
+    expect(q.pergunta).toMatch(/^Quem fala tem jeito próprio/);
+  });
+
+  it('E OS TRÊS VIRAIS CONTINUAM PASSANDO — é a trava dos dois lados', () => {
+    /* Sem isto, cada conserto de falso positivo empurraria a régua de volta
+     * para cima dos vídeos que funcionaram. Os quatro casos precisam se separar
+     * na MESMA rodada, ou não há régua nenhuma. */
+    const viral = {
+      gancho: 'sim', alcance: 'sim', motivo_compartilhar: 'sim',
+      humor_fecha: 'sim', humor_escalada: 'sim', humor_impasse: 'sim',
+      humor_voz: 'sim', humor_gordura: 'nao',
+    };
+    expect(aferir({ ...viral, assunto_claro: 'nao' }).rec.selo).toBe('POSTE');  // galinhas
+    expect(aferir({ ...viral, assunto_claro: 'nao' }).rec.selo).toBe('POSTE');  // carona
+    expect(aferir(viral).rec.selo).toBe('POSTE');                               // guarda
+    expect(aferir(CACADA).rec.selo).toBe('NÃO POSTE');                          // caçada
   });
 });
 

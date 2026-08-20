@@ -212,7 +212,7 @@ describe('a conta continua inteira — uma camada abaixo', () => {
     U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
     const conta = document.querySelector('.afer-conta');
     expect(conta, 'sem a conta, a ferramenta é só outro número de IA').toBeTruthy();
-    expect(conta.textContent).toMatch(/\+111 ganhos − 10 perdidos = \+101 de 121 em jogo/);
+    expect(conta.textContent).toMatch(/\+133 ganhos − 10 perdidos = \+123 de 143 em jogo/);
     expect(conta.textContent).toMatch(/quesitos verificados/);
     expect(conta.closest('.afer-auditoria'), 'a conta tem de morar dentro da auditoria').toBeTruthy();
   });
@@ -233,16 +233,16 @@ describe('a conta continua inteira — uma camada abaixo', () => {
      *
      * O caso que separa as duas fórmulas é o valor INTERMEDIÁRIO — em −100 as
      * duas dão o mínimo, e em +100 as duas dão 100. Por isso o teste usa um
-     * bloco de saldo pequeno: `abertura` erra só a pergunta de peso 10 das
-     * três (10+7+7), ficando em +17, onde a fórmula certa dá 59% e a antiga
-     * daria 17%. */
+     * bloco de saldo intermediário: `abertura` erra só uma das quatro perguntas
+     * (10+7+7+10), ficando em +41, onde a fórmula certa dá 71% e a antiga
+     * daria 41%. */
     U.renderAferResultado(item({ rodadas: [{ abre_no_fato: 'nao' }] }));
     const abertura = [...document.querySelectorAll('.afer-bloco')]
       .find((e) => /Abertura/.test(e.textContent));
-    expect(abertura.querySelector('.afer-bloco-nota').textContent).toBe('+17');
+    expect(abertura.querySelector('.afer-bloco-nota').textContent).toBe('+41');
     const w = parseFloat(abertura.querySelector('.afer-bloco-preenche').style.width);
     expect(w, 'a largura tem de medir a distância do pior caso, não a nota crua')
-      .toBe(Math.round((17 + 100) / 2));
+      .toBe(Math.round((41 + 100) / 2));
   });
 
   it('e um bloco no fundo da escala fica no mínimo, sem largura negativa', () => {

@@ -22,11 +22,12 @@ beforeAll(() => {
   clearStorage();
   U = loadModules(
     ['catalogs.js', 'core.js', 'llm.js', 'poster-templates.js', 'agents.js',
-      'media-transcode.js', 'ingest.js', 'aferidor-motor.js', 'aferidor.js'],
+      'media-transcode.js', 'ingest.js', 'aferidor-motor.js', 'aferidor-textos.js', 'aferidor.js'],
     ['State', 'renderAferidor', 'renderAferResultado', 'aferLimparResultado',
       'aferNovoConteudo', 'aferTemChave', 'aferAvisarSemChave', 'aferResultadoEmTexto',
       'consolidarRespostas', 'calcularAfericao', 'normalizarRodada', 'AFER_QUESTOES',
-      'AFER_RODADAS_PADRAO', 'aferQuestao', 'STORAGE_KEYS']);
+      'AFER_RODADAS_PADRAO', 'aferQuestao', 'STORAGE_KEYS',
+      'AFER_FAIXAS', 'AFER_FALA', 'aferFala', 'aferConserto', 'aferForte', 'aferVeredito']);
 });
 
 /** Recorta a vista do Aferidor do index.html e monta no documento do teste. */
@@ -102,14 +103,56 @@ describe('a tela existe e casa com o HTML', () => {
   });
 });
 
-describe('o resultado mostra a CONTA, não só o número', () => {
-  it('a nota vem com sinal e com as DUAS parcelas da conta ao lado', () => {
+describe('a tela abre pelo veredito, em português', () => {
+  /* O que este bloco protege: a PRIMEIRA coisa legível não pode voltar a ser
+   * uma equação. A conta continua exata e continua na tela — uma seção abaixo,
+   * dentro da auditoria —, e o bloco seguinte é quem garante isso. */
+
+  it('a primeira linha é uma frase, não uma conta', () => {
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
+    const veredito = document.querySelector('.afer-veredito');
+    expect(veredito, 'sumiu o veredito do topo').toBeTruthy();
+    expect(veredito.textContent, 'o topo voltou a falar em pontos').not.toMatch(/\d/);
+    expect(veredito.textContent.length).toBeGreaterThan(3);
+  });
+
+  it('e o cabeçalho não carrega mais peso, saldo nem "em jogo"', () => {
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
+    const cabeca = document.querySelector('.afer-cabeca').textContent;
+    expect(cabeca, 'a contabilidade voltou para o topo').not.toMatch(/em jogo|ganhos|perdidos|quesito/i);
+  });
+
+  it('a nota continua ali, com sinal — é o que o histórico compara', () => {
     U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
     expect(document.querySelector('.afer-nota-valor').textContent,
       'o sinal é o que separa "ganha mais do que perde" de "perde mais do que ganha"').toBe('+85');
-    const conta = document.querySelector('.afer-conta').textContent;
-    expect(conta, 'sem a conta, a ferramenta é só outro número de IA').toMatch(/\+125 ganhos − 10 perdidos = \+115 de 135 em jogo/);
-    expect(conta).toMatch(/quesitos verificados/);
+  });
+
+  it('cada faixa tem veredito e frase próprios, sem número', () => {
+    U.AFER_FAIXAS.forEach((f) => {
+      const v = U.aferVeredito({ faixa: f, perdidos: [{}] });
+      expect(v.titulo, `faixa ${f.id} sem veredito`).toBeTruthy();
+      expect(v.frase, `faixa ${f.id} sem frase`).toBeTruthy();
+      expect(v.titulo, `o veredito da faixa ${f.id} fala em número`).not.toMatch(/\d/);
+    });
+  });
+
+  it('sem nada perdido, a frase não promete uma lista que não existe', () => {
+    // A frase padrão manda ler "o que ainda pesa contra, logo abaixo". Embaixo
+    // de uma lista vazia, a tela estaria contradizendo a si mesma.
+    const v = U.aferVeredito({ faixa: { id: 'bom' }, perdidos: [] });
+    expect(v.frase).not.toMatch(/abaixo/i);
+  });
+});
+
+describe('a conta continua inteira — uma camada abaixo', () => {
+  it('a conta e as duas parcelas estão na auditoria', () => {
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
+    const conta = document.querySelector('.afer-conta');
+    expect(conta, 'sem a conta, a ferramenta é só outro número de IA').toBeTruthy();
+    expect(conta.textContent).toMatch(/\+125 ganhos − 10 perdidos = \+115 de 135 em jogo/);
+    expect(conta.textContent).toMatch(/quesitos verificados/);
+    expect(conta.closest('.afer-detalhes'), 'a conta tem de morar dentro da auditoria').toBeTruthy();
   });
 
   it('nota negativa aparece com o menos, não escondida', () => {
@@ -159,24 +202,9 @@ describe('o resultado mostra a CONTA, não só o número', () => {
     expect(entrega.querySelector('.afer-bloco-nota').textContent).toBe('+38');
   });
 
-  it('"onde a nota foi embora" lista os quesitos perdidos, do mais caro ao mais barato', () => {
-    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao', cta_artificial: 'sim', frase_de_ia: 'sim' }] }));
-    const pesos = [...document.querySelectorAll('.afer-perdido-peso')]
-      .map((e) => Number(e.textContent.replace(/[^\d]/g, '')));
-    expect(pesos).toEqual([10, 4, 3]);
-    for (let i = 1; i < pesos.length; i++) expect(pesos[i - 1]).toBeGreaterThanOrEqual(pesos[i]);
-  });
-
-  it('e cada linha diz quanto custou', () => {
-    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
-    const linha = document.querySelector('.afer-perdido').textContent;
-    expect(linha).toMatch(/−?10/);
-    expect(linha).toMatch(/respondido/i);
-  });
-
   it('sem nada perdido, diz isso em vez de mostrar uma lista vazia', () => {
     U.renderAferResultado(item({}));
-    expect(document.querySelector('.afer-perdido')).toBeFalsy();
+    expect(document.querySelector('.afer-acao')).toBeFalsy();
     expect(tela()).toMatch(/passou em tudo que foi verificado/i);
   });
 
@@ -203,19 +231,108 @@ describe('o resultado mostra a CONTA, não só o número', () => {
   });
 });
 
+describe('"o que melhorar" diz o que FAZER', () => {
+  /* A lista antiga exibia o texto da PERGUNTA do questionário, que é escrita
+   * para ser respondida por uma IA, não lida por quem acabou de gravar. Estes
+   * testes travam a tradução — e travam que ela não é enfeite solto: a ordem
+   * continua sendo a do peso, que é a mesma prioridade de antes. */
+
+  it('cada linha é a ação, não a pergunta do questionário', () => {
+    U.renderAferResultado(item({ rodadas: [{ sem_preambulo: 'sim' }] }));
+    const acao = document.querySelector('.afer-acao-texto');
+    const pergunta = U.aferQuestao('sem_preambulo').pergunta;
+    expect(acao.textContent).toBe(U.aferConserto({ id: 'sem_preambulo' }));
+    expect(acao.textContent, 'a pergunta crua voltou para a tela').not.toBe(pergunta);
+  });
+
+  it('a ordem continua sendo a do peso — o que mais muda vem primeiro', () => {
+    // Sem o peso escrito na linha, a ORDEM é o que restou da prioridade. Se ela
+    // se perder, a lista deixa de responder "o que eu conserto primeiro".
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao', cta_artificial: 'sim', frase_de_ia: 'sim' }] }));
+    const textos = [...document.querySelectorAll('.afer-acao-texto')].map((e) => e.textContent);
+    expect(textos).toEqual([
+      U.aferConserto({ id: 'entrega_algo' }),   // peso 10
+      U.aferConserto({ id: 'frase_de_ia' }),    // peso 4
+      U.aferConserto({ id: 'cta_artificial' }), // peso 3
+    ]);
+  });
+
+  it('e a numeração acompanha, com destaque no primeiro', () => {
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao', cta_artificial: 'sim' }] }));
+    const nums = [...document.querySelectorAll('.afer-acao-num')].map((e) => e.textContent);
+    expect(nums).toEqual(['1', '2']);
+    const primeira = document.querySelector('.afer-acao');
+    expect(primeira.className).toMatch(/afer-acao-primeira/);
+  });
+
+  it('nenhum peso, saldo ou placar de votos vaza para a lista', () => {
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
+    const secao = [...document.querySelectorAll('.afer-secao')]
+      .find((s) => /O que melhorar/.test(s.textContent));
+    expect(secao.textContent).not.toMatch(/peso|×SIM|×NÃO|pontua com|em jogo/i);
+  });
+
+  it('TODA pergunta do motor tem as duas frases escritas', () => {
+    // O fallback devolve a pergunta crua para a tela não quebrar. Ele é cinto de
+    // segurança, não o caminho normal — quem acrescentar uma pergunta ao motor
+    // precisa saber, aqui, que falta escrever a fala dela.
+    U.AFER_QUESTOES.forEach((q) => {
+      expect(U.AFER_FALA[q.id], `"${q.id}" não tem fala humana em aferidor-textos.js`).toBeTruthy();
+      expect(U.aferConserto(q), `"${q.id}" sem conserto`).not.toBe(q.pergunta);
+      expect(U.aferForte(q), `"${q.id}" sem elogio`).not.toBe(q.pergunta);
+    });
+  });
+});
+
+describe('"o que já está bom" também aparece', () => {
+  it('lista os acertos mais pesados, para a tela não ser só defeito', () => {
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
+    const fortes = [...document.querySelectorAll('.afer-forte')].map((e) => e.textContent.trim());
+    expect(fortes.length).toBeGreaterThan(0);
+    expect(fortes[0], 'o acerto mais pesado vem primeiro').toBe(U.aferForte({ id: 'abre_no_fato' }));
+  });
+
+  it('e diz quantos ficaram de fora, em vez de sumir com eles', () => {
+    U.renderAferResultado(item({}));
+    const secao = [...document.querySelectorAll('.afer-secao')]
+      .find((s) => /O que já está bom/.test(s.textContent));
+    expect(secao.textContent).toMatch(/E mais \d+ pontos? que passaram?/);
+  });
+
+  it('sem acerto nenhum, a seção não aparece vazia', () => {
+    const tudoErrado = {};
+    U.AFER_QUESTOES.forEach((q) => { tudoErrado[q.id] = q.bom === 'sim' ? 'nao' : 'sim'; });
+    U.renderAferResultado(item({ rodadas: [tudoErrado] }));
+    expect(document.querySelector('.afer-forte')).toBeFalsy();
+  });
+});
+
 describe('a divergência entre as leituras aparece', () => {
   const apertado = () => item({ rodadas: [{}, {}, { entrega_algo: 'nao' }, { entrega_algo: 'nao' }, {}] });
 
-  it('mostra o placar dos votos quando as leituras não foram unânimes', () => {
+  it('o placar exato continua na auditoria', () => {
     U.renderAferResultado(apertado());
     const d = document.querySelector('.afer-divergente');
     expect(d, 'a divergência sumiu da tela').toBeTruthy();
     expect(d.textContent).toMatch(/3×SIM · 2×NÃO/);
+    expect(d.closest('.afer-detalhes'), 'o placar é auditoria, não recado').toBeTruthy();
+  });
+
+  it('e vira um aviso em português colado na correção correspondente', () => {
+    // Era uma segunda lista, que obrigava a cruzar as duas para descobrir que
+    // uma das correções pedidas estava no fio. Colada no item, a informação
+    // chega na hora de decidir se mexe naquilo.
+    U.renderAferResultado(item({ rodadas: [{ repeticao: 'sim' }, { repeticao: 'sim' }, {}] }));
+    const aviso = document.querySelector('.afer-acao-duvida');
+    expect(aviso, 'a divergência não chegou até a correção').toBeTruthy();
+    expect(aviso.textContent).toMatch(/divididas/i);
+    expect(aviso.textContent, 'o placar cru voltou para a tela principal').not.toMatch(/\d/);
   });
 
   it('e some quando todas concordaram', () => {
     U.renderAferResultado(item({ rodadas: [{}, {}, {}] }));
     expect(document.querySelector('.afer-divergente')).toBeFalsy();
+    expect(document.querySelector('.afer-acao-duvida')).toBeFalsy();
   });
 
   it('a divergência NÃO muda a resposta — só avisa', () => {
@@ -224,7 +341,7 @@ describe('a divergência entre as leituras aparece', () => {
     expect(q.resposta).toBe('sim');
     expect(q.acertou).toBe(true);
     U.renderAferResultado(it3);
-    expect(document.querySelector('.afer-perdido'), 'quesito ganho virou perda').toBeFalsy();
+    expect(document.querySelector('.afer-acao'), 'quesito ganho virou correção').toBeFalsy();
   });
 });
 
@@ -310,11 +427,22 @@ describe('o histórico', () => {
 });
 
 describe('o resultado copiável carrega a conta junto', () => {
-  it('leva nota, conta, perdidos e a frase que separa a IA do cálculo', () => {
+  it('abre pelo veredito e pelas ações — a conta vai para o fim', () => {
+    /* Quem copia manda para o editor ou cola no grupo da equipe. Abrindo com
+     * "+125 ganhos − 10 perdidos", a mensagem chegava como planilha do outro
+     * lado. A conta continua no texto, depois do que a pessoa precisa fazer. */
+    const texto = U.aferResultadoEmTexto(item({ rodadas: [{ entrega_algo: 'nao' }] }));
+    expect(texto).toMatch(/O QUE MELHORAR/);
+    expect(texto).toMatch(new RegExp(U.aferConserto({ id: 'entrega_algo' }).slice(0, 30).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    expect(texto).toMatch(/O QUE JÁ ESTÁ BOM/);
+    expect(texto.indexOf('O QUE MELHORAR'), 'a conta voltou para a frente das ações')
+      .toBeLessThan(texto.indexOf('ganhos'));
+  });
+
+  it('e continua carregando a nota, a conta e a frase que separa a IA do cálculo', () => {
     const texto = U.aferResultadoEmTexto(item({ rodadas: [{ entrega_algo: 'nao' }] }));
     expect(texto).toMatch(/\+85\/100/);
     expect(texto).toMatch(/\+125 ganhos − 10 perdidos = \+115 de 135 em jogo/);
-    expect(texto).toMatch(/ONDE A NOTA FOI EMBORA/);
     expect(texto).toMatch(/apenas SIM ou NÃO/);
   });
 

@@ -25,6 +25,7 @@ export const SCRIPTS = [
   'pacote-motor.js',
   'pacote.js',
   'aferidor-motor.js',
+  'aferidor-textos.js',
   'aferidor.js',
   'extract.js',
   'posters.js',

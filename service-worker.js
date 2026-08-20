@@ -35,6 +35,8 @@ const URLS = [
   './src/pacote.js',
   './src/aferidor-motor.js',
   './src/aferidor.js',
+  './src/m23-motor.js',
+  './src/m23.js',
   './src/extract.js',
   './src/posters.js',
   './src/poster-templates.js',

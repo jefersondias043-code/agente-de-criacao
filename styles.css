@@ -3008,17 +3008,37 @@ body.pe-full #view-posters { animation: none; }
 .afer-vermelho .afer-faixa-label { color: var(--accent-ink); }
 .afer-faixa-resumo { font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.15rem; }
 
-/* O VEREDITO — a primeira linha, e a maior da tela. Ela responde à pergunta
-   que o autor tem na cabeça ("dá para publicar?"), então carrega o peso
-   tipográfico que antes era do número. */
-.afer-veredito {
-  font-family: var(--serif); font-size: 1.25rem; font-weight: 700;
-  letter-spacing: 0.01em; line-height: 1.2;
+/* O CARD — a tela inteira do resultado.
+   Uma palavra, uma linha e um porquê. O selo é dimensionado para ser lido de
+   longe, de pé, com o celular na mão: é a única informação que o autor precisa
+   para decidir se o vídeo sobe hoje. */
+.afer-card {
+  padding: 1.6rem 1.4rem;
+  border: 1px solid var(--line);
+  border-left-width: 5px;
+  border-radius: var(--radius);
+  background: var(--paper-2);
+  text-align: center;
 }
-.afer-verde    .afer-veredito { color: var(--green); }
-.afer-amarelo  .afer-veredito { color: var(--amber); }
-.afer-vermelho .afer-veredito { color: var(--accent-ink); }
-.afer-veredito-frase { font-size: 0.88rem; color: var(--ink-soft); margin-top: 0.25rem; }
+.afer-card-sim { border-left-color: var(--green); }
+.afer-card-nao { border-left-color: var(--accent); }
+.afer-card-selo {
+  font-family: var(--serif); font-weight: 700;
+  font-size: clamp(2rem, 8vw, 2.9rem); line-height: 1;
+  letter-spacing: 0.01em;
+}
+.afer-card-sim .afer-card-selo { color: var(--green); }
+.afer-card-nao .afer-card-selo { color: var(--accent-ink); }
+.afer-card-titulo {
+  font-size: 1rem; font-weight: 600; margin-top: 0.6rem;
+  text-wrap: balance;
+}
+.afer-card-motivo {
+  font-size: 0.92rem; color: var(--ink-soft); line-height: 1.55;
+  margin: 0.5rem auto 0; max-width: 46ch; text-wrap: pretty;
+}
+/* A nota, dentro da auditoria: não compete mais com o selo. */
+.afer-nota-faixa { font-size: 0.85rem; color: var(--ink-soft); margin-left: 0.4rem; }
 
 /* A CONTA. Continua exata, agora dentro da auditoria — o número do topo é
    conferível aqui, e quem não quiser conferir não precisa mais desviar dela. */

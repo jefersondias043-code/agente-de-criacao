@@ -5,9 +5,17 @@
 // mais fácil de cometer ao criar uma ferramenta, e um DOM inventado no teste
 // esconderia exatamente isso.
 //
-// O que estes testes protegem, além do óbvio: a tela precisa MOSTRAR A CONTA.
-// Uma ferramenta cuja tese é "a nota é auditável" e que exibe só o número
-// perdeu a razão de existir ao lado do Julgador.
+// O que estes testes protegem, além do óbvio, e a coisa mudou de lado:
+//
+// A TELA DO RESULTADO RESPONDE UMA PERGUNTA SÓ — posta ou não posta. Nada de
+// nota, faixa, peso, barra ou placar de votos: quem terminou de gravar não quer
+// analisar métrica, quer que a ferramenta analise por ele. Há um teste que
+// falha se QUALQUER dígito reaparecer ali.
+//
+// A CONTA CONTINUA EXISTINDO, e continua auditável — dentro de "ver o que foi
+// analisado", fechado. É a tese da ferramenta desde o primeiro dia e não se
+// perdeu: mudou de camada. Os testes cobram as duas coisas ao mesmo tempo, e é
+// essa tensão que eles existem para segurar.
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -27,7 +35,8 @@ beforeAll(() => {
       'aferNovoConteudo', 'aferTemChave', 'aferAvisarSemChave', 'aferResultadoEmTexto',
       'consolidarRespostas', 'calcularAfericao', 'normalizarRodada', 'AFER_QUESTOES',
       'AFER_RODADAS_PADRAO', 'aferQuestao', 'STORAGE_KEYS',
-      'AFER_FAIXAS', 'AFER_FALA', 'aferFala', 'aferConserto', 'aferForte', 'aferVeredito']);
+      'AFER_FAIXAS', 'AFER_FALA', 'aferFala', 'aferConserto', 'aferForte',
+      'aferRecomendacao', 'aferMotivo', 'aferPostar', 'aferEnumerar']);
 });
 
 /** Recorta a vista do Aferidor do index.html e monta no documento do teste. */
@@ -103,45 +112,98 @@ describe('a tela existe e casa com o HTML', () => {
   });
 });
 
-describe('a tela abre pelo veredito, em português', () => {
-  /* O que este bloco protege: a PRIMEIRA coisa legível não pode voltar a ser
-   * uma equação. A conta continua exata e continua na tela — uma seção abaixo,
-   * dentro da auditoria —, e o bloco seguinte é quem garante isso. */
+describe('o resultado é um card: posta ou não posta', () => {
+  /* O QUE ESTE BLOCO PROTEGE. A tela do resultado tem uma pergunta só a
+   * responder, e a resposta cabe numa palavra. Toda vez que um número, uma
+   * faixa, uma barra ou uma lista voltou para cá, ela voltou por um motivo que
+   * parecia bom — e o autor perdeu de novo a resposta de vista. */
 
-  it('a primeira linha é uma frase, não uma conta', () => {
+  /** O que está VISÍVEL: o card e mais nada. A auditoria vive fechada. */
+  const visivel = () => {
+    const area = document.getElementById('af-result-area').cloneNode(true);
+    area.querySelectorAll('details, button').forEach((e) => e.remove());
+    return area.textContent;
+  };
+
+  it('diz POSTE quando o conteúdo se sustenta', () => {
     U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
-    const veredito = document.querySelector('.afer-veredito');
-    expect(veredito, 'sumiu o veredito do topo').toBeTruthy();
-    expect(veredito.textContent, 'o topo voltou a falar em pontos').not.toMatch(/\d/);
-    expect(veredito.textContent.length).toBeGreaterThan(3);
+    expect(document.querySelector('.afer-card-selo').textContent).toBe('POSTE');
+    expect(document.querySelector('.afer-card').className).toMatch(/afer-card-sim/);
   });
 
-  it('e o cabeçalho não carrega mais peso, saldo nem "em jogo"', () => {
-    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
-    const cabeca = document.querySelector('.afer-cabeca').textContent;
-    expect(cabeca, 'a contabilidade voltou para o topo').not.toMatch(/em jogo|ganhos|perdidos|quesito/i);
+  it('e NÃO POSTE quando não se sustenta', () => {
+    const tudoErrado = {};
+    U.AFER_QUESTOES.forEach((q) => { tudoErrado[q.id] = q.bom === 'sim' ? 'nao' : 'sim'; });
+    U.renderAferResultado(item({ rodadas: [tudoErrado] }));
+    expect(document.querySelector('.afer-card-selo').textContent).toBe('NÃO POSTE');
+    expect(document.querySelector('.afer-card').className).toMatch(/afer-card-nao/);
   });
 
-  it('a nota continua ali, com sinal — é o que o histórico compara', () => {
-    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
-    expect(document.querySelector('.afer-nota-valor').textContent,
-      'o sinal é o que separa "ganha mais do que perde" de "perde mais do que ganha"').toBe('+85');
+  it('nenhum número aparece na tela — nem nota, nem peso, nem placar', () => {
+    // A trava principal desta versão. O usuário não quer analisar métrica.
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao', cta_artificial: 'sim' }] }));
+    expect(visivel(), 'voltou número para a tela do resultado').not.toMatch(/\d/);
   });
 
-  it('cada faixa tem veredito e frase próprios, sem número', () => {
+  it('nem jargão de auditoria', () => {
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
+    expect(visivel()).not.toMatch(/quesito|peso|saldo|em jogo|consenso|×SIM|×NÃO|\/100/i);
+  });
+
+  it('o motivo explica em uma frase, com os pontos que mais pesaram', () => {
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
+    const motivo = document.querySelector('.afer-card-motivo').textContent;
+    expect(motivo).toMatch(/^Ele /);
+    expect(motivo, 'o motivo cita o acerto mais pesado')
+      .toContain(U.aferFala({ id: 'abre_no_fato' }).curtoBom);
+    expect(motivo.length, 'motivo comprido demais para ser lido de uma vez').toBeLessThan(260);
+  });
+
+  it('quem não posta ouve o que derrubou, na ordem do peso', () => {
+    const tudoErrado = {};
+    U.AFER_QUESTOES.forEach((q) => { tudoErrado[q.id] = q.bom === 'sim' ? 'nao' : 'sim'; });
+    U.renderAferResultado(item({ rodadas: [tudoErrado] }));
+    const motivo = document.querySelector('.afer-card-motivo').textContent;
+    // Os dois quesitos de peso 10 são os primeiros que a frase cita.
+    expect(motivo).toContain(U.aferFala({ id: 'abre_no_fato' }).curto);
+    expect(motivo).toContain(U.aferFala({ id: 'entrega_algo' }).curto);
+    expect(motivo).toMatch(/antes de publicar/i);
+  });
+
+  it('um "poste" com pendência NOMEIA a pendência principal', () => {
+    /* Um conteúdo pode ser aprovado e ainda assim falhar no quesito mais pesado
+     * do questionário. Resumir isso como "uns pontos menores" é a ferramenta
+     * amaciando o que ela mesma mediu — e o autor descobre a diferença na hora
+     * em que o vídeo não segura ninguém até o fim. */
+    U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
+    const motivo = document.querySelector('.afer-card-motivo').textContent;
+    expect(motivo).toContain(U.aferFala({ id: 'entrega_algo' }).curto);
+    expect(motivo, 'o defeito mais pesado foi chamado de menor').not.toMatch(/menor/i);
+  });
+
+  it('e um "poste" sem pendência nenhuma diz isso', () => {
+    U.renderAferResultado(item({}));
+    const motivo = document.querySelector('.afer-card-motivo').textContent;
+    expect(motivo).toMatch(/não ficou nada/i);
+    expect(motivo, 'inventou pendência onde não havia').not.toMatch(/melhorar antes/i);
+  });
+
+  it('a frase se fecha mesmo quando não há o que citar dos dois lados', () => {
+    // Passou em tudo: não há defeito a citar. Errou tudo: não há acerto.
+    // Nos dois casos a enumeração vem vazia e a frase sairia truncada.
+    const enumeracaoVazia = { faixa: { id: 'alto' }, avaliadas: [], perdidos: [] };
+    expect(U.aferMotivo(enumeracaoVazia)).toMatch(/passou em tudo/i);
+    const semAcerto = { faixa: { id: 'baixo' }, avaliadas: [], perdidos: [] };
+    expect(U.aferMotivo(semAcerto)).toMatch(/não se sustenta/i);
+  });
+
+  it('a régua sai da faixa do motor, não de um número solto na tela', () => {
     U.AFER_FAIXAS.forEach((f) => {
-      const v = U.aferVeredito({ faixa: f, perdidos: [{}] });
-      expect(v.titulo, `faixa ${f.id} sem veredito`).toBeTruthy();
-      expect(v.frase, `faixa ${f.id} sem frase`).toBeTruthy();
-      expect(v.titulo, `o veredito da faixa ${f.id} fala em número`).not.toMatch(/\d/);
+      const r = U.aferRecomendacao({ faixa: f, avaliadas: [], perdidos: [] });
+      expect(r.selo, `faixa ${f.id} sem selo`).toMatch(/^(POSTE|NÃO POSTE)$/);
+      expect(r.postar, `faixa ${f.id} decidiu fora da régua`)
+        .toBe(f.id === 'alto' || f.id === 'bom');
     });
-  });
-
-  it('sem nada perdido, a frase não promete uma lista que não existe', () => {
-    // A frase padrão manda ler "o que ainda pesa contra, logo abaixo". Embaixo
-    // de uma lista vazia, a tela estaria contradizendo a si mesma.
-    const v = U.aferVeredito({ faixa: { id: 'bom' }, perdidos: [] });
-    expect(v.frase).not.toMatch(/abaixo/i);
   });
 });
 
@@ -152,7 +214,7 @@ describe('a conta continua inteira — uma camada abaixo', () => {
     expect(conta, 'sem a conta, a ferramenta é só outro número de IA').toBeTruthy();
     expect(conta.textContent).toMatch(/\+125 ganhos − 10 perdidos = \+115 de 135 em jogo/);
     expect(conta.textContent).toMatch(/quesitos verificados/);
-    expect(conta.closest('.afer-detalhes'), 'a conta tem de morar dentro da auditoria').toBeTruthy();
+    expect(conta.closest('.afer-auditoria'), 'a conta tem de morar dentro da auditoria').toBeTruthy();
   });
 
   it('nota negativa aparece com o menos, não escondida', () => {
@@ -160,7 +222,8 @@ describe('a conta continua inteira — uma camada abaixo', () => {
     U.AFER_QUESTOES.forEach((q) => { tudoErrado[q.id] = q.bom === 'sim' ? 'nao' : 'sim'; });
     U.renderAferResultado(item({ rodadas: [tudoErrado] }));
     expect(document.querySelector('.afer-nota-valor').textContent).toBe('−100');
-    expect(document.querySelector('.afer-cabeca').className).toMatch(/afer-vermelho/);
+    expect(document.querySelector('.afer-nota-valor').closest('.afer-auditoria'),
+      'a nota tem de morar dentro da auditoria').toBeTruthy();
   });
 
   it('a largura da barra mapeia a escala inteira, de −100 a +100', () => {
@@ -225,9 +288,10 @@ describe('a conta continua inteira — uma camada abaixo', () => {
     expect(linha).toMatch(/peso \d+/);
   });
 
-  it('a tela diz que a IA não viu os pesos — é a promessa da ferramenta', () => {
+  it('a auditoria diz que a IA não viu os pesos — é a promessa da ferramenta', () => {
     U.renderAferResultado(item({}));
-    expect(tela()).toMatch(/sem ver os pesos/i);
+    const det = document.querySelector('.afer-auditoria');
+    expect(det.textContent).toMatch(/sem ver os pesos/i);
   });
 });
 
@@ -315,7 +379,7 @@ describe('a divergência entre as leituras aparece', () => {
     const d = document.querySelector('.afer-divergente');
     expect(d, 'a divergência sumiu da tela').toBeTruthy();
     expect(d.textContent).toMatch(/3×SIM · 2×NÃO/);
-    expect(d.closest('.afer-detalhes'), 'o placar é auditoria, não recado').toBeTruthy();
+    expect(d.closest('.afer-auditoria'), 'o placar é auditoria, não recado').toBeTruthy();
   });
 
   it('e vira um aviso em português colado na correção correspondente', () => {
@@ -399,11 +463,11 @@ describe('o rascunho e o botão Novo', () => {
 
   it('mexer no conteúdo tira o resultado da tela — ele é da versão anterior', () => {
     U.renderAferResultado(item({}));
-    expect(document.querySelector('.afer-cabeca')).toBeTruthy();
+    expect(document.querySelector('.afer-card')).toBeTruthy();
     const c = document.getElementById('af-conteudo');
     c.value = 'outro texto';
     c.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(document.querySelector('.afer-cabeca'), 'resultado velho ficou sobre conteúdo novo').toBeFalsy();
+    expect(document.querySelector('.afer-card'), 'resultado velho ficou sobre conteúdo novo').toBeFalsy();
   });
 });
 
@@ -414,10 +478,10 @@ describe('o histórico', () => {
     U.renderAferidor();
     const linha = document.querySelector('[data-afer-id="a1"]');
     expect(linha, 'a aferição não apareceu no histórico').toBeTruthy();
-    expect(linha.textContent).toMatch(/\+85\/100/);
+    expect(linha.textContent, 'o histórico voltou a listar nota em vez da resposta').toMatch(/POSTE/);
     linha.click();
     expect(document.getElementById('af-conteudo').value).toBe('o conteúdo aferido');
-    expect(document.querySelector('.afer-cabeca')).toBeTruthy();
+    expect(document.querySelector('.afer-card')).toBeTruthy();
   });
 
   it('vazio, avisa em vez de mostrar nada', () => {
@@ -427,23 +491,22 @@ describe('o histórico', () => {
 });
 
 describe('o resultado copiável carrega a conta junto', () => {
-  it('abre pelo veredito e pelas ações — a conta vai para o fim', () => {
-    /* Quem copia manda para o editor ou cola no grupo da equipe. Abrindo com
-     * "+125 ganhos − 10 perdidos", a mensagem chegava como planilha do outro
-     * lado. A conta continua no texto, depois do que a pessoa precisa fazer. */
+  it('leva a resposta, o motivo e o que ajustar — nada além disso', () => {
+    /* Quem copia manda para o editor ou cola no grupo da equipe. O outro lado
+     * precisa saber se sobe e o que mexer; conta, blocos e placar de votos não
+     * viram trabalho para ninguém. */
     const texto = U.aferResultadoEmTexto(item({ rodadas: [{ entrega_algo: 'nao' }] }));
-    expect(texto).toMatch(/O QUE MELHORAR/);
-    expect(texto).toMatch(new RegExp(U.aferConserto({ id: 'entrega_algo' }).slice(0, 30).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    expect(texto).toMatch(/O QUE JÁ ESTÁ BOM/);
-    expect(texto.indexOf('O QUE MELHORAR'), 'a conta voltou para a frente das ações')
-      .toBeLessThan(texto.indexOf('ganhos'));
+    expect(texto.split('\n')[0]).toBe('POSTE');
+    expect(texto).toContain(U.aferConserto({ id: 'entrega_algo' }));
+    expect(texto).toMatch(/O QUE AJUSTAR/);
+    expect(texto, 'a planilha voltou para o texto copiado')
+      .not.toMatch(/em jogo|ganhos|perdidos|quesito|\/100|×SIM/i);
   });
 
-  it('e continua carregando a nota, a conta e a frase que separa a IA do cálculo', () => {
-    const texto = U.aferResultadoEmTexto(item({ rodadas: [{ entrega_algo: 'nao' }] }));
-    expect(texto).toMatch(/\+85\/100/);
-    expect(texto).toMatch(/\+125 ganhos − 10 perdidos = \+115 de 135 em jogo/);
-    expect(texto).toMatch(/apenas SIM ou NÃO/);
+  it('sem nada a ajustar, não cola uma seção vazia', () => {
+    const texto = U.aferResultadoEmTexto(item({}));
+    expect(texto).toMatch(/^POSTE/);
+    expect(texto).not.toMatch(/O QUE AJUSTAR/);
   });
 
   it('o botão copiar copia — clicado de verdade', async () => {

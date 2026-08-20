@@ -82,27 +82,23 @@ function aferSinal(n) {
   return '0';
 }
 
-/* O VEREDITO — e a nota ao lado, do tamanho que ela merece.
+/* O CARD — e ele é a tela inteira.
  *
- * O número continua ali, e continua sendo o mesmo número: some-lo seria trocar
- * um excesso por uma falta, e o histórico compara aferições por ele. O que
- * mudou é a hierarquia — quem lê primeiro lê uma frase, não uma equação. A
- * conta que sustenta o número está a um clique, em "como a nota foi calculada",
- * e o `title` do número aponta para lá. */
-function aferBlocoVeredito(res) {
-  const f = res.faixa || {};
-  const v = aferVeredito(res);
+ * Uma palavra, uma linha e um porquê. Nada de nota, faixa, barra, lista ou
+ * placar: quem terminou de gravar não quer analisar métrica, quer que a
+ * ferramenta analise por ele e responda posta ou não posta.
+ *
+ * A NOTA SAIU DA TELA — e isso é decisão de produto, não descuido. Ela continua
+ * calculada, continua guardada em cada aferição e continua conferível na
+ * auditoria; o que ela não faz mais é ser a primeira coisa que o autor lê e
+ * precisa interpretar. Um "+45" não diz a ninguém se o vídeo sobe hoje. */
+function aferCard(res) {
+  const r = aferRecomendacao(res);
   return `
-    <div class="afer-cabeca ${AFER_CLASSE_FAIXA[f.id] || ''}">
-      <div class="afer-cabeca-lado">
-        <div class="afer-veredito">${escapeHtml(v.titulo)}</div>
-        <div class="afer-veredito-frase">${escapeHtml(v.frase)}</div>
-      </div>
-      <div class="afer-nota" title="A nota vai de −100 a +100 e sai de uma conta do código, não de um juízo da IA. Abra “como a nota foi calculada” para conferir.">
-        <span class="afer-nota-rotulo">nota</span>
-        <span class="afer-nota-valor">${aferSinal(res.nota)}</span>
-        <span class="afer-nota-de">/100</span>
-      </div>
+    <div class="afer-card ${r.postar ? 'afer-card-sim' : 'afer-card-nao'}">
+      <div class="afer-card-selo">${escapeHtml(r.selo)}</div>
+      <div class="afer-card-titulo">${escapeHtml(r.titulo)}</div>
+      <p class="afer-card-motivo">${escapeHtml(r.motivo)}</p>
     </div>`;
 }
 
@@ -258,7 +254,7 @@ function aferBlocoQuestionario(item) {
   return `
     <div class="afer-secao">
       <div class="afer-secao-titulo">O questionário — pergunta por pergunta</div>
-      <div class="afer-secao-desc">${item.rodadasValidas} leitura(s) independente(s) do mesmo questionário. A IA respondeu apenas SIM ou NÃO, sem ver peso nenhum; a nota é a soma que aparece na coluna da direita.</div>
+      <div class="afer-secao-desc">O conteúdo foi lido ${item.rodadasValidas} vez${item.rodadasValidas > 1 ? 'es' : ''}, sempre com o mesmo questionário. A IA respondeu apenas SIM ou NÃO, sem ver os pesos; a nota é a soma que aparece na coluna da direita.</div>
       ${linhas}
     </div>`;
 }
@@ -275,15 +271,34 @@ function aferBlocoQuestionario(item) {
 function aferDetalhes(item) {
   const res = item.resultado || {};
   return `
-    <details class="afer-detalhes">
-      <summary>Como a nota foi calculada</summary>
+    <details class="afer-detalhes afer-auditoria">
+      <summary>Ver o que foi analisado</summary>
       <div class="afer-detalhes-body">
+        ${aferBlocoMelhorar(res)}
+        ${aferBlocoForte(res)}
+        ${aferBlocoNota(res)}
         ${aferBlocoConta(res)}
         ${aferBlocoBlocos(res)}
         ${aferBlocoDivergencias(res)}
         ${aferBlocoQuestionario(item)}
       </div>
     </details>`;
+}
+
+/* A NOTA, agora só aqui dentro. Ela não sumiu do produto — sumiu da primeira
+ * leitura. Quem quiser comparar duas versões do mesmo vídeo continua tendo o
+ * número, e ele continua sendo o mesmo de sempre. */
+function aferBlocoNota(res) {
+  return `
+    <div class="afer-secao">
+      <div class="afer-secao-titulo">A nota</div>
+      <div class="afer-nota">
+        <span class="afer-nota-valor">${aferSinal(res.nota)}</span>
+        <span class="afer-nota-de">/100</span>
+        <span class="afer-nota-faixa">${escapeHtml((res.faixa || {}).label || '')}</span>
+      </div>
+      <div class="afer-secao-desc">Vai de −100 a +100. É a conta que decidiu a recomendação lá em cima.</div>
+    </div>`;
 }
 
 function aferLimparResultado() {
@@ -331,9 +346,7 @@ function renderAferResultado(item) {
   _aferItemAtual = item;
   const res = item.resultado || {};
   area.innerHTML = `
-    ${aferBlocoVeredito(res)}
-    ${aferBlocoMelhorar(res)}
-    ${aferBlocoForte(res)}
+    ${aferCard(res)}
     ${aferDetalhes(item)}
     <div class="flex gap-1 flex-wrap mt-2">
       <button class="btn btn-accent btn-sm" id="af-result-novo" title="Limpa os campos para aferir outro conteúdo">
@@ -345,7 +358,7 @@ function renderAferResultado(item) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
       </button>
     </div>
-    <div class="afer-rodape">O conteúdo foi lido ${item.rodadasValidas} vez${item.rodadasValidas > 1 ? 'es' : ''}, e a IA só respondeu sim ou não, sem ver os pesos. A nota é uma conta do código, não um juízo dela.</div>`;
+`;
 
   const novo = $('#af-result-novo');
   if (novo) novo.onclick = () => {
@@ -375,36 +388,20 @@ function renderAferResultado(item) {
  * chegar como recado. A conta continua no fim, para quem for conferir. */
 function aferResultadoEmTexto(item) {
   const res = item.resultado || {};
-  const v = aferVeredito(res);
+  const r = aferRecomendacao(res);
   const linhas = [];
-  linhas.push(`${v.titulo.toUpperCase()} · nota ${aferSinal(res.nota)}/100`);
-  linhas.push(v.frase);
+  linhas.push(r.selo);
+  linhas.push(r.titulo);
+  linhas.push('');
+  linhas.push(r.motivo);
 
+  // O que ajustar só vai junto quando há o que ajustar — e é a única lista que
+  // sobra, porque é a única que o outro lado consegue transformar em trabalho.
   if ((res.perdidos || []).length) {
     linhas.push('');
-    linhas.push('O QUE MELHORAR (na ordem que mais muda o resultado)');
-    res.perdidos.forEach((q, i) => {
-      linhas.push(`${i + 1}. ${aferConserto(q)}${q.consenso < 1 ? '  [as leituras ficaram divididas neste ponto]' : ''}`);
-    });
+    linhas.push('O QUE AJUSTAR');
+    res.perdidos.forEach((q, i) => linhas.push(`${i + 1}. ${aferConserto(q)}`));
   }
-
-  const ganhos = (res.avaliadas || []).filter((q) => q.acertou)
-    .slice().sort((a, b) => b.peso - a.peso || a.id.localeCompare(b.id));
-  if (ganhos.length) {
-    linhas.push('');
-    linhas.push('O QUE JÁ ESTÁ BOM');
-    ganhos.slice(0, AFER_FORTES_NA_TELA).forEach((q) => linhas.push(`• ${aferForte(q)}`));
-  }
-
-  linhas.push('');
-  linhas.push('COMO A NOTA FOI CALCULADA');
-  linhas.push(`+${res.pesoGanho} ganhos − ${res.pesoPerdido} perdidos = ${aferSinal(res.saldo)} de ${res.pesoTotal} em jogo`);
-  linhas.push(`${res.avaliadas.length} quesitos · ${item.rodadasValidas} leitura(s)`);
-  const blocos = (res.porBloco || []).filter((b) => b.nota != null);
-  if (blocos.length) {
-    blocos.forEach((b) => linhas.push(`${b.label}: ${aferSinal(b.nota)}/100  (+${b.ganho} −${b.perdido})`));
-  }
-  linhas.push('A IA respondeu apenas SIM ou NÃO, sem ver os pesos. A nota é uma conta do código.');
   return linhas.join('\n');
 }
 
@@ -426,7 +423,7 @@ function renderAferHistorico() {
           <div class="list-item-title">${escapeHtml(it.nome || 'Conteúdo')}</div>
           <button class="list-item-del" data-afer-del="${escapeHtml(it.id)}" title="Excluir" aria-label="Excluir">✕</button>
         </div>
-        <div class="list-item-meta">${aferSinal(r.nota)}/100 · ${escapeHtml((r.faixa || {}).label || '')} · ${escapeHtml(formatDate(it.createdAt))}</div>
+        <div class="list-item-meta">${escapeHtml(aferRecomendacao(r).selo)} · ${escapeHtml(formatDate(it.createdAt))}</div>
       </div>`;
   }).join('');
 
@@ -611,7 +608,7 @@ function renderAferidor() {
       if (res.falhas) {
         toast(`${res.falhas} leitura(s) não responderam — o resultado saiu das ${res.rodadasValidas} que responderam.`, 'info', 6000);
       } else {
-        toast(aferVeredito(res.resultado).titulo, 'success');
+        toast(aferRecomendacao(res.resultado).selo, 'success');
       }
     } catch (err) {
       toast(err.message || 'Não foi possível aferir.', 'error', 6000);

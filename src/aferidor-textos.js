@@ -248,6 +248,44 @@ const AFER_FALA = {
     curtoBom: 'não tem fala sobrando',
   },
 
+  /* ---- Premissa, autoria, mudança, memória ---- */
+  premissa: {
+    conserto: 'Não fica claro por que este vídeo existe. Diga logo o que você quer descobrir, provar, resolver ou mostrar.',
+    forte: 'Tem uma razão clara para existir.',
+    curto: 'não deixa claro por que existe',
+    curtoBom: 'tem uma razão clara para existir',
+  },
+  mudanca: {
+    conserto: 'Nada é diferente no fim em relação ao começo. Mostre o que você descobriu, mudou de ideia, conseguiu ou não conseguiu.',
+    forte: 'Termina em lugar diferente de onde começou.',
+    curto: 'termina no mesmo lugar em que começou',
+    curtoBom: 'termina em lugar diferente de onde começou',
+  },
+  memoravel: {
+    conserto: 'Não sobra nada específico para lembrar. Garanta uma frase, uma cena ou uma descoberta que a pessoa consiga contar depois.',
+    forte: 'Deixa uma cena ou uma frase específica para lembrar.',
+    curto: 'não deixa nada específico para lembrar',
+    curtoBom: 'deixa alguma coisa específica para lembrar',
+  },
+  ponto_de_vista: {
+    conserto: 'Você descreve o que aconteceu sem dizer o que achou. Dê a sua avaliação — foi bom, foi ruim, surpreendeu, decepcionou.',
+    forte: 'Diz o que achou, não só o que aconteceu.',
+    curto: 'descreve sem dizer o que achou',
+    curtoBom: 'diz o que achou, não só o que aconteceu',
+  },
+  autoria: {
+    conserto: 'Não há nada aqui que só você poderia dizer. Traga a sua experiência, a sua lembrança, o seu jeito de ver a coisa.',
+    forte: 'Tem coisa que só quem gravou poderia dizer.',
+    curto: 'não traz nada que só você poderia dizer',
+    curtoBom: 'traz coisa que só quem gravou poderia dizer',
+  },
+  tempo_morto: {
+    conserto: 'Tem trecho em que nada acontece — só deslocamento ou comentário genérico. Corte.',
+    forte: 'Não tem trecho em que nada acontece.',
+    curto: 'tem trecho em que nada acontece',
+    curtoBom: 'não deixa trecho em que nada acontece',
+  },
+
   /* ---- História / relato ---- */
   hist_acontece: {
     conserto: 'Nada muda de estado do começo ao fim. Uma história precisa de um problema, uma virada ou uma decisão.',
@@ -375,15 +413,43 @@ function aferMotivo(res) {
     return `${base} Dá para publicar assim — se quiser melhorar antes, o principal é que ele ${aferFala(perdidos[0]).curto}.`;
   }
 
-  const lista = aferEnumerar(perdidos.slice(0, AFER_PONTOS_NO_MOTIVO).map((q) => aferFala(q).curto));
+  /* O QUE FALTOU DE ESSENCIAL VEM PRIMEIRO, mesmo pesando menos que outro
+   * defeito. Um vlog sem premissa e sem mudança pode perder mais pontos em
+   * trechos mortos, e ouvir "corte o trecho parado" é ouvir o conselho errado:
+   * o problema não é a duração, é não haver assunto. A ordem do peso continua
+   * valendo dentro de cada grupo. */
+  const falhos = r.essenciaisFalhos || [];
+  const ordenados = falhos.concat(perdidos.filter((q) => falhos.indexOf(q) < 0));
+  const lista = aferEnumerar(ordenados.slice(0, AFER_PONTOS_NO_MOTIVO).map((q) => aferFala(q).curto));
   const base = lista ? `Ele ${lista}.` : 'Ele não se sustenta no que foi verificado.';
   return `${base} Vale ajustar isso antes de publicar.`;
 }
 
-/** A régua: este resultado recomenda publicar? */
+/* QUANTOS ESSENCIAIS PODEM FALHAR ANTES DE A NOTA DEIXAR DE VALER.
+ *
+ * Um é tolerável: nenhum conteúdo acerta tudo, e uma falha isolada num quesito
+ * central ainda pode ser um vídeo que vale publicar. DOIS não — aí não é
+ * imperfeição, é o conteúdo não ter aquilo que o gênero exige para existir. */
+const AFER_ESSENCIAIS_TOLERADOS = 1;
+
+/**
+ * A régua: este resultado recomenda publicar?
+ *
+ * DUAS CONDIÇÕES, e a segunda existe porque a primeira sozinha aprovava vlog
+ * sem assunto. A nota é média ponderada, e média aceita compensação: acertos
+ * gratuitos — não repetir, não pedir like, soar falado — somavam mais que a
+ * premissa e a mudança de estado que faltavam. O conteúdo comprava aprovação
+ * medindo a ausência de defeitos.
+ *
+ * Os quesitos marcados `essencial` no motor são a razão de o conteúdo existir
+ * naquele gênero. Falhar em dois deles reprova por mais alta que esteja a
+ * soma — e é isso que separa "vlog imperfeito" de "vídeo sem assunto".
+ */
 function aferPostar(res) {
-  const id = ((res || {}).faixa || {}).id || '';
-  return AFER_FAIXAS_QUE_POSTAM.indexOf(id) >= 0;
+  const r = res || {};
+  const id = (r.faixa || {}).id || '';
+  if (AFER_FAIXAS_QUE_POSTAM.indexOf(id) < 0) return false;
+  return (r.essenciaisFalhos || []).length <= AFER_ESSENCIAIS_TOLERADOS;
 }
 
 /**

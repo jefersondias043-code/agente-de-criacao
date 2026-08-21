@@ -52,7 +52,7 @@ beforeAll(() => {
   // para ler a resposta da IA — sem ele, toda classificação viraria "geral".
   A = loadModules(['catalogs.js', 'core.js', 'poster-templates.js', 'agents.js',
     'aferidor-motor.js', 'aferidor-textos.js'],
-    ['AFER_QUESTOES', 'AFER_GENEROS', 'AFER_GENERO_PADRAO', 'aferGenero', 'aferGeneroNome',
+    ['AFER_QUESTOES', 'AFER_GENEROS', 'AFER_GENERO_PADRAO', 'AFER_FAIXAS', 'aferGenero', 'aferGeneroNome',
       'aferQuestoesAplicaveis', 'buildGeneroPrompt', 'buildAferPrompt', 'normalizarGenero',
       'normalizarRodada', 'consolidarRespostas', 'calcularAfericao', 'runAfericaoPipeline',
       'aferRecomendacao', 'AFER_FALA']);
@@ -216,11 +216,23 @@ describe('o causo das galinhas — o caso que obrigou tudo isto', () => {
     assunto_claro: 'nao',
   };
 
-  it('lido como conteúdo informativo, ele reprovava', () => {
-    // O retrato do defeito. Se algum dia isto virar POSTE sozinho, a régua
-    // informativa mudou e este teste deixou de descrever o problema.
-    const { rec } = aferir(A.AFER_GENERO_PADRAO, LEITURA_REAL);
-    expect(rec.selo).toBe('NÃO POSTE');
+  it('lido como conteúdo informativo, ele perde o que no humor nem se pergunta', () => {
+    /* O retrato do defeito original. A régua informativa cobra do causo
+     * repetição, trecho removível, informação nova e conclusão — e ele paga por
+     * todos, porque é assim que um causo é contado.
+     *
+     * O veredito nesse gênero deixou de ser NÃO POSTE quando `premissa` e
+     * `memoravel` entraram (r258) e o causo passou a ganhar pontos por ter as
+     * duas coisas. O que este teste segura não é o selo, é o BURACO: a régua
+     * errada cobra dele meia dúzia de quesitos que a régua certa nem faz. */
+    const informativo = aferir(A.AFER_GENERO_PADRAO, LEITURA_REAL);
+    const comoHumor = aferir('humor', LEITURA_REAL);
+    expect(informativo.res.perdidos.length,
+      'a régua informativa parou de cobrar o que o causo não deve').toBeGreaterThan(4);
+    expect(comoHumor.res.perdidos.length,
+      'a régua de humor passou a cobrar tanto quanto a informativa')
+      .toBeLessThan(informativo.res.perdidos.length);
+    expect(comoHumor.res.nota).toBeGreaterThan(informativo.res.nota + 30);
   });
 
   it('lido como humor, ele passa', () => {
@@ -532,6 +544,141 @@ describe('o causo da caçada — o primeiro FALSO POSITIVO', () => {
     expect(aferir({ ...viral, assunto_claro: 'nao' }).rec.selo).toBe('POSTE');  // carona
     expect(aferir(viral).rec.selo).toBe('POSTE');                               // guarda
     expect(aferir(CACADA).rec.selo).toBe('NÃO POSTE');                          // caçada
+  });
+});
+
+/* ========================================================================== */
+describe('vlog: o acerto por OMISSÃO deixa de comprar aprovação', () => {
+  /* O PROBLEMA QUE ESTE BLOCO RESOLVE. Histórias e vlogs quase sempre passavam,
+   * bons ou ruins, e a razão é aritmética: um vlog em que nada acontece acerta
+   * cinco quesitos sem fazer esforço nenhum — não repete informação, não tem
+   * frase de IA, não pede like, soa falado, termina com conclusão. Esses cinco
+   * somavam mais que a premissa e a mudança de estado que faltavam, e a média
+   * ponderada aprovava. O questionário media a AUSÊNCIA DE DEFEITOS e chamava
+   * isso de qualidade.
+   *
+   * A correção tem duas partes: perguntar o que decide se um vlog presta
+   * (premissa, mudança, memória, ponto de vista, autoria, tempo morto) e
+   * impedir que essas respostas sejam compensadas por acertos periféricos. */
+
+  const aferir = (genero, over) => {
+    const qs = doGenero(genero);
+    const mapa = A.normalizarRodada({
+      respostas: qs.map((q) => ({ id: q.id, resposta: (over && over[q.id]) || q.bom })),
+    }, qs);
+    const res = A.calcularAfericao(A.consolidarRespostas([mapa], qs), { rodadas: 1 });
+    return { res, rec: A.aferRecomendacao(res) };
+  };
+
+  /* O vlog tecnicamente correto em que NADA ACONTECE: acerta tudo o que se
+   * acerta por omissão, e falha só no que exige ter assunto. */
+  const VAZIO = {
+    premissa: 'nao', mudanca: 'nao', memoravel: 'nao',
+    ponto_de_vista: 'nao', autoria: 'nao', tempo_morto: 'sim',
+  };
+
+  it('vlog existe como gênero próprio', () => {
+    expect(A.aferGenero('vlog'), 'vlog não é história nem tutorial').toBeTruthy();
+    expect(ids(doGenero('vlog'))).toContain('mudanca');
+    expect(ids(doGenero('vlog'))).toContain('ponto_de_vista');
+    expect(ids(doGenero('vlog'))).toContain('tempo_morto');
+  });
+
+  it('o vlog sem assunto REPROVA, mesmo com nota de faixa aprovada', () => {
+    const { res, rec } = aferir('vlog', VAZIO);
+    expect(rec.selo).toBe('NÃO POSTE');
+    // A prova de que não foi a soma que o reprovou: a nota, sozinha, aprovaria.
+    expect(A.AFER_FAIXAS.find((f) => res.nota >= f.min).id,
+      'este teste deixou de exercitar a regra dos essenciais').toMatch(/alto|bom/);
+  });
+
+  it('e o motivo fala do assunto que falta, não do trecho a cortar', () => {
+    /* Ouvir "corte o trecho parado" quando o problema é não haver assunto é
+     * receber o conselho errado com toda a educação. */
+    const { rec } = aferir('vlog', VAZIO);
+    expect(rec.motivo).toContain(A.AFER_FALA.premissa.curto);
+    expect(rec.motivo).toContain(A.AFER_FALA.mudanca.curto);
+  });
+
+  it('mas o vlog imperfeito COM assunto continua passando', () => {
+    // Uma falha essencial isolada é imperfeição, não ausência de conteúdo.
+    const { rec } = aferir('vlog', { tempo_morto: 'sim', trecho_cortavel: 'sim', memoravel: 'nao' });
+    expect(rec.selo).toBe('POSTE');
+  });
+
+  it('duas falhas essenciais reprovam; uma, não', () => {
+    expect(aferir('vlog', { premissa: 'nao' }).rec.selo).toBe('POSTE');
+    expect(aferir('vlog', { premissa: 'nao', mudanca: 'nao' }).rec.selo).toBe('NÃO POSTE');
+  });
+
+  it('cada gênero declara os quesitos sem os quais ele não existe', () => {
+    const essenciais = (g) => doGenero(g).filter((q) => q.essencial).map((q) => q.id);
+    expect(essenciais('vlog')).toContain('mudanca');
+    expect(essenciais('historia')).toContain('hist_acontece');
+    expect(essenciais('educativo')).toContain('edu_aplicavel');
+    expect(essenciais('opiniao')).toContain('opi_tese');
+    expect(essenciais('humor')).toContain('humor_fecha');
+    // E todo gênero precisa ter pelo menos dois, senão a regra nunca dispara.
+    [...A.AFER_GENEROS.map((g) => g.id), A.AFER_GENERO_PADRAO].forEach((g) => {
+      expect(essenciais(g).length, `"${g}" tem essenciais de menos`).toBeGreaterThan(1);
+    });
+  });
+
+  it('A COMÉDIA NÃO REGREDIU — ela estava certa e não se mexe no que funciona', () => {
+    /* As dimensões novas ficaram FORA do humor de propósito: lá o impasse e a
+     * última fala já medem premissa e memória pelo critério do gênero. Este
+     * teste existe para o dia em que alguém quiser "uniformizar" os gêneros. */
+    const humor = ids(doGenero('humor'));
+    ['premissa', 'mudanca', 'memoravel', 'ponto_de_vista', 'autoria', 'tempo_morto']
+      .forEach((id) => expect(humor, `"${id}" invadiu o humor`).not.toContain(id));
+    const viral = {
+      humor_fecha: 'sim', humor_escalada: 'sim', humor_impasse: 'sim', humor_voz: 'sim',
+      humor_gordura: 'nao', gancho: 'sim', alcance: 'sim', motivo_compartilhar: 'sim',
+    };
+    expect(aferir('humor', viral).rec.selo).toBe('POSTE');
+  });
+});
+
+/* ========================================================================== */
+describe('qualidade e potencial são medidas separadas', () => {
+  it('o resultado traz as duas, cada uma na escala da nota', () => {
+    const qs = doGenero('vlog');
+    const mapa = A.normalizarRodada({
+      respostas: qs.map((q) => ({ id: q.id, resposta: q.bom })),
+    }, qs);
+    const res = A.calcularAfericao(A.consolidarRespostas([mapa], qs), { rodadas: 1 });
+    const fam = (id) => (res.porFamilia || []).find((f) => f.id === id);
+    expect(fam('qualidade'), 'sumiu a medida de qualidade').toBeTruthy();
+    expect(fam('potencial'), 'sumiu a medida de potencial').toBeTruthy();
+    expect(fam('qualidade').nota).toBe(100);
+  });
+
+  it('conteúdo bom de nicho fechado separa as duas', () => {
+    /* O caso que justifica a separação: qualidade alta e potencial baixo pede
+     * um conserto (ampliar a porta de entrada); o inverso pede outro
+     * (reescrever o vídeo). Um número só esconderia qual dos dois é. */
+    const qs = doGenero('vlog');
+    const nicho = { alcance: 'nao', motivo_compartilhar: 'nao' };
+    const mapa = A.normalizarRodada({
+      respostas: qs.map((q) => ({ id: q.id, resposta: nicho[q.id] || q.bom })),
+    }, qs);
+    const res = A.calcularAfericao(A.consolidarRespostas([mapa], qs), { rodadas: 1 });
+    const fam = (id) => res.porFamilia.find((f) => f.id === id);
+    expect(fam('qualidade').nota).toBe(100);
+    expect(fam('potencial').nota, 'o potencial não caiu com o nicho fechado')
+      .toBeLessThan(fam('qualidade').nota);
+  });
+
+  it('a força de distribuição NÃO é medida — e não deve fingir que é', () => {
+    /* Seguidores, histórico do canal e autoridade do perfil decidem boa parte
+     * do desempenho e não estão na transcrição. Dois vlogs de mesma qualidade
+     * fazem 2 milhões e 20 mil views conforme o tamanho de quem publica, e esta
+     * ferramenta não tem como saber disso. Fingir medir seria inventar. */
+    const PROIBIDO = /seguidor|inscrit|audiência|alcance do canal|autoridade|views|visualiza/i;
+    A.AFER_QUESTOES.forEach((q) => {
+      expect(q.pergunta, `"${q.id}" pergunta sobre distribuição, que não está no texto`)
+        .not.toMatch(PROIBIDO);
+    });
   });
 });
 

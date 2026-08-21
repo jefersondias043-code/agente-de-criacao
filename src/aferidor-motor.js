@@ -41,14 +41,38 @@
 /* §1 — Os blocos                                                              */
 /* -------------------------------------------------------------------------- */
 
+/* AS DUAS FAMÍLIAS, e elas medem coisas que não devem ser somadas às cegas.
+ *
+ * QUALIDADE é o conteúdo em si: tem premissa, progride, entrega, soa de gente.
+ * POTENCIAL é a chance de circular: dá para contar a alguém, quem é de fora
+ * entende, o título promete.
+ *
+ * Um conteúdo excelente de nicho fechado é qualidade alta e potencial baixo. Um
+ * conteúdo raso sobre assunto quente é o contrário. Somar os dois num número só
+ * esconde qual dos dois problemas o autor tem — e são problemas com consertos
+ * opostos.
+ *
+ * O QUE NÃO ESTÁ AQUI, DE PROPÓSITO: a força de distribuição — tamanho da
+ * audiência, histórico do canal, autoridade do perfil. Ela não é observável na
+ * transcrição, e fingir medi-la seria inventar. Um vlog com 2 milhões de views
+ * porque o autor tem 10 milhões de seguidores e outro com 20 mil porque o autor
+ * é pequeno podem ter exatamente a mesma qualidade — e esta ferramenta só
+ * enxerga o texto. */
+const AFER_FAMILIAS = [
+  { id: 'qualidade', label: 'Qualidade do conteúdo',
+    desc: 'O que o vídeo é, independentemente de quem publica.' },
+  { id: 'potencial', label: 'Potencial de circular',
+    desc: 'A chance de alcançar quem ainda não segue você.' },
+];
+
 const AFER_BLOCOS = [
-  { id: 'abertura', label: 'Abertura', desc: 'O que decide se a pessoa fica ou vai embora.' },
-  { id: 'curiosidade', label: 'Curiosidade e progressão', desc: 'O que dá motivo para continuar.' },
-  { id: 'retencao', label: 'Trechos mortos', desc: 'O que faz a pessoa sair no meio.' },
-  { id: 'entrega', label: 'Entrega e final', desc: 'O que a pessoa leva por ter assistido.' },
-  { id: 'naturalidade', label: 'Naturalidade', desc: 'Se soa gente falando ou texto gerado.' },
-  { id: 'distribuicao', label: 'Distribuição', desc: 'Se existe motivo para circular.' },
-  { id: 'embalagem', label: 'Embalagem', desc: 'Título e legenda contra o que o vídeo entrega.' },
+  { id: 'abertura', label: 'Abertura', familia: 'qualidade', desc: 'O que decide se a pessoa fica ou vai embora.' },
+  { id: 'curiosidade', label: 'Curiosidade e progressão', familia: 'qualidade', desc: 'O que dá motivo para continuar.' },
+  { id: 'retencao', label: 'Trechos mortos', familia: 'qualidade', desc: 'O que faz a pessoa sair no meio.' },
+  { id: 'entrega', label: 'Entrega e final', familia: 'qualidade', desc: 'O que a pessoa leva por ter assistido.' },
+  { id: 'naturalidade', label: 'Voz e naturalidade', familia: 'qualidade', desc: 'Se soa gente falando, e se tem ponto de vista.' },
+  { id: 'distribuicao', label: 'Distribuição', familia: 'potencial', desc: 'Se existe motivo para circular.' },
+  { id: 'embalagem', label: 'Embalagem', familia: 'potencial', desc: 'Título e legenda contra o que o vídeo entrega.' },
 ];
 
 function aferBloco(id) {
@@ -85,6 +109,8 @@ const AFER_GENEROS = [
     desc: 'A graça é o objetivo: piada, causo engraçado, esquete, diálogo cômico.' },
   { id: 'historia', label: 'história', artigo: 'uma',
     desc: 'Conta um acontecimento — real ou não. O interesse está no que aconteceu.' },
+  { id: 'vlog', label: 'vlog', artigo: 'um',
+    desc: 'Acompanha o dia, a rotina, uma viagem ou uma experiência de quem grava, em primeira pessoa.' },
   { id: 'opiniao', label: 'opinião', artigo: 'uma',
     desc: 'Defende um ponto de vista sobre alguma coisa.' },
 ];
@@ -264,7 +290,7 @@ const AFER_QUESTOES = [
     pergunta: 'Alguém de fora desse assunto, dessa região ou dessa turma acompanha o que está acontecendo, mesmo sem conhecer os termos usados?' },
   /* Tomar posição é virtude na opinião e defeito na notícia; numa piada e num
      tutorial, não é nem uma coisa nem outra. */
-  { id: 'provoca_reacao', bloco: 'distribuicao', peso: 4, bom: 'sim', so: ['opiniao', 'historia'],
+  { id: 'provoca_reacao', bloco: 'distribuicao', peso: 4, bom: 'sim', so: ['opiniao', 'historia', 'vlog'],
     pergunta: 'O conteúdo toma alguma posição ou deixa algo com que dê para concordar ou discordar?' },
   { id: 'cta_artificial', bloco: 'distribuicao', peso: 3, bom: 'nao',
     pergunta: 'Existe pedido explícito de like, inscrição, comentário ou compartilhamento?' },
@@ -313,11 +339,11 @@ const AFER_QUESTOES = [
    * Agora elas descrevem ESTRUTURA OBSERVÁVEL: o que está escrito na última
    * fala, quantas vezes a mesma dificuldade volta, se alguém quer algo que o
    * outro não faz. Quem discordar da resposta consegue apontar o trecho. */
-  { id: 'humor_fecha', bloco: 'entrega', peso: 10, bom: 'sim', so: ['humor'],
+  { id: 'humor_fecha', bloco: 'entrega', peso: 10, bom: 'sim', essencial: true, so: ['humor'],
     pergunta: 'A última fala é uma resposta inesperada, uma recusa, um desabafo, um trocadilho ou uma tirada — em vez de uma conclusão que explica ou amarra o que foi contado?' },
   { id: 'humor_escalada', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
     pergunta: 'A mesma dificuldade, recusa ou desentendimento reaparece mais de uma vez ao longo do conteúdo, em vez de ser resolvida na primeira vez em que surge?' },
-  { id: 'humor_impasse', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
+  { id: 'humor_impasse', bloco: 'curiosidade', peso: 8, bom: 'sim', essencial: true, so: ['humor'],
     pergunta: 'Existe alguma coisa que uma parte quer e a outra não faz — ou que uma afirma e a outra nega — atravessando o conteúdo do começo ao fim?' },
   /* A REDAÇÃO ANTERIOR COMEÇAVA COM "HAVENDO MAIS DE UMA VOZ", e num monólogo o
    * modelo respondia "não" em vez de "não se aplica" — descontando 6 pontos de
@@ -328,8 +354,40 @@ const AFER_QUESTOES = [
   { id: 'humor_gordura', bloco: 'retencao', peso: 5, bom: 'nao', so: ['humor'],
     pergunta: 'Existe fala que não faz avançar o impasse, não repete a dificuldade e não traz expressão característica de quem fala?' },
 
+  /* ============ PREMISSA, AUTORIA, MUDANÇA, MEMÓRIA ============
+   *
+   * POR QUE UM VLOG MEDÍOCRE PASSAVA. Ele acertava por OMISSÃO: não repete
+   * informação, não tem frase de IA, não pede like, soa falado, termina com
+   * conclusão. São cinco quesitos ganhos sem fazer nada, e eles somavam mais
+   * que os poucos que exigem substância. O questionário media a ausência de
+   * defeitos e chamava isso de qualidade.
+   *
+   * Faltava perguntar o que decide se um vlog presta: existe uma razão para
+   * assistir? alguma coisa muda? sobra o quê na cabeça de quem assistiu? Um
+   * vlog pode ser tecnicamente impecável e ruim porque nada acontece.
+   *
+   * NENHUMA DELAS PEDE JUÍZO — a regra do §2 vale aqui como em toda parte.
+   * "Existe uma frase que dê para citar depois?" se resolve apontando a frase;
+   * "isso é memorável?" seria nota de 0 a 10 disfarçada de sim/não.
+   *
+   * FORA DO HUMOR, todas. A comédia foi acertada em r257 e não se mexe no que
+   * está funcionando: lá o impasse e a última fala já medem premissa e
+   * memória pelo critério do gênero. */
+  { id: 'premissa', bloco: 'abertura', peso: 10, bom: 'sim', essencial: true, exceto: ['humor'],
+    pergunta: 'Fica dito ou mostrado por que este conteúdo existe — uma pergunta a responder, um objetivo a cumprir, um problema a resolver ou um acontecimento a mostrar?' },
+  { id: 'mudanca', bloco: 'entrega', peso: 10, bom: 'sim', essencial: true, so: ['vlog', 'historia'],
+    pergunta: 'Alguma coisa é diferente no fim em relação ao começo — alguém descobriu, mudou de ideia, conseguiu, desistiu ou fracassou?' },
+  { id: 'memoravel', bloco: 'entrega', peso: 8, bom: 'sim', essencial: true, exceto: ['humor'],
+    pergunta: 'Existe uma frase, uma cena ou uma descoberta ESPECÍFICA que dê para citar depois — em vez de apenas um assunto tratado em geral?' },
+  { id: 'ponto_de_vista', bloco: 'naturalidade', peso: 8, bom: 'sim', so: ['vlog', 'historia', 'opiniao'],
+    pergunta: 'Quem fala emite opinião, avaliação ou interpretação sobre o que está acontecendo — em vez de apenas descrever o que se vê?' },
+  { id: 'autoria', bloco: 'naturalidade', peso: 6, bom: 'sim', so: ['vlog', 'historia', 'opiniao'],
+    pergunta: 'Aparece alguma coisa que só quem gravou poderia dizer — uma experiência própria, uma lembrança, um detalhe pessoal, uma opinião específica?' },
+  { id: 'tempo_morto', bloco: 'retencao', peso: 8, bom: 'nao', so: ['vlog', 'historia'],
+    pergunta: 'Existe algum trecho em que nada é descoberto, decidido, revelado nem acontece — apenas deslocamento, preparação ou comentário genérico?' },
+
   /* ================= HISTÓRIA / RELATO ================= */
-  { id: 'hist_acontece', bloco: 'curiosidade', peso: 10, bom: 'sim', so: ['historia'],
+  { id: 'hist_acontece', bloco: 'curiosidade', peso: 10, bom: 'sim', essencial: true, so: ['historia'],
     pergunta: 'Acontece alguma coisa que muda a situação — um problema, uma virada, uma decisão?' },
   { id: 'hist_concreto', bloco: 'curiosidade', peso: 6, bom: 'sim', so: ['historia'],
     pergunta: 'A história traz detalhes concretos — lugar, gente, o que foi dito — em vez de ser contada por resumo?' },
@@ -337,13 +395,13 @@ const AFER_QUESTOES = [
     pergunta: 'A história chega a um desfecho, em vez de parar no meio do acontecimento?' },
 
   /* ================= EDUCATIVO ================= */
-  { id: 'edu_aplicavel', bloco: 'entrega', peso: 10, bom: 'sim', so: ['educativo'],
+  { id: 'edu_aplicavel', bloco: 'entrega', peso: 10, bom: 'sim', essencial: true, so: ['educativo'],
     pergunta: 'Quem assistiu até o fim consegue fazer a coisa, ou fica sabendo o suficiente para tentar?' },
   { id: 'edu_ordem', bloco: 'curiosidade', peso: 7, bom: 'sim', so: ['educativo'],
     pergunta: 'Os passos vêm numa ordem que dá para seguir, sem depender de informação que só aparece depois?' },
 
   /* ================= OPINIÃO ================= */
-  { id: 'opi_tese', bloco: 'abertura', peso: 10, bom: 'sim', so: ['opiniao'],
+  { id: 'opi_tese', bloco: 'abertura', peso: 10, bom: 'sim', essencial: true, so: ['opiniao'],
     pergunta: 'Dá para dizer em uma frase qual é a posição que o conteúdo defende?' },
   { id: 'opi_razao', bloco: 'entrega', peso: 8, bom: 'sim', so: ['opiniao'],
     pergunta: 'A posição vem acompanhada de pelo menos uma razão, dado ou exemplo concreto?' },
@@ -592,6 +650,7 @@ function consolidarRespostas(rodadas, questoes) {
 
     return {
       id: q.id, bloco: q.bloco, pergunta: q.pergunta, peso: q.peso, bom: q.bom,
+      essencial: !!q.essencial,
       resposta, sim, nao, votos: votos.length, empate: votos.length > 0 && sim === nao,
       // 1 = todas as rodadas concordaram; 0,6 = três contra duas.
       consenso: votos.length ? Math.max(sim, nao) / votos.length : 0,
@@ -682,11 +741,41 @@ function calcularAfericao(consolidado, opcoes) {
       ganho: g, perdido: p - g, questoes: doBloco.map((q) => q.id) };
   });
 
+  /* OS ESSENCIAIS, E POR QUE A SOMA SOZINHA NÃO BASTA.
+   *
+   * A nota é uma média ponderada, e média ponderada aceita compensação: um vlog
+   * em que NADA ACONTECE ganhava por omissão — não repete informação, não tem
+   * frase de IA, não pede like, soa falado, termina com conclusão — e esses
+   * cinco acertos gratuitos somavam mais que a premissa e a mudança de estado
+   * que ele não tinha. O conteúdo passava medindo a ausência de defeitos.
+   *
+   * Alguns quesitos não são somáveis: são a razão de o conteúdo existir. Um
+   * vlog sem premissa e sem mudança não é um vlog mediano, é um vídeo sem
+   * assunto — e nenhuma quantidade de acertos periféricos conserta isso.
+   *
+   * Só CONTAMOS aqui; quem decide o que fazer com a contagem é a régua da
+   * recomendação, que é decisão de produto e vive na camada de linguagem. */
+  const essenciais = itens.filter((q) => q.essencial);
+  const essenciaisFalhos = essenciais.filter((q) => !q.acertou);
+
+  /* As duas famílias, cada uma na mesma escala da nota geral. Separá-las diz ao
+   * autor QUAL dos dois problemas ele tem: conteúdo fraco e conteúdo bom que
+   * não circula pedem consertos opostos. */
+  const porFamilia = AFER_FAMILIAS.map((f) => {
+    const blocosDaFamilia = AFER_BLOCOS.filter((b) => b.familia === f.id).map((b) => b.id);
+    const daFamilia = itens.filter((q) => blocosDaFamilia.indexOf(q.bloco) >= 0);
+    if (!daFamilia.length) return { ...f, nota: null, peso: 0 };
+    const p = daFamilia.reduce((acc, q) => acc + q.peso, 0);
+    const g = daFamilia.reduce((acc, q) => acc + (q.acertou ? q.peso : 0), 0);
+    return { ...f, nota: Math.round(((g - (p - g)) / p) * 100), peso: p, ganho: g, perdido: p - g };
+  });
+
   return {
     nota, faixa: aferFaixa(nota),
     saldo, pesoGanho, pesoPerdido, pesoTotal,
     questoes: consolidado || [], avaliadas: itens,
     perdidos, divergentes, porBloco,
+    essenciais, essenciaisFalhos, porFamilia,
     rodadas: o.rodadas || 0,
     // Consenso médio da aferição inteira: o quanto as rodadas concordaram.
     consensoMedio: itens.length

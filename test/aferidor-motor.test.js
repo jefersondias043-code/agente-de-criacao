@@ -262,7 +262,7 @@ describe('perguntas que não se aplicam saem da conta inteira', () => {
       A.consolidarRespostas([A.normalizarRodada(semUma, qs)], qs), { rodadas: 1 });
     expect(r.nota, 'a pergunta não respondida derrubou a nota').toBe(100);
     expect(r.avaliadas.some((q) => q.id === 'entrega_algo')).toBe(false);
-    expect(r.pesoTotal).toBe(153 - A.aferQuestao('entrega_algo').peso);
+    expect(r.pesoTotal).toBe(171 - A.aferQuestao('entrega_algo').peso);
   });
 });
 
@@ -383,14 +383,14 @@ describe('o cálculo é do código, e confere na mão', () => {
   });
 
   it('a nota é o SALDO: ganhos menos perdidos, sobre o peso que se aplicava', () => {
-    // Erra só `entrega_algo` (peso 10) num total de 153.
+    // Erra só `entrega_algo` (peso 10) num total de 171.
     const r = calcular({ entrega_algo: 'nao' });
-    expect(r.pesoTotal).toBe(153);
-    expect(r.pesoGanho).toBe(143);
+    expect(r.pesoTotal).toBe(171);
+    expect(r.pesoGanho).toBe(161);
     expect(r.pesoPerdido).toBe(10);
-    expect(r.saldo, 'o saldo é ganhos − perdidos').toBe(133);
-    expect(r.nota).toBe(Math.round((133 / 153) * 100));
-    expect(r.nota).toBe(87);
+    expect(r.saldo, 'o saldo é ganhos − perdidos').toBe(151);
+    expect(r.nota).toBe(Math.round((151 / 171) * 100));
+    expect(r.nota).toBe(88);
   });
 
   it('metade do peso passando dá ZERO — nem positivo nem negativo', () => {
@@ -442,11 +442,11 @@ describe('o cálculo é do código, e confere na mão', () => {
   it('cada bloco tem a própria nota, na MESMA escala da nota geral', () => {
     const r = calcular({ entrega_algo: 'nao' });
     const entrega = r.porBloco.find((b) => b.id === 'entrega');
-    expect(entrega.peso).toBe(32);
-    expect(entrega.ganho).toBe(22);
+    expect(entrega.peso).toBe(40);
+    expect(entrega.ganho).toBe(30);
     expect(entrega.perdido).toBe(10);
-    expect(entrega.nota, 'saldo 12 sobre 32').toBe(Math.round(((22 - 10) / 32) * 100));
-    expect(entrega.nota).toBe(38);
+    expect(entrega.nota, 'saldo 20 sobre 40').toBe(Math.round(((30 - 10) / 40) * 100));
+    expect(entrega.nota).toBe(50);
     const abertura = r.porBloco.find((b) => b.id === 'abertura');
     expect(abertura.nota, 'bloco intacto é +100').toBe(100);
   });

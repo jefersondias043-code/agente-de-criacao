@@ -188,6 +188,38 @@ function aferBlocoConta(res) {
     </div>`;
 }
 
+/* QUALIDADE E POTENCIAL, lado a lado.
+ *
+ * São dois problemas com consertos opostos, e somá-los num número só escondia
+ * qual deles o autor tem. Conteúdo excelente de nicho fechado: qualidade alta,
+ * potencial baixo — o conserto é ampliar a porta de entrada, não reescrever o
+ * vídeo. Conteúdo raso sobre assunto quente: o contrário.
+ *
+ * A força de distribuição — seguidores, histórico do canal, autoridade — NÃO
+ * aparece aqui e não aparece em lugar nenhum: ela não é observável na
+ * transcrição. Um vlog com dois milhões de views porque o autor tem dez milhões
+ * de seguidores e outro com vinte mil porque o autor é pequeno podem ter a
+ * mesma qualidade, e esta ferramenta só enxerga o texto. */
+function aferBlocoFamilias(res) {
+  const fams = (res.porFamilia || []).filter((f) => f.nota != null);
+  if (!fams.length) return '';
+  const linhas = fams.map((f) => `
+    <div class="afer-bloco">
+      <div class="afer-bloco-topo">
+        <span class="afer-bloco-label">${escapeHtml(f.label)}</span>
+        <span class="afer-bloco-nota">${aferSinal(f.nota)}</span>
+      </div>
+      <div class="afer-bloco-barra"><span class="afer-bloco-preenche afer-faixa-${f.nota >= 60 ? 'ok' : (f.nota >= 0 ? 'medio' : 'baixo')}" style="width:${Math.max(2, Math.round((f.nota + 100) / 2))}%"></span></div>
+      <div class="afer-bloco-desc">${escapeHtml(f.desc)}</div>
+    </div>`).join('');
+  return `
+    <div class="afer-secao">
+      <div class="afer-secao-titulo">Qualidade e potencial</div>
+      <div class="afer-secao-desc">Duas medidas separadas: o que o conteúdo é, e a chance de ele chegar a quem ainda não segue você. O tamanho da sua audiência não entra em nenhuma das duas — a ferramenta lê só o texto.</div>
+      <div class="afer-blocos">${linhas}</div>
+    </div>`;
+}
+
 /* ONDE AS RODADAS DISCORDARAM. Não muda a resposta — muda o quanto se pode
  * confiar nela. Na tela principal isso virou uma frase colada na correção
  * correspondente; aqui fica o placar exato, para quem quiser o número. */
@@ -284,6 +316,7 @@ function aferDetalhes(item) {
         ${aferBlocoForte(res)}
         ${aferBlocoNota(res)}
         ${aferBlocoConta(res)}
+        ${aferBlocoFamilias(res)}
         ${aferBlocoBlocos(res)}
         ${aferBlocoDivergencias(res)}
         ${aferBlocoQuestionario(item)}

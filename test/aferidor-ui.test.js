@@ -164,9 +164,10 @@ describe('o resultado é um card: posta ou não posta', () => {
     U.AFER_QUESTOES.forEach((q) => { tudoErrado[q.id] = q.bom === 'sim' ? 'nao' : 'sim'; });
     U.renderAferResultado(item({ rodadas: [tudoErrado] }));
     const motivo = document.querySelector('.afer-card-motivo').textContent;
-    // Os dois quesitos de peso 10 são os primeiros que a frase cita.
-    expect(motivo).toContain(U.aferFala({ id: 'abre_no_fato' }).curto);
-    expect(motivo).toContain(U.aferFala({ id: 'entrega_algo' }).curto);
+    /* Os ESSENCIAIS vêm primeiro, mesmo pesando o mesmo que outros: ouvir
+     * "corte o trecho parado" quando falta premissa é o conselho errado. */
+    expect(motivo).toContain(U.aferFala({ id: 'premissa' }).curto);
+    expect(motivo).toContain(U.aferFala({ id: 'memoravel' }).curto);
     expect(motivo).toMatch(/antes de publicar/i);
   });
 
@@ -212,7 +213,7 @@ describe('a conta continua inteira — uma camada abaixo', () => {
     U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
     const conta = document.querySelector('.afer-conta');
     expect(conta, 'sem a conta, a ferramenta é só outro número de IA').toBeTruthy();
-    expect(conta.textContent).toMatch(/\+133 ganhos − 10 perdidos = \+123 de 143 em jogo/);
+    expect(conta.textContent).toMatch(/\+151 ganhos − 10 perdidos = \+141 de 161 em jogo/);
     expect(conta.textContent).toMatch(/quesitos verificados/);
     expect(conta.closest('.afer-auditoria'), 'a conta tem de morar dentro da auditoria').toBeTruthy();
   });
@@ -233,16 +234,16 @@ describe('a conta continua inteira — uma camada abaixo', () => {
      *
      * O caso que separa as duas fórmulas é o valor INTERMEDIÁRIO — em −100 as
      * duas dão o mínimo, e em +100 as duas dão 100. Por isso o teste usa um
-     * bloco de saldo intermediário: `abertura` erra só uma das quatro perguntas
-     * (10+7+7+10), ficando em +41, onde a fórmula certa dá 71% e a antiga
-     * daria 41%. */
+     * bloco de saldo intermediário: `abertura` erra só uma das cinco perguntas
+     * (10+7+7+10+10), ficando em +55, onde a fórmula certa dá 78% e a antiga
+     * daria 55%. */
     U.renderAferResultado(item({ rodadas: [{ abre_no_fato: 'nao' }] }));
     const abertura = [...document.querySelectorAll('.afer-bloco')]
       .find((e) => /Abertura/.test(e.textContent));
-    expect(abertura.querySelector('.afer-bloco-nota').textContent).toBe('+41');
+    expect(abertura.querySelector('.afer-bloco-nota').textContent).toBe('+55');
     const w = parseFloat(abertura.querySelector('.afer-bloco-preenche').style.width);
     expect(w, 'a largura tem de medir a distância do pior caso, não a nota crua')
-      .toBe(Math.round((41 + 100) / 2));
+      .toBe(Math.round((55 + 100) / 2));
   });
 
   it('e um bloco no fundo da escala fica no mínimo, sem largura negativa', () => {
@@ -261,8 +262,8 @@ describe('a conta continua inteira — uma camada abaixo', () => {
     U.renderAferResultado(item({ rodadas: [{ entrega_algo: 'nao' }] }));
     const entrega = [...document.querySelectorAll('.afer-bloco')]
       .find((e) => /Entrega e final/.test(e.textContent));
-    expect(entrega.textContent).toMatch(/\+22 − 10 de 32 em jogo/);
-    expect(entrega.querySelector('.afer-bloco-nota').textContent).toBe('+38');
+    expect(entrega.textContent).toMatch(/\+30 − 10 de 40 em jogo/);
+    expect(entrega.querySelector('.afer-bloco-nota').textContent).toBe('+50');
   });
 
   it('sem nada perdido, diz isso em vez de mostrar uma lista vazia', () => {

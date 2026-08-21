@@ -590,6 +590,30 @@ function buildGeneroPrompt(conteudo, embalagem) {
   linhas.push('SINAIS DE "rotina": quem grava fala de si e do próprio dia com a câmera; mostra compras ou produtos; cita link na bio; se despede de quem assiste.');
   linhas.push('SINAIS DE "contar": alguém narra um caso que aconteceu, a sério, sem falar com a câmera e sem encenar personagens.');
   linhas.push('');
+  /* PRECEDÊNCIA ENTRE INTENÇÕES QUE SE MISTURAM.
+   *
+   * Conteúdo híbrido é comum e a régua é uma só, então alguém tem de ganhar. O
+   * critério é sempre o mesmo — TIRE UMA DAS DUAS E VEJA SE SOBRA CONTEÚDO —,
+   * e ele decide os três pares sem exceção inventada:
+   *
+   *   notícia + opinião  o fato está ali para sustentar a posição; sem a
+   *                      posição sobra um recado curto  → convencer
+   *   história + graça   depende: uma história CONSTRUÍDA para a piada não
+   *                      sobrevive sem ela → rir; um caso que se sustenta
+   *                      sozinho e é só contado com graça → contar
+   *   rotina + graça     tirando as piadas ainda sobra o dia da pessoa → rotina
+   *
+   * O par rotina + graça é o que mais engana, e há evidência: um vlog de
+   * rotina lido como "rir" recebeu as cobranças da piada encenada — arremate,
+   * impasse, despropósito — e reprovou. Num vlog a graça é TEMPERO; a
+   * estrutura é mostrar o próprio dia. Na esquete a graça é a ESTRUTURA. */
+  linhas.push('== QUANDO DUAS CABEM AO MESMO TEMPO ==');
+  linhas.push('Aplique sempre o mesmo teste: TIRE UMA DAS DUAS E VEJA SE AINDA SOBRA CONTEÚDO.');
+  linhas.push('');
+  linhas.push('· FATO + POSIÇÃO → "convencer". Quem dá a notícia e emenda o que acha está usando o fato para sustentar a opinião: sem a opinião sobra um recado curto. Vale mesmo que o fato ocupe a maior parte do tempo.');
+  linhas.push('· HISTÓRIA + GRAÇA → "rir" quando a história foi armada PARA a piada (tirando a graça não sobra história nenhuma). Se o caso se sustenta sozinho e só é contado com bom humor, é "contar".');
+  linhas.push('· ROTINA + GRAÇA → "rotina". Quem mostra o próprio dia sendo engraçado continua fazendo vlog: tirando as piadas, ainda sobra o dia da pessoa. Só é "rir" se a rotina for encenada, com personagens, para chegar numa piada.');
+  linhas.push('');
   linhas.push('Se nenhuma couber, responda "geral".');
   linhas.push('');
   if (e.titulo || e.legenda) {

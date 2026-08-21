@@ -195,6 +195,33 @@ describe('a classificação acontece isolada da avaliação', () => {
     });
   });
 
+  it('resolve os HÍBRIDOS por um teste só, e não por exceção inventada', () => {
+    /* Conteúdo híbrido é comum, e a régua é uma só: alguém tem de ganhar.
+     *
+     * O critério é sempre "tire uma das duas e veja se sobra conteúdo", e ele
+     * decide os três pares sem regra ad hoc:
+     *
+     *   fato + posição   o fato serve à posição       → convencer
+     *   história + graça armada PARA a piada          → rir
+     *   rotina + graça   tirando as piadas sobra o dia → rotina
+     *
+     * O terceiro é o que engana, e é o único com evidência: um vlog de rotina
+     * lido como "rir" recebeu cobrança de arremate, impasse e despropósito — a
+     * régua da piada encenada — e reprovou. Num vlog a graça é TEMPERO; na
+     * esquete é ESTRUTURA. */
+    const p = prompt();
+    expect(p, 'sumiu a seção de precedência dos híbridos')
+      .toMatch(/QUANDO DUAS CABEM AO MESMO TEMPO/);
+    expect(p, 'sumiu o teste que decide todos os pares')
+      .toMatch(/TIRE UMA DAS DUAS E VEJA SE AINDA SOBRA CONTEÚDO/);
+    expect(p, 'notícia com opinião precisa ir para convencer')
+      .toMatch(/FATO \+ POSIÇÃO[\s\S]{0,120}convencer/);
+    expect(p, 'história armada para a piada precisa ir para rir')
+      .toMatch(/HISTÓRIA \+ GRAÇA[\s\S]{0,120}rir/);
+    expect(p, 'vlog engraçado precisa continuar sendo rotina')
+      .toMatch(/ROTINA \+ GRAÇA[\s\S]{0,60}rotina/);
+  });
+
   it('e diz explicitamente que TOM não define gênero', () => {
     // A regra mais importante das seis: leve e divertido não é o mesmo que
     // "humor". Humor é quando fazer rir é o OBJETIVO.

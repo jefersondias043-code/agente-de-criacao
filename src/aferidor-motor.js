@@ -347,10 +347,31 @@ const AFER_QUESTOES = [
    * Agora elas descrevem ESTRUTURA OBSERVÁVEL: o que está escrito na última
    * fala, quantas vezes a mesma dificuldade volta, se alguém quer algo que o
    * outro não faz. Quem discordar da resposta consegue apontar o trecho. */
+  /* CUIDADO COM A ARMADILHA DO "A OU B" — ela custou um falso positivo.
+   *
+   * A redação anterior era "a última fala é uma tirada EM VEZ DE uma conclusão
+   * que explica?". Duas alternativas, e o modelo escolhe a que sobra: um vídeo
+   * que simplesmente PARA NO MEIO não é conclusão explicativa, logo deve ser
+   * tirada — responde SIM por eliminação. Um esquete que termina em "Faz
+   * assim." foi aprovado com "arremata na última fala".
+   *
+   * Toda pergunta que oferece duas saídas precisa prever a terceira: o nada.
+   * Por isso as duas abaixo dizem, com todas as letras, o que responder quando
+   * não há nem uma coisa nem outra. */
   { id: 'humor_fecha', bloco: 'entrega', peso: 10, bom: 'sim', essencial: true, so: ['humor'],
-    pergunta: 'A última fala é uma resposta inesperada, uma recusa, um desabafo, um trocadilho ou uma tirada — em vez de uma conclusão que explica ou amarra o que foi contado?' },
+    pergunta: 'A última fala ARREMATA alguma coisa — uma resposta inesperada, uma recusa, uma tirada, um trocadilho? ATENÇÃO: se o conteúdo apenas para, se termina numa fala solta ou cortada no meio, ou se a última fala só continua a conversa sem fechar nada, responda "nao".' },
   { id: 'humor_escalada', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
-    pergunta: 'A mesma dificuldade, recusa ou desentendimento reaparece mais de uma vez ao longo do conteúdo, em vez de ser resolvida na primeira vez em que surge?' },
+    pergunta: 'A cada vez que a mesma dificuldade volta, ela volta PIOR ou mais apertada que na anterior? ATENÇÃO: repetir a mesma fala ou o mesmo argumento sem que a situação aperte não conta — nesse caso responda "nao".' },
+  /* O ABSURDO, e ele é o que separa uma piada de uma conversa qualquer.
+   *
+   * Os três esquetes que funcionaram têm um despropósito que cabe numa frase: o
+   * homem com a galinha, a bacia e o cacho de banana tentando pegar carona; a
+   * charada em que "levaram" não é "roubaram"; a motociclista sem capacete e
+   * sem habilitação dando lição de moral no guarda. O que reprovou é uma
+   * negociação de diária comum, que poderia acontecer igual na vida real sem
+   * ninguém achar graça — e nenhuma pergunta existente notava a diferença. */
+  { id: 'humor_absurdo', bloco: 'curiosidade', peso: 8, bom: 'sim', essencial: true, so: ['humor'],
+    pergunta: 'A situação tem alguma coisa fora do normal — um exagero, um despropósito, uma inversão de papéis, uma teimosia sem sentido — em vez de ser uma conversa que poderia acontecer igual na vida real sem chamar atenção de ninguém?' },
   { id: 'humor_impasse', bloco: 'curiosidade', peso: 8, bom: 'sim', essencial: true, so: ['humor'],
     pergunta: 'Existe alguma coisa que uma parte quer e a outra não faz — ou que uma afirma e a outra nega — atravessando o conteúdo do começo ao fim?' },
   /* A REDAÇÃO ANTERIOR COMEÇAVA COM "HAVENDO MAIS DE UMA VOZ", e num monólogo o
@@ -386,7 +407,7 @@ const AFER_QUESTOES = [
   { id: 'mudanca', bloco: 'entrega', peso: 10, bom: 'sim', essencial: true, so: ['vlog', 'historia'],
     pergunta: 'Alguma coisa é diferente no fim em relação ao começo — alguém descobriu, mudou de ideia, conseguiu, desistiu ou fracassou?' },
   { id: 'memoravel', bloco: 'entrega', peso: 8, bom: 'sim', essencial: true, exceto: ['humor'],
-    pergunta: 'Existe uma frase, uma cena ou uma descoberta ESPECÍFICA que dê para citar depois — em vez de apenas um assunto tratado em geral?' },
+    pergunta: 'Existe uma frase, uma cena ou uma descoberta ESPECÍFICA que dê para citar depois? ATENÇÃO: um assunto tratado em geral, sem nenhum momento que se destaque, não conta — nesse caso responda "nao".' },
   { id: 'ponto_de_vista', bloco: 'naturalidade', peso: 8, bom: 'sim', so: ['vlog', 'historia', 'opiniao'],
     pergunta: 'Quem fala emite opinião, avaliação ou interpretação sobre o que está acontecendo — em vez de apenas descrever o que se vê?' },
   { id: 'autoria', bloco: 'naturalidade', peso: 6, bom: 'sim', so: ['vlog', 'historia', 'opiniao'],

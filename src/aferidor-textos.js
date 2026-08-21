@@ -218,16 +218,22 @@ const AFER_FALA = {
      e a situação que escala. Uma frase que só fale em "virada" manda o autor
      de um humor de teimosia inventar um trocadilho que a cena não pede. */
   humor_fecha: {
-    conserto: 'A última fala explica ou amarra o que foi contado. Termine numa tirada, numa recusa, num trocadilho — alguma coisa que não se esperava.',
+    conserto: 'O final não arremata: a fala apenas continua a conversa ou corta no meio. Termine numa tirada, numa recusa, num trocadilho — alguma coisa que feche.',
     forte: 'Termina numa tirada, não numa explicação.',
-    curto: 'termina explicando em vez de arrematar',
+    curto: 'para no meio em vez de arrematar',
     curtoBom: 'arremata na última fala',
   },
   humor_escalada: {
-    conserto: 'A dificuldade se resolve na primeira vez em que aparece. Faça ela voltar — e voltar pior.',
-    forte: 'A mesma dificuldade volta e aperta, em vez de se resolver de primeira.',
-    curto: 'resolve a dificuldade logo na primeira vez',
+    conserto: 'A dificuldade volta, mas volta igual. Cada vez que ela reaparecer, faça apertar mais que na anterior.',
+    forte: 'A mesma dificuldade volta cada vez mais apertada.',
+    curto: 'repete a dificuldade sem fazer apertar',
     curtoBom: 'faz a mesma dificuldade voltar e apertar',
+  },
+  humor_absurdo: {
+    conserto: 'É uma conversa que poderia acontecer igual na vida real, sem chamar atenção. Ponha um exagero, um despropósito ou uma inversão que faça a cena sair do normal.',
+    forte: 'Tem um despropósito que faz a cena sair do normal.',
+    curto: 'é uma conversa comum, sem nada fora do normal',
+    curtoBom: 'tem um despropósito que sai do normal',
   },
   humor_impasse: {
     conserto: 'São piadas soltas, sem nada ligando uma à outra. Ponha um mal-entendido ou uma teimosia para sustentar a coisa.',

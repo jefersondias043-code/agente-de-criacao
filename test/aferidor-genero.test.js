@@ -270,12 +270,12 @@ describe('o causo das galinhas — o caso que obrigou tudo isto', () => {
     /* As perguntas que o derrubavam não existem neste gênero, e as que existem
      * ele acerta: tem a virada do "levaram", tem a insistência que arma o
      * final, tem duas vozes distintas e nenhuma fala sobrando. */
-    const { rec } = aferir('humor', LEITURA_REAL);
+    const { rec } = aferir('humor', { ...LEITURA_REAL, humor_absurdo: 'sim' });
     expect(rec.selo, 'o causo continua reprovado no gênero certo').toBe('POSTE');
   });
 
   it('e o motivo fala da piada, não de repetição', () => {
-    const { rec } = aferir('humor', LEITURA_REAL);
+    const { rec } = aferir('humor', { ...LEITURA_REAL, humor_absurdo: 'sim' });
     expect(rec.motivo).not.toMatch(/repet/i);
     expect(rec.motivo.length).toBeGreaterThan(20);
   });
@@ -346,7 +346,7 @@ bacia pros outros carregar.
     // sustenta, as duas vozes se distinguem, e nenhuma fala sobra.
     const leitura = {
       humor_fecha: 'sim', humor_escalada: 'sim', humor_impasse: 'sim',
-      humor_voz: 'sim', humor_gordura: 'nao',
+      humor_absurdo: 'sim', humor_voz: 'sim', humor_gordura: 'nao',
       assunto_claro: 'nao',   // "Vizinho, não me pegue" abre no meio da cena
     };
     const mapa = A.normalizarRodada({
@@ -390,7 +390,7 @@ bacia pros outros carregar.
     expect(ids(qs)).not.toContain('promessa_cumprida');
     const leitura = {
       humor_fecha: 'sim', humor_escalada: 'sim', humor_impasse: 'sim',
-      humor_voz: 'sim', humor_gordura: 'nao',
+      humor_absurdo: 'sim', humor_voz: 'sim', humor_gordura: 'nao',
     };
     const mapa = A.normalizarRodada({
       respostas: qs.map((q) => ({ id: q.id, resposta: leitura[q.id] || q.bom })),
@@ -419,6 +419,28 @@ bacia pros outros carregar.
     A.AFER_QUESTOES.forEach((q) => {
       expect(q.pergunta, `"${q.id}" pede um juízo em vez de uma observação`)
         .not.toMatch(JUIZO);
+    });
+  });
+
+  it('pergunta de duas saídas precisa prever a TERCEIRA: o nada', () => {
+    /* A ARMADILHA DO "A OU B", e ela custou um falso positivo.
+     *
+     * "A última fala é uma tirada EM VEZ DE uma conclusão que explica?" oferece
+     * duas alternativas — e o modelo escolhe a que sobra. Um esquete que
+     * simplesmente PARA NO MEIO ("Faz assim.") não é conclusão explicativa,
+     * logo deve ser tirada: responde SIM por eliminação. O vídeo foi aprovado
+     * com "arremata na última fala".
+     *
+     * Quem escreve "em vez de" está oferecendo um caminho de fuga. Ou a
+     * pergunta diz o que responder quando não há nem uma coisa nem outra, ou
+     * ela aprova o vazio. */
+    const comAlternativa = A.AFER_QUESTOES.filter((q) => /em vez de/i.test(q.pergunta));
+    expect(comAlternativa.length, 'nenhuma pergunta usa "em vez de"?').toBeGreaterThan(0);
+    // As de maior peso são as que decidem o veredito: nelas o caso nulo tem de
+    // estar escrito.
+    comAlternativa.filter((q) => q.essencial).forEach((q) => {
+      expect(q.pergunta, `"${q.id}" é essencial, oferece duas saídas e não prevê o nada`)
+        .toMatch(/ATENÇÃO|apenas para|não conta|responda "nao"/i);
     });
   });
 
@@ -530,8 +552,8 @@ describe('o causo da caçada — o primeiro FALSO POSITIVO', () => {
      * conclusão que explica do outro. Isso se confere lendo. */
     const q = A.AFER_QUESTOES.find((x) => x.id === 'humor_fecha');
     expect(q.pergunta).toMatch(/última fala/i);
-    expect(q.pergunta, 'falta contrastar com a conclusão que explica')
-      .toMatch(/explica|amarra/i);
+    expect(q.pergunta, 'a pergunta voltou a aceitar o vazio por eliminação')
+      .toMatch(/apenas para|cortada no meio|sem fechar nada/i);
   });
 
   it('um monólogo não perde ponto por não ter um segundo personagem', () => {
@@ -562,6 +584,38 @@ describe('o causo da caçada — o primeiro FALSO POSITIVO', () => {
     expect(ids(doGenero('historia'))).toContain('assunto_claro');
   });
 
+  it('a negociação das pedras reprova — piada precisa de despropósito', () => {
+    /* SEGUNDO FALSO POSITIVO EM HUMOR. Um esquete de negociação de diária —
+     * duzentos reais para tirar pedras na mão — foi aprovado. Ele tem impasse
+     * (o serviço é pesado demais para o preço) e voz, mas não tem o que separa
+     * uma piada de uma conversa qualquer: nada ali é fora do normal, e a coisa
+     * termina cortada em "Faz assim.".
+     *
+     * Os três que funcionaram têm um despropósito que cabe numa frase — o homem
+     * com a galinha, a bacia e o cacho de banana tentando pegar carona; a
+     * charada em que "levaram" não é "roubaram"; a motociclista sem capacete
+     * dando lição de moral no guarda. */
+    const pedras = {
+      humor_fecha: 'nao',       // "Faz assim." — corta no meio
+      humor_escalada: 'nao',    // "diga a sua proposta" repete sem apertar
+      humor_absurdo: 'nao',     // negociação que aconteceria igual na vida real
+      humor_gordura: 'sim',
+      motivo_compartilhar: 'nao',
+    };
+    const { res, rec } = aferir(pedras);
+    expect(rec.selo).toBe('NÃO POSTE');
+    expect(res.essenciaisFalhos.length, 'os essenciais não pegaram o caso')
+      .toBeGreaterThan(1);
+    expect(rec.motivo).toContain(A.AFER_FALA.humor_absurdo.curto);
+  });
+
+  it('e o despropósito é essencial — impasse e voz sozinhos não bastam', () => {
+    // Só com impasse e voz, sem absurdo e sem arremate, não é piada.
+    const ids0 = doGenero('humor').filter((q) => q.essencial).map((q) => q.id);
+    expect(ids0).toContain('humor_absurdo');
+    expect(ids0).toContain('humor_fecha');
+  });
+
   it('E OS TRÊS VIRAIS CONTINUAM PASSANDO — é a trava dos dois lados', () => {
     /* Sem isto, cada conserto de falso positivo empurraria a régua de volta
      * para cima dos vídeos que funcionaram. Os quatro casos precisam se separar
@@ -569,7 +623,7 @@ describe('o causo da caçada — o primeiro FALSO POSITIVO', () => {
     const viral = {
       gancho: 'sim', alcance: 'sim', motivo_compartilhar: 'sim',
       humor_fecha: 'sim', humor_escalada: 'sim', humor_impasse: 'sim',
-      humor_voz: 'sim', humor_gordura: 'nao',
+      humor_absurdo: 'sim', humor_voz: 'sim', humor_gordura: 'nao',
     };
     expect(aferir({ ...viral, assunto_claro: 'nao' }).rec.selo).toBe('POSTE');  // galinhas
     expect(aferir({ ...viral, assunto_claro: 'nao' }).rec.selo).toBe('POSTE');  // carona
@@ -664,7 +718,8 @@ describe('vlog: o acerto por OMISSÃO deixa de comprar aprovação', () => {
       .forEach((id) => expect(humor, `"${id}" invadiu o humor`).not.toContain(id));
     const viral = {
       humor_fecha: 'sim', humor_escalada: 'sim', humor_impasse: 'sim', humor_voz: 'sim',
-      humor_gordura: 'nao', gancho: 'sim', alcance: 'sim', motivo_compartilhar: 'sim',
+      humor_absurdo: 'sim', humor_gordura: 'nao', gancho: 'sim', alcance: 'sim',
+      motivo_compartilhar: 'sim',
     };
     expect(aferir('humor', viral).rec.selo).toBe('POSTE');
   });

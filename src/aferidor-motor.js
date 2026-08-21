@@ -130,6 +130,43 @@ const AFER_GENEROS = [
  * o defeito que este trabalho veio consertar. */
 const AFER_GENERO_PADRAO = 'geral';
 
+/* A CLASSIFICAÇÃO PERGUNTA A INTENÇÃO, NÃO O RÓTULO — e essa é a correção de
+ * raiz para um erro que vinha se repetindo caso a caso.
+ *
+ * Pedir "escolha entre notícia, humor, história, vlog…" faz o modelo comparar o
+ * conteúdo com as DESCRIÇÕES e escolher a que mais se parece. Parecença é
+ * FORMA: uma esquete cômica de dez minutos, com personagens, enredo e
+ * reviravoltas, se parece muito com "narra um acontecimento fechado, com
+ * começo, meio e fim" — e ia para "historia", onde a régua cobra desfecho,
+ * conclusão, não repetir e não ter trecho removível. Uma novela caipira
+ * inteira reprovava por ser uma novela caipira inteira.
+ *
+ * INTENÇÃO não se confunde com forma. "O que este conteúdo quer que a pessoa
+ * sinta ou saiba ao terminar?" tem uma resposta só, e ela não muda porque o
+ * vídeo é longo, tem enredo ou muitos personagens. O código faz o resto: cada
+ * intenção mapeia num gênero, e o gênero escolhe a régua.
+ *
+ * Os ids de intenção são deliberadamente diferentes dos de gênero, para o
+ * modelo não cair de volta em rotular. */
+const AFER_INTENCOES = [
+  { id: 'rir', genero: 'humor',
+    desc: 'Que a pessoa RIA. É piada, esquete, causo cômico, personagem engraçado, situação de comédia.' },
+  { id: 'contar', genero: 'historia',
+    desc: 'Que a pessoa saiba o que aconteceu num caso — real ou inventado — contado a sério.' },
+  { id: 'rotina', genero: 'vlog',
+    desc: 'Que a pessoa acompanhe o dia, a rotina ou a experiência de quem grava.' },
+  { id: 'informar', genero: 'noticia',
+    desc: 'Que a pessoa fique sabendo de um fato de interesse público: o que houve, com quem, onde.' },
+  { id: 'ensinar', genero: 'educativo',
+    desc: 'Que a pessoa aprenda a fazer ou a entender alguma coisa, e consiga repetir depois.' },
+  { id: 'convencer', genero: 'opiniao',
+    desc: 'Que a pessoa concorde com uma posição, ou pelo menos a considere.' },
+];
+
+function aferIntencao(id) {
+  return AFER_INTENCOES.find((i) => i.id === id) || null;
+}
+
 function aferGenero(id) {
   return AFER_GENEROS.find((g) => g.id === id) || null;
 }
@@ -535,36 +572,26 @@ function buildGeneroPrompt(conteudo, embalagem) {
    * dizer que tipo de coisa é aquilo. */
   linhas.push('Sua única tarefa é dizer QUE TIPO de conteúdo é este. Nada além disso.');
   linhas.push('');
-  linhas.push('== OS GÊNEROS ==');
-  AFER_GENEROS.forEach((g) => linhas.push(`${g.id}: ${g.desc}`));
+  linhas.push('== A PERGUNTA ==');
+  linhas.push('O que este conteúdo quer que a pessoa SINTA OU SAIBA quando terminar de assistir?');
   linhas.push('');
-  /* AS REGRAS DE DESEMPATE, e elas custaram um diagnóstico errado por terem
-   * ficado desatualizadas: quando o vlog entrou no catálogo, este bloco
-   * continuou falando só de humor e história. Sobrou uma regra dizendo que
-   * "uma história engraçada é humor" e nenhuma dizendo o que é vlog — então um
-   * vlog de rotina, contado com graça, ia direto para humor e recebia a régua
-   * da piada.
-   *
-   * A regra de cima é a mais importante das seis: TOM NÃO É GÊNERO. */
-  linhas.push('== COMO ESCOLHER ==');
-  linhas.push('Escolha pela INTENÇÃO PRINCIPAL do conteúdo — o que ele está tentando ser. Não pelo assunto, e MUITO MENOS pelo tom.');
+  AFER_INTENCOES.forEach((i) => linhas.push(`${i.id}: ${i.desc}`));
   linhas.push('');
-  linhas.push('TOM NÃO DEFINE GÊNERO. Um conteúdo pode ser leve, divertido e cheio de graça sem ser "humor". Só é "humor" quando FAZER RIR É O OBJETIVO — alguém contando uma piada ou encenando uma cena cômica. Se a pessoa está mostrando a própria vida com bom humor, é "vlog".');
+  linhas.push('== COMO DECIDIR ==');
+  linhas.push('Escolha UMA. Se mais de uma couber, escolha aquela que, se fosse retirada, faria o conteúdo perder a razão de existir.');
   linhas.push('');
-  linhas.push('QUEM FALA, E SOBRE QUEM, DECIDE QUASE TUDO:');
-  linhas.push('· Quem grava falando de si, do próprio dia, do que fez, comprou ou aprontou, dirigindo-se a quem assiste → "vlog". Vale mesmo que seja engraçado, mesmo que conte um perrengue, mesmo que tenha começo, meio e fim.');
-  linhas.push('· Personagens conversando entre si numa cena encenada, sem ninguém relatar a própria vida real → "humor".');
-  linhas.push('· Alguém narrando um caso fechado que aconteceu (com ele ou com outros), sem falar com a câmera e sem mostrar rotina → "historia".');
-  linhas.push('· Passo a passo para quem assiste REPETIR depois → "educativo". Mas se a pessoa apenas mostra o que ela mesma fez no dia, sem ensinar ninguém a repetir, é "vlog" — mesmo que dê para aprender vendo.');
-  linhas.push('· Relato de um fato de interesse público, com quem disse e onde aconteceu, sem quem fala participar → "noticia".');
-  linhas.push('· O conteúdo existe para defender uma posição, e os fatos aparecem para sustentar o argumento → "opiniao".');
+  linhas.push('TAMANHO, ENREDO E NÚMERO DE PERSONAGENS NÃO DECIDEM NADA.');
+  linhas.push('Uma esquete cômica pode ser longa, ter enredo com começo, meio e fim, vários personagens, reviravoltas e várias cenas — e a intenção continua sendo "rir". Uma novela inteira encenada para fazer graça é "rir", não "contar".');
+  linhas.push('Um vídeo curto e sem enredo pode ser "informar". Um relato de dez segundos pode ser "contar".');
   linhas.push('');
-  linhas.push('SINAIS DE VLOG, quando aparecem, pesam muito: mostrar produtos ou compras; citar marca ou "link na bio"; falar diretamente com o espectador; despedida do tipo "até o próximo vídeo"; contar o que planejou fazer no dia e como acabou.');
+  linhas.push('TOM TAMBÉM NÃO DECIDE. Alguém pode mostrar o próprio dia com muita graça e a intenção ser "rotina"; e alguém pode fazer piada com cara séria e a intenção ser "rir". Pergunte pelo objetivo, não pelo clima.');
   linhas.push('');
-  linhas.push('Se mais de um couber, escolha aquele que a pessoa perderia mais se fosse retirado.');
-  linhas.push('Se nenhum couber bem, responda "geral".');
+  linhas.push('SINAIS DE "rir": personagens interpretados discutindo entre si; exagero ou despropósito na situação; alguém acreditando no que o espectador sabe ser falso; falas construídas para uma tirada.');
+  linhas.push('SINAIS DE "rotina": quem grava fala de si e do próprio dia com a câmera; mostra compras ou produtos; cita link na bio; se despede de quem assiste.');
+  linhas.push('SINAIS DE "contar": alguém narra um caso que aconteceu, a sério, sem falar com a câmera e sem encenar personagens.');
   linhas.push('');
-
+  linhas.push('Se nenhuma couber, responda "geral".');
+  linhas.push('');
   if (e.titulo || e.legenda) {
     linhas.push('== EMBALAGEM ==');
     if (e.titulo) linhas.push(`Título: ${e.titulo}`);
@@ -576,16 +603,28 @@ function buildGeneroPrompt(conteudo, embalagem) {
   linhas.push(_aTexto(conteudo));
   linhas.push('');
   linhas.push('Devolva SOMENTE JSON, sem cercas e sem comentário:');
-  linhas.push('{ "genero": "um dos ids acima" }');
+  linhas.push('{ "intencao": "um dos ids acima" }');
   return linhas.join('\n');
 }
 
-/** O gênero que veio da IA, ou o padrão. Rótulo desconhecido não é chute: é
- *  ausência de identificação, e cai nas perguntas que valem para todos. */
+/**
+ * O gênero, derivado da INTENÇÃO que a IA identificou.
+ *
+ * Aceita `intencao` (o formato atual) e `genero` (o anterior), porque aferições
+ * guardadas antes desta mudança continuam sendo reabertas do histórico e não
+ * podem virar "geral" retroativamente.
+ *
+ * Resposta irreconhecível não vira chute: é ausência de identificação, e cai
+ * nas perguntas que valem para todos. Chutar aplicaria a régua errada em
+ * silêncio — o defeito mais caro desta ferramenta.
+ */
 function normalizarGenero(obj) {
-  const bruto = _aTexto(obj && obj.genero).toLowerCase()
+  const limpar = (v) => _aTexto(v).toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
-  return aferGenero(bruto) ? bruto : AFER_GENERO_PADRAO;
+  const i = aferIntencao(limpar(obj && obj.intencao));
+  if (i) return i.genero;
+  const g = limpar(obj && obj.genero);
+  return aferGenero(g) ? g : AFER_GENERO_PADRAO;
 }
 
 /**

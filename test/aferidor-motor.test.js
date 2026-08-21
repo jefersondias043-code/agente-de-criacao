@@ -43,7 +43,7 @@ const rodada = (over, questoes) => ({
  *  gênero e a que responde ao questionário. Distinguir pelo prompt é de
  *  propósito — se um dia a classificação passar a enxergar o questionário, o
  *  dublê deixa de separar as duas e os testes de isolamento caem junto. */
-const EH_CLASSIFICACAO = (p) => /OS GÊNEROS/.test(p);
+const EH_CLASSIFICACAO = (p) => /A PERGUNTA/.test(p);
 
 const dublar = (roteiro, opcoes) => {
   const o = opcoes || {};

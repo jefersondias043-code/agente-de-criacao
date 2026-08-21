@@ -55,7 +55,7 @@ beforeAll(() => {
     ['AFER_QUESTOES', 'AFER_GENEROS', 'AFER_GENERO_PADRAO', 'AFER_FAIXAS', 'aferGenero', 'aferGeneroNome',
       'aferQuestoesAplicaveis', 'buildGeneroPrompt', 'buildAferPrompt', 'normalizarGenero',
       'normalizarRodada', 'consolidarRespostas', 'calcularAfericao', 'runAfericaoPipeline',
-      'aferRecomendacao', 'AFER_FALA']);
+      'aferRecomendacao', 'AFER_FALA', 'AFER_INTENCOES', 'aferIntencao']);
 });
 
 /* A transcrição real, encurtada só no que se repete — a repetição está
@@ -106,23 +106,48 @@ describe('a classificação acontece isolada da avaliação', () => {
     expect(p).not.toMatch(/justifi|explique|por que|confian|resum/i);
   });
 
-  it('oferece todos os gêneros do catálogo, e só eles', () => {
+  it('oferece todas as intenções, e cada uma leva a um gênero', () => {
     const p = prompt();
-    A.AFER_GENEROS.forEach((g) => expect(p, g.id).toContain(g.id));
+    A.AFER_INTENCOES.forEach((i) => {
+      expect(p, `a intenção "${i.id}" não está no prompt`).toContain(i.id);
+      expect(A.aferGenero(i.genero), `"${i.id}" aponta para um gênero que não existe`).toBeTruthy();
+    });
+    // E todo gênero precisa ser alcançável por alguma intenção, senão vira
+    // gênero morto: existe na tabela e nunca é escolhido.
+    A.AFER_GENEROS.forEach((g) => {
+      expect(A.AFER_INTENCOES.some((i) => i.genero === g.id),
+        `nenhuma intenção leva a "${g.id}"`).toBe(true);
+    });
   });
 
-  it('gênero irreconhecível não vira chute: cai no conjunto geral', () => {
-    // Chutar um gênero aplicaria a régua errada em silêncio — exatamente o
-    // defeito que este trabalho veio consertar.
-    ['', null, undefined, 'poesia', '{}', 'HUMOR!!', 42].forEach((v) => {
-      const g = A.normalizarGenero({ genero: v });
+  it('resposta irreconhecível não vira chute: cai no conjunto geral', () => {
+    // Chutar aplicaria a régua errada em silêncio — o defeito mais caro desta
+    // ferramenta.
+    ['', null, undefined, 'poesia', '{}', 'RIR!!', 42].forEach((v) => {
+      const g = A.normalizarGenero({ intencao: v });
       expect(A.aferGenero(g) || g === A.AFER_GENERO_PADRAO, `"${v}" virou gênero`).toBeTruthy();
     });
-    expect(A.normalizarGenero({ genero: 'poesia' })).toBe(A.AFER_GENERO_PADRAO);
+    expect(A.normalizarGenero({ intencao: 'poesia' })).toBe(A.AFER_GENERO_PADRAO);
     expect(A.normalizarGenero(null)).toBe(A.AFER_GENERO_PADRAO);
   });
 
-  it('o desempate cobre TODOS os gêneros, não só os que existiam antes', () => {
+  it('cada intenção leva ao gênero certo', () => {
+    expect(A.normalizarGenero({ intencao: 'rir' })).toBe('humor');
+    expect(A.normalizarGenero({ intencao: 'contar' })).toBe('historia');
+    expect(A.normalizarGenero({ intencao: 'rotina' })).toBe('vlog');
+    expect(A.normalizarGenero({ intencao: 'informar' })).toBe('noticia');
+    expect(A.normalizarGenero({ intencao: 'ensinar' })).toBe('educativo');
+    expect(A.normalizarGenero({ intencao: 'convencer' })).toBe('opiniao');
+  });
+
+  it('e aferição guardada com o formato antigo continua abrindo', () => {
+    // O histórico do usuário tem itens gravados antes desta mudança; eles não
+    // podem virar "geral" retroativamente.
+    expect(A.normalizarGenero({ genero: 'humor' })).toBe('humor');
+    expect(A.normalizarGenero({ genero: 'vlog' })).toBe('vlog');
+  });
+
+  it('o desempate cobre TODAS as intenções, não só as que existiam antes', () => {
     /* O BUG QUE ESTE TESTE EXISTE PARA IMPEDIR. Quando o vlog entrou no
      * catálogo (r258), este bloco de regras continuou falando só de humor e
      * história — sobrou "uma história engraçada é humor" e não entrou nada
@@ -133,9 +158,40 @@ describe('a classificação acontece isolada da avaliação', () => {
      * Gênero novo sem regra de desempate é gênero que nunca vai ser escolhido
      * quando disputar com um parecido. */
     const p = prompt();
-    A.AFER_GENEROS.forEach((g) => {
-      expect(p.split(g.id).length - 1,
-        `"${g.id}" aparece só na lista: falta regra de desempate para ele`).toBeGreaterThan(1);
+    ['rir', 'rotina', 'contar'].forEach((id) => {
+      expect(p.split(id).length - 1,
+        `"${id}" aparece só na lista: falta regra ou sinal para ele`).toBeGreaterThan(1);
+    });
+  });
+
+  it('CLASSIFICA POR INTENÇÃO, não por rótulo — a correção de raiz', () => {
+    /* O ERRO QUE SE REPETIA CASO A CASO, e a razão de ele se repetir.
+     *
+     * Pedir "escolha entre notícia, humor, história, vlog…" faz o modelo
+     * comparar o conteúdo com as DESCRIÇÕES e escolher a mais parecida. E
+     * parecença é FORMA: uma esquete cômica de dez minutos, com personagens,
+     * enredo e reviravoltas, se parece muito com "narra um acontecimento
+     * fechado, com começo, meio e fim". Uma novela caipira encenada para fazer
+     * rir foi para "historia" — onde a régua cobra desfecho, conclusão, não
+     * repetir e não ter trecho removível — e reprovou por ser o que é.
+     *
+     * INTENÇÃO não se confunde com forma. "O que este conteúdo quer que a
+     * pessoa sinta ou saiba ao terminar?" tem uma resposta só, e ela não muda
+     * porque o vídeo é longo, tem enredo ou muitos personagens.
+     *
+     * Este teste guarda o PRINCÍPIO, não o caso: se um dia o prompt voltar a
+     * pedir um rótulo de gênero, a mesma classe de erro volta com ele. */
+    const p = prompt();
+    expect(p, 'o prompt voltou a pedir um rótulo de gênero')
+      .toMatch(/SINTA OU SAIBA|intencao/i);
+    expect(p, 'a regra que impede a forma de decidir sumiu')
+      .toMatch(/TAMANHO, ENREDO E NÚMERO DE PERSONAGENS NÃO DECIDEM/);
+    expect(p, 'falta dizer que esquete longa continua sendo humor')
+      .toMatch(/esquete cômica pode ser longa/i);
+    // E os ids de intenção são diferentes dos de gênero, para o modelo não
+    // cair de volta em rotular.
+    A.AFER_INTENCOES.forEach((i) => {
+      expect(A.aferGenero(i.id), `a intenção "${i.id}" tem nome de gênero`).toBeFalsy();
     });
   });
 
@@ -143,13 +199,13 @@ describe('a classificação acontece isolada da avaliação', () => {
     // A regra mais importante das seis: leve e divertido não é o mesmo que
     // "humor". Humor é quando fazer rir é o OBJETIVO.
     const p = prompt();
-    expect(p).toMatch(/TOM NÃO DEFINE GÊNERO/);
-    expect(p).toMatch(/mostrando a própria vida com bom humor.*vlog/is);
+    expect(p).toMatch(/TOM TAMBÉM NÃO DECIDE/);
+    expect(p).toMatch(/o próprio dia com muita graça.*rotina/is);
   });
 
   it('e lista os sinais observáveis de vlog', () => {
     const p = prompt();
-    ['link na bio', 'produtos', 'espectador', 'próximo vídeo']
+    ['link na bio', 'produtos', 'câmera', 'se despede']
       .forEach((sinal) => expect(p, `falta o sinal "${sinal}"`).toContain(sinal));
   });
 
@@ -839,9 +895,11 @@ describe('o fluxo completo, de ponta a ponta', () => {
     const chamadas = [];
     const call = async (prompt) => {
       chamadas.push(prompt);
-      if (/OS GÊNEROS/.test(prompt)) {
+      if (/A PERGUNTA/.test(prompt)) {
         if (o.generoCai) throw new Error('classificação caiu');
-        return { content: JSON.stringify({ genero }), model: 'dublado' };
+        // A classificação devolve INTENÇÃO; o motor deriva o gênero dela.
+        const i = A.AFER_INTENCOES.find((x) => x.genero === genero);
+        return { content: JSON.stringify({ intencao: i ? i.id : 'nada' }), model: 'dublado' };
       }
       const qs = doGenero(o.comoSeFosse || genero);
       return {
@@ -862,8 +920,8 @@ describe('o fluxo completo, de ponta a ponta', () => {
     expect(ids(r.questoes)).toContain('humor_fecha');
     expect(ids(r.questoes)).not.toContain('repeticao');
     // A classificação vem ANTES: é o primeiro prompt enviado.
-    expect(/OS GÊNEROS/.test(call.chamadas[0]), 'a avaliação correu antes da classificação').toBe(true);
-    expect(call.chamadas.filter((p) => /OS GÊNEROS/.test(p)).length,
+    expect(/A PERGUNTA/.test(call.chamadas[0]), 'a avaliação correu antes da classificação').toBe(true);
+    expect(call.chamadas.filter((p) => /A PERGUNTA/.test(p)).length,
       'o gênero é uma chamada só, não uma por rodada').toBe(1);
   });
 
@@ -891,7 +949,7 @@ describe('o fluxo completo, de ponta a ponta', () => {
       conteudo: CAUSO, rodadas: 3, genero: 'vlog', call, comoSeFosse: 'vlog',
     });
     expect(r.genero, 'a escolha do usuário foi revista pela IA').toBe('vlog');
-    expect(call.chamadas.filter((p) => /OS GÊNEROS/.test(p)).length,
+    expect(call.chamadas.filter((p) => /A PERGUNTA/.test(p)).length,
       'classificou mesmo com o gênero imposto').toBe(0);
   });
 
@@ -899,7 +957,7 @@ describe('o fluxo completo, de ponta a ponta', () => {
     const call = dublar('humor');
     const r = await A.runAfericaoPipeline({ conteudo: CAUSO, rodadas: 3, genero: 'inventado', call });
     expect(r.genero).toBe('humor');
-    expect(call.chamadas.filter((p) => /OS GÊNEROS/.test(p)).length).toBe(1);
+    expect(call.chamadas.filter((p) => /A PERGUNTA/.test(p)).length).toBe(1);
   });
 
   it('o mesmo conteúdo, em gêneros diferentes, é medido por réguas diferentes', async () => {

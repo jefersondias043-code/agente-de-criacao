@@ -612,6 +612,34 @@ describe('o causo da caçada — o primeiro FALSO POSITIVO', () => {
     expect(rec.motivo).toContain(A.AFER_FALA.humor_absurdo.curto);
   });
 
+  it('o chucaio passa — comédia de IRONIA não tem duas partes discutindo', () => {
+    /* O TERCEIRO MOTOR DA COMÉDIA, e o terceiro viral que eu reprovei pelo
+     * mesmo tipo de erro. Um patrão amarra um chocalho no empregado para ouvir
+     * de longe se ele trabalha, e vai dizendo "posso dormir despreocupado",
+     * "está merecendo um aumento", "é um bom funcionário" — enquanto o
+     * espectador entende sozinho que o chocalho está amarrado em outra coisa.
+     *
+     * `humor_impasse` e `humor_escalada` estavam escritas pressupondo DUAS
+     * PARTES EM CONFRONTO ("alguém quer o que o outro não faz", "a dificuldade
+     * volta pior"). Isso descreve as galinhas, a carona e o guarda; não
+     * descreve um monólogo. As duas essenciais responderam "nao", e um vídeo de
+     * milhões de views levou NÃO POSTE com nota 59.
+     *
+     * As perguntas agora aceitam as três formas: a tensão pode ser entre
+     * pessoas OU entre o que se acredita e o que é; a intensificação pode ser
+     * da dificuldade, do absurdo OU da convicção de quem fala. */
+    const pergunta = (id) => A.AFER_QUESTOES.find((q) => q.id === id).pergunta;
+    expect(pergunta('humor_impasse'), 'a tensão voltou a exigir duas partes')
+      .toMatch(/acredita numa coisa que o conteúdo deixa claro não ser verdade/i);
+    expect(pergunta('humor_escalada'), 'a intensificação voltou a exigir dificuldade que volta')
+      .toMatch(/convencendo cada vez mais/i);
+    // Monólogo irônico: fecha na tirada, a convicção cresce, a tensão é entre o
+    // que o patrão acredita e o que o espectador vê.
+    const { res, rec } = aferir({ humor_gordura: 'sim' });
+    expect(rec.selo).toBe('POSTE');
+    expect(res.essenciaisFalhos.length).toBe(0);
+  });
+
   it('as pedras, com as RESPOSTAS REAIS DA IA, reprovam', () => {
     /* O ÚNICO CASO DESTE ARQUIVO CUJAS RESPOSTAS NÃO SÃO SUPOSIÇÃO MINHA.
      *

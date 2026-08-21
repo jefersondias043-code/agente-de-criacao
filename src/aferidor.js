@@ -92,6 +92,27 @@ function aferSinal(n) {
  * calculada, continua guardada em cada aferição e continua conferível na
  * auditoria; o que ela não faz mais é ser a primeira coisa que o autor lê e
  * precisa interpretar. Um "+45" não diz a ninguém se o vídeo sobe hoje. */
+/* QUANDO A RESPOSTA SAIU DE UMA LEITURA SÓ, O AUTOR PRECISA SABER.
+ *
+ * A ferramenta roda o questionário três a cinco vezes justamente para que uma
+ * leitura torta seja voto vencido — é a defesa contra o ruído de amostragem, e
+ * está escrita no §5 do motor. Quando as outras chamadas falham (rede, limite
+ * da API), sobra UMA opinião decidindo sozinha, sem maioria nenhuma, e o card
+ * apresenta esse palpite com a mesma cara de sempre.
+ *
+ * Um "NÃO POSTE" tirado de uma leitura única e um tirado de cinco concordantes
+ * não são a mesma coisa, e esconder a diferença é fingir uma firmeza que não
+ * houve. O aviso é discreto e só aparece quando há motivo. */
+function aferAvisoLeituraUnica(res) {
+  const n = res.rodadas || 0;
+  if (n >= 2) return '';
+  return `
+    <div class="afer-card-aviso">
+      Esta resposta saiu de uma leitura só — as outras não chegaram.
+      Vale aferir de novo antes de decidir.
+    </div>`;
+}
+
 function aferCard(res) {
   const r = aferRecomendacao(res);
   /* SOB QUE RÉGUA o conteúdo foi lido. Não é métrica — é a premissa da
@@ -111,6 +132,7 @@ function aferCard(res) {
       <div class="afer-card-selo">${escapeHtml(r.selo)}</div>
       <div class="afer-card-titulo">${escapeHtml(r.titulo)}</div>
       <p class="afer-card-motivo">${escapeHtml(r.motivo)}</p>
+      ${aferAvisoLeituraUnica(res)}
       <div class="afer-card-genero">
         <label for="af-genero">lido como</label>
         <select id="af-genero" title="Se o tipo estiver errado, troque — a avaliação inteira depende dele.">${opcoes}</select>

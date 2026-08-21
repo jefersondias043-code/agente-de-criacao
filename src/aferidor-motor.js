@@ -317,7 +317,24 @@ const AFER_QUESTOES = [
    * reprova o outro por não ser o primeiro:
    *
    *   deixa    — tudo converge para uma revelação que reinterpreta o que veio;
-   *   escalada — a situação se repete e piora, e a graça está em vê-la piorar.
+   *   escalada — a situação se repete e piora, e a graça está em vê-la piorar;
+   *   ironia   — quem fala acredita numa coisa que o espectador sabe ser falsa,
+   *              e a graça inteira mora nessa distância.
+   *
+   * O TERCEIRO custou mais um vídeo de milhões de views, e pelo mesmo motivo
+   * dos outros: `humor_impasse` e `humor_escalada` estavam escritas
+   * pressupondo DUAS PARTES EM CONFRONTO — "alguém quer o que o outro não
+   * faz", "a dificuldade volta pior". Isso descreve o causo das galinhas, a
+   * carona e a esquete do guarda, e não descreve um MONÓLOGO: o patrão que
+   * amarra um chocalho no empregado, ouve o chocalho de longe e vai dizendo
+   * "posso dormir despreocupado", "está merecendo um aumento", "é um bom
+   * funcionário" — enquanto o espectador entende sozinho que o chocalho está
+   * amarrado em outra coisa. Não há duas partes discutindo, e as duas
+   * perguntas essenciais responderam "nao" às duas.
+   *
+   * As duas agora aceitam as três formas: a tensão pode ser entre pessoas OU
+   * entre o que se acredita e o que é; a intensificação pode ser da
+   * dificuldade, do absurdo OU da convicção de quem fala.
    *
    * As perguntas agora medem o que os DOIS têm em comum: que a coisa feche, que
    * a graça cresça, que haja um impasse sustentando, que as vozes se
@@ -368,7 +385,7 @@ const AFER_QUESTOES = [
    * tolerância e era aprovado com 55, sustentado por 58 pontos de higiene:
    * abre no fato, não pede like, soa falado, não tem frase de IA. */
   { id: 'humor_escalada', bloco: 'curiosidade', peso: 8, bom: 'sim', essencial: true, so: ['humor'],
-    pergunta: 'A cada vez que a mesma dificuldade volta, ela volta PIOR ou mais apertada que na anterior? ATENÇÃO: repetir a mesma fala ou o mesmo argumento sem que a situação aperte não conta — nesse caso responda "nao".' },
+    pergunta: 'Alguma coisa se INTENSIFICA do começo ao fim — a dificuldade aperta, o absurdo aumenta, ou quem fala vai se convencendo cada vez mais de uma coisa? ATENÇÃO: repetir a mesma fala ou o mesmo argumento sem que nada se intensifique não conta — nesse caso responda "nao".' },
   /* O ABSURDO, e ele é o que separa uma piada de uma conversa qualquer.
    *
    * Os três esquetes que funcionaram têm um despropósito que cabe numa frase: o
@@ -380,7 +397,7 @@ const AFER_QUESTOES = [
   { id: 'humor_absurdo', bloco: 'curiosidade', peso: 8, bom: 'sim', essencial: true, so: ['humor'],
     pergunta: 'A situação tem alguma coisa fora do normal — um exagero, um despropósito, uma inversão de papéis, uma teimosia sem sentido — em vez de ser uma conversa que poderia acontecer igual na vida real sem chamar atenção de ninguém?' },
   { id: 'humor_impasse', bloco: 'curiosidade', peso: 8, bom: 'sim', essencial: true, so: ['humor'],
-    pergunta: 'Existe alguma coisa que uma parte quer e a outra não faz — ou que uma afirma e a outra nega — atravessando o conteúdo do começo ao fim?' },
+    pergunta: 'Existe uma tensão atravessando o conteúdo do começo ao fim? Conta qualquer uma destas: alguém quer o que o outro não faz; alguém afirma o que o outro nega; OU quem fala acredita numa coisa que o conteúdo deixa claro não ser verdade.' },
   /* A REDAÇÃO ANTERIOR COMEÇAVA COM "HAVENDO MAIS DE UMA VOZ", e num monólogo o
    * modelo respondia "não" em vez de "não se aplica" — descontando 6 pontos de
    * um causo contado em primeira pessoa por não ter um segundo personagem. A

@@ -3179,3 +3179,11 @@ body.pe-full #view-posters { animation: none; }
 .afer-q-texto { min-width: 0; }
 .afer-q-meta { grid-column: 2 / -1; font-size: 0.72rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
 .afer-q-vazia .afer-q-texto { color: var(--ink-mute); }
+
+/* Aviso de leitura única: a resposta saiu de uma opinião só, sem maioria. */
+.afer-card-aviso {
+  font-size: 0.78rem; color: var(--amber);
+  margin-top: 0.8rem; padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+  max-width: 46ch; margin-left: auto; margin-right: auto;
+}

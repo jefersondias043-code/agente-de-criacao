@@ -224,10 +224,10 @@ const AFER_FALA = {
     curtoBom: 'arremata na última fala',
   },
   humor_escalada: {
-    conserto: 'A dificuldade volta, mas volta igual. Cada vez que ela reaparecer, faça apertar mais que na anterior.',
-    forte: 'A mesma dificuldade volta cada vez mais apertada.',
-    curto: 'repete a dificuldade sem fazer apertar',
-    curtoBom: 'faz a mesma dificuldade voltar e apertar',
+    conserto: 'Nada se intensifica: a coisa fica no mesmo nível do começo ao fim. Faça a dificuldade apertar, o absurdo crescer ou a convicção de quem fala aumentar.',
+    forte: 'A coisa vai se intensificando até o fim.',
+    curto: 'não intensifica nada do começo ao fim',
+    curtoBom: 'vai intensificando até o fim',
   },
   humor_absurdo: {
     conserto: 'É uma conversa que poderia acontecer igual na vida real, sem chamar atenção. Ponha um exagero, um despropósito ou uma inversão que faça a cena sair do normal.',
@@ -236,10 +236,10 @@ const AFER_FALA = {
     curtoBom: 'tem um despropósito que sai do normal',
   },
   humor_impasse: {
-    conserto: 'São piadas soltas, sem nada ligando uma à outra. Ponha um mal-entendido ou uma teimosia para sustentar a coisa.',
-    forte: 'Tem um impasse sustentando a graça do começo ao fim.',
-    curto: 'não tem impasse sustentando a graça',
-    curtoBom: 'tem um impasse que sustenta a graça',
+    conserto: 'São piadas soltas, sem nada ligando uma à outra. Ponha uma tensão que atravesse tudo — uma teimosia, um mal-entendido, ou alguém acreditando no que não é.',
+    forte: 'Tem uma tensão sustentando a graça do começo ao fim.',
+    curto: 'não tem tensão sustentando a graça',
+    curtoBom: 'tem uma tensão que sustenta a graça',
   },
   humor_voz: {
     conserto: 'A fala está em português neutro. Ponha as expressões e as gírias de quem realmente falaria assim.',

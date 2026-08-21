@@ -99,12 +99,23 @@ function aferCard(res) {
    * um causo lido como notícia seria reprovado por repetir, e sem esta linha
    * ele não teria como saber por quê. */
   const genero = aferGeneroNome(res.genero);
+  /* E DÁ PARA CORRIGIR. A régua vem do gênero, então errar o gênero erra tudo —
+   * um vlog de rotina lido como humor recebe as perguntas da piada e ouve que
+   * "a dificuldade se resolve na primeira vez". Nenhum classificador acerta
+   * sempre; o que não pode é o autor ficar preso ao engano. Trocar aqui roda a
+   * aferição de novo com a régua certa, sem reclassificar. */
+  const opcoes = AFER_GENEROS.map((g) =>
+    `<option value="${escapeHtml(g.id)}"${g.id === res.genero ? ' selected' : ''}>${escapeHtml(g.label)}</option>`).join('');
   return `
     <div class="afer-card ${r.postar ? 'afer-card-sim' : 'afer-card-nao'}">
       <div class="afer-card-selo">${escapeHtml(r.selo)}</div>
       <div class="afer-card-titulo">${escapeHtml(r.titulo)}</div>
       <p class="afer-card-motivo">${escapeHtml(r.motivo)}</p>
-      ${genero ? `<div class="afer-card-genero">lido como ${escapeHtml(genero)}</div>` : ''}
+      <div class="afer-card-genero">
+        <label for="af-genero">lido como</label>
+        <select id="af-genero" title="Se o tipo estiver errado, troque — a avaliação inteira depende dele.">${opcoes}</select>
+        ${genero ? '' : '<span class="afer-card-genero-aviso">tipo não identificado</span>'}
+      </div>
     </div>`;
 }
 
@@ -399,6 +410,9 @@ function renderAferResultado(item) {
     </div>
 `;
 
+  const gen = $('#af-genero');
+  if (gen) gen.onchange = () => aferRefazerComGenero(item, gen.value);
+
   const novo = $('#af-result-novo');
   if (novo) novo.onclick = () => {
     if (aferNovoConteudo(true)) {
@@ -417,6 +431,39 @@ function renderAferResultado(item) {
     renderAferHistorico();
     toast('Removido.', 'success');
   };
+}
+
+/**
+ * Refaz a aferição com o gênero que o usuário escolheu.
+ *
+ * A CLASSIFICAÇÃO NÃO RODA DE NOVO: quem corrigiu o rótulo não quer que a IA
+ * revise a correção. E o resultado SUBSTITUI o anterior no histórico em vez de
+ * criar um segundo — são duas leituras do mesmo conteúdo, e guardar as duas
+ * deixaria a lista com um "NÃO POSTE" morto embaixo do certo.
+ */
+async function aferRefazerComGenero(item, genero) {
+  const area = $('#af-result-area');
+  if (!area || !genero) return;
+  area.innerHTML = aferTelaDeEspera(`
+    <span class="pipeline-step" data-step="rodadas">Leitura</span>
+    <span class="pipeline-step" data-step="calculo">Resultado</span>`);
+  try {
+    const res = await runAfericaoPipeline({
+      conteudo: item.conteudo, embalagem: item.embalagem || {}, visual: item.visual || '',
+      rodadas: aferRodadas(item.rodadasPedidas), genero,
+      call: callLLM, onEtapa: aferEtapaVisual('#af-result-area'),
+    });
+    const novo = { ...item, genero: res.genero, resultado: res.resultado,
+      rodadasValidas: res.rodadasValidas, model: res.model };
+    State.afericoes = (State.afericoes || []).map((x) => (x.id === item.id ? novo : x));
+    saveAfericoes();
+    renderAferResultado(novo);
+    renderAferHistorico();
+    toast(`Reavaliado como ${aferGeneroNome(genero)}.`, 'success');
+  } catch (err) {
+    renderAferResultado(item);
+    toast(err.message || 'Não foi possível reavaliar.', 'error', 6000);
+  }
 }
 
 /* O resultado em texto puro — na MESMA ordem da tela.

@@ -122,6 +122,37 @@ describe('a classificação acontece isolada da avaliação', () => {
     expect(A.normalizarGenero(null)).toBe(A.AFER_GENERO_PADRAO);
   });
 
+  it('o desempate cobre TODOS os gêneros, não só os que existiam antes', () => {
+    /* O BUG QUE ESTE TESTE EXISTE PARA IMPEDIR. Quando o vlog entrou no
+     * catálogo (r258), este bloco de regras continuou falando só de humor e
+     * história — sobrou "uma história engraçada é humor" e não entrou nada
+     * sobre vlog. Um vlog de rotina contado com graça (a moça que caiu do
+     * cavalo e depois arrumou a égua com produtos da Shopee) ia direto para
+     * humor e recebia as perguntas da piada.
+     *
+     * Gênero novo sem regra de desempate é gênero que nunca vai ser escolhido
+     * quando disputar com um parecido. */
+    const p = prompt();
+    A.AFER_GENEROS.forEach((g) => {
+      expect(p.split(g.id).length - 1,
+        `"${g.id}" aparece só na lista: falta regra de desempate para ele`).toBeGreaterThan(1);
+    });
+  });
+
+  it('e diz explicitamente que TOM não define gênero', () => {
+    // A regra mais importante das seis: leve e divertido não é o mesmo que
+    // "humor". Humor é quando fazer rir é o OBJETIVO.
+    const p = prompt();
+    expect(p).toMatch(/TOM NÃO DEFINE GÊNERO/);
+    expect(p).toMatch(/mostrando a própria vida com bom humor.*vlog/is);
+  });
+
+  it('e lista os sinais observáveis de vlog', () => {
+    const p = prompt();
+    ['link na bio', 'produtos', 'espectador', 'próximo vídeo']
+      .forEach((sinal) => expect(p, `falta o sinal "${sinal}"`).toContain(sinal));
+  });
+
   it('mas reconhece o gênero escrito de outros jeitos', () => {
     expect(A.normalizarGenero({ genero: ' Humor ' })).toBe('humor');
     expect(A.normalizarGenero({ genero: 'HISTÓRIA' })).toBe('historia');
@@ -730,6 +761,27 @@ describe('o fluxo completo, de ponta a ponta', () => {
     const r = await A.runAfericaoPipeline({ conteudo: CAUSO, rodadas: 3, call });
     expect(r.genero).toBe(A.AFER_GENERO_PADRAO);
     expect(r.resultado.nota).toBe(100);
+  });
+
+  it('gênero imposto pelo usuário NÃO é reclassificado', async () => {
+    /* A rede de segurança para o classificador que erra. Quando a pessoa
+     * corrige o rótulo na tela, ela não quer que a IA revise a correção: a
+     * escolha dela não é um palpite. E a chamada de classificação nem sai —
+     * seria pedir uma opinião que já foi descartada. */
+    const call = dublar('humor');   // o dublê insistiria em "humor"
+    const r = await A.runAfericaoPipeline({
+      conteudo: CAUSO, rodadas: 3, genero: 'vlog', call, comoSeFosse: 'vlog',
+    });
+    expect(r.genero, 'a escolha do usuário foi revista pela IA').toBe('vlog');
+    expect(call.chamadas.filter((p) => /OS GÊNEROS/.test(p)).length,
+      'classificou mesmo com o gênero imposto').toBe(0);
+  });
+
+  it('gênero imposto inválido não passa: cai na classificação normal', async () => {
+    const call = dublar('humor');
+    const r = await A.runAfericaoPipeline({ conteudo: CAUSO, rodadas: 3, genero: 'inventado', call });
+    expect(r.genero).toBe('humor');
+    expect(call.chamadas.filter((p) => /OS GÊNEROS/.test(p)).length).toBe(1);
   });
 
   it('o mesmo conteúdo, em gêneros diferentes, é medido por réguas diferentes', async () => {

@@ -3037,10 +3037,21 @@ body.pe-full #view-posters { animation: none; }
   font-size: 0.92rem; color: var(--ink-soft); line-height: 1.55;
   margin: 0.5rem auto 0; max-width: 46ch; text-wrap: pretty;
 }
+/* "lido como X" — e o X é corrigível, porque a régua inteira depende dele. */
 .afer-card-genero {
-  font-size: 0.74rem; color: var(--ink-mute); margin-top: 0.85rem;
-  text-transform: lowercase; letter-spacing: 0.02em;
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.4rem; flex-wrap: wrap;
+  font-size: 0.74rem; color: var(--ink-mute); margin-top: 0.9rem;
+  letter-spacing: 0.02em;
 }
+.afer-card-genero select {
+  font: inherit; color: var(--ink-soft);
+  background: transparent; border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 4px); padding: 0.15rem 0.35rem;
+  cursor: pointer;
+}
+.afer-card-genero select:hover { border-color: var(--ink-mute); }
+.afer-card-genero-aviso { color: var(--amber); }
 /* A nota, dentro da auditoria: não compete mais com o selo. */
 .afer-nota-faixa { font-size: 0.85rem; color: var(--ink-soft); margin-left: 0.4rem; }
 

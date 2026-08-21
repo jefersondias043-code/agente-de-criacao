@@ -100,19 +100,27 @@ function aferBloco(id) {
  *
  * Um gênero não é um rótulo decorativo: ele decide QUAIS PERGUNTAS se aplicam.
  * A régua muda; a aritmética, não. */
+/* AS DESCRIÇÕES SÃO O PROMPT DA CLASSIFICAÇÃO, não legenda de tela — e uma
+ * descrição vaga custa o diagnóstico inteiro, porque a régua errada aplicada em
+ * silêncio é o defeito mais caro desta ferramenta.
+ *
+ * Cada uma traz SINAIS OBSERVÁVEIS ("fala com a câmera", "cita produto e
+ * link"), não uma definição de dicionário. Um vlog de rotina foi lido como
+ * humor porque a descrição de vlog dizia só "acompanha o dia de quem grava" e a
+ * de humor dizia "causo engraçado" — e o vlog era engraçado. */
 const AFER_GENEROS = [
-  { id: 'noticia', label: 'notícia', artigo: 'uma',
-    desc: 'Informa um fato: o que aconteceu, com quem, onde.' },
-  { id: 'educativo', label: 'conteúdo educativo', artigo: 'um',
-    desc: 'Ensina a fazer ou entender alguma coisa.' },
-  { id: 'humor', label: 'humor', artigo: 'um',
-    desc: 'A graça é o objetivo: piada, causo engraçado, esquete, diálogo cômico.' },
-  { id: 'historia', label: 'história', artigo: 'uma',
-    desc: 'Conta um acontecimento — real ou não. O interesse está no que aconteceu.' },
   { id: 'vlog', label: 'vlog', artigo: 'um',
-    desc: 'Acompanha o dia, a rotina, uma viagem ou uma experiência de quem grava, em primeira pessoa.' },
+    desc: 'Quem grava mostra o PRÓPRIO dia, a própria rotina, o próprio processo ou as próprias compras, falando com a câmera. Costuma citar produtos e marcas, mandar para o link da bio e se despedir de quem assiste.' },
+  { id: 'historia', label: 'história', artigo: 'uma',
+    desc: 'Narra um acontecimento fechado, com começo, meio e fim, como quem conta um caso. O interesse está no que aconteceu, não em acompanhar a rotina de alguém.' },
+  { id: 'humor', label: 'humor', artigo: 'um',
+    desc: 'FAZER RIR É O OBJETIVO, não um efeito colateral: piada, esquete, causo cômico, personagens encenando um diálogo. Normalmente há falas de mais de uma pessoa, ou uma construção inteira armada para uma tirada.' },
+  { id: 'noticia', label: 'notícia', artigo: 'uma',
+    desc: 'Informa um fato de interesse público — o que aconteceu, com quem, onde, quando. Quem fala relata, não participa.' },
+  { id: 'educativo', label: 'conteúdo educativo', artigo: 'um',
+    desc: 'Ensina a fazer ou a entender alguma coisa. Quem assistiu deveria sair sabendo executar ou compreender.' },
   { id: 'opiniao', label: 'opinião', artigo: 'uma',
-    desc: 'Defende um ponto de vista sobre alguma coisa.' },
+    desc: 'Defende um ponto de vista, argumenta a favor ou contra alguma coisa, avalia e conclui.' },
 ];
 
 /* O gênero de quem não foi identificado. Não é um gênero de verdade: é o
@@ -485,10 +493,29 @@ function buildGeneroPrompt(conteudo, embalagem) {
   linhas.push('== OS GÊNEROS ==');
   AFER_GENEROS.forEach((g) => linhas.push(`${g.id}: ${g.desc}`));
   linhas.push('');
+  /* AS REGRAS DE DESEMPATE, e elas custaram um diagnóstico errado por terem
+   * ficado desatualizadas: quando o vlog entrou no catálogo, este bloco
+   * continuou falando só de humor e história. Sobrou uma regra dizendo que
+   * "uma história engraçada é humor" e nenhuma dizendo o que é vlog — então um
+   * vlog de rotina, contado com graça, ia direto para humor e recebia a régua
+   * da piada.
+   *
+   * A regra de cima é a mais importante das seis: TOM NÃO É GÊNERO. */
   linhas.push('== COMO ESCOLHER ==');
-  linhas.push('Escolha pela INTENÇÃO PRINCIPAL do conteúdo — o que ele está tentando ser, não o assunto de que trata.');
-  linhas.push('Uma história engraçada, um causo cômico ou um diálogo de piada são "humor", mesmo que contem um acontecimento.');
-  linhas.push('Um relato de algo que aconteceu, sem a graça como objetivo, é "historia".');
+  linhas.push('Escolha pela INTENÇÃO PRINCIPAL do conteúdo — o que ele está tentando ser. Não pelo assunto, e MUITO MENOS pelo tom.');
+  linhas.push('');
+  linhas.push('TOM NÃO DEFINE GÊNERO. Um conteúdo pode ser leve, divertido e cheio de graça sem ser "humor". Só é "humor" quando FAZER RIR É O OBJETIVO — alguém contando uma piada ou encenando uma cena cômica. Se a pessoa está mostrando a própria vida com bom humor, é "vlog".');
+  linhas.push('');
+  linhas.push('QUEM FALA, E SOBRE QUEM, DECIDE QUASE TUDO:');
+  linhas.push('· Quem grava falando de si, do próprio dia, do que fez, comprou ou aprontou, dirigindo-se a quem assiste → "vlog". Vale mesmo que seja engraçado, mesmo que conte um perrengue, mesmo que tenha começo, meio e fim.');
+  linhas.push('· Personagens conversando entre si numa cena encenada, sem ninguém relatar a própria vida real → "humor".');
+  linhas.push('· Alguém narrando um caso fechado que aconteceu (com ele ou com outros), sem falar com a câmera e sem mostrar rotina → "historia".');
+  linhas.push('· Passo a passo para quem assiste REPETIR depois → "educativo". Mas se a pessoa apenas mostra o que ela mesma fez no dia, sem ensinar ninguém a repetir, é "vlog" — mesmo que dê para aprender vendo.');
+  linhas.push('· Relato de um fato de interesse público, com quem disse e onde aconteceu, sem quem fala participar → "noticia".');
+  linhas.push('· O conteúdo existe para defender uma posição, e os fatos aparecem para sustentar o argumento → "opiniao".');
+  linhas.push('');
+  linhas.push('SINAIS DE VLOG, quando aparecem, pesam muito: mostrar produtos ou compras; citar marca ou "link na bio"; falar diretamente com o espectador; despedida do tipo "até o próximo vídeo"; contar o que planejou fazer no dia e como acabou.');
+  linhas.push('');
   linhas.push('Se mais de um couber, escolha aquele que a pessoa perderia mais se fosse retirado.');
   linhas.push('Se nenhum couber bem, responda "geral".');
   linhas.push('');
@@ -840,13 +867,21 @@ async function runAfericaoPipeline(opts) {
    *
    * Falhar aqui NÃO derruba a aferição. Sem gênero, valem as perguntas que
    * servem a qualquer conteúdo — menos preciso, e honesto quanto a isso. */
-  etapa('genero', 'Vendo que tipo de conteúdo é este…',
-    'Uma leitura separada, antes de qualquer avaliação.');
   let genero = AFER_GENERO_PADRAO;
-  try {
-    const rg = await chamar(buildGeneroPrompt(conteudo, embalagem));
-    genero = normalizarGenero(lerJSON(rg));
-  } catch (_) { /* segue no conjunto geral */ }
+  if (o.genero && aferGenero(o.genero)) {
+    /* GÊNERO IMPOSTO PELO USUÁRIO. Nenhum classificador acerta sempre, e o erro
+     * é caro: a régua errada aplicada em silêncio reprova conteúdo bom e aprova
+     * conteúdo fraco. Quando a pessoa corrige o rótulo na tela, a classificação
+     * não roda de novo — a escolha dela não é um palpite a ser revisado. */
+    genero = o.genero;
+  } else {
+    etapa('genero', 'Vendo que tipo de conteúdo é este…',
+      'Uma leitura separada, antes de qualquer avaliação.');
+    try {
+      const rg = await chamar(buildGeneroPrompt(conteudo, embalagem));
+      genero = normalizarGenero(lerJSON(rg));
+    } catch (_) { /* segue no conjunto geral */ }
+  }
 
   /* ETAPA 2 — a avaliação, com a régua do gênero. */
   const questoes = aferQuestoesAplicaveis({ embalagem, genero });

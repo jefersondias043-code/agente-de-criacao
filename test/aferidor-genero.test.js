@@ -518,10 +518,13 @@ describe('o causo da caçada — o primeiro FALSO POSITIVO', () => {
     expect(aferir(CACADA).rec.selo).toBe('NÃO POSTE');
   });
 
-  it('e o motivo aponta o gancho e o compartilhamento, não uma miudeza', () => {
+  it('e o motivo aponta os essenciais primeiro, depois o gancho', () => {
+    /* As três vagas da frase vão para o que mais importa: os dois motores da
+     * comédia que faltam, e só então o defeito de maior peso — o começo que
+     * explica em vez de fisgar. */
     const motivo = aferir(CACADA).rec.motivo;
+    expect(motivo).toContain(A.AFER_FALA.humor_fecha.curto);
     expect(motivo).toContain(A.AFER_FALA.gancho.curto);
-    expect(motivo).toContain(A.AFER_FALA.motivo_compartilhar.curto);
   });
 
   it('"o motivo do olha isso" pesa como preditor, não como detalhe', () => {
@@ -607,6 +610,38 @@ describe('o causo da caçada — o primeiro FALSO POSITIVO', () => {
     expect(res.essenciaisFalhos.length, 'os essenciais não pegaram o caso')
       .toBeGreaterThan(1);
     expect(rec.motivo).toContain(A.AFER_FALA.humor_absurdo.curto);
+  });
+
+  it('as pedras, com as RESPOSTAS REAIS DA IA, reprovam', () => {
+    /* O ÚNICO CASO DESTE ARQUIVO CUJAS RESPOSTAS NÃO SÃO SUPOSIÇÃO MINHA.
+     *
+     * Todos os outros usam o que eu IMAGINO que o modelo responderia, e foi
+     * justamente aí que errei: previ "nao" para o despropósito e a IA respondeu
+     * "sim" três vezes de três. O usuário mandou a auditoria da tela, e ela
+     * mostrou a conta inteira:
+     *
+     *   perdeu   humor_fecha (−10) e humor_escalada (−8) — os dois motores
+     *   ganhou   58 pontos de higiene: abre no fato, não pede like, soa
+     *            falado, não tem frase de IA, dá para contar numa frase
+     *   nota 55, faixa "Bom", UM essencial falho → dentro da tolerância → POSTE
+     *
+     * O conteúdo falhava em tudo que faz uma piada ser piada e passava
+     * sustentado por quesitos que qualquer vídeo decente acerta. */
+    const RESPOSTAS_REAIS = { humor_fecha: 'nao', humor_escalada: 'nao', humor_gordura: 'sim' };
+    const { res, rec } = aferir(RESPOSTAS_REAIS);
+    expect(rec.selo).toBe('NÃO POSTE');
+    expect(res.essenciaisFalhos.length, 'a escalada precisa contar como essencial').toBe(2);
+    // E a nota continua na faixa que aprovaria: quem reprovou foram os
+    // essenciais, não a soma. Se este expect cair, o teste virou outro.
+    expect(res.nota, 'a soma deixou de ser o que aprovaria').toBeGreaterThanOrEqual(40);
+  });
+
+  it('mas falhar em UM motor só não reprova — comédia não precisa dos dois', () => {
+    /* Um esquete que escala bem e não fecha com tirada ainda pode funcionar. A
+     * régua pune a ausência dos DOIS, que é o que caracteriza não haver piada. */
+    expect(aferir({ humor_fecha: 'nao' }).rec.selo).toBe('POSTE');
+    expect(aferir({ humor_escalada: 'nao' }).rec.selo).toBe('POSTE');
+    expect(aferir({ humor_fecha: 'nao', humor_escalada: 'nao' }).rec.selo).toBe('NÃO POSTE');
   });
 
   it('e o despropósito é essencial — impasse e voz sozinhos não bastam', () => {

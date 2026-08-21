@@ -360,7 +360,14 @@ const AFER_QUESTOES = [
    * não há nem uma coisa nem outra. */
   { id: 'humor_fecha', bloco: 'entrega', peso: 10, bom: 'sim', essencial: true, so: ['humor'],
     pergunta: 'A última fala ARREMATA alguma coisa — uma resposta inesperada, uma recusa, uma tirada, um trocadilho? ATENÇÃO: se o conteúdo apenas para, se termina numa fala solta ou cortada no meio, ou se a última fala só continua a conversa sem fechar nada, responda "nao".' },
-  { id: 'humor_escalada', bloco: 'curiosidade', peso: 8, bom: 'sim', so: ['humor'],
+  /* ESSENCIAL, e a falta disso deixou passar um esquete que o usuário sabia ser
+   * ruim. Arremate e escalada são os DOIS MOTORES da comédia (r254): a piada
+   * que vira no fim e a situação que aperta. Um conteúdo pode não ter um deles
+   * e ainda funcionar — não os dois. Quando só `humor_fecha` era essencial, um
+   * esquete que falhava nos dois contava UM essencial falho, ficava dentro da
+   * tolerância e era aprovado com 55, sustentado por 58 pontos de higiene:
+   * abre no fato, não pede like, soa falado, não tem frase de IA. */
+  { id: 'humor_escalada', bloco: 'curiosidade', peso: 8, bom: 'sim', essencial: true, so: ['humor'],
     pergunta: 'A cada vez que a mesma dificuldade volta, ela volta PIOR ou mais apertada que na anterior? ATENÇÃO: repetir a mesma fala ou o mesmo argumento sem que a situação aperte não conta — nesse caso responda "nao".' },
   /* O ABSURDO, e ele é o que separa uma piada de uma conversa qualquer.
    *

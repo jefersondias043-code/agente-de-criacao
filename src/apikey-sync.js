@@ -55,24 +55,39 @@ function syncGroqKey() {
   }
 }
 
-/** Modelo Groq unificado: espelha o modelo escolhido no app (State.models.groq)
- *  para os slots que as ferramentas leem. Hoje nenhuma ferramenta embutida lê
- *  modelo do localStorage — o Replicador recebe pela ponte postMessage —, então
- *  a função só normaliza o modelo do app contra o catálogo. Os nomes antigos
- *  ('groq_model', 'df_model') ficam na lista de limpeza, não na de escrita. */
+/** Modelo unificado: normaliza o modelo salvo de CADA provedor contra o
+ *  catálogo atual. Provedor aposenta ID o tempo todo — a Groq apagou a família
+ *  Llama inteira, a OpenAI trocou a linha 5.4/5.5 pela 5.6, a Anthropic passou
+ *  da 4.x para a 5. Quem tinha o modelo antigo salvo no navegador continuaria
+ *  pedindo a um modelo que não existe mais, e recebendo erro em toda ferramenta,
+ *  até abrir as Configurações e trocar na mão. Aqui a troca acontece sozinha no
+ *  boot, contra o catálogo, sem passar por cima de escolha válida.
+ *
+ *  Nenhuma ferramenta embutida lê modelo do localStorage (o Replicador recebe
+ *  pela ponte postMessage), então os nomes antigos ('groq_model', 'df_model')
+ *  ficam na lista de limpeza, nunca na de escrita. */
 const GROQ_MODEL_SLOTS_LEGADO = ['groq_model', 'df_model'];
+const MODEL_PROVIDERS = ['groq', 'openai', 'anthropic'];
 
-function syncGroqModel() {
-  let model = (State.models && State.models.groq) ? String(State.models.groq).trim() : '';
-  // Se o modelo salvo não existir no catálogo atual, volta ao padrão (evita ID inválido
-  // após o alinhamento dos catálogos entre as ferramentas).
-  const validIds = (typeof PROVIDER_MODELS !== 'undefined' && PROVIDER_MODELS.groq)
-    ? PROVIDER_MODELS.groq.map((m) => m.id) : [];
-  if (validIds.length && !validIds.includes(model)) {
-    model = validIds[0];
-    if (State.models) { State.models.groq = model; saveJSON(STORAGE_KEYS.models, State.models); }
-  }
+function syncModels() {
+  if (typeof PROVIDER_MODELS === 'undefined' || !State.models) return;
+  let mudou = false;
+  MODEL_PROVIDERS.forEach((p) => {
+    const validIds = (PROVIDER_MODELS[p] || []).map((m) => m.id);
+    // Catálogo vazio não tem padrão para onde migrar: melhor deixar como está
+    // do que zerar o modelo do usuário.
+    if (!validIds.length) return;
+    const atual = State.models[p] ? String(State.models[p]).trim() : '';
+    if (validIds.includes(atual)) return;
+    State.models[p] = validIds[0];
+    mudou = true;
+  });
+  if (mudou) saveJSON(STORAGE_KEYS.models, State.models);
 }
+
+/** Nome histórico da normalização, de quando ela só cuidava da Groq. O boot, a
+ *  tela de Configurações e o desbloqueio continuam chamando por ele. */
+function syncGroqModel() { syncModels(); }
 
 /** Remover a chave no app principal remove também dos espelhos das ferramentas
  *  (sem isso, o boot readotaria a chave antiga). Varre também os espelhos das

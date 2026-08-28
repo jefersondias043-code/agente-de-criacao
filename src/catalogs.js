@@ -1053,21 +1053,33 @@ function comentarioBloco(id, tone) {
   ].join('\n');
 }
 
-/* Catálogo Groq — atualizado em agosto de 2026.
+/* Catálogo de modelos — conferido em agosto de 2026.
  *
- * A Groq retirou TODA a família Llama que este catálogo oferecia. O Maverick
- * saiu em março de 2026; o Llama 3.3 70B, o Llama 3.1 8B Instant e o Llama 4
- * Scout foram anunciados em junho e deixaram de ser atendidos em agosto de
- * 2026 — pedidos a esses IDs voltam com erro, não com texto. Os sucessores
+ * O primeiro item de cada provedor é o PADRÃO: quem tem um modelo já retirado
+ * salvo no navegador cai nele sozinho no boot (syncModels, em apikey-sync.js,
+ * normaliza os três provedores contra este catálogo). Por isso a frente da fila
+ * é do RECOMENDADO — o que serve melhor a quem nunca abriu as Configurações —,
+ * e não necessariamente do mais caro.
+ *
+ * GROQ · a Groq retirou TODA a família Llama que este catálogo oferecia. O
+ * Maverick saiu em março de 2026; o Llama 3.3 70B, o Llama 3.1 8B Instant e o
+ * Llama 4 Scout foram anunciados em junho e deixaram de ser atendidos em agosto
+ * de 2026 — pedidos a esses IDs voltam com erro, não com texto. Os sucessores
  * abaixo são os indicados pela própria Groq na migração.
  *
- * O primeiro item é o PADRÃO: quem tinha um modelo retirado salvo no navegador
- * cai nele sozinho no boot (syncGroqModel, em apikey-sync.js, normaliza contra
- * este catálogo). Manter o mais capaz na frente é o que preserva a qualidade
- * de quem nunca abriu as Configurações.
+ * OPENAI · a família GPT-5.6 entrou em julho de 2026 e aposentou a linha 5.4 /
+ * 5.5 que estava aqui. O número é a GERAÇÃO; Sol, Terra e Luna são FAIXAS de
+ * capacidade, que avançam no próprio ritmo. Existe o apelido "gpt-5.6", que
+ * hoje aponta para o Sol — ficamos com o ID explícito, que não troca de modelo
+ * debaixo do usuário quando a OpenAI mudar o apontamento.
  *
- * Ao mexer aqui, confira a lista viva em console.groq.com/docs/models — um ID
- * fora do catálogo da Groq derruba todas as ferramentas de uma vez. */
+ * ANTHROPIC · a linha Claude 5 (Fable, Opus e Sonnet) substituiu a 4.x que
+ * estava aqui; do 4.x só o Haiku 4.5 continua sendo o modelo rápido da casa. Os
+ * IDs vão SEM sufixo de data — a Anthropic pede o nome exato.
+ *
+ * Ao mexer aqui, confira as listas vivas dos três — console.groq.com/docs/models,
+ * platform.openai.com/docs/models e docs.anthropic.com (modelos). Um ID fora do
+ * catálogo do provedor derruba todas as ferramentas de uma vez. */
 const PROVIDER_MODELS = {
   groq: [
     { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', desc: 'Recomendado · o mais capaz, sucessor do Llama 3.3 70B' },
@@ -1075,15 +1087,15 @@ const PROVIDER_MODELS = {
     { id: 'qwen/qwen3.6-27b', label: 'Qwen3.6 27B', desc: 'Prévia da Groq · para experimentar, não para produção' },
   ],
   openai: [
-    { id: 'gpt-5.5', label: 'GPT-5.5', desc: 'Último e mais capaz da OpenAI' },
-    { id: 'gpt-5.4', label: 'GPT-5.4', desc: 'Excelente equilíbrio qualidade/preço' },
-    { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', desc: 'Custo-benefício para alto volume' },
-    { id: 'gpt-4.1', label: 'GPT-4.1', desc: '1M tokens, ótimo em seguir formato' },
+    { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', desc: 'Recomendado · equilíbrio entre qualidade e preço' },
+    { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', desc: 'O mais capaz da OpenAI · para o trabalho mais exigente' },
+    { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', desc: 'Rápido e barato · para alto volume' },
   ],
   anthropic: [
-    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', desc: 'Inteligência Opus a preço Sonnet' },
-    { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', desc: 'Mais capaz, 1M tokens, visão HD' },
-    { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', desc: 'Rápido, econômico, 200k tokens' },
+    { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', desc: 'Recomendado · equilíbrio entre qualidade e preço, 1M tokens' },
+    { id: 'claude-opus-5', label: 'Claude Opus 5', desc: 'Mais capaz · para o trabalho mais exigente, 1M tokens' },
+    { id: 'claude-fable-5', label: 'Claude Fable 5', desc: 'O topo da Anthropic · o mais caro da lista' },
+    { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', desc: 'Rápido e econômico · 200 mil tokens' },
   ],
 };
 

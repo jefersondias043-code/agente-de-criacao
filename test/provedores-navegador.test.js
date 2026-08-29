@@ -45,13 +45,13 @@ function fetchQueRejeita() {
 
 describe('cabeçalho que a Anthropic exige de quem chama do navegador', () => {
   it('vai em toda chamada à Anthropic', async () => {
-    const visto = espiaFetch({ content: [{ text: 'oi' }] });
+    const visto = espiaFetch({ content: [{ type: 'text', text: 'oi' }] });
     await S.callAnthropic({ apiKey: 'sk-ant-x', model: 'claude-sonnet-5', prompt: 'oi' });
     expect(visto.init.headers['anthropic-dangerous-direct-browser-access']).toBe('true');
   });
 
   it('não atrapalha os cabeçalhos que já iam', async () => {
-    const visto = espiaFetch({ content: [{ text: 'oi' }] });
+    const visto = espiaFetch({ content: [{ type: 'text', text: 'oi' }] });
     await S.callAnthropic({ apiKey: 'sk-ant-x', model: 'claude-sonnet-5', prompt: 'oi' });
     expect(visto.init.headers['x-api-key']).toBe('sk-ant-x');
     expect(visto.init.headers['anthropic-version']).toBe('2023-06-01');
@@ -86,7 +86,7 @@ describe('parâmetros que a OpenAI aceita', () => {
 
   it.each([
     ['callGroq', 'gsk_x', 'openai/gpt-oss-120b', { choices: [{ message: { content: 'oi' } }] }],
-    ['callAnthropic', 'sk-ant-x', 'claude-haiku-4-5', { content: [{ text: 'oi' }] }],
+    ['callAnthropic', 'sk-ant-x', 'claude-haiku-4-5', { content: [{ type: 'text', text: 'oi' }] }],
   ])('%s com modelo que aceita segue mandando temperature', async (fn, chave, modelo, resposta) => {
     const visto = espiaFetch(resposta);
     await S[fn]({ apiKey: chave, model: modelo, prompt: 'oi' });
@@ -96,7 +96,7 @@ describe('parâmetros que a OpenAI aceita', () => {
   it('a Anthropic também recusa na linha Claude 5 — não é privilégio da OpenAI', async () => {
     // Foi o segundo provedor a aposentar o parâmetro, meses depois do primeiro.
     // Tratar isso como defeito só da OpenAI era o que fazia a falha voltar.
-    const visto = espiaFetch({ content: [{ text: 'oi' }] });
+    const visto = espiaFetch({ content: [{ type: 'text', text: 'oi' }] });
     await S.callAnthropic({ apiKey: 'sk-ant-x', model: 'claude-sonnet-5', prompt: 'oi' });
     expect(JSON.parse(visto.init.body)).not.toHaveProperty('temperature');
   });

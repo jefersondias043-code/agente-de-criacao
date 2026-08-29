@@ -330,7 +330,12 @@ async function callGroq({ apiKey, model, prompt }) {
   }
   const json = await res.json();
   const content = json.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error('Resposta vazia da Groq.');
+  // Sem texto NÃO é diagnóstico: o motivo está no finish_reason. Cortar no
+  // limite de tamanho é o caso comum e tem conserto do lado do usuário.
+  if (!content) {
+    throw new Error(motivoRespostaVazia(
+      { finish_reason: json.choices?.[0]?.finish_reason }, 'Groq'));
+  }
   return {
     content,
     model: json.model || model,
@@ -441,13 +446,61 @@ async function callOpenAI({ apiKey, model, prompt }) {
   }
   const json = await res.json();
   const content = json.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error('Resposta vazia da OpenAI.');
+  // Sem texto NÃO é diagnóstico: o motivo está no finish_reason. Cortar no
+  // limite de tamanho é o caso comum e tem conserto do lado do usuário.
+  if (!content) {
+    throw new Error(motivoRespostaVazia(
+      { finish_reason: json.choices?.[0]?.finish_reason }, 'OpenAI'));
+  }
   return {
     content,
     model: json.model || model,
     promptTokens: json.usage?.prompt_tokens,
     completionTokens: json.usage?.completion_tokens,
   };
+}
+
+/* ============================================================
+   LER A RESPOSTA DE UM MODELO QUE RACIOCINA
+
+   A resposta da Anthropic é uma LISTA de blocos, não um bloco. Isso nunca
+   importou enquanto os modelos respondiam direto: o texto era o primeiro item,
+   e ler content[0].text funcionava.
+
+   Na linha Claude 5 o raciocínio vem LIGADO por padrão, e o primeiro bloco
+   passa a ser um 'thinking'. Pior: o conteúdo dele vem vazio por padrão (a
+   Anthropic não devolve o raciocínio cru). Então content[0].text era undefined
+   e a plataforma anunciava "Resposta vazia" para uma resposta que estava toda
+   ali, um bloco adiante. Foi o que travou a ferramenta Causos na primeira
+   etapa — quanto mais elaborado o pedido, mais o modelo pensa antes.
+
+   O conserto é ler a lista inteira e juntar TODO bloco de texto, ignorando o
+   que não for texto. Vale para hoje e para os tipos de bloco que ainda vierem
+   a existir: o que não sei ler, eu ignoro, em vez de tropeçar. */
+function textoAnthropic(json) {
+  const blocos = (json && Array.isArray(json.content)) ? json.content : [];
+  return blocos
+    .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text)
+    .join('')
+    .trim();
+}
+
+/* Resposta sem texto tem CAUSAS diferentes, e "vazia" não é diagnóstico. O
+   motivo está no stop_reason, e dizê-lo é a diferença entre o usuário saber o
+   que fazer e ficar tentando de novo o mesmo pedido. */
+function motivoRespostaVazia(json, nome) {
+  const parada = (json && (json.stop_reason || json.finish_reason)) || '';
+  if (parada === 'max_tokens' || parada === 'length') {
+    return `A ${nome} parou no limite de tamanho antes de escrever a resposta. `
+         + 'Tente um conteúdo mais curto, ou escolha um modelo com mais espaço nas Configurações.';
+  }
+  if (parada === 'refusal') {
+    const p = json && json.stop_details;
+    return `A ${nome} recusou este pedido${(p && p.category) ? ` (${p.category})` : ''}. `
+         + 'Reformule o conteúdo ou tente outro provedor nas Configurações.';
+  }
+  return `Resposta vazia da ${nome}.`;
 }
 
 async function callAnthropic({ apiKey, model, prompt }) {
@@ -464,7 +517,11 @@ async function callAnthropic({ apiKey, model, prompt }) {
       'anthropic-dangerous-direct-browser-access': 'true',
       'Content-Type': 'application/json',
     },
-    corpo: { model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] },
+    // max_tokens generoso de propósito: nos modelos que raciocinam, o
+    // pensamento sai DESTE mesmo orçamento. Com 4096 o modelo gastava a cota
+    // pensando e sobrava pouco ou nada de texto — de novo o sintoma de
+    // "resposta vazia", agora por falta de espaço.
+    corpo: { model, max_tokens: 16000, messages: [{ role: 'user', content: prompt }] },
     // A linha Claude 5 e os Opus 4.7/4.8 recusam temperature com 400.
     opcionais: modeloAceitaTemperatura(model) ? { temperature: 0.6 } : {},
   });
@@ -476,8 +533,8 @@ async function callAnthropic({ apiKey, model, prompt }) {
     throw new Error(msg);
   }
   const json = await res.json();
-  const content = json.content?.[0]?.text?.trim();
-  if (!content) throw new Error('Resposta vazia da Anthropic.');
+  const content = textoAnthropic(json);
+  if (!content) throw new Error(motivoRespostaVazia(json, 'Anthropic'));
   return {
     content,
     model: json.model || model,

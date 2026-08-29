@@ -69,7 +69,7 @@ describe('o pedido é refeito sem o parâmetro recusado', () => {
     // Simula EXATAMENTE o próximo caso: um modelo que aceita temperature pela
     // lista, mas cujo servidor já aposentou o parâmetro.
     const corpos = servidorQueRecusa('temperature',
-      "'temperature' is deprecated for this model.", { content: [{ text: 'pronto' }] });
+      "'temperature' is deprecated for this model.", { content: [{ type: 'text', text: 'pronto' }] });
     const r = await S.callAnthropic({ apiKey: 'sk-ant-x', model: 'claude-haiku-4-5', prompt: 'oi' });
 
     expect(r.content).toBe('pronto');
@@ -89,11 +89,16 @@ describe('o pedido é refeito sem o parâmetro recusado', () => {
 
   it('o resto do pedido sobrevive intacto à segunda tentativa', async () => {
     const corpos = servidorQueRecusa('temperature',
-      "'temperature' is deprecated", { content: [{ text: 'ok' }] });
+      "'temperature' is deprecated", { content: [{ type: 'text', text: 'ok' }] });
     await S.callAnthropic({ apiKey: 'sk-ant-x', model: 'claude-haiku-4-5', prompt: 'era uma vez' });
+    // Comparar as duas tentativas, em vez de travar valores: o que importa é
+    // que SÓ o parâmetro recusado saiu — e assim o teste não quebra quando um
+    // limite legítimo muda.
     expect(corpos[1].model).toBe('claude-haiku-4-5');
-    expect(corpos[1].max_tokens).toBe(4096);
+    expect(corpos[1].max_tokens).toBe(corpos[0].max_tokens);
     expect(corpos[1].messages).toEqual([{ role: 'user', content: 'era uma vez' }]);
+    expect(Object.keys(corpos[0]).filter((k) => k !== 'temperature'))
+      .toEqual(Object.keys(corpos[1]));
   });
 });
 

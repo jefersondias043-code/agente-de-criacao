@@ -37,7 +37,7 @@ function espiaFetch(corpo) {
 const RESP = {
   groq: { choices: [{ message: { content: 'oi' } }] },
   openai: { choices: [{ message: { content: 'oi' } }] },
-  anthropic: { content: [{ text: 'oi' }] },
+  anthropic: { content: [{ type: 'text', text: 'oi' }] },
 };
 
 describe('normalização do que o usuário digita', () => {

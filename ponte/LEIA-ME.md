@@ -27,7 +27,24 @@ de antes — a chave sai do seu aparelho direto para a OpenAI, só que por um
 caminho que o navegador aceita. Quem descobrir o endereço da ponte não ganha
 nada: sem chave, a OpenAI recusa.
 
-## Como publicar (5 minutos, sem cartão)
+## Publicar com um clique
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jefersondias043-code/agente-de-criacao/tree/main/ponte)
+
+O botão abre o Cloudflare já apontado para esta pasta. Você entra na conta
+(gratuita, sem cartão), confirma e ele publica. No fim aparece o endereço da
+ponte — algo como `https://ponte-openai.SEU-NOME.workers.dev`.
+
+Depois, no app: **Configurações → OpenAI → Avançado · endereço da API**, e cole
+o endereço **com `/v1` no fim**:
+
+```
+https://ponte-openai.SEU-NOME.workers.dev/v1
+```
+
+Use o botão **Testar conexão**, ao lado do campo, para confirmar antes de gerar.
+
+## Publicar na mão (se preferir o painel)
 
 1. Entre em <https://dash.cloudflare.com> → **Workers & Pages** → **Create** →
    **Worker**.

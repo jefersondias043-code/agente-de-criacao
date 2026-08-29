@@ -205,3 +205,65 @@ describe('a mensagem de rede da OpenAI aponta a ponte', () => {
     }
   });
 });
+
+describe('testar conexão, ao lado do campo', () => {
+  /** Configurações montadas no provedor pedido, com chave já salva. */
+  function tela(provider, chave) {
+    document.body.innerHTML = `
+      <div data-build="teste"></div>
+      <button class="s-provider-btn" data-provider="${provider}"></button>
+      <div id="s-provider-config"></div>
+      <span id="s-build"></span><button id="s-update-now"></button>
+      <div class="toast-stack" id="toast-stack"></div>`;
+    const T = loadModules(['catalogs.js', 'core.js', 'llm.js', 'settings.js'],
+      ['renderSettings', 'State']);
+    if (chave) T.State.apiKeys[provider] = chave;
+    T.State.provider = provider;
+    T.renderSettings();
+    return T;
+  }
+  const res = () => document.getElementById('s-endpoint-resultado').textContent;
+
+  it('sem chave, manda salvar a chave em vez de falhar na rede', async () => {
+    tela('openai', '');
+    await document.getElementById('s-endpoint-test').onclick();
+    expect(res()).toMatch(/Salve a chave/i);
+  });
+
+  it('deu certo: diz qual modelo respondeu e por qual endereço', async () => {
+    // Sem o endereço na confirmação, o usuário não sabe se testou o gateway
+    // novo ou continuou no padrão.
+    espiaFetch(RESP.openai);
+    tela('openai', 'sk-x');
+    await document.getElementById('s-endpoint-test').onclick();
+    expect(res()).toMatch(/Conexão OK/i);
+    expect(res()).toMatch(/api\.openai\.com\/v1/);
+  });
+
+  it('confirma o endereço PERSONALIZADO quando há um', async () => {
+    espiaFetch(RESP.openai);
+    localStorage.setItem('agp.endpoints', JSON.stringify({ openai: 'https://ponte.workers.dev/v1' }));
+    tela('openai', 'sk-x');
+    await document.getElementById('s-endpoint-test').onclick();
+    expect(res()).toMatch(/ponte\.workers\.dev\/v1/);
+  });
+
+  it('deu errado: mostra o motivo real e NÃO some da tela', async () => {
+    // Erro de API é longo demais para caber num toast que desaparece sozinho.
+    globalThis.fetch = async () => { throw new TypeError('Load failed'); };
+    tela('openai', 'sk-x');
+    await document.getElementById('s-endpoint-test').onclick();
+    expect(res()).toMatch(/não chegou a sair do navegador/i);
+    expect(document.getElementById('s-endpoint-resultado').innerHTML).toBeTruthy();
+  });
+
+  it('erro da API chega inteiro, sem virar "falhou"', async () => {
+    globalThis.fetch = async () => ({
+      ok: false, status: 400,
+      json: async () => ({ error: { message: 'Unsupported parameter: temperature' } }),
+    });
+    tela('openai', 'sk-x');
+    await document.getElementById('s-endpoint-test').onclick();
+    expect(res()).toMatch(/Unsupported parameter: temperature/);
+  });
+});

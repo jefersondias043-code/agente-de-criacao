@@ -83,8 +83,10 @@ function renderSettings() {
         <div class="flex gap-1">
           <input class="input flex-1" id="s-endpoint" type="url" spellcheck="false" autocapitalize="off"
                  placeholder="${escapeHtml(endpointPadrao)}" value="${escapeHtml(endpointSalvo)}" />
-          <button class="btn btn-sm" id="s-endpoint-reset"${endpointSalvo ? '' : ' disabled'}>Padrão</button>
+          <button class="btn btn-sm" id="s-endpoint-test" type="button">Testar</button>
+          <button class="btn btn-sm" id="s-endpoint-reset" type="button"${endpointSalvo ? '' : ' disabled'}>Padrão</button>
         </div>
+        <div id="s-endpoint-resultado" class="text-sm" style="margin-top: 0.5rem;"></div>
         <div class="input-helper">
           Deixe vazio para usar o endereço oficial — assim você recebe as mudanças do provedor sem mexer em nada.
           ${compativel}<br />Em uso agora: <code>${escapeHtml(endpointEmUso)}</code>
@@ -152,6 +154,33 @@ function renderSettings() {
     renderSettings();
     toast(v ? 'Endereço da API atualizado.' : 'Endereço da API de volta ao padrão.', 'success');
   };
+  /* TESTAR CONEXÃO. Descobrir que o endereço está errado no meio de uma matéria
+     é o pior momento possível: a mensagem some junto com o rascunho e o usuário
+     não sabe se o problema foi a chave, o endereço ou o modelo. Aqui a resposta
+     vem na hora, ao lado do campo que a causou, e FICA na tela — erro de API é
+     longo demais para caber num toast que some sozinho. */
+  const btnTest = document.getElementById('s-endpoint-test');
+  if (btnTest) {
+    btnTest.onclick = async () => {
+      const alvo = document.getElementById('s-endpoint-resultado');
+      const pinta = (cor, texto) => {
+        if (alvo) alvo.innerHTML = `<span style="color: ${cor};">${escapeHtml(texto)}</span>`;
+      };
+      if (!currentKey) { pinta('#a5813a', 'Salve a chave de API antes de testar.'); return; }
+      btnTest.disabled = true;
+      pinta('var(--muted, #6b6b6b)', 'Testando…');
+      const chamada = { groq: callGroq, openai: callOpenAI, anthropic: callAnthropic }[provider];
+      try {
+        // Pedido mínimo de propósito: confirma o caminho inteiro (endereço,
+        // chave, modelo) gastando o mínimo de token possível.
+        await chamada({ apiKey: currentKey, model: currentModel, prompt: 'Responda apenas: ok' });
+        pinta('#4a7c59', `Conexão OK — ${currentModel} respondeu por ${endpointEmUso}.`);
+      } catch (e) {
+        pinta('#b8341c', (e && e.message) ? e.message : 'Falhou, sem detalhe.');
+      }
+      btnTest.disabled = false;
+    };
+  }
   $('#s-endpoint').onchange = (e) => salvarEndpoint(e.target.value);
   const resetBtn = document.getElementById('s-endpoint-reset');
   if (resetBtn) resetBtn.onclick = () => salvarEndpoint('');

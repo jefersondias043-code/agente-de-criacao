@@ -1,0 +1,11 @@
+# Configuração da ponte para o Cloudflare Workers.
+#
+# Este arquivo existe para que a ponte possa ser publicada direto do repositório
+# — pelo botão "Deploy to Cloudflare" do LEIA-ME, ou por `npx wrangler deploy`
+# de dentro desta pasta. Sem ele, só restaria colar o código na mão no painel.
+#
+# Nenhum segredo mora aqui. A ponte não guarda chave: repassa o cabeçalho
+# Authorization que vem do navegador.
+name = "ponte-openai"
+main = "openai-worker.js"
+compatibility_date = "2026-08-29"

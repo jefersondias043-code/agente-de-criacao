@@ -261,6 +261,15 @@ function baseUrlDe(provider) {
    a mensagem cita os dois E aponta a saída que independe da causa: trocar o
    endereço da API nas Configurações, que é justamente para isso que ele existe.
    ============================================================ */
+/* Chave colada de um PDF, de um e-mail ou de uma página costuma vir com espaço,
+   quebra de linha ou espaço-duro no meio. Nenhum deles é válido num cabeçalho
+   HTTP: o fetch morre ANTES de sair, com exatamente o mesmo sintoma de uma
+   falha de rede — e aí o usuário vai procurar defeito na internet. Chave de API
+   não tem espaço em lugar nenhum, então limpar é seguro. */
+function chaveLimpa(apiKey) {
+  return String(apiKey || '').replace(/[\s\u00a0\u200b-\u200d\ufeff]+/g, '');
+}
+
 const LLM_PROVEDOR_NOME = { groq: 'Groq', openai: 'OpenAI', anthropic: 'Anthropic' };
 
 /** fetch com a falha de rede já traduzida. Só o fetch entra no try: um erro
@@ -275,8 +284,13 @@ async function fetchLLM(provider, url, init) {
     throw new Error(
       `Não foi possível falar com a ${nome}: o pedido não chegou a sair do navegador. `
       + `Verifique sua conexão e libere o domínio ${host} se você usa bloqueador de `
-      + 'anúncios, de rastreamento ou filtro de DNS. Se o bloqueio não for seu, dá para '
-      + 'apontar outro caminho: Configurações → Endereço da API.');
+      + 'anúncios, de rastreamento ou filtro de DNS.'
+      + (provider === 'openai'
+        ? ' Se não for bloqueio seu, é a própria OpenAI que não autoriza chamada de '
+          + 'navegador. O caminho é publicar a ponte que acompanha o projeto '
+          + '(pasta ponte/) e pôr o endereço dela em Configurações → Endereço da API.'
+        : ' Se o bloqueio não for seu, dá para apontar outro caminho: '
+          + 'Configurações → Endereço da API.'));
   }
 }
 
@@ -284,7 +298,7 @@ async function callGroq({ apiKey, model, prompt }) {
   const res = await fetchLLM('groq', `${baseUrlDe('groq')}/chat/completions`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${chaveLimpa(apiKey)}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -345,7 +359,7 @@ async function callOpenAI({ apiKey, model, prompt }) {
   const res = await fetchLLM('openai', `${baseUrlDe('openai')}/chat/completions`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${chaveLimpa(apiKey)}`,
       'Content-Type': 'application/json',
     },
     // 'temperature' entra ou não conforme o MODELO, não conforme o provedor: a
@@ -382,7 +396,7 @@ async function callAnthropic({ apiKey, model, prompt }) {
   const res = await fetchLLM('anthropic', `${baseUrlDe('anthropic')}/messages`, {
     method: 'POST',
     headers: {
-      'x-api-key': apiKey,
+      'x-api-key': chaveLimpa(apiKey),
       'anthropic-version': '2023-06-01',
       // Sem este cabeçalho a Anthropic recusa a chamada vinda do navegador e o
       // fetch nem recebe resposta ("Load failed"). É o opt-in oficial dela para

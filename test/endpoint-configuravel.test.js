@@ -167,3 +167,41 @@ describe('a escolha sobrevive ao fechar o app', () => {
     expect(T.isWorkspaceKey(T.STORAGE_KEYS.endpoints)).toBe(true);
   });
 });
+
+describe('chave colada com sujeira não vira falso erro de rede', () => {
+  it('espaço e quebra de linha saem antes de virar cabeçalho', async () => {
+    // Caractere inválido em cabeçalho faz o fetch morrer ANTES de sair, com o
+    // MESMO sintoma de falha de rede — e o usuário vai caçar defeito na internet.
+    const visto = espiaFetch(RESP.openai);
+    await S.callOpenAI({ apiKey: '  sk-proj-abc\n def  ', model: 'm', prompt: 'oi' });
+    expect(visto.init.headers.Authorization).toBe('Bearer sk-proj-abcdef');
+  });
+
+  it('espaço-duro colado de página web também sai', async () => {
+    const visto = espiaFetch(RESP.anthropic);
+    await S.callAnthropic({ apiKey: 'sk-ant-\u00a0xyz', model: 'm', prompt: 'oi' });
+    expect(visto.init.headers['x-api-key']).toBe('sk-ant-xyz');
+  });
+
+  it('chave limpa passa intacta', async () => {
+    const visto = espiaFetch(RESP.groq);
+    await S.callGroq({ apiKey: 'gsk_abc123', model: 'm', prompt: 'oi' });
+    expect(visto.init.headers.Authorization).toBe('Bearer gsk_abc123');
+  });
+});
+
+describe('a mensagem de rede da OpenAI aponta a ponte', () => {
+  it('diz que o bloqueio pode ser da própria OpenAI e onde está a saída', async () => {
+    globalThis.fetch = async () => { throw new TypeError('Load failed'); };
+    await expect(S.callOpenAI({ apiKey: 'k', model: 'm', prompt: 'oi' }))
+      .rejects.toThrow(/ponte\//);
+  });
+
+  it('Groq e Anthropic não falam de ponte — elas autorizam o navegador', async () => {
+    globalThis.fetch = async () => { throw new TypeError('Load failed'); };
+    for (const fn of ['callGroq', 'callAnthropic']) {
+      await expect(S[fn]({ apiKey: 'k', model: 'm', prompt: 'oi' }))
+        .rejects.not.toThrow(/ponte\//);
+    }
+  });
+});

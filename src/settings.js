@@ -60,6 +60,38 @@ function renderSettings() {
        </div></div>`
     : '';
 
+  /* ENDEREÇO DA API — o ajuste que faz o app se moldar ao servidor, e não o
+     contrário. Fica recolhido: quem nunca precisou não tropeça nele, e quem
+     precisa (bloqueio de rede, gateway da empresa, provedor compatível,
+     endereço que mudou) resolve sem esperar versão nova do app. Vazio = padrão
+     de fábrica, que é o que mantém a atualização automática para todo mundo. */
+  const endpointPadrao = PROVIDER_ENDPOINTS[provider] || '';
+  const endpointSalvo = (State.endpoints && State.endpoints[provider]) ? State.endpoints[provider] : '';
+  const endpointEmUso = (typeof normalizarBaseUrl === 'function')
+    ? normalizarBaseUrl(endpointSalvo, endpointPadrao) : (endpointSalvo || endpointPadrao);
+  const compativel = provider === 'anthropic'
+    ? 'Serve para gateway próprio, proxy ou endereço regional.'
+    : 'Serve para qualquer servidor que fale o dialeto da OpenAI — OpenRouter, Azure, Together, um gateway próprio ou um proxy.';
+
+  const campoEndpoint = `
+    <details class="field"${endpointSalvo ? ' open' : ''}>
+      <summary style="cursor: pointer; font-size: 0.85rem; color: var(--muted, #6b6b6b); padding: 0.35rem 0;">
+        Avançado · endereço da API${endpointSalvo ? ' <strong>(personalizado)</strong>' : ''}
+      </summary>
+      <div style="padding-top: 0.5rem;">
+        <label class="label" for="s-endpoint">Endereço da API · ${providerNames[provider]}</label>
+        <div class="flex gap-1">
+          <input class="input flex-1" id="s-endpoint" type="url" spellcheck="false" autocapitalize="off"
+                 placeholder="${escapeHtml(endpointPadrao)}" value="${escapeHtml(endpointSalvo)}" />
+          <button class="btn btn-sm" id="s-endpoint-reset"${endpointSalvo ? '' : ' disabled'}>Padrão</button>
+        </div>
+        <div class="input-helper">
+          Deixe vazio para usar o endereço oficial — assim você recebe as mudanças do provedor sem mexer em nada.
+          ${compativel}<br />Em uso agora: <code>${escapeHtml(endpointEmUso)}</code>
+        </div>
+      </div>
+    </details>`;
+
   $('#s-provider-config').innerHTML = `
     ${sharedNote}
     <div class="field">
@@ -83,6 +115,7 @@ function renderSettings() {
       </select>
       <span class="input-helper">${escapeHtml(modelDesc)}</span>
     </div>
+    ${campoEndpoint}
   `;
 
   // Bind events
@@ -108,6 +141,20 @@ function renderSettings() {
       toast('Chave de API removida.', 'success');
     };
   }
+
+  /** Grava o endereço do provedor atual. String vazia REMOVE a personalização —
+   *  guardar "" seria indistinguível de uma escolha, e travaria o provedor num
+   *  endereço que um dia pode mudar. */
+  const salvarEndpoint = (valor) => {
+    const v = String(valor || '').trim();
+    if (v) State.endpoints[provider] = v; else delete State.endpoints[provider];
+    saveJSON(STORAGE_KEYS.endpoints, State.endpoints);
+    renderSettings();
+    toast(v ? 'Endereço da API atualizado.' : 'Endereço da API de volta ao padrão.', 'success');
+  };
+  $('#s-endpoint').onchange = (e) => salvarEndpoint(e.target.value);
+  const resetBtn = document.getElementById('s-endpoint-reset');
+  if (resetBtn) resetBtn.onclick = () => salvarEndpoint('');
 
   $('#s-model').value = currentModel;
   $('#s-model').onchange = () => {

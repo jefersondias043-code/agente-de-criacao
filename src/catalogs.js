@@ -1080,6 +1080,38 @@ function comentarioBloco(id, tone) {
  * Ao mexer aqui, confira as listas vivas dos três — console.groq.com/docs/models,
  * platform.openai.com/docs/models e docs.anthropic.com (modelos). Um ID fora do
  * catálogo do provedor derruba todas as ferramentas de uma vez. */
+/* ============================================================================
+ * ENDEREÇOS DA API — padrão de fábrica, não regra de pedra.
+ *
+ * Servidor de IA não se molda a aplicativo; é o aplicativo que se molda a ele.
+ * O padrão que o mercado inteiro adotou para isso é o BASE URL configurável:
+ * o cliente guarda um endereço, e tudo que muda entre um provedor e outro
+ * (região, gateway da empresa, proxy, provedor compatível) vira configuração,
+ * não código novo.
+ *
+ * O que isso destrava aqui, além do óbvio:
+ *   • qualquer servidor que fale o dialeto da OpenAI — OpenRouter, Together,
+ *     DeepSeek, Azure, Ollama e afins — passa a caber sem uma linha de código;
+ *   • quem estiver atrás de bloqueio (filtro de DNS, extensão, rede da
+ *     empresa, restrição regional) aponta para um caminho que funcione;
+ *   • provedor que mude de endereço deixa de exigir uma nova versão do app.
+ *
+ * Os valores abaixo são só o que vem preenchido. Vazio nas Configurações =
+ * usar este padrão. Ver normalizarBaseUrl (llm.js) para o que é aceito no
+ * campo — a normalização é de propósito tolerante, porque o usuário cola o
+ * endereço do jeito que a documentação do provedor mostrou.
+ * ========================================================================== */
+const PROVIDER_ENDPOINTS = {
+  groq: 'https://api.groq.com/openai/v1',
+  openai: 'https://api.openai.com/v1',
+  anthropic: 'https://api.anthropic.com/v1',
+};
+
+/* Dialeto que cada provedor fala. 'openai' é o de fato universal: mesma rota
+   (/chat/completions), mesmo corpo, mesma resposta. A Anthropic tem o seu.
+   Quem apontar um endereço compatível com a OpenAI cai no dialeto 'openai'. */
+const PROVIDER_DIALETO = { groq: 'openai', openai: 'openai', anthropic: 'anthropic' };
+
 const PROVIDER_MODELS = {
   groq: [
     { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', desc: 'Recomendado · o mais capaz, sucessor do Llama 3.3 70B' },

@@ -194,6 +194,54 @@ function cleanText(input) {
 }
 
 /* ============================================================
+   ENDEREÇO DA API — o que o usuário digita vira uma base utilizável
+
+   O campo é livre, e a documentação de cada provedor mostra o endereço de um
+   jeito diferente: uns com /v1, outros sem; uns com a rota completa até
+   /chat/completions; quase todos com barra sobrando no fim. Recusar tudo que
+   não venha no formato exato transformaria um campo de conveniência num campo
+   de armadilha — então a normalização é tolerante de propósito.
+
+   O que ela faz, em ordem: apara espaços e barras finais; assume https:// se
+   o usuário só colou o domínio; corta a rota final quando ele colou o endereço
+   COMPLETO (é o erro mais comum, porque é o que aparece no exemplo de curl); e
+   acrescenta /v1 apenas quando o endereço não tem caminho nenhum — nunca sobre
+   um caminho que o usuário escreveu, porque aí ele sabia o que estava fazendo
+   (OpenRouter é /api/v1, a Groq é /openai/v1).
+
+   Endereço que não vira URL válida não derruba a geração: volta ao padrão de
+   fábrica. O campo é um atalho, não um jeito de quebrar o app.
+   ============================================================ */
+const LLM_ROTAS_FINAIS = ['/chat/completions', '/messages', '/responses'];
+
+function normalizarBaseUrl(bruto, padrao) {
+  let v = String(bruto || '').trim();
+  if (!v) return padrao;
+  // Só completa o esquema quando NÃO há esquema nenhum ("meu-gateway.com"). Se
+  // o usuário escreveu um, ele vale como escrito: colar https:// na frente de
+  // "ftp://x.com" produziria a URL torta "https://ftp//x.com" em vez de recusar.
+  const temEsquema = /^[a-z][a-z0-9+.-]*:/i.test(v);
+  if (!temEsquema) v = `https://${v}`;
+  let u;
+  try { u = new URL(v); } catch (_) { return padrao; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return padrao;
+  let caminho = u.pathname.replace(/\/+$/, '');
+  for (const rota of LLM_ROTAS_FINAIS) {
+    if (caminho.toLowerCase().endsWith(rota)) { caminho = caminho.slice(0, -rota.length); break; }
+  }
+  caminho = caminho.replace(/\/+$/, '');
+  if (!caminho) caminho = '/v1';
+  return `${u.origin}${caminho}`;
+}
+
+/** Endereço em uso por um provedor: o personalizado, se houver; senão o padrão. */
+function baseUrlDe(provider) {
+  const padrao = (typeof PROVIDER_ENDPOINTS !== 'undefined' && PROVIDER_ENDPOINTS[provider]) || '';
+  const salvo = (typeof State !== 'undefined' && State.endpoints) ? State.endpoints[provider] : '';
+  return normalizarBaseUrl(salvo, padrao);
+}
+
+/* ============================================================
    FALHA DE REDE — quando o pedido nem chega a sair
 
    Erro de API vem com status e corpo, e a tela já sabia traduzir. Falha de
@@ -208,9 +256,10 @@ function cleanText(input) {
    que apps estáticos de BYOK falam com ela).
 
    Sobrando o quê, então, para um fetch rejeitado? Conexão caída, e sobretudo
-   BLOQUEADOR — extensão de anúncios/rastreamento ou filtro de DNS que derruba
-   o domínio da API antes de o pedido sair. Como não dá para saber qual dos
-   dois foi, a mensagem cita os dois em vez de chutar um.
+   BLOQUEADOR — extensão de anúncios/rastreamento, filtro de DNS ou rede que
+   derruba o domínio antes de o pedido sair. Como não dá para saber qual foi,
+   a mensagem cita os dois E aponta a saída que independe da causa: trocar o
+   endereço da API nas Configurações, que é justamente para isso que ele existe.
    ============================================================ */
 const LLM_PROVEDOR_NOME = { groq: 'Groq', openai: 'OpenAI', anthropic: 'Anthropic' };
 
@@ -225,13 +274,14 @@ async function fetchLLM(provider, url, init) {
     try { host = new URL(url).host; } catch (_) { /* */ }
     throw new Error(
       `Não foi possível falar com a ${nome}: o pedido não chegou a sair do navegador. `
-      + 'Verifique sua conexão e, se você usa bloqueador de anúncios, de rastreamento '
-      + `ou filtro de DNS, libere o domínio ${host}.`);
+      + `Verifique sua conexão e libere o domínio ${host} se você usa bloqueador de `
+      + 'anúncios, de rastreamento ou filtro de DNS. Se o bloqueio não for seu, dá para '
+      + 'apontar outro caminho: Configurações → Endereço da API.');
   }
 }
 
 async function callGroq({ apiKey, model, prompt }) {
-  const res = await fetchLLM('groq', 'https://api.groq.com/openai/v1/chat/completions', {
+  const res = await fetchLLM('groq', `${baseUrlDe('groq')}/chat/completions`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -279,23 +329,36 @@ async function callGroq({ apiKey, model, prompt }) {
   };
 }
 
+/* Modelos de RACIOCÍNIO não aceitam 'temperature' — pegam a família GPT-5
+   (gpt-5, gpt-5.4, gpt-5.6-terra…) e a linha "o" (o1, o3, o4-mini). Mandar o
+   parâmetro devolve 400, então a checagem é pelo NOME do modelo e não pelo
+   provedor: no endereço configurável, o mesmo caminho atende servidores
+   compatíveis onde roda gente que aceita. Na dúvida, manda — é o
+   comportamento de sempre, e o catálogo desses modelos é conhecido. */
+function modeloAceitaTemperatura(model) {
+  const m = String(model || '').toLowerCase();
+  const nu = m.indexOf('/') === -1 ? m : m.slice(m.indexOf('/') + 1);
+  return !(/^gpt-5/.test(nu) || /^o[1-9](-|$|\.)/.test(nu));
+}
+
 async function callOpenAI({ apiKey, model, prompt }) {
-  const res = await fetchLLM('openai', 'https://api.openai.com/v1/chat/completions', {
+  const res = await fetchLLM('openai', `${baseUrlDe('openai')}/chat/completions`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    // SEM 'temperature': a família GPT-5 (incluindo a 5.6 do catálogo) recusa o
-    // parâmetro no Chat Completions e devolve 400 — não é aviso, é a geração
-    // inteira caindo. Esses modelos raciocinam antes de responder e a
-    // temperatura deixou de ser ajustável. Groq e Anthropic seguem aceitando.
-    body: JSON.stringify({
+    // 'temperature' entra ou não conforme o MODELO, não conforme o provedor: a
+    // família GPT-5 e a linha "o" raciocinam antes de responder, deixaram de
+    // aceitar o parâmetro e devolvem 400 em cima dele — era a geração inteira
+    // caindo. Mas com endereço configurável este mesmo caminho serve a qualquer
+    // servidor compatível, onde pode estar rodando um modelo que aceita.
+    body: JSON.stringify(Object.assign({
       model,
       messages: [
         { role: 'user', content: prompt },
       ],
-    }),
+    }, modeloAceitaTemperatura(model) ? { temperature: 0.6 } : {})),
   });
   if (res.status === 401) throw new Error('A chave de API da OpenAI é inválida ou expirou.');
   if (res.status === 429) throw new Error('Limite de requisições da OpenAI excedido. Tente novamente em alguns instantes.');
@@ -316,7 +379,7 @@ async function callOpenAI({ apiKey, model, prompt }) {
 }
 
 async function callAnthropic({ apiKey, model, prompt }) {
-  const res = await fetchLLM('anthropic', 'https://api.anthropic.com/v1/messages', {
+  const res = await fetchLLM('anthropic', `${baseUrlDe('anthropic')}/messages`, {
     method: 'POST',
     headers: {
       'x-api-key': apiKey,

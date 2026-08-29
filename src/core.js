@@ -121,6 +121,7 @@ const STORAGE_KEYS = {
   apiKeys: 'agp.apiKeys',
   apiKeysEnc: 'agp.apiKeys.enc',   // bloqueio do workspace: chaves cifradas (AES-GCM) — opcional
   models: 'agp.models',
+  endpoints: 'agp.endpoints',   // endereço (base URL) por provedor — vazio = padrão de fábrica
   portal: 'agp.portal',
   portals: 'agp.portals',
   generations: 'agp.generations',
@@ -227,6 +228,10 @@ const State = (() => {
     // Padrão 'nenhum': quem não pediu a camada opinativa gera exatamente como antes.
     comentarios: localStorage.getItem(STORAGE_KEYS.comentarios) || 'nenhum',
     apiKeys, models,
+    // Endereço da API por provedor. Só guarda o que o usuário PERSONALIZOU:
+    // ausente significa "use o padrão de fábrica", e assim uma troca de endereço
+    // oficial chega a quem nunca mexeu no campo, sem migração nenhuma.
+    endpoints: loadJSON(STORAGE_KEYS.endpoints, {}) || {},
     locked,        // chaves estão cifradas em repouso?
     unlocked: !locked,  // já há chave utilizável em memória nesta sessão?
     // backwards compat — kept for legacy safety

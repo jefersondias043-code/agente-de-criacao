@@ -86,11 +86,19 @@ describe('parâmetros que a OpenAI aceita', () => {
 
   it.each([
     ['callGroq', 'gsk_x', 'openai/gpt-oss-120b', { choices: [{ message: { content: 'oi' } }] }],
-    ['callAnthropic', 'sk-ant-x', 'claude-sonnet-5', { content: [{ text: 'oi' }] }],
-  ])('%s continua mandando temperature — só a OpenAI recusa', async (fn, chave, modelo, resposta) => {
+    ['callAnthropic', 'sk-ant-x', 'claude-haiku-4-5', { content: [{ text: 'oi' }] }],
+  ])('%s com modelo que aceita segue mandando temperature', async (fn, chave, modelo, resposta) => {
     const visto = espiaFetch(resposta);
     await S[fn]({ apiKey: chave, model: modelo, prompt: 'oi' });
     expect(JSON.parse(visto.init.body).temperature).toBe(0.6);
+  });
+
+  it('a Anthropic também recusa na linha Claude 5 — não é privilégio da OpenAI', async () => {
+    // Foi o segundo provedor a aposentar o parâmetro, meses depois do primeiro.
+    // Tratar isso como defeito só da OpenAI era o que fazia a falha voltar.
+    const visto = espiaFetch({ content: [{ text: 'oi' }] });
+    await S.callAnthropic({ apiKey: 'sk-ant-x', model: 'claude-sonnet-5', prompt: 'oi' });
+    expect(JSON.parse(visto.init.body)).not.toHaveProperty('temperature');
   });
 });
 

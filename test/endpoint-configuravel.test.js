@@ -125,15 +125,23 @@ describe('o endereço salvo é o que vai para a rede', () => {
 });
 
 describe('temperature segue o MODELO, não o provedor', () => {
-  it.each(['gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-5', 'o3', 'o4-mini'])(
-    '%s raciocina e recusa o parâmetro', (m) => {
-      expect(S.modeloAceitaTemperatura(m)).toBe(false);
-    });
+  it.each([
+    // OpenAI: família GPT-5 e linha "o"
+    'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-5', 'o3', 'o4-mini',
+    // Anthropic: linha Claude 5 inteira e os Opus 4.7 / 4.8
+    'claude-sonnet-5', 'claude-opus-5', 'claude-fable-5',
+    'claude-opus-4-7', 'claude-opus-4-8',
+  ])('%s raciocina e recusa o parâmetro', (m) => {
+    expect(S.modeloAceitaTemperatura(m)).toBe(false);
+  });
 
-  it.each(['gpt-4.1', 'openai/gpt-oss-120b', 'llama-3.1-8b', 'mistral-large', 'qwen/qwen3.6-27b'])(
-    '%s aceita', (m) => {
-      expect(S.modeloAceitaTemperatura(m)).toBe(true);
-    });
+  it.each([
+    'gpt-4.1', 'openai/gpt-oss-120b', 'llama-3.1-8b', 'mistral-large', 'qwen/qwen3.6-27b',
+    // O -5 aqui é a segunda metade do "4-5", não a geração 5: continua aceitando.
+    'claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-opus-4-6',
+  ])('%s aceita', (m) => {
+    expect(S.modeloAceitaTemperatura(m)).toBe(true);
+  });
 
   it('com endereço compatível e modelo que aceita, o parâmetro volta a ir', async () => {
     // É o ganho de separar por modelo: o mesmo caminho da OpenAI serve um

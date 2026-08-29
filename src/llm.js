@@ -295,19 +295,15 @@ async function fetchLLM(provider, url, init) {
 }
 
 async function callGroq({ apiKey, model, prompt }) {
-  const res = await fetchLLM('groq', `${baseUrlDe('groq')}/chat/completions`, {
-    method: 'POST',
+  const res = await pedirLLM({
+    provider: 'groq',
+    url: `${baseUrlDe('groq')}/chat/completions`,
     headers: {
       'Authorization': `Bearer ${chaveLimpa(apiKey)}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.6,
-    }),
+    corpo: { model, messages: [{ role: 'user', content: prompt }] },
+    opcionais: modeloAceitaTemperatura(model) ? { temperature: 0.6 } : {},
   });
   if (res.status === 401) throw new Error('A chave de API é inválida ou expirou.');
   if (res.status === 429) throw new Error('Limite de requisições da Groq excedido. Tente novamente em alguns instantes.');
@@ -343,36 +339,98 @@ async function callGroq({ apiKey, model, prompt }) {
   };
 }
 
-/* Modelos de RACIOCÍNIO não aceitam 'temperature' — pegam a família GPT-5
-   (gpt-5, gpt-5.4, gpt-5.6-terra…) e a linha "o" (o1, o3, o4-mini). Mandar o
-   parâmetro devolve 400, então a checagem é pelo NOME do modelo e não pelo
-   provedor: no endereço configurável, o mesmo caminho atende servidores
-   compatíveis onde roda gente que aceita. Na dúvida, manda — é o
-   comportamento de sempre, e o catálogo desses modelos é conhecido. */
+/* ============================================================
+   PARÂMETROS QUE OS SERVIDORES APOSENTAM
+
+   Modelos que RACIOCINAM antes de responder deixaram de aceitar os parâmetros
+   de amostragem — temperature, top_p, top_k. Não é aviso: é 400, a geração
+   inteira caindo. Aconteceu nos dois provedores pagos, com meses de diferença:
+
+     • OpenAI    — família GPT-5 (gpt-5.6-terra, gpt-5.6-sol…) e a linha "o"
+                   (o1, o3, o4-mini).
+     • Anthropic — a linha Claude 5 inteira (sonnet-5, opus-5, fable-5) e os
+                   Opus 4.7 / 4.8. O Haiku 4.5 e a linha 4.6 ainda aceitam.
+
+   A checagem é pelo NOME do modelo, não pelo provedor: com endereço
+   configurável, o mesmo caminho atende servidores compatíveis onde roda gente
+   que aceita. Na dúvida, manda — é o comportamento de sempre.
+
+   Esta lista, porém, envelhece: o próximo modelo a aposentar um parâmetro vai
+   pegar o app de calças curtas de novo. Por isso ela não é a única defesa —
+   ver pedirLLM, logo abaixo, que conserta sozinho o que a lista não previu. */
 function modeloAceitaTemperatura(model) {
   const m = String(model || '').toLowerCase();
   const nu = m.indexOf('/') === -1 ? m : m.slice(m.indexOf('/') + 1);
-  return !(/^gpt-5/.test(nu) || /^o[1-9](-|$|\.)/.test(nu));
+  if (/^gpt-5/.test(nu) || /^o[1-9](-|$|\.)/.test(nu)) return false;
+  // 'claude-<nome>-5' pega a linha 5 sem pegar 'claude-haiku-4-5' (ali o -5 é
+  // a segunda metade do 4-5, não a geração).
+  if (/^claude-[a-z]+-5(-|$)/.test(nu)) return false;
+  if (/^claude-opus-4-[78](-|$)/.test(nu)) return false;
+  return true;
+}
+
+/* ============================================================
+   AUTOCONSERTO: parâmetro recusado não derruba a geração
+
+   Servidor de IA não se molda a aplicativo. Duas vezes seguidas um parâmetro
+   que a plataforma mandava por hábito virou 400 — e as duas vezes exigiram uma
+   versão nova do app para tirar uma linha. Isso é o app se moldando devagar
+   demais.
+
+   Aqui a adaptação passa a ser automática: se o servidor recusar o pedido
+   dizendo que um parâmetro OPCIONAL não é suportado, o pedido é refeito na
+   hora sem ele. Uma vez só, e só para parâmetros que a plataforma sabe
+   descartar — nunca para o modelo, a mensagem ou a chave, onde "tentar sem"
+   não faria sentido nenhum.
+
+   Resultado: o próximo parâmetro que qualquer provedor aposentar se conserta
+   sozinho, sem esperar por mim.
+   ============================================================ */
+const LLM_PARAMS_DESCARTAVEIS = ['temperature', 'top_p', 'top_k'];
+
+/** Nome do parâmetro que o servidor recusou, se a mensagem for disso. */
+function paramRecusado(mensagem) {
+  const m = String(mensagem || '');
+  if (!/unsupported|not supported|unsupported_value|deprecated|unexpected|unrecognized|unknown parameter|não suportad/i.test(m)) return '';
+  return LLM_PARAMS_DESCARTAVEIS.find((p) => new RegExp(`\\b${p}\\b`, 'i').test(m)) || '';
+}
+
+/** POST ao provedor com autoconserto de parâmetro recusado.
+ *  Devolve a Response; num 400 que já foi lido, devolve um invólucro com o
+ *  mesmo formato (status + json()), para o tratamento de erro seguir igual. */
+async function pedirLLM({ provider, url, headers, corpo, opcionais }) {
+  const opts = Object.assign({}, opcionais);
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    const res = await fetchLLM(provider, url, {
+      method: 'POST', headers,
+      body: JSON.stringify(Object.assign({}, corpo, opts)),
+    });
+    if (res.ok || res.status !== 400) return res;
+    // 400 pode ser parâmetro aposentado. O corpo só pode ser lido UMA vez,
+    // então guardamos o que veio para devolver ao tratamento de erro.
+    let json = null;
+    try { json = await res.json(); } catch (_) { /* corpo não-JSON */ }
+    const culpado = tentativa === 0 ? paramRecusado(json && json.error && json.error.message) : '';
+    if (culpado && Object.prototype.hasOwnProperty.call(opts, culpado)) {
+      delete opts[culpado];
+      continue;   // refaz sem o parâmetro recusado
+    }
+    return { ok: false, status: res.status, json: async () => json };
+  }
+  /* istanbul ignore next — o laço sempre sai por um dos returns acima */
+  return { ok: false, status: 400, json: async () => null };
 }
 
 async function callOpenAI({ apiKey, model, prompt }) {
-  const res = await fetchLLM('openai', `${baseUrlDe('openai')}/chat/completions`, {
-    method: 'POST',
+  const res = await pedirLLM({
+    provider: 'openai',
+    url: `${baseUrlDe('openai')}/chat/completions`,
     headers: {
       'Authorization': `Bearer ${chaveLimpa(apiKey)}`,
       'Content-Type': 'application/json',
     },
-    // 'temperature' entra ou não conforme o MODELO, não conforme o provedor: a
-    // família GPT-5 e a linha "o" raciocinam antes de responder, deixaram de
-    // aceitar o parâmetro e devolvem 400 em cima dele — era a geração inteira
-    // caindo. Mas com endereço configurável este mesmo caminho serve a qualquer
-    // servidor compatível, onde pode estar rodando um modelo que aceita.
-    body: JSON.stringify(Object.assign({
-      model,
-      messages: [
-        { role: 'user', content: prompt },
-      ],
-    }, modeloAceitaTemperatura(model) ? { temperature: 0.6 } : {})),
+    corpo: { model, messages: [{ role: 'user', content: prompt }] },
+    opcionais: modeloAceitaTemperatura(model) ? { temperature: 0.6 } : {},
   });
   if (res.status === 401) throw new Error('A chave de API da OpenAI é inválida ou expirou.');
   if (res.status === 429) throw new Error('Limite de requisições da OpenAI excedido. Tente novamente em alguns instantes.');
@@ -393,8 +451,9 @@ async function callOpenAI({ apiKey, model, prompt }) {
 }
 
 async function callAnthropic({ apiKey, model, prompt }) {
-  const res = await fetchLLM('anthropic', `${baseUrlDe('anthropic')}/messages`, {
-    method: 'POST',
+  const res = await pedirLLM({
+    provider: 'anthropic',
+    url: `${baseUrlDe('anthropic')}/messages`,
     headers: {
       'x-api-key': chaveLimpa(apiKey),
       'anthropic-version': '2023-06-01',
@@ -405,14 +464,9 @@ async function callAnthropic({ apiKey, model, prompt }) {
       'anthropic-dangerous-direct-browser-access': 'true',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model,
-      max_tokens: 4096,
-      messages: [
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.6,
-    }),
+    corpo: { model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] },
+    // A linha Claude 5 e os Opus 4.7/4.8 recusam temperature com 400.
+    opcionais: modeloAceitaTemperatura(model) ? { temperature: 0.6 } : {},
   });
   if (res.status === 401) throw new Error('A chave de API da Anthropic é inválida ou expirou.');
   if (res.status === 429) throw new Error('Limite de requisições da Anthropic excedido. Tente novamente em alguns instantes.');

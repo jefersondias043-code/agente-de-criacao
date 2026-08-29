@@ -193,8 +193,49 @@ function cleanText(input) {
     .trim();
 }
 
+/* ============================================================
+   FALHA DE REDE — quando o pedido nem chega a sair
+
+   Erro de API vem com status e corpo, e a tela já sabia traduzir. Falha de
+   REDE é outra coisa: o fetch é REJEITADO, sem status e sem corpo, e o
+   navegador entrega só um TypeError seco — "Load failed" no Safari, "Failed to
+   fetch" no Chrome. Era esse texto cru, em inglês, que chegava ao usuário.
+
+   A causa mais comum aqui não é a internet: é CORS. O navegador só deixa uma
+   página falar com outro domínio se ESSE domínio autorizar por cabeçalho.
+     • Groq  — autoriza qualquer origem. Por isso a plataforma foi construída
+               em cima dela.
+     • Anthropic — autoriza SOB PEDIDO, com o cabeçalho
+               'anthropic-dangerous-direct-browser-access'. É o caminho oficial
+               para o padrão que este app usa: cada usuário com a própria chave.
+     • OpenAI — NÃO autoriza. Não existe cabeçalho que resolva; o pedido é
+               barrado antes de sair do navegador. Só um servidor intermediário
+               faria a chamada. Daí a mensagem própria: sem ela, o usuário
+               culpa a chave que acabou de criar.
+   ============================================================ */
+const LLM_ERRO_REDE = {
+  openai: 'A OpenAI não aceita chamadas feitas direto do navegador — ela não '
+        + 'envia a autorização (CORS) que o navegador exige, e o pedido é barrado '
+        + 'antes de sair. Não é problema da sua chave. Para gerar agora, troque o '
+        + 'provedor para Groq ou Anthropic nas Configurações.',
+  anthropic: 'Não foi possível falar com a Anthropic. Verifique sua conexão com '
+           + 'a internet e tente de novo.',
+  groq: 'Não foi possível falar com a Groq. Verifique sua conexão com a internet '
+      + 'e tente de novo.',
+};
+
+/** fetch com a falha de rede já traduzida. Só o fetch entra no try: um erro
+ *  vindo da leitura da resposta é outra história e não pode virar "sem rede". */
+async function fetchLLM(provider, url, init) {
+  try {
+    return await fetch(url, init);
+  } catch (e) {
+    throw new Error(LLM_ERRO_REDE[provider] || LLM_ERRO_REDE.groq);
+  }
+}
+
 async function callGroq({ apiKey, model, prompt }) {
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const res = await fetchLLM('groq', 'https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -243,7 +284,7 @@ async function callGroq({ apiKey, model, prompt }) {
 }
 
 async function callOpenAI({ apiKey, model, prompt }) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetchLLM('openai', 'https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -276,11 +317,16 @@ async function callOpenAI({ apiKey, model, prompt }) {
 }
 
 async function callAnthropic({ apiKey, model, prompt }) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetchLLM('anthropic', 'https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
+      // Sem este cabeçalho a Anthropic recusa a chamada vinda do navegador e o
+      // fetch nem recebe resposta ("Load failed"). É o opt-in oficial dela para
+      // o padrão que este app usa: a chave é do usuário, fica no aparelho dele
+      // e nunca passa por um servidor nosso.
+      'anthropic-dangerous-direct-browser-access': 'true',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({

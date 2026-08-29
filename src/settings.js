@@ -60,21 +60,8 @@ function renderSettings() {
        </div></div>`
     : '';
 
-  /* A OpenAI é a única dos três que NÃO libera chamada de navegador (não manda
-     o cabeçalho de CORS), e esta plataforma é 100% navegador — não há servidor
-     nosso no meio. O pedido é barrado antes de sair, e o usuário via só "Load
-     failed" depois de ter criado a chave e posto crédito. O aviso vem ANTES
-     disso, na hora de escolher o provedor. */
-  const avisoOpenAI = provider === 'openai'
-    ? `<div class="field"><div style="background: #fbf2dc; border: 1px solid #f1dfa6; padding: 0.75rem 1rem; border-radius: var(--radius); font-size: 0.85rem; display: flex; gap: 0.6rem; align-items: flex-start;">
-         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a5813a" stroke-width="2" style="flex-shrink:0; margin-top:1px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-         <span><strong>A OpenAI não atende chamadas feitas direto do navegador.</strong> Ela não envia a autorização (CORS) que o navegador exige, e o pedido é barrado antes de sair — com chave válida e crédito na conta. Não há ajuste deste lado que resolva: seria preciso um servidor intermediário. Para gerar hoje, use <strong>Groq</strong> ou <strong>Anthropic</strong>.</span>
-       </div></div>`
-    : '';
-
   $('#s-provider-config').innerHTML = `
     ${sharedNote}
-    ${avisoOpenAI}
     <div class="field">
       <label class="label">Status</label>
       ${keyStatus}

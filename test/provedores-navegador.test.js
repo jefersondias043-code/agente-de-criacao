@@ -1,19 +1,18 @@
-// A plataforma roda 100% no navegador — não há servidor nosso no meio. Isso faz
-// do CORS uma regra de PRODUTO, não um detalhe: o navegador só deixa a página
-// falar com um domínio que autorize por cabeçalho.
+// A plataforma roda 100% no navegador — não há servidor nosso no meio. Os três
+// provedores ACEITAM isso: é o padrão "cada usuário com a própria chave". Só que
+// cada um cobra uma condição diferente, e errar a condição derruba a geração
+// inteira:
 //
-//   • Groq       autoriza qualquer origem. Foi por isso que a plataforma nasceu
-//                em cima dela.
-//   • Anthropic  autoriza SOB PEDIDO, com um cabeçalho próprio. Sem ele a
-//                chamada é recusada e o fetch nem recebe resposta.
-//   • OpenAI     NÃO autoriza. Nenhum cabeçalho resolve.
+//   • Groq       libera qualquer origem. Nada a fazer.
+//   • Anthropic  libera SOB PEDIDO, com um cabeçalho próprio. Sem ele a chamada
+//                é recusada e o fetch nem recebe resposta.
+//   • OpenAI     libera a API, mas a família GPT-5 RECUSA 'temperature' no Chat
+//                Completions e devolve 400 em cima disso.
 //
-// Falha de rede não vem com status nem com corpo: o fetch é REJEITADO e o
-// navegador entrega um TypeError seco — "Load failed" no Safari, "Failed to
-// fetch" no Chrome. Foi exatamente esse texto cru, em inglês, que chegou ao
-// usuário depois de ele configurar uma chave da OpenAI. Este arquivo tranca as
-// três pontas: o cabeçalho que a Anthropic exige, a tradução da falha de rede e
-// o aviso na tela antes de o usuário gastar com uma chave que não vai funcionar.
+// Falha de rede é outra história: o fetch é REJEITADO, sem status e sem corpo, e
+// o navegador entrega um TypeError seco — "Load failed" no Safari, "Failed to
+// fetch" no Chrome. Foi esse texto cru, em inglês, que chegou ao usuário. Este
+// arquivo tranca as três pontas.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { loadModules, clearStorage } from './helpers/load.mjs';
 
@@ -66,28 +65,52 @@ describe('cabeçalho que a Anthropic exige de quem chama do navegador', () => {
   });
 });
 
-describe('falha de rede vira frase em português, não "Load failed"', () => {
-  it('a OpenAI explica que o bloqueio é do navegador, não da chave', async () => {
-    // O usuário acabou de criar a chave e pôr crédito. Se a mensagem não disser
-    // de quem é a culpa, ele vai procurar o defeito no lugar errado.
-    fetchQueRejeita();
-    await expect(S.callOpenAI({ apiKey: 'sk-x', model: 'gpt-5.6-terra', prompt: 'oi' }))
-      .rejects.toThrow(/navegador/i);
+describe('parâmetros que a OpenAI aceita', () => {
+  it('NÃO manda temperature — a família GPT-5 devolve 400 em cima dela', () => {
+    // Este era o defeito real: toda geração pela OpenAI caía por causa de um
+    // parâmetro que a plataforma mandava por hábito.
+    const visto = espiaFetch({ choices: [{ message: { content: 'oi' } }] });
+    return S.callOpenAI({ apiKey: 'sk-x', model: 'gpt-5.6-terra', prompt: 'oi' })
+      .then(() => {
+        expect(JSON.parse(visto.init.body)).not.toHaveProperty('temperature');
+      });
   });
 
-  it('a mensagem da OpenAI inocenta a chave e aponta a saída', async () => {
-    fetchQueRejeita();
-    await expect(S.callOpenAI({ apiKey: 'sk-x', model: 'gpt-5.6-terra', prompt: 'oi' }))
-      .rejects.toThrow(/não é problema da sua chave[\s\S]*Groq ou Anthropic/i);
+  it('manda o modelo e a mensagem do jeito que a API espera', async () => {
+    const visto = espiaFetch({ choices: [{ message: { content: 'oi' } }] });
+    await S.callOpenAI({ apiKey: 'sk-x', model: 'gpt-5.6-terra', prompt: 'era uma vez' });
+    const corpo = JSON.parse(visto.init.body);
+    expect(corpo.model).toBe('gpt-5.6-terra');
+    expect(corpo.messages).toEqual([{ role: 'user', content: 'era uma vez' }]);
   });
 
   it.each([
-    ['callGroq', 'gsk_x', 'openai/gpt-oss-120b', /Groq[\s\S]*conexão/i],
-    ['callAnthropic', 'sk-ant-x', 'claude-sonnet-5', /Anthropic[\s\S]*conexão/i],
-  ])('%s manda verificar a conexão', async (fn, chave, modelo, esperado) => {
+    ['callGroq', 'gsk_x', 'openai/gpt-oss-120b', { choices: [{ message: { content: 'oi' } }] }],
+    ['callAnthropic', 'sk-ant-x', 'claude-sonnet-5', { content: [{ text: 'oi' }] }],
+  ])('%s continua mandando temperature — só a OpenAI recusa', async (fn, chave, modelo, resposta) => {
+    const visto = espiaFetch(resposta);
+    await S[fn]({ apiKey: chave, model: modelo, prompt: 'oi' });
+    expect(JSON.parse(visto.init.body).temperature).toBe(0.6);
+  });
+});
+
+describe('falha de rede vira frase em português, não "Load failed"', () => {
+  it.each([
+    ['callGroq', 'gsk_x', /Groq/],
+    ['callOpenAI', 'sk-x', /OpenAI/],
+    ['callAnthropic', 'sk-ant-x', /Anthropic/],
+  ])('%s nomeia o provedor e diz o que verificar', async (fn, chave, provedor) => {
     fetchQueRejeita();
-    await expect(S[fn]({ apiKey: chave, model: modelo, prompt: 'oi' }))
-      .rejects.toThrow(esperado);
+    const chamada = S[fn]({ apiKey: chave, model: 'm', prompt: 'oi' });
+    await expect(chamada).rejects.toThrow(provedor);
+    await expect(chamada).rejects.toThrow(/conexão[\s\S]*bloqueador/i);
+  });
+
+  it('diz QUAL domínio liberar no bloqueador', async () => {
+    // "Libere o domínio da API" não ajuda ninguém: o usuário precisa do nome.
+    fetchQueRejeita();
+    await expect(S.callOpenAI({ apiKey: 'sk-x', model: 'm', prompt: 'oi' }))
+      .rejects.toThrow(/api\.openai\.com/);
   });
 
   it('nenhuma das mensagens repassa o texto cru do navegador', async () => {
@@ -109,7 +132,7 @@ describe('falha de rede vira frase em português, não "Load failed"', () => {
   });
 });
 
-describe('aviso na tela de Configurações', () => {
+describe('tela de Configurações', () => {
   /** Monta a tela de Configurações já no provedor pedido. */
   function telaDe(provider) {
     document.body.innerHTML = `
@@ -122,14 +145,12 @@ describe('aviso na tela de Configurações', () => {
     return document.getElementById('s-provider-config').innerHTML;
   }
 
-  it('a OpenAI avisa que não funciona pelo navegador, antes de pedir a chave', () => {
-    // Sem isto o usuário só descobre depois de criar a chave e pôr crédito.
-    const html = telaDe('openai');
-    expect(html).toMatch(/não atende chamadas feitas direto do navegador/i);
-    expect(html).toMatch(/Groq/);
-  });
-
-  it.each(['groq', 'anthropic'])('o provedor %s não recebe esse aviso', (prov) => {
-    expect(telaDe(prov)).not.toMatch(/não atende chamadas feitas direto do navegador/i);
+  it.each(['groq', 'openai', 'anthropic'])('%s oferece chave e modelo, sem aviso de incompatibilidade', (prov) => {
+    // Houve uma versão que dizia à OpenAI "não funciona no navegador". Era
+    // falso, e um aviso falso custa mais caro que aviso nenhum: manda o usuário
+    // desistir de um provedor que funciona.
+    const html = telaDe(prov);
+    expect(html).toMatch(/Chave de API/);
+    expect(html).not.toMatch(/não atende chamadas feitas direto do navegador/i);
   });
 });

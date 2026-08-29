@@ -201,28 +201,18 @@ function cleanText(input) {
    navegador entrega só um TypeError seco — "Load failed" no Safari, "Failed to
    fetch" no Chrome. Era esse texto cru, em inglês, que chegava ao usuário.
 
-   A causa mais comum aqui não é a internet: é CORS. O navegador só deixa uma
-   página falar com outro domínio se ESSE domínio autorizar por cabeçalho.
-     • Groq  — autoriza qualquer origem. Por isso a plataforma foi construída
-               em cima dela.
-     • Anthropic — autoriza SOB PEDIDO, com o cabeçalho
-               'anthropic-dangerous-direct-browser-access'. É o caminho oficial
-               para o padrão que este app usa: cada usuário com a própria chave.
-     • OpenAI — NÃO autoriza. Não existe cabeçalho que resolva; o pedido é
-               barrado antes de sair do navegador. Só um servidor intermediário
-               faria a chamada. Daí a mensagem própria: sem ela, o usuário
-               culpa a chave que acabou de criar.
+   Os três provedores ACEITAM chamada direto do navegador — é o padrão "cada
+   usuário com a própria chave", que é como esta plataforma funciona. A Groq
+   libera qualquer origem; a Anthropic libera sob pedido, com o cabeçalho
+   'anthropic-dangerous-direct-browser-access'; a OpenAI libera a API (é assim
+   que apps estáticos de BYOK falam com ela).
+
+   Sobrando o quê, então, para um fetch rejeitado? Conexão caída, e sobretudo
+   BLOQUEADOR — extensão de anúncios/rastreamento ou filtro de DNS que derruba
+   o domínio da API antes de o pedido sair. Como não dá para saber qual dos
+   dois foi, a mensagem cita os dois em vez de chutar um.
    ============================================================ */
-const LLM_ERRO_REDE = {
-  openai: 'A OpenAI não aceita chamadas feitas direto do navegador — ela não '
-        + 'envia a autorização (CORS) que o navegador exige, e o pedido é barrado '
-        + 'antes de sair. Não é problema da sua chave. Para gerar agora, troque o '
-        + 'provedor para Groq ou Anthropic nas Configurações.',
-  anthropic: 'Não foi possível falar com a Anthropic. Verifique sua conexão com '
-           + 'a internet e tente de novo.',
-  groq: 'Não foi possível falar com a Groq. Verifique sua conexão com a internet '
-      + 'e tente de novo.',
-};
+const LLM_PROVEDOR_NOME = { groq: 'Groq', openai: 'OpenAI', anthropic: 'Anthropic' };
 
 /** fetch com a falha de rede já traduzida. Só o fetch entra no try: um erro
  *  vindo da leitura da resposta é outra história e não pode virar "sem rede". */
@@ -230,7 +220,13 @@ async function fetchLLM(provider, url, init) {
   try {
     return await fetch(url, init);
   } catch (e) {
-    throw new Error(LLM_ERRO_REDE[provider] || LLM_ERRO_REDE.groq);
+    const nome = LLM_PROVEDOR_NOME[provider] || 'IA';
+    let host = '';
+    try { host = new URL(url).host; } catch (_) { /* */ }
+    throw new Error(
+      `Não foi possível falar com a ${nome}: o pedido não chegou a sair do navegador. `
+      + 'Verifique sua conexão e, se você usa bloqueador de anúncios, de rastreamento '
+      + `ou filtro de DNS, libere o domínio ${host}.`);
   }
 }
 
@@ -290,12 +286,15 @@ async function callOpenAI({ apiKey, model, prompt }) {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
+    // SEM 'temperature': a família GPT-5 (incluindo a 5.6 do catálogo) recusa o
+    // parâmetro no Chat Completions e devolve 400 — não é aviso, é a geração
+    // inteira caindo. Esses modelos raciocinam antes de responder e a
+    // temperatura deixou de ser ajustável. Groq e Anthropic seguem aceitando.
     body: JSON.stringify({
       model,
       messages: [
         { role: 'user', content: prompt },
       ],
-      temperature: 0.6,
     }),
   });
   if (res.status === 401) throw new Error('A chave de API da OpenAI é inválida ou expirou.');

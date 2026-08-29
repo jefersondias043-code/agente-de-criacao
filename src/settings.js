@@ -165,6 +165,48 @@ function renderSettings() {
     toast('Modelo atualizado.', 'success');
   };
 
+  /* VERSÃO + atualização forçada. O app é um PWA: o service worker guarda os
+     arquivos para funcionar offline, e depois de uma publicação o aparelho pode
+     continuar servindo a versão antiga até o worker ser trocado. Sem um número
+     visível, "não mudou nada aqui" é indistinguível de "não foi publicado" — e
+     não havia como o usuário desempatar isso sozinho. */
+  const elBuild = document.getElementById('s-build');
+  if (elBuild) {
+    let build = '';
+    try {
+      const el = document.querySelector('[data-build]');
+      build = (el && el.dataset && el.dataset.build) || '';
+    } catch (_) { /* */ }
+    elBuild.textContent = build || 'desconhecida';
+  }
+  const btnUpdate = document.getElementById('s-update-now');
+  if (btnUpdate) {
+    btnUpdate.onclick = async () => {
+      btnUpdate.disabled = true;
+      if (typeof toast === 'function') toast('Buscando atualização…', 'info', 3000);
+      // Ordem importa: derruba o worker ANTES de limpar os caches, senão ele
+      // pode reescrever o que acabou de ser apagado. Cada passo é isolado —
+      // um navegador sem service worker ainda assim recarrega no fim.
+      try {
+        if (navigator.serviceWorker) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+        }
+      } catch (_) { /* */ }
+      try {
+        if (window.caches) {
+          const nomes = await caches.keys();
+          await Promise.all(nomes.map((n) => caches.delete(n)));
+        }
+      } catch (_) { /* */ }
+      // Recarrega por uma URL nova: alguns navegadores servem o HTML do cache
+      // de disco mesmo sem service worker, e aí nada disso teria adiantado.
+      const u = new URL(location.href);
+      u.searchParams.set('atualizar', String(Date.now()));
+      location.replace(u.toString());
+    };
+  }
+
   // Card "Dados e backup": medidor de uso + exportar/importar workspace.
   if (typeof wireStorageUI === 'function') wireStorageUI();
 }

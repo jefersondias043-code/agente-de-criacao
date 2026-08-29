@@ -86,6 +86,11 @@ function dialogoGenero(id) {
  * "transmitir a sensação de que estamos realmente ouvindo pessoas conversando".
  * Uma conversa correta e sem vida falhou no que importa. */
 const DIALOGO_DIMENSOES = [
+  /* Mesma lição do Causos: as outras onze medem OFÍCIO, nenhuma perguntava se
+     a conversa é a que o usuário pediu. Uma conversa excelente sobre outro
+     assunto não é um pouco pior — é inútil. Mínimo 9: talento nas demais não
+     compensa ter mudado de assunto. */
+  { id: 'fidelidade', pergunta: 'É a conversa que o usuário pediu, ou outra escrita no lugar dela?', minimo: 9 },
   { id: 'naturalidade', pergunta: 'Parece gente falando, ou parece texto escrito para ser lido?', minimo: 8 },
   { id: 'vozes', pergunta: 'Tapando as etiquetas, dá para saber quem está falando?', minimo: 7 },
   { id: 'escuta', pergunta: 'As falas respondem ao que veio antes, ou são monólogos em paralelo?', minimo: 7 },
@@ -322,8 +327,13 @@ function conferirDialogoLocal(texto, dossie, opcoes) {
   const ritmo = dialogoRitmo(texto);
   const vozes = dialogoVozes(texto);
   const dur = dialogoDuracao(texto);
+  // A conta de fidelidade é a mesma do Causos: o pedido do usuário não muda de
+  // natureza porque o formato virou conversa.
+  const fid = (typeof causoFidelidade === 'function')
+    ? causoFidelidade(texto, o.ideia) : { problemas: [] };
 
   const achados = []
+    .concat(fid.problemas.map((p) => ({ dimensao: 'fidelidade', texto: p })))
     .concat(oral.problemas.map((p) => ({ dimensao: 'oralidade', texto: p })))
     .concat(orig.problemas.map((p) => ({ dimensao: 'originalidade', texto: p })))
     .concat(narr.problemas.map((p) => ({ dimensao: 'naturalidade', texto: p })))
@@ -332,7 +342,7 @@ function conferirDialogoLocal(texto, dossie, opcoes) {
     .concat(dur.problemas.map((p) => ({ dimensao: 'dinamica', texto: p })))
     .concat(vozes.problemas.map((p) => ({ dimensao: 'vozes', texto: p })));
 
-  return { achados, oralidade: oral, originalidade: orig, narracao: narr, monopolio: mono, ritmo, vozes, duracao: dur, ok: achados.length === 0 };
+  return { achados, oralidade: oral, originalidade: orig, narracao: narr, monopolio: mono, ritmo, vozes, duracao: dur, fidelidade: fid, ok: achados.length === 0 };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -372,11 +382,12 @@ function buildDialogoConceitosPrompt(ideia, memoria) {
     '',
     (typeof causoBlocoMemoria === 'function' ? causoBlocoMemoria(memoria) : ''),
     '',
-    '== A IDEIA ==',
-    String(ideia || '').trim(),
+    (typeof causoBlocoIdeia === 'function' ? causoBlocoIdeia(ideia) : ''),
     '',
     '== TAREFA ==',
-    'Proponha QUATRO conversas possíveis a partir dessa ideia. Diferentes de verdade: não quatro versões da mesma, mas quatro que ninguém confundiria uma com a outra.',
+    'Proponha QUATRO maneiras de encenar ESSA conversa — a que foi pedida acima, não outra.',
+    'O que varia entre as quatro é o COMO: onde os dois estão, em que momento a conversa pega, quem cede, de onde vem a tensão ou a graça. O que NÃO varia é o pedido: as mesmas pessoas, o mesmo assunto, a mesma coisa em jogo.',
+    'Quatro caminhos que ninguém confundiria um com o outro — e nos quatro o usuário reconhece imediatamente a ideia dele. Trocar o assunto por um mais interessante é o erro mais grave possível aqui.',
     'Em cada uma, as duas pessoas têm de QUERER COISAS DIFERENTES naquela conversa — é o desencontro que faz a conversa andar. Diga o que cada uma quer.',
     'Diga também o que está POR BAIXO: a coisa que ninguém vai dizer com todas as letras, mas que está mandando na conversa inteira.',
     'E diga qual é o RISCO: o jeito mais provável de essa conversa sair falsa. "Os dois falarem igual" é o risco mais comum aqui.',
@@ -471,6 +482,9 @@ function buildDialogoContarPrompt(dossie, opcoes) {
   return [
     'Você escreve a conversa. Português do Brasil.',
     '',
+    // O pedido vem antes do dossiê: o dossiê é interpretação, o pedido é fato.
+    (typeof causoBlocoIdeia === 'function' ? causoBlocoIdeia(o.ideia) : ''),
+    '',
     dialogoBlocoDoutrina(),
     '',
     `== A SITUAÇÃO: ${g.label} ==`,
@@ -534,12 +548,17 @@ const DIALOGO_CRITICOS = {
   },
 };
 
-function buildDialogoCriticoPrompt(criticoId, texto, dossie, achadosLocais) {
+function buildDialogoCriticoPrompt(criticoId, texto, dossie, achadosLocais, ideia) {
   const c = DIALOGO_CRITICOS[criticoId] || DIALOGO_CRITICOS.ouvido;
   const achados = (achadosLocais || []).filter((a) => c.olha.includes(a.dimensao));
   return [
     c.papel,
     'Português do Brasil. Você é DURO: nota alta é para o que merece, não para o que não incomodou.',
+    '',
+    /* Sem o pedido à vista, o crítico dava nota alta a uma conversa ótima sobre
+       outro assunto — e nota alta é justamente o que impede a reescrita. */
+    (typeof causoBlocoIdeia === 'function' ? causoBlocoIdeia(ideia) : ''),
+    (ideia ? 'Antes de qualquer outra coisa: esta é a conversa que foi pedida? Se ela trocou o assunto, as pessoas ou o que está em jogo, esse é o defeito mais grave que existe aqui — mais grave que qualquer problema de escrita.' : ''),
     '',
     '== O QUE VOCÊ OLHA ==',
     c.olha.map((id) => {
@@ -565,12 +584,16 @@ function buildDialogoCriticoPrompt(criticoId, texto, dossie, achadosLocais) {
   ].filter(Boolean).join('\n');
 }
 
-function buildDialogoReescreverPrompt(texto, ordens, dossie) {
+function buildDialogoReescreverPrompt(texto, ordens, dossie, ideia) {
   const d = dossie || {};
   return [
     'Você reescreve uma conversa corrigindo APENAS os pontos abaixo. Português do Brasil.',
     '',
     'O QUE JÁ FUNCIONA FICA. Não reescreva por reescrever: mexa no que está listado e preserve o resto — as falas boas, o jeito de cada um, o que já está engraçado ou tenso.',
+    '',
+    // Última mão no texto: sem o pedido aqui, ela consertaria o ofício e podia
+    // afastar a conversa ainda mais do que o usuário escreveu.
+    (typeof causoBlocoIdeia === 'function' ? causoBlocoIdeia(ideia) : ''),
     '',
     '== O QUE CORRIGIR (do mais grave para o menos) ==',
     (ordens || []).map((o, i) => `${i + 1}. ${o.dimensao}: ${o.ordem}`).join('\n'),

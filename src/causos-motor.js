@@ -73,6 +73,18 @@ function causoGenero(id) {
 /* As dimensões da avaliação. `minimo` é o que sustenta a regra da média: nota
  * abaixo disso reprova a história INTEIRA, por melhor que esteja o resto. */
 const CAUSO_DIMENSOES = [
+  /* FIDELIDADE VEM PRIMEIRO, e com a exigência mais alta da tabela.
+   *
+   * As outras doze medem OFÍCIO: se a história é bem contada. Nenhuma perguntava
+   * se ela é A HISTÓRIA QUE O USUÁRIO PEDIU. A mesa então fazia o que sabe
+   * fazer — escrever bem — e o resultado saía impressionante e alheio: o
+   * usuário descrevia o vídeo dele e recebia outro.
+   *
+   * Uma história infiel não é uma história um pouco pior. É outra história, e
+   * não serve para nada — o usuário tem uma ideia, não um pedido de surpresa.
+   * Por isso o mínimo é 9: nenhuma dose de talento nas outras dimensões
+   * compensa ter mudado de assunto. */
+  { id: 'fidelidade', pergunta: 'É a história que o usuário pediu, ou outra escrita no lugar dela?', minimo: 9 },
   { id: 'oralidade', pergunta: 'Parece contada por alguém, ou parece escrita?', minimo: 7 },
   { id: 'originalidade', pergunta: 'Parece uma história nova, ou uma combinação previsível?', minimo: 7 },
   { id: 'coerencia', pergunta: 'Tudo faz sentido do começo ao fim?', minimo: 7 },
@@ -331,6 +343,137 @@ function causoFantasia(texto) {
  *
  * Usa o mesmo casamento por palavra inteira de `causoContinuidade`, que existe
  * porque comparar por substring solta faz "Zé" casar dentro de "fazer". */
+/* ============================================================================
+ * FIDELIDADE À IDEIA — o que o usuário escreveu tem de sobreviver.
+ *
+ * A ideia do usuário traz DADOS: quem, onde, o quê, o objeto, o bicho, o
+ * número. Esses dados são o pedido. O resto — como contar, de que ângulo, com
+ * qual voz — é onde a mesa tem liberdade, e é para isso que ela existe.
+ *
+ * A conta aqui não julga se a história ficou boa (as outras dimensões fazem
+ * isso). Ela verifica uma coisa só, e de forma verificável: os termos concretos
+ * da ideia aparecem no texto final? O que sumiu, sumiu — e o reescritor recebe
+ * a lista do que precisa voltar, não um conselho vago de "seja mais fiel".
+ *
+ * Comparação por RADICAL, não por palavra inteira: "galinha" precisa casar com
+ * "galinhas", "pescar" com "pescaria". Falso positivo aqui custa barato; falso
+ * alarme custa caro, porque mandaria reescrever uma história que estava certa.
+ * ========================================================================== */
+
+/* Palavras que toda frase tem e que não são o assunto de nenhuma. Sem esta
+   peneira, "de", "que" e "uma" apareceriam em qualquer texto e a conta daria
+   fidelidade perfeita para qualquer história. */
+const CAUSO_PALAVRAS_VAZIAS = new Set([
+  'para', 'como', 'quando', 'onde', 'porque', 'pois', 'mas', 'entao', 'depois',
+  'antes', 'sobre', 'entre', 'ainda', 'muito', 'mais', 'menos', 'pouco', 'todo',
+  'toda', 'todos', 'todas', 'esse', 'essa', 'este', 'esta', 'isso', 'aquilo',
+  'aquele', 'aquela', 'meu', 'minha', 'seu', 'sua', 'dele', 'dela', 'nele',
+  'nela', 'pelo', 'pela', 'uma', 'uns', 'umas', 'dos', 'das', 'nos', 'nas',
+  'aos', 'com', 'sem', 'por', 'foi', 'era', 'ser', 'ter', 'tem', 'tinha',
+  'fazer', 'faz', 'fez', 'ficar', 'ficou', 'vai', 'vou', 'estava', 'estar',
+  'video', 'histori', 'historia', 'causo', 'cont', 'conta', 'contar', 'ideia', 'quero',
+  'sobre', 'fala', 'falar', 'tema', 'assunto', 'coisa', 'gente', 'pessoa',
+]);
+
+const CAUSO_FID_MIN_TERMOS = 2;      // ideia curta demais não dá para medir
+
+/* QUANTO PODE FALTAR ANTES DE ACUSAR — calibrado para pegar TROCA DE ASSUNTO,
+ * não paráfrase.
+ *
+ * Esta conta é lexical, e história boa não repete as palavras do pedido: ela
+ * MOSTRA. Pedido "um pescador e um peixe impossível" vira "voltou do rio com a
+ * canoa quase de lado" e "o peixe sabia o nome dele" — fidelíssimo, e sem a
+ * palavra "pescador" em lugar nenhum. Um limite apertado reprovaria justamente
+ * a boa escrita, e mandaria reescrever para pior.
+ *
+ * Então o limite é folgado de propósito: só acusa quando a MAIORIA do pedido
+ * sumiu, que é o caso real — a mesa trocou de assunto. O ajuste fino de
+ * fidelidade fica com o crítico, que agora vê o pedido e entende sinônimo e
+ * subentendido; a conta aqui é a rede de segurança contra o desvio grosseiro. */
+const CAUSO_FID_TOLERADOS = 0.6;
+
+/* Palavra de QUALIDADE não é fato: ela diz como a coisa deve ser, não o que a
+ * coisa é. "Impossível", "engraçado", "emocionante" nunca aparecem numa
+ * história bem contada — são justamente o que o texto tem de PROVAR sem dizer.
+ * Cobrá-las literalmente seria cobrar a história de ser mal escrita. */
+const CAUSO_SUFIXOS_QUALIDADE = /(ivel|avel|oso|osa|osos|osas|mente|encia|ancia|idade)$/;
+
+/* VERBO TAMBÉM NÃO ENTRA — é a parte mais parafraseável da língua.
+ *
+ * O pedido "a galinha que FUGIU do quintal" é honrado por "atravessou a cerca e
+ * sumiu"; "meu avô PESCOU três tambaquis" é honrado por "voltou do rio com
+ * três tambaquis". Cobrar o verbo literal reprovaria justamente a história que
+ * mostra em vez de dizer.
+ *
+ * O que fica são os SUBSTANTIVOS E NOMES: galinha, quintal, Sobradinho, avô,
+ * tambaqui. Esses o usuário nomeou, e é por eles que ele reconhece a história
+ * dele. Só flexões inequívocas entram na peneira — nada de '-ar' e '-ia', que
+ * derrubariam "lugar", "jantar", "dia" e "tia". */
+const CAUSO_SUFIXOS_VERBO = /(ou|iu|aram|eram|iram|ando|endo|indo|avam|ava|aria)$/;
+const CAUSO_QUALIDADES = new Set([
+  'engracado', 'engracada', 'divertido', 'divertida', 'triste', 'bonito',
+  'bonita', 'legal', 'otimo', 'otima', 'bom', 'boa', 'grande', 'pequeno',
+  'melhor', 'pior', 'novo', 'nova', 'velho', 'velha', 'curto', 'curta',
+  'longo', 'longa', 'forte', 'fraco', 'facil', 'dificil', 'simples',
+]);
+
+/** Radical de um termo, para casar plural e flexão simples. */
+function _cRadical(t) {
+  return t.length > 5 ? t.slice(0, t.length - 2) : t;
+}
+
+/** Os termos concretos de uma ideia: o que o usuário efetivamente pediu. */
+function causoTermosDaIdeia(ideia) {
+  const bruto = _cNorm(ideia).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/);
+  const vistos = new Set();
+  const termos = [];
+  bruto.forEach((w) => {
+    // Número é dado puro ("três vacas", "1998") e entra mesmo sendo curto.
+    const ehNumero = /^[0-9]+$/.test(w);
+    if (!ehNumero && w.length < 4) return;
+    const r = _cRadical(w);
+    if (!ehNumero) {
+      // O andaime do pedido ("quero um vídeo CONTANDO a história de…") sai pelo
+      // RADICAL: comparar palavra inteira deixava passar toda flexão — 'conta'
+      // estava na lista, 'contando' não, e virava termo a ser cobrado.
+      if (CAUSO_PALAVRAS_VAZIAS.has(w) || CAUSO_PALAVRAS_VAZIAS.has(r)) return;
+      // Qualidade é o que a história prova, não o que ela cita.
+      if (CAUSO_QUALIDADES.has(w) || CAUSO_SUFIXOS_QUALIDADE.test(w)) return;
+      // Verbo é parafraseável por natureza; substantivo e nome, não.
+      if (w.length >= 5 && CAUSO_SUFIXOS_VERBO.test(w)) return;
+    }
+    if (vistos.has(r)) return;
+    vistos.add(r);
+    termos.push(w);
+  });
+  return termos;
+}
+
+/** Quais termos da ideia sobreviveram no texto. */
+function causoFidelidade(texto, ideia) {
+  const termos = causoTermosDaIdeia(ideia);
+  // Ideia vaga ("uma história engraçada") não tem o que conferir: cobrar
+  // fidelidade dela seria inventar um defeito.
+  if (termos.length < CAUSO_FID_MIN_TERMOS) {
+    return { conferido: false, termos, ausentes: [], problemas: [] };
+  }
+  const alvo = _cNorm(texto).replace(/[^a-z0-9\s]/g, ' ');
+  const ausentes = termos.filter((t) => alvo.indexOf(_cRadical(t)) === -1);
+  const fora = ausentes.length / termos.length;
+  if (fora <= CAUSO_FID_TOLERADOS) {
+    return { conferido: true, termos, ausentes, problemas: [] };
+  }
+  const lista = ausentes.slice(0, 6).map((t) => `"${t}"`).join(', ');
+  return {
+    conferido: true, termos, ausentes,
+    problemas: [`a história trocou de assunto: o usuário pediu ${lista}`
+      + `${ausentes.length > 6 ? ` e mais ${ausentes.length - 6} coisas` : ''}, e nada disso `
+      + 'aparece no texto. Isso não é detalhe faltando, é outra história escrita no '
+      + 'lugar da que foi pedida. Reconstrua a trama em cima do que o usuário pediu — '
+      + 'mostrando esses elementos em cena, não citando-os de passagem.'],
+  };
+}
+
 function causoAbsurdoPresente(texto, dossie) {
   const absurdo = (dossie && dossie.absurdo) || '';
   if (!absurdo) return { problemas: [], conferido: false };
@@ -362,8 +505,12 @@ function conferirCausoLocal(texto, dossie, opcoes) {
   const dur = causoDuracao(texto);
   const rep = causoRepeticao(texto);
   const fim = causoTerminaAbrupto(texto);
+  // A ideia do usuário chega aqui pelas opções: sem ela, esta conta não roda e
+  // a história pode terminar linda e sobre outro assunto.
+  const fid = causoFidelidade(texto, o.ideia);
 
   const achados = []
+    .concat(fid.problemas.map((p) => ({ dimensao: 'fidelidade', texto: p })))
     .concat(oral.problemas.map((p) => ({ dimensao: 'oralidade', texto: p })))
     .concat(cont.problemas.map((p) => ({ dimensao: 'coerencia', texto: p })))
     .concat(orig.problemas.map((p) => ({ dimensao: 'originalidade', texto: p })))
@@ -671,6 +818,32 @@ function causoBlocoMemoria(memoria) {
 /** Etapa 1 — EXPLORADOR DE CONCEITOS. Não escreve: descobre que histórias
  *  diferentes cabem naquela ideia. Quatro caminhos de verdade diferentes, não
  *  quatro versões do mesmo. */
+/* O PEDIDO DO USUÁRIO, escrito do mesmo jeito em toda etapa.
+ *
+ * A ideia chegava só às duas primeiras etapas. Da terceira em diante a mesa
+ * trabalhava a partir do dossiê — um documento que ELA mesma escreveu — e
+ * ninguém mais via o que o usuário tinha pedido. Cada etapa se afastava um
+ * pouco, e no fim saía uma história ótima sobre outra coisa.
+ *
+ * Agora este bloco acompanha a ideia até o fim, com a mesma frase: o que está
+ * aqui é dado, não sugestão. */
+function causoBlocoIdeia(ideia) {
+  const t = String(ideia || '').trim();
+  if (!t) return '';
+  return [
+    '== O QUE O USUÁRIO PEDIU — ISTO É INVIOLÁVEL ==',
+    t,
+    '',
+    'Isto não é inspiração nem ponto de partida: é o pedido. Quem, o quê, onde, o',
+    'objeto, o bicho, o número — tudo que estiver aí precisa estar na história, no',
+    'centro dela e não citado de passagem.',
+    'Sua liberdade está em COMO contar: o ângulo, a voz, o ritmo, o exagero, de onde',
+    'vem o riso. Não está em trocar o assunto por um que você achou melhor.',
+    'Se a ideia parecer pequena, o certo é FAZER CRESCER o que foi pedido — não',
+    'substituir por outra coisa maior.',
+  ].join('\n');
+}
+
 function buildConceitosPrompt(ideia, memoria) {
   return [
     'Você é um explorador de histórias numa roda de contadores brasileiros. Português do Brasil.',
@@ -680,11 +853,13 @@ function buildConceitosPrompt(ideia, memoria) {
     '',
     causoBlocoMemoria(memoria),
     '',
-    '== A IDEIA ==',
-    String(ideia || '').trim(),
+    causoBlocoIdeia(ideia),
     '',
     '== TAREFA ==',
-    'Proponha QUATRO histórias possíveis a partir dessa ideia. Diferentes de verdade: não quatro versões da mesma coisa, mas quatro caminhos que levariam a histórias que ninguém confundiria uma com a outra.',
+    'Proponha QUATRO maneiras de contar ESSA história — a que foi pedida acima, não outra.',
+    'O que varia entre as quatro é o CONTAR: de quem é a boca, de que ângulo se vê, onde começa, de onde vem o riso, qual é o exagero. O que NÃO varia são os fatos do pedido: as mesmas pessoas, o mesmo lugar, a mesma coisa acontecendo.',
+    'Quatro caminhos que ninguém confundiria um com o outro — e nos quatro o usuário reconhece imediatamente a ideia dele.',
+    'Trocar o assunto por um mais interessante é o erro mais grave que você pode cometer aqui. Uma história ótima que não é a pedida não serve para nada.',
     'AS QUATRO SÃO DE RIR. Não varie entre engraçada, triste e comovente — varie DE ONDE VEM O RISO e QUAL É A MENTIRA. Uma pode rir da teimosia de alguém; outra, de um mal-entendido que ninguém desfaz; outra, do absurdo tratado com naturalidade; outra, da reação de quem estava junto.',
     'Cada uma precisa ter um EXAGERO que parte de algo real: uma coisa que existe na vida de qualquer um, levada a um tamanho que ninguém acredita. Peixe grande demais, vaca leiteira demais, chuva longa demais, sujeito teimoso demais.',
     'NÃO invente coisa que não existe no mundo — fada, magia, bicho falando, gente voando. Quem ouve reconhece a invenção na primeira frase e para de ouvir. O alvo é a pessoa terminar sem saber se acredita.',
@@ -707,7 +882,8 @@ function buildConceitosPrompt(ideia, memoria) {
     '      "graca": "de onde vem o riso: a pessoa, a contradição, o tempo da frase, a reação de quem estava junto",',
     '      "estrutura": "o desenho de como contar, nomeado por você",',
     '      "porqueFunciona": "por que essa é boa de ouvir",',
-    '      "risco": "o jeito mais provável de sair banal"',
+    '      "risco": "o jeito mais provável de sair banal",',
+    '      "fidelidade": "quais elementos do pedido do usuário esta versão mantém, nomeando-os um a um"',
     '    }',
     '  ]',
     '}',
@@ -798,6 +974,10 @@ function buildContarPrompt(dossie, opcoes) {
 
   linhas.push('Você é a pessoa que conta o causo. Não é escritor: é quem está contando, agora, para gente que está ouvindo.');
   linhas.push('');
+  // O pedido vem ANTES do dossiê de propósito: o dossiê é interpretação, o
+  // pedido é o fato. Quando os dois divergirem, manda o de cima.
+  const blocoIdeia = causoBlocoIdeia(o.ideia);
+  if (blocoIdeia) { linhas.push(blocoIdeia); linhas.push(''); }
   linhas.push(causoBlocoDoutrina());
   linhas.push('');
   linhas.push(`== GÊNERO: ${g.label} ==`);
@@ -986,7 +1166,7 @@ const CAUSO_CRITICOS = {
   },
 };
 
-function buildCriticoPrompt(criticoId, texto, dossie, achadosLocais) {
+function buildCriticoPrompt(criticoId, texto, dossie, achadosLocais, ideia) {
   const c = CAUSO_CRITICOS[criticoId];
   if (!c) throw new Error('Crítico desconhecido: ' + criticoId);
   const dims = c.dimensoes.map((id) => {
@@ -1000,6 +1180,16 @@ function buildCriticoPrompt(criticoId, texto, dossie, achadosLocais) {
   linhas.push('Você NÃO reescreve nada. Você aponta — com o trecho na mão.');
   linhas.push('Elogio genérico não serve. Se estiver bom, diga por quê em uma frase e dê nota alta; se estiver ruim, cite o pedaço exato.');
   linhas.push('');
+  /* O crítico julgava a história por si mesma, sem nunca ver o pedido. Uma
+     história ótima sobre outro assunto passava por ele com nota alta — e a nota
+     alta é justamente o que impedia a reescrita de acontecer. */
+  const blocoIdeia = causoBlocoIdeia(ideia);
+  if (blocoIdeia) {
+    linhas.push(blocoIdeia);
+    linhas.push('');
+    linhas.push('Antes de qualquer outra coisa: esta história é a que foi pedida? Se ela trocou o assunto, mudou quem é a gente da história ou deixou de fora o que o usuário nomeou, isso é o defeito mais grave que existe aqui — mais grave que qualquer problema de escrita. Bem escrita e sobre outra coisa continua sendo inútil.');
+    linhas.push('');
+  }
   linhas.push('== A HISTÓRIA ==');
   linhas.push(String(texto || ''));
   linhas.push('');
@@ -1033,7 +1223,7 @@ function buildCriticoPrompt(criticoId, texto, dossie, achadosLocais) {
 /* O reescritor recebe SÓ o que reprovou. Quando o que reprovou é tamanho ou
  * repetição, ele precisa saber que a saída não é cortar o fim — é tirar o que
  * não faz a história andar. Sem isso, "encurte" vira truncar. */
-function buildReescreverCausoPrompt(texto, ordens, dossie) {
+function buildReescreverCausoPrompt(texto, ordens, dossie, ideia) {
   const linhas = [];
   linhas.push('Você é quem corrige o causo. Recebe a história e uma lista fechada de problemas.');
   linhas.push('Isto NÃO é uma história nova: é esta mesma, sem esses defeitos. O que não está na lista, você não toca.');
@@ -1046,6 +1236,11 @@ function buildReescreverCausoPrompt(texto, ordens, dossie) {
    * regra que a ferramenta inteira existe para cumprir. */
   linhas.push(causoBlocoDoutrina());
   linhas.push('');
+  /* O reescritor é a última mão no texto. Sem o pedido aqui, ele corrigia os
+     defeitos apontados e podia afastar a história ainda mais do que o usuário
+     escreveu — consertando o ofício e piorando o essencial. */
+  const blocoIdeia = causoBlocoIdeia(ideia);
+  if (blocoIdeia) { linhas.push(blocoIdeia); linhas.push(''); }
   linhas.push('== A HISTÓRIA ==');
   linhas.push(String(texto || ''));
   linhas.push('');
@@ -1169,8 +1364,9 @@ function normalizarCritica(obj, criticoId) {
  * dele é concreto — e o desempate é o que a própria etapa de concepção
  * declarou como risco.
  */
-function escolherConceito(conceitos, memoria) {
+function escolherConceito(conceitos, memoria, ideia) {
   const m = memoria || {};
+  const termosIdeia = causoTermosDaIdeia(ideia);
   const lista = (conceitos || []).slice();
   if (!lista.length) return null;
 
@@ -1200,6 +1396,22 @@ function escolherConceito(conceitos, memoria) {
      * que esta ferramenta faz. Entre dois conceitos que têm o absurdo, aí sim
      * decidem o desenvolvimento e a novidade de forma. */
     if (_cTexto(c.absurdo)) p += 4; else p -= 3;
+    /* FIDELIDADE PESA MAIS QUE TUDO.
+     *
+     * A pontuação premiava novidade de forma, graça e desenvolvimento — e era
+     * cega ao pedido. Entre um conceito que preservava a ideia do usuário e
+     * outro, mais criativo, que a abandonava, ganhava o criativo. Somada à
+     * etapa anterior, que pedia quatro histórias "diferentes de verdade", a
+     * mesa estava literalmente otimizada para se afastar do que foi pedido.
+     *
+     * O peso é o maior da conta de propósito: um conceito infiel não é uma
+     * opção um pouco pior, é a resposta errada. */
+    if (termosIdeia.length) {
+      const alvo = _cNorm([c.premissa, c.quem, c.quer, c.virada, c.absurdo, c.titulo].join(' '))
+        .replace(/[^a-z0-9\s]/g, ' ');
+      const mantidos = termosIdeia.filter((t) => alvo.indexOf(_cRadical(t)) >= 0).length;
+      p += Math.round((mantidos / termosIdeia.length) * 10);
+    }
     if (_cTexto(c.graca)) p += 2;
     // Concretude: premissa com verbo e coisa no mundo vale mais que abstração.
     p += Math.min(3, Math.floor(_cTexto(c.premissa).split(/\s+/).length / 12));
@@ -1388,7 +1600,7 @@ async function runCausoPipeline(opts) {
   modelo = (rConc && rConc.model) || modelo;
   const conceitos = normalizarConceitos(lerJSON(rConc));
   if (!conceitos.length) throw new Error('Não foi possível encontrar uma história nessa ideia.');
-  const escolha = escolherConceito(conceitos, memoria);
+  const escolha = escolherConceito(conceitos, memoria, ideia);
   etapas.push('conceitos');
 
   // 2) DOSSIÊ — personagens, mundo, voz e plano do conceito escolhido.
@@ -1400,14 +1612,14 @@ async function runCausoPipeline(opts) {
 
   // 3) CONTAR.
   etapa('contar', 'Contando…', dossie.voz.quem ? `Na voz de ${dossie.voz.quem}.` : 'Escrevendo o causo.');
-  const rTexto = await chamar(modo.prompts.contar(dossie, { tamanho: o.tamanho }));
+  const rTexto = await chamar(modo.prompts.contar(dossie, { tamanho: o.tamanho, ideia }));
   modelo = (rTexto && rTexto.model) || modelo;
   let atual = _cLimpar(rTexto && rTexto.content);
   if (!atual) throw new Error('A IA não devolveu a história.');
   etapas.push('contar');
 
   const criticosIds = modo.criticosDe(dossie.genero);
-  let local = modo.conferir(atual, dossie, { memoria, genero: dossie.genero });
+  let local = modo.conferir(atual, dossie, { memoria, genero: dossie.genero, ideia });
   let juizo = null;
   let criticas = [];
 
@@ -1416,7 +1628,7 @@ async function runCausoPipeline(opts) {
     etapa('criticos', 'A mesa está lendo…', `${criticosIds.length} críticos, cada um com a sua lente.`);
     const respostas = await Promise.all(criticosIds.map(async (id) => {
       try {
-        const r = await chamar(modo.prompts.critico(id, atual, dossie, local.achados));
+        const r = await chamar(modo.prompts.critico(id, atual, dossie, local.achados, ideia));
         return normalizarCritica(lerJSON(r), id);
       } catch (_) {
         // Um crítico que falha não derruba a mesa: os outros continuam, e a
@@ -1437,7 +1649,7 @@ async function runCausoPipeline(opts) {
       : `${juizo.ordens.length} pontos, do mais grave para o menos.`);
     let novo = '';
     try {
-      const rRe = await chamar(modo.prompts.reescrever(atual, juizo.ordens, dossie));
+      const rRe = await chamar(modo.prompts.reescrever(atual, juizo.ordens, dossie, ideia));
       modelo = (rRe && rRe.model) || modelo;
       novo = _cLimpar(rRe && rRe.content);
     } catch (_) { novo = ''; }
@@ -1445,7 +1657,7 @@ async function runCausoPipeline(opts) {
 
     // A reescrita precisa MELHORAR o que foi medido — e não pode trocar
     // completude por tamanho. Ver `causoRevisaoPiorou`.
-    const localNovo = modo.conferir(novo, dossie, { memoria, genero: dossie.genero });
+    const localNovo = modo.conferir(novo, dossie, { memoria, genero: dossie.genero, ideia });
     if (causoRevisaoPiorou(local, localNovo)) {
       etapas.push('reescrita-descartada');
       break;

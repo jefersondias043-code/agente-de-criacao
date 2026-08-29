@@ -347,10 +347,14 @@ describe('a concorrência de conceitos', () => {
     expect(C.escolherConceito([], {})).toBeNull();
   });
 
-  it('o prompt pede caminhos diferentes de verdade, e o risco de cada um', () => {
+  it('pede quatro maneiras de contar A MESMA história, e o risco de cada uma', () => {
+    // A redação anterior pedia "QUATRO histórias possíveis... não quatro
+    // versões da mesma coisa". Somada à escolha, que era cega ao pedido, ela
+    // mandava a mesa se AFASTAR da ideia do usuário — e era exatamente esse o
+    // defeito relatado: histórias impressionantes sobre outro assunto.
     const p = C.buildConceitosPrompt('uma história de pescador', {});
-    expect(p).toMatch(/QUATRO histórias possíveis/);
-    expect(p).toMatch(/não quatro versões da mesma coisa/);
+    expect(p).toMatch(/QUATRO maneiras de contar ESSA história/);
+    expect(p).toMatch(/O que NÃO varia são os fatos do pedido/);
     expect(p).toMatch(/RISCO dela/);
   });
 });
